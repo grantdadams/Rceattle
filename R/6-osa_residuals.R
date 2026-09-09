@@ -775,10 +775,10 @@ print.rceattle_osa_diagnostics <- function(x, ...) {
   all_row <- df[df$group == "all" & is.na(df$source), , drop = FALSE]
 
   # SDNR is the headline statistic, so it carries WARN; a tail outside its null
-  # interval with an acceptable SDNR is a NOTE. Both intervals are simulated
-  # under the standard-normal null, so "outside" already means "further than
-  # chance", and neither is a FAIL: these are diagnostics on fit, not a broken
-  # model.
+  # interval with an acceptable SDNR is a NOTE. Both intervals are exact under
+  # the standard-normal null -- chi-square for SDNR, Beta for the tail order
+  # statistics -- so "outside" already means "further than chance", and neither
+  # is a FAIL: these are diagnostics on fit, not a broken model.
   sev <- rep("OK", nrow(per))
   sev[!is.na(per$lower_ok) & !per$lower_ok] <- "NOTE"
   sev[!is.na(per$upper_ok) & !per$upper_ok] <- "NOTE"

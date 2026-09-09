@@ -37,6 +37,26 @@ version throughout.
   (`comp_offset`, default 1e-5) is carried onto that scale too, which moves the
   smallest bins by ~1e-4 relative even at weight 1.
 
+  Each of the three reads its family and weight from the `data_list` element
+  that actually holds them: `fleet_control$Comp_distribution` /
+  `CAAL_distribution` for the two composition sources, and the per-species
+  `Diet_distribution` for diet. `bioenergetics_control` is a workbook sheet
+  name rather than a `data_list` element, and a diet lookup routed through one
+  resolves to `NULL`, silently scoring every predator as a multinomial and then
+  reading `Diet_comp_weights` -- a **log** under a Dirichlet-multinomial -- as a
+  natural-scale multiplier on the stomach sample size. Where a
+  Dirichlet-multinomial weight genuinely cannot be recovered, the row falls back
+  to the multinomial variance and says so; it is not left on the
+  Dirichlet-multinomial with a substituted concentration, which would inflate
+  the variance by a factor that looks deliberate and is not.
+
+  Each switch is also read through its deprecated spellings (`Comp_loglike`,
+  `CAAL_loglike`, `Diet_loglike`). `switch_check()` upgrades those in place when
+  a model is built, but a fit **saved** before a rename still carries the old
+  name, and `residuals()` runs on the saved object -- so without the fallback an
+  old fit would quietly resolve to the schema default rather than to the family
+  it was actually fitted under.
+
   This moves Pearson residuals on essentially every fit. It does not move any
   likelihood, parameter estimate or reference point -- `residuals()`,
   `plot_comp()` and the Pearson panel of `plot.rceattle_osa()` are the only
@@ -76,10 +96,13 @@ version throughout.
   in both `plot.rceattle_osa()` and `plot_comp()`, so two figures can be
   compared by eye -- a free scale made a well-fitting fleet and a badly-fitting
   one look alike, and the two figures scaled the same residuals differently.
-  Residuals beyond 6 are truncated with a warning naming the original values;
-  the truncation precedes the limit because `scale_size_continuous()` sets
-  out-of-bounds values to `NA` and drops them silently. Bin axes take
-  whole-number breaks while there are fewer than 20 bins.
+  Residuals beyond 6 are truncated with a warning naming their count and largest
+  magnitude; the truncation precedes the limit because `scale_size_continuous()`
+  sets out-of-bounds values to `NA` and drops them silently, which would hide
+  the very points worth looking at. The warning does not list every offending
+  value: dividing by the effective sample size scales residuals by `sqrt(w)`, so
+  an upweighted fleet can put thousands of them past the cap at once. Bin axes
+  take whole-number breaks while there are fewer than 20 bins.
 
 * **The OSA Q-Q panels annotate the tail statistics** and their exact null
   intervals in the lower right, alongside SDNR in the upper left, following
@@ -95,19 +118,40 @@ version throughout.
   Its variance is the exact sum of the per-year variances under each fleet's own
   likelihood -- the same variances the Pearson residuals are divided by -- with
   a normal approximation for the interval itself, which is poor below about 10
-  expected counts. Rows past `endyr` are excluded, matching the C++ likelihood's
-  own gate, so a projection row no longer inflates the input sample size.
+  expected counts. It also treats the fitted proportions as known, so it is
+  slightly narrower than one carrying the estimation uncertainty in `p_hat`.
+  Rows past `endyr` are excluded, matching the C++ likelihood's own gate, so a
+  projection row no longer inflates the input sample size.
+
+  The annotation names **two** effective sample sizes rather than one, because
+  they answer different questions and the gap between them is the reweighting
+  decision. `ESS (likelihood)` is what the model assumed, recovered from the
+  same per-year variances the band is built on -- `sd^2 = p(1-p)/N_eff` holds
+  for every family, so it needs no family branching and covers a
+  Dirichlet-multinomial's overdispersion as readily as a multinomial weight.
+  `ESS (McAllister-Ianelli)` is the tuning target this fit's own residuals
+  imply, the harmonic mean across years `fit_mod()` already computes, which is
+  the unbiased scale to average a ratio estimator on (averaging `Neff` directly
+  runs about 50% high). Labelling either one "ESS" alone invited it to be read
+  as the other. The McAllister-Ianelli line is drawn on multinomial fleets only:
+  `reweight_comps()` names and skips a Dirichlet-multinomial fleet, because it
+  estimates its own weight inside the likelihood, so printing an external tuning
+  target beside one would invite the adjustment the package refuses to make.
+
+  The effective sample size belongs to the observation, so it is summed over
+  `(fleet, species, sex, year)` -- `data_check()`'s own uniqueness key -- not
+  over years. A fleet may record a female-only and a male-only row in the same
+  year, which are two observations; pooling them would report half the effective
+  sample size beside an `ISS` that correctly counted both, reading as a fleet
+  downweighted by half. Joint-sex rows (`Sex = 3`) remain one observation,
+  because one multinomial spans both sexes.
 
   `afscOSA`'s constructions were deliberately **not** ported here. Its band is a
   binomial at the pooled sample size, and its aggregate effective sample size a
   single ratio taken from the pooled composition; measured against the installed
   package on data simulated with no misspecification, that ESS returns a median
   of 1.16 x ISS with a range of 0.34-9.16, because pooling first discards the
-  between-year replication. The effective sample size reported here is instead
-  the McAllister-Ianelli weight `fit_mod()` already computes -- a harmonic mean
-  across years, which is the unbiased scale to average an effective sample size
-  on (the estimator is a ratio with the random part in its denominator, so
-  averaging `Neff` directly runs about 50% high).
+  between-year replication.
 
 ## Output format
 

@@ -337,9 +337,8 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 
 #' Bubble plot of composition residuals (afscOSA styling)
 #'
-#' The size scale is pinned to `[0, 6]` so two figures compare by eye. Residuals
-#' beyond 6 are truncated first, with a warning: `scale_size_continuous()` drops
-#' out-of-bounds values silently, so truncation cannot be left to the limit.
+#' The size scale is pinned to `[0, .RCE_BUBBLE_MAX]` so two figures compare by
+#' eye, with larger residuals truncated onto it by `.rce_truncate_resid()`.
 #'
 #' @param osa A data frame with `source`, `year`, `age_length_bin`, and
 #'   `residual` columns. Bubbles are placed at (year, age/length bin); red =
@@ -350,13 +349,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @return A `ggplot` object.
 #' @keywords internal
 .osa_bubble_plot <- function(osa, ylab = "Bin", title = "OSA residuals") {
-  big <- which(abs(osa$residual) > 6)
-  if (length(big)) {
-    warning(title, ": ", length(big), " residual(s) beyond +/-6 truncated for ",
-            "plotting (", paste(sprintf("%.2f", osa$residual[big]),
-                                collapse = ", "), ").", call. = FALSE)
-    osa$residual[big] <- 6 * sign(osa$residual[big])
-  }
+  osa$residual <- .rce_truncate_resid(osa$residual, title)
   osa$sign  <- ifelse(osa$residual >= 0, "positive", "negative")
   osa$shape <- ifelse(abs(osa$residual) > 3, "outlier", "normal")
 
@@ -371,10 +364,11 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
                                  guide = "none") +
     ggplot2::scale_shape_manual(values = c(normal = 16L, outlier = 17L),
                                 guide = "none") +
-    ggplot2::scale_size_continuous(breaks = c(0, 2, 4, 6), limits = c(0, 6),
-                                   range = c(0.1, 3), guide = "none") +
-    ggplot2::scale_alpha_continuous(limits = c(0, 6), range = c(0.3, 0.9),
-                                    guide = "none") +
+    ggplot2::scale_size_continuous(
+      breaks = seq(0, .RCE_BUBBLE_MAX, length.out = 4L),
+      limits = c(0, .RCE_BUBBLE_MAX), range = c(0.1, 3), guide = "none") +
+    ggplot2::scale_alpha_continuous(limits = c(0, .RCE_BUBBLE_MAX),
+                                    range = c(0.3, 0.9), guide = "none") +
     ggplot2::facet_wrap(~ source, nrow = 1L) +
     ggplot2::labs(x = "Year", y = ylab, title = title) +
     ggplot2::theme_bw(base_size = 10)

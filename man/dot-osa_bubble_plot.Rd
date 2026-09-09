@@ -20,8 +20,7 @@ outliers (\verb{|resid| > 3}) are drawn as triangles.}
 A \code{ggplot} object.
 }
 \description{
-The size scale is pinned to \verb{[0, 6]} so two figures compare by eye. Residuals
-beyond 6 are truncated first, with a warning: \code{scale_size_continuous()} drops
-out-of-bounds values silently, so truncation cannot be left to the limit.
+The size scale is pinned to \verb{[0, .RCE_BUBBLE_MAX]} so two figures compare by
+eye, with larger residuals truncated onto it by \code{.rce_truncate_resid()}.
 }
 \keyword{internal}

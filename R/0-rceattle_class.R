@@ -813,7 +813,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #' the residual frame, so the normalizing total is rebuilt from it. Proportions
 #' are renormalized before scaling by the stomach sample size
 #' (`ceattle.cpp:4837`), so the count total is `N_s`. The predicted other-prey
-#' bin uses `posfun()`'s 1e-5 floor.
+#' bin is floored at 1e-5, which is within 1e-5 of the C++ `posfun()` it stands
+#' in for -- `posfun()` decays towards zero once the prey proportions sum past
+#' one, where a flat floor holds. A difference at the scale of the offset itself,
+#' on a bin that is a residual balance rather than an observation.
 #'
 #' @param object The fitted model.
 #' @param dd Its `diet_data`.
@@ -844,13 +847,18 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   S_o   <- sum_o + other_o + off * n_bin
   S_h   <- sum_h + other_h + off * n_bin
 
-  fam <- .rce_family_code(d$bioenergetics_control$Diet_distribution,
-                          "Diet_distribution")[dd$Pred]
-  w   <- .rce_weight_value(object$estimated_params$diet_comp_weights,
-                           d$Diet_comp_weights)[dd$Pred]
-  .rce_warn_missing_theta(fam, w, dd$Pred, "predator species")
-  fam[is.na(fam)] <- 0L
-  w[is.na(w)]     <- 1
+  # Both switches are per-predator vectors on the data_list itself, indexed by
+  # species code. `bioenergetics_control` is a workbook sheet, not a data_list
+  # element -- reading one off it resolves to NULL and silently scores every
+  # predator as a multinomial.
+  fw  <- .rce_resolve_family_weight(
+    .rce_family_code(.rce_switch_column(d, "Diet_distribution"),
+                     "Diet_distribution")[dd$Pred],
+    .rce_weight_value(object$estimated_params$diet_comp_weights,
+                      d$Diet_comp_weights)[dd$Pred],
+    dd$Pred, "predator species")
+  fam <- fw$family
+  w   <- fw$weight
 
   # Observed and fitted each divide by their own total, so this does not go
   # through .rce_comp_pearson() (which applies one total to both).
@@ -889,13 +897,32 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   fc  <- object$data_list$fleet_control
   idx <- match(fleet_code, fc$Fleet_code)
 
-  fam <- .rce_family_code(fc[[dist_col]], dist_col)[idx]
-  w   <- .rce_weight_value(object$estimated_params[[par]], fc[[weight_col]])[idx]
+  fam <- .rce_family_code(.rce_switch_column(fc, dist_col), dist_col)[idx]
+  w   <- .rce_weight_value(object$estimated_params[[par]],
+                           .rce_switch_column(fc, weight_col))[idx]
 
-  .rce_warn_missing_theta(fam, w, fleet_code, "fleet")
-  fam[is.na(fam)] <- 0L
-  w[is.na(w)]     <- 1
-  list(family = fam, weight = w)
+  .rce_resolve_family_weight(fam, w, fleet_code, "fleet")
+}
+
+
+#' Read a switch column by its canonical name or any deprecated spelling
+#'
+#' `switch_check()` upgrades an alias in place at build time, but a fit SAVED
+#' before a rename still carries the old spelling, and a fresh `residuals()`
+#' call on one would otherwise find nothing and fall back to the schema default
+#' -- the same silent wrong-family failure the canonical lookup exists to avoid.
+#' Works on a `fleet_control` data frame and on the `data_list` itself, both
+#' being `[[`-indexable.
+#'
+#' @param x The `fleet_control` or `data_list` to read from.
+#' @param col Canonical schema column name.
+#' @return The column, or `NULL` if neither it nor an alias is present.
+#' @noRd
+.rce_switch_column <- function(x, col) {
+  if (!is.null(x[[col]])) return(x[[col]])
+  row <- .rce_column_schema()[[col]]
+  for (old in row$aliases) if (!is.null(x[[old]])) return(x[[old]])
+  NULL
 }
 
 
@@ -928,14 +955,23 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 }
 
 
-#' Warn when a Dirichlet-multinomial's concentration cannot be recovered
+#' Resolve a family/weight pair, demoting a Dirichlet-multinomial with no theta
 #'
-#' Falling back to the multinomial variance is the safe choice, but it is the
-#' wrong variance for that fleet, so it must not happen silently.
-#' @param family,weight Resolved family codes and weights.
+#' A concentration that cannot be recovered has no safe substitute, so the row
+#' falls back to the multinomial variance -- too small for an overdispersed
+#' composition, and warned about rather than left silent. Leaving the row on the
+#' Dirichlet-multinomial with a substituted weight would be worse: `exp(1)` is a
+#' concentration of e, which inflates the variance by a factor that looks like a
+#' considered choice and is not one.
+#'
+#' An unresolved family (a hand-built `data_list` carrying no switch column) is
+#' the schema default, the multinomial, and needs no warning.
+#'
+#' @param family,weight Resolved family codes and weights, aligned to `ids`.
 #' @param ids,label The units to name in the message.
+#' @return A list of `family` and `weight` with no `NA`s.
 #' @noRd
-.rce_warn_missing_theta <- function(family, weight, ids, label) {
+.rce_resolve_family_weight <- function(family, weight, ids, label) {
   bad <- !is.na(family) & family == 1L & is.na(weight)
   if (any(bad)) {
     warning("No fitted Dirichlet-multinomial weight found for ", label, "(s) ",
@@ -943,7 +979,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
             "; Pearson residuals there use the multinomial variance, which is ",
             "too small for an overdispersed composition.", call. = FALSE)
   }
-  invisible(NULL)
+  family[bad]            <- 0L
+  family[is.na(family)]  <- 0L
+  weight[is.na(weight)]  <- 1
+  list(family = family, weight = weight)
 }
 
 

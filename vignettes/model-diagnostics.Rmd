@@ -335,8 +335,11 @@ Following Stewart and Monnahan (2025), a practical workflow is:
    selectivity shape). Counts are pooled across the fitted hindcast years, and
    the interval holds 95% of the data the model predicts -- not a confidence
    interval on the mean -- so observations outside it are the ones to explain.
-   The panel is annotated with the input sample size and the effective sample
-   size the McAllister-Ianelli weight implies.
+   The panel is annotated with the input sample size, the effective sample size
+   the likelihood assumed (`ESS (likelihood)`), and the one this fit's residuals
+   imply (`ESS (McAllister-Ianelli)`). The gap between those two is the
+   reweighting decision: they agree when the fleet is already weighted the way
+   its residuals suggest.
 2. **Compare the SDNR** to its null interval (from `osa_diagnostics()`): a value
    outside the interval flags over- or under-dispersion, often a data-weighting
    or effective-sample-size issue.

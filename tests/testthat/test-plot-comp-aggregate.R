@@ -101,3 +101,119 @@ test_that("a wider assumed sd widens the band proportionally", {
   expect_equal((wide$upr - wide$lwr) / (narrow$upr - narrow$lwr), rep(3, 2),
                tolerance = 1e-8)
 })
+
+
+# The annotated ESS is recovered from the assumed sd rather than from the weight
+# column: sd^2 = p(1-p)/N_eff holds for every family, so one expression covers a
+# weighted multinomial and a Dirichlet-multinomial alike. Handing the function an
+# sd built by hand and asserting it inverts that sd is algebra returned to
+# sender, so the sds below come from .rce_comp_pearson() itself -- the same code
+# the residuals and the band use -- and the target is measured by simulation.
+test_that("the annotated ESS is the effective N the likelihood assumed", {
+  skip_on_cran()
+  Y <- 4L; B <- 8L; nrep <- 6000
+  p <- t(replicate(Y, { v <- exp(-0.5 * ((1:B - 4) / 1.6)^2); v / sum(v) }))
+  N <- c(30, 150, 400, 1200)
+  off <- 1e-5
+
+  # sd exactly as the fleet's own likelihood assumes it, via the real helper.
+  real_sd <- function(family, weight) {
+    t(vapply(seq_len(Y), function(y)
+      attr(.rce_comp_pearson(p[y, ], p[y, ], N[y], rep(1L, B),
+                             rep(family, B), rep(weight, B), off), "sd"),
+      numeric(B)))
+  }
+  # Effective N measured from the spread of draws, bin by bin, pooled over years
+  # exactly as .comp_aggregate() pools counts.
+  measured_ess <- function(draw) {
+    o <- replicate(nrep, colSums(t(vapply(seq_len(Y),
+      function(y) draw(y) * N[y], numeric(B)))))
+    tot  <- sum(N)
+    pbar <- rowMeans(o) / tot
+    mean(pbar * (1 - pbar) / (apply(o / tot, 1L, stats::var)))
+  }
+
+  # A weighted multinomial: N_eff is w * N, year by year.
+  w   <- 2.5
+  agg <- .comp_aggregate(make_long(p, p, N, sd = real_sd(0L, w)))
+  expect_equal(agg$ESS[1], measured_ess(function(y)
+    stats::rmultinom(1, round(w * N[y]), p[y, ])[, 1] / round(w * N[y])),
+    tolerance = 0.05)
+
+  # A Dirichlet-multinomial: N_eff is below N and not proportional to it, so a
+  # formula that only rescaled the input N would pass the multinomial case and
+  # fail here.
+  theta <- 0.4
+  agg_dm <- .comp_aggregate(make_long(p, p, N, sd = real_sd(1L, log(theta))))
+  expect_equal(agg_dm$ESS[1], measured_ess(function(y) {
+    a <- N[y] * p[y, ] * theta
+    g <- stats::rgamma(B, a, 1)
+    stats::rmultinom(1, N[y], g / sum(g))[, 1] / N[y]
+  }), tolerance = 0.05)
+  expect_lt(agg_dm$ESS[1], agg_dm$ISS[1])
+
+  # The offset is carried in the sd but not in the raw hat this reads, so the
+  # recovery is approximate. Pin how approximate, since the roxygen claims it.
+  expect_equal(agg$ESS[1] / (w * sum(N)), 1, tolerance = 1e-3)
+})
+
+
+test_that("each observation carries its own effective N, not each year", {
+  # Regression: grouping on Year alone pooled a female-only and a male-only row
+  # from the same fleet-year into one observation, halving ESS while ISS
+  # correctly counted both -- the figure then read as a fleet downweighted to
+  # 0.5 when it was at weight 1. data_check() treats (Fleet, Species, Sex, Year)
+  # as the uniqueness key, so that is the key an effective N belongs to.
+  pv <- c(0.4, 0.3, 0.2, 0.1)
+
+  # One observation: one (Fleet, Species, Sex, Year), its bins, its sample size.
+  one_obs <- function(sex, year, n, grp = "combined") {
+    d <- make_long(matrix(pv, 1L), matrix(pv, 1L), n,
+                   sd = sqrt(pv * (1 - pv) / n))
+    d$Sex <- sex; d$Year <- year; d$sex_grp <- grp
+    d
+  }
+
+  # A female-only and a male-only row in the SAME year: two observations, which
+  # data_check() explicitly allows. ESS must count both.
+  d <- rbind(one_obs(1L, 2000L, 200), one_obs(2L, 2000L, 370))
+  agg <- .comp_aggregate(d)
+  expect_equal(agg$ESS[1], 570, tolerance = 1e-6)
+  expect_equal(agg$ISS[1], 570)
+
+  # Joint-sex (Sex == 3) is the opposite case: ONE multinomial spans both sexes,
+  # so its two sex_grp halves must NOT be counted as two observations.
+  dj <- rbind(one_obs(3L, 2000L, 200, "female"),
+              one_obs(3L, 2000L, 200, "male"))
+  expect_equal(.comp_aggregate(dj)$ESS[1], 200, tolerance = 1e-6)
+
+  # And two years of one sex still sum, so the new key did not lose the year.
+  dy <- rbind(one_obs(1L, 2000L, 200), one_obs(1L, 2001L, 370))
+  expect_equal(.comp_aggregate(dy)$ESS[1], 570, tolerance = 1e-6)
+})
+
+
+test_that("a missing assumed sd gives NA rather than a partial effective N", {
+  # A silently short ESS would read as a downweighted fleet.
+  Y <- 3L; B <- 4L
+  p <- t(replicate(Y, c(0.4, 0.3, 0.2, 0.1)))
+  N <- c(50, 60, 70)
+  sd <- sqrt(p * (1 - p) / N)
+  sd[2, ] <- NA_real_
+
+  agg <- .comp_aggregate(make_long(p, p, N, sd = sd))
+  expect_true(is.na(agg$ESS[1]))
+  expect_equal(agg$ISS[1], sum(N))
+
+  # One unusable bin costs that observation precision, not the panel its
+  # annotation: the largest usable bin still carries the effective N.
+  sd2 <- sqrt(p * (1 - p) / N); sd2[2, 1] <- NA_real_
+  expect_equal(.comp_aggregate(make_long(p, p, N, sd = sd2))$ESS[1], sum(N),
+               tolerance = 1e-6)
+
+  # Comp_weights = 0 drops the fleet's composition from the likelihood, giving
+  # an infinite assumed sd. That is an effective sample size of zero, which is
+  # known, not unknown.
+  sd0 <- matrix(Inf, Y, B)
+  expect_equal(.comp_aggregate(make_long(p, p, N, sd = sd0))$ESS[1], 0)
+})

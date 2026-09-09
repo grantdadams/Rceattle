@@ -46,7 +46,9 @@ observation data on demand, so it works with any fit.}
 composition figure. Default \code{TRUE}.}
 
 \item{add_agg_n}{Logical. Annotate the aggregated composition figure with the
-input and effective sample sizes. Default \code{TRUE}.}
+input sample size, the effective sample size the likelihood assumed, and
+the McAllister-Ianelli effective sample size this fit implies. Default
+\code{TRUE}.}
 }
 \value{
 Invisibly, a named list of the \code{ggplot} objects. Called for its side
@@ -70,7 +72,9 @@ mirrored (females up, males down).
 \item \strong{Aggregated composition} -- observed vs fitted, counts pooled over
 the fitted hindcast years. The interval holds 95\% of the data the model
 predicts (not a confidence interval on the mean), so observations outside
-it indicate misfit. Poor where the expected count is below about 10.
+it indicate misfit. Poor where the expected count is below about 10, and
+slightly narrow throughout, because it treats the fitted proportions as
+known rather than estimated from these same data.
 }
 The shaded area and fitted line span only the observed bins (they do not
 extend past the first/last bin), and bins with zero observed proportion are

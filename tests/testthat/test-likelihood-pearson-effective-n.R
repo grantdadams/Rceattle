@@ -162,3 +162,111 @@ test_that("each observation's total is summed over its own bins", {
                                        rep(3, K), 1e-5))
   expect_equal(both, c(sep1, sep2))
 })
+
+
+test_that("a Dirichlet-multinomial diet residual is standard normal", {
+  # Diet is the third construction: the stomach's proportions are renormalized
+  # over prey plus an "other prey" balance BEFORE being scaled by the stomach
+  # sample size, so the count total is N_s and the concentration total is
+  # N_s * theta -- no second factor, unlike comp and CAAL. Drawn here on that
+  # scale, so a residual standardized by any other variance fails.
+  K <- 5L; N <- 60; theta <- 0.6
+  p <- c(0.30, 0.22, 0.18, 0.12, 0.08)   # prey bins; 0.10 goes to "other prey"
+
+  s <- resid_sd(function() {
+    obs <- stats::rmultinom(1, N, rdirich(N * c(p, 0.10) * theta))[, 1] / N
+    p_o <- obs[seq_len(K)]
+    p_h <- p
+    # The residual frame carries prey rows only; the balance is rebuilt from them.
+    S_o <- sum(p_o) + (1 - min(sum(p_o), 1))
+    S_h <- sum(p_h) + max(1 - sum(p_h), 1e-5)
+    .pearson_proportion(p_o / S_o, p_h / S_h, N, conc = N * theta)
+  }, K, 4000)
+
+  expect_equal(unname(s), rep(1, K), tolerance = 0.07)
+})
+
+
+test_that("a Dirichlet-multinomial with no recoverable weight falls back to the multinomial", {
+  # The fallback has to BE the multinomial, not the Dirichlet-multinomial at a
+  # substituted weight. `weight` is a log under a DM, so a stand-in of 1 would
+  # mean a concentration of e -- an overdispersion factor near 1.4 at n = 1000,
+  # which looks like a considered choice and is not one. The warning says
+  # "multinomial variance", so the code must deliver that.
+  K <- 5L; N <- 1000
+  p <- c(0.30, 0.25, 0.20, 0.15, 0.10)
+  o <- c(0.32, 0.24, 0.19, 0.16, 0.09)
+
+  expect_warning(
+    .rce_resolve_family_weight(rep(1L, K), rep(NA_real_, K), 1:K, "fleet"),
+    "multinomial variance")
+  fw <- suppressWarnings(
+    .rce_resolve_family_weight(rep(1L, K), rep(NA_real_, K), 1:K, "fleet"))
+  expect_identical(fw$family, rep(0L, K))
+
+  got  <- .rce_comp_pearson(o, p, N, rep(1L, K), fw$family, fw$weight, 0)
+  want <- .rce_comp_pearson(o, p, N, rep(1L, K), rep(0L, K), rep(1, K), 0)
+  expect_equal(as.numeric(got), as.numeric(want))
+
+  # And it is materially different from the theta = e reading it replaces.
+  dm_e <- .rce_comp_pearson(o, p, N, rep(1L, K), rep(1L, K), rep(1, K), 0)
+  expect_gt(max(abs(as.numeric(dm_e) / as.numeric(want) - 1)), 0.1)
+
+  # A row whose weight IS recoverable is untouched by the fallback.
+  ok <- .rce_resolve_family_weight(c(1L, 0L), c(log(2), 3), 1:2, "fleet")
+  expect_identical(ok$family, c(1L, 0L))
+  expect_identical(ok$weight, c(log(2), 3))
+})
+
+
+test_that("truncating residuals onto the bubble scale keeps sign and reports once", {
+  # scale_size_continuous() sets an out-of-bounds size to NA and drops the
+  # point, so the largest residuals would be the ones to vanish. The warning
+  # names the count and the maximum, not every value: dividing by the effective
+  # sample size scales residuals by sqrt(w), which can put thousands past the
+  # cap on one panel.
+  x   <- c(-9, -6, -1.5, 0, 2, 6, 7.25, NA, NaN)
+  got <- suppressWarnings(.rce_truncate_resid(x, "Panel"))
+  expect_warning(.rce_truncate_resid(x, "Panel"), "2 residual\\(s\\) beyond")
+  expect_warning(.rce_truncate_resid(x, "Panel"), "largest \\|residual\\| 9.00")
+
+  expect_equal(got[1:7], c(-6, -6, -1.5, 0, 2, 6, 6))
+  # NA and NaN are not residuals to truncate and must survive as themselves.
+  expect_true(is.na(got[8]) && !is.nan(got[8]))
+  expect_true(is.nan(got[9]))
+
+  # An infinite residual is still a residual and must land on the cap, not be
+  # dropped by the scale.
+  expect_equal(suppressWarnings(.rce_truncate_resid(c(Inf, -Inf), "Panel")),
+               c(6, -6))
+
+  # Nothing past the cap is silent.
+  expect_silent(.rce_truncate_resid(c(-6, 0, 5.9, 6), "Panel"))
+})
+
+
+test_that("a fit saved before a switch rename still resolves its family", {
+  # switch_check() upgrades a deprecated spelling at build time, but a fit SAVED
+  # before the rename carries the old name, and residuals() runs on the saved
+  # object. Finding nothing there would fall back to the schema default -- the
+  # multinomial -- which is the same silent wrong-family failure the canonical
+  # lookup exists to prevent.
+  fc <- data.frame(Fleet_code = 1L, Comp_loglike = 1L, Comp_weights = log(3))
+  obj <- structure(list(data_list = list(fleet_control = fc),
+                        estimated_params = list()), class = "Rceattle")
+  expect_identical(
+    .rce_comp_family(obj, 1L, "Comp_distribution", "Comp_weights",
+                     "comp_weights")$family, 1L)
+
+  # The canonical spelling wins when both are somehow present.
+  fc$Comp_distribution <- 0L
+  obj$data_list$fleet_control <- fc
+  expect_identical(
+    .rce_comp_family(obj, 1L, "Comp_distribution", "Comp_weights",
+                     "comp_weights")$family, 0L)
+
+  # And the diet switch, whose alias is Diet_loglike.
+  expect_identical(.rce_switch_column(list(Diet_loglike = 1L),
+                                      "Diet_distribution"), 1L)
+  expect_null(.rce_switch_column(list(), "Diet_distribution"))
+})

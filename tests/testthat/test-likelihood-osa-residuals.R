@@ -399,8 +399,8 @@ testthat::test_that("residuals(source = 'diet') computes diet Pearson residuals"
   testthat::expect_true(all(c("Pred_sex", "Prey", "Prey_sex", "Pred_age", "Prey_age",
                               "Observed", "Fitted", "Residual") %in% names(r)))
   hat <- fit$quantities$diet_hat[, 2]
-  # No bioenergetics_control and no fitted weights on this stand-in, so the
-  # family falls back to the multinomial at weight 1.
+  # No Diet_distribution and no fitted weights on this stand-in, so the family
+  # falls back to the schema default, the multinomial, at weight 1.
   testthat::expect_equal(r$Residual, diet_pearson_ref(dd, hat))
   testthat::expect_equal(residuals(fit, type = "response", source = "diet")$Residual,
                          dd$Stomach_proportion_by_weight - hat)
@@ -409,6 +409,54 @@ testthat::test_that("residuals(source = 'diet') computes diet Pearson residuals"
   # species filter acts on the predator species.
   testthat::expect_setequal(unique(residuals(fit, source = "diet", species = 1)$Species),
                             1L)
+})
+
+
+testthat::test_that("a Dirichlet-multinomial predator gets the DM variance", {
+  # Regression: the family was read off `bioenergetics_control`, a workbook
+  # sheet that is never an element of a data_list, so every predator scored as a
+  # multinomial and `Diet_comp_weights` -- a LOG under a DM -- was used as a
+  # natural-scale multiplier on the sample size. Both defects are silent: the
+  # residuals come back finite and plausible, just standardized by the wrong
+  # variance.
+  dd <- data.frame(Pred = c(1L, 1L, 2L), Pred_sex = 0L, Prey = c(1L, 2L, 1L),
+                   Prey_sex = 0L, Pred_age = c(3L, 3L, 4L), Prey_age = c(1L, 2L, 1L),
+                   Year = c(2000L, 2000L, 2001L),
+                   Stomach_proportion_by_weight = c(0.6, 0.3, 0.5),
+                   Sample_size = c(50, 50, 40))
+  hat <- c(0.55, 0.35, 0.45)
+  # Predator 1 is Dirichlet-multinomial, predator 2 multinomial, so one call
+  # covers the branch and its neighbour.
+  mk <- function(dist, wt) structure(list(
+    data_list = list(diet_data = dd, spnames = c("A", "B"), comp_offset = 1e-5,
+                     Diet_distribution = dist, Diet_comp_weights = wt),
+    quantities = list(diet_hat = cbind(NA_real_, hat))), class = "Rceattle")
+
+  # A positive log weight, so the multinomial reading of it is still a valid
+  # variance -- the contrast below then comes from the family, not from a
+  # negative effective sample size turning the comparison into NaN against NaN.
+  # theta = 20 rather than 2: at 2 the DM's effective N (34.0) and the
+  # multinomial misreading (34.7) very nearly collide, so the contrast would
+  # rest on all.equal()'s default tolerance instead of on the families differing.
+  lw  <- log(20)
+  fit <- mk(c(1L, 0L), c(lw, 1))
+  r   <- residuals(fit, type = "pearson", source = "diet")$Residual
+  testthat::expect_equal(
+    r, diet_pearson_ref(dd, hat, family = c(1L, 1L, 0L),
+                        weight = c(lw, lw, 1)))
+  testthat::expect_true(all(is.finite(r)))
+
+  # The DM rows must differ from what the multinomial fallback would have given;
+  # equality there is the bug returning, not a coincidence.
+  mn <- residuals(mk(c(0L, 0L), c(lw, 1)), type = "pearson",
+                  source = "diet")$Residual
+  testthat::expect_true(all(is.finite(mn)))
+  # A real separation, not one resting on all.equal()'s tolerance. At theta = 20
+  # the DM assumes an effective N of 47.7 (= n(1+A)/(n+A), A = n*theta = 1000)
+  # where the misreading assumes log(20) * 50 = 149.8. A residual scales with
+  # the square root of that, so the two differ by sqrt(149.8/47.7) = 1.77x.
+  testthat::expect_gt(min(abs(mn[1:2] / r[1:2])), 1.7)
+  testthat::expect_equal(r[3], mn[3])
 })
 
 
@@ -438,8 +486,13 @@ testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet mode
   # The diet Pearson matches the likelihood's own construction (finite rows).
   dd  <- fit$data_list$diet_data
   hat <- fit$quantities$diet_hat[, 2]
-  fam <- fit$data_list$bioenergetics_control$Diet_distribution
-  fam <- if (is.null(fam)) 0L else as.integer(fam)[dd$Pred]
+  # Read off the data_list itself. `bioenergetics_control` is a workbook sheet
+  # name, not a data_list element, so reading the switch off one resolves to
+  # NULL and scores every predator as a multinomial. Keeping this reference on
+  # the real field is what stops it agreeing with that defect in residuals().
+  fam <- fit$data_list$Diet_distribution
+  testthat::expect_false(is.null(fam))
+  fam <- as.integer(fam)[dd$Pred]
   w   <- fit$estimated_params$diet_comp_weights
   w   <- if (is.null(w)) 1 else as.numeric(w)[dd$Pred]
   fin <- is.finite(r$Residual)
