@@ -1845,10 +1845,9 @@ map_linkage_adjuster <- function(map_list, data_list) {
         map_list$index_log_q[idx$fleet] <- NA
       },
       sel = {
-        # sel_inf / log_sel_slp are [slot, fleet, sex]; sel_coff is [fleet, sex,
-        # bin]. Mask only the sex the row is stratified on, as the M and growth
-        # branches do -- fixing both would also fix the reference sex an offset
-        # is measured from. A row with no sex stratum still masks them all.
+        # Mask only the sex the row names, as the M and growth branches do:
+        # fixing both would fix the reference sex an offset is measured from.
+        # sel_inf / log_sel_slp are [slot, fleet, sex]; sel_coff [fleet, sex, bin].
         m <- .SEL_PARAM_TO_SLOT[[row$param]]
         if (!is.null(m)) {
           sx <- function(arr, d)

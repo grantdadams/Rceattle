@@ -1,12 +1,9 @@
 # A per-sex selectivity linkage masks the base parameter for that sex only.
 #
-# Provenance: the `sel` branch of map_linkage_adjuster() masked every sex, so a
-# linkage stratified on one sex also fixed the other's inflection or slope --
-# the reference sex a Stock Synthesis-style offset is measured from, which has
-# to stay estimated for the offset to mean anything.
-#
-# GOAatf is the fixture: the only bundled two-sex fit that converges
-# (inst/dev/TRAPS.md). estimateMode = 3 builds the map without optimizing.
+# Provenance: map_linkage_adjuster()'s `sel` branch masked every sex, so a
+# linkage on one sex also fixed the other's slope or inflection -- the reference
+# an offset is measured from. GOAatf is the only bundled two-sex fit that
+# converges (inst/dev/TRAPS.md); estimateMode = 3 builds the map without fitting.
 
 sel_map_for <- function(spec, flt = 3L) {
   # GOAatf ships this fishery as NonParametric, which carries no linkage; the

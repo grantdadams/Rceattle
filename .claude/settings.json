@@ -1,4 +1,7 @@
 {
+  "attribution": {
+    "commit": ""
+  },
   "permissions": {
     "allow": [
       "WebFetch(domain:kaskr.github.io)",
