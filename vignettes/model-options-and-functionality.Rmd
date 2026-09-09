@@ -313,7 +313,7 @@ doing its job — not the form losing the difference.
 
 Going non-parametric does **not** open this up: those forms pin each sex's mean
 to 1, so a level ratio is a by-product of shape rather than something the data
-can inform. `inst/dev/Two sex nonparametric selectivity example.R` fits the
+can inform. `inst/dev/two-sex-selectivity-example.R` fits the
 comparison.
 
 Two things constrain what is actually estimable:

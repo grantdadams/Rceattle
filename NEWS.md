@@ -64,8 +64,7 @@ version throughout.
   `DoubleLogistic` 1.97, `2DAR1` 4.53. Going non-parametric does not help
   either, which is the counter-intuitive part: those forms re-centre each sex to
   a mean of one every year, so the ratio is a by-product of shape rather than
-  something the data inform. `inst/dev/Two sex nonparametric selectivity
-  example.R` fits the comparison and is now tracked.
+  something the data inform. `inst/dev/two-sex-selectivity-example.R` fits the comparison and is now tracked.
 
 ## Bug fixes
 

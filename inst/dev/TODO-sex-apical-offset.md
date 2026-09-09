@@ -116,7 +116,7 @@ standard error in the thousands as a boundary rather than an estimate.
 - A new parameter block **requires** a `parameter_dictionary()` entry —
   `test-schema-parameter-index.R` asserts every block in `parList()` is in the
   dictionary, so that guard fires automatically if it is forgotten.
-- Add the arms from `dev/Two sex nonparametric selectivity example.R` §8 with an
+- Add the arms from `inst/dev/two-sex-selectivity-example.R` §8 with an
   `apical` offset on a `Logistic` fleet: today that form cannot produce a sex
   level difference at all, so a ratio ≠ 1 there is the proof the parameter works.
 - `inits`: no saved `estimated_params` objects are carried across versions here,
