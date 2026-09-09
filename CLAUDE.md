@@ -253,6 +253,12 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   this is how `index_cov` was lost.
 - **A `Comp_weights` of 1 under a Dirichlet-multinomial is a starting weight of e** — that
   likelihood reads the column as a log.
+- **A Pearson residual divides by the effective sample size the likelihood used, not the input
+  N** — `Comp_weights` multiplies the multinomial log-likelihood, so it *is* an effective sample
+  size (`ceattle.cpp:3758` draws at `n_nom * comp_weights`), and a DM is overdispersed by
+  `(n + conc)/(1 + conc)`. Comp, CAAL and diet each have their own switch, weight and DM
+  parameter block, and three *different* alpha constructions — only diet's is the clean
+  `p·N·theta`. `.rce_comp_pearson()` is the one place that resolves this.
 - **`fit_mod(estimateMode=)`** takes a string or the integer behind it: `"Estimate"` (0) =
   hindcast + HCR projection, `"Hindcast"` (1) = hindcast only, `"Projection"` (2) =
   projection-only from `inits`, `"DebugBuild"` (3) = build without optimizing,

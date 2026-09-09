@@ -12,6 +12,111 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.29.0
+
+## Bug fixes
+
+* **Composition Pearson residuals divide by the effective sample size the
+  likelihood used, not the raw input N.** `residuals(type = "pearson")` always
+  used the multinomial variance at `Sample_size`, for every composition source.
+  The likelihood does not. Under a multinomial (and the `MultinomialAFSC`
+  default) the weight column multiplies the log-likelihood, so it *is* an
+  effective sample size -- the model's own simulator draws at
+  `n_nom * comp_weights(flt)` (`ceattle.cpp:3758`). The reported residual was
+  therefore `1/sqrt(w)` times the right one: too small on an upweighted fleet,
+  too large on a downweighted one, and `reweight_comps()` routinely tunes either
+  way. Under a Dirichlet-multinomial the proportions are additionally
+  overdispersed by `(n + conc)/(1 + conc)`, so a DM fleet's residuals were
+  inflated and read as systematic misfit that was not there.
+
+  Age/length composition, conditional age-at-length and diet are each rebuilt on
+  their own likelihood's scale, because all three differ: comp and CAAL form
+  their Dirichlet-multinomial concentration on the offset-inflated total, while
+  diet renormalizes over the prey bins **plus** its "other prey" balance before
+  scaling by the stomach sample size. The composition proportion offset
+  (`comp_offset`, default 1e-5) is carried onto that scale too, which moves the
+  smallest bins by ~1e-4 relative even at weight 1.
+
+  This moves Pearson residuals on essentially every fit. It does not move any
+  likelihood, parameter estimate or reference point -- `residuals()`,
+  `plot_comp()` and the Pearson panel of `plot.rceattle_osa()` are the only
+  outputs affected. Index and catch residuals are untouched (they have no
+  composition family), and `report_tables()` reads only those.
+  `test-likelihood-pearson-effective-n.R` checks the variance by simulation --
+  data drawn under the family the likelihood assumes must return residuals with
+  `sd = 1` -- rather than by restating the formula.
+
+* **The OSA tail statistics and their null intervals now come from one
+  estimator.** `osa_diagnostics()` reported `quantile()`'s type-7 interpolated
+  tail against a *simulated* null. Both sides are now the `r`-th order
+  statistic, whose exact distribution is `Beta(r, n - r + 1)` on the probability
+  scale, so the interval is closed-form and covers at its nominal rate (measured
+  0.94-0.96 for n = 10 to 200). Mixing the two -- an interpolated statistic
+  against a closed-form order-statistic null -- drops coverage to about 0.86
+  near n = 50, non-monotonically in n; `test-diagnostics-osa-tail-nulls.R` pins
+  the coverage so that pairing cannot come back.
+
+  The reported tail is now genuinely the `r`-th order statistic rather than "the
+  2.5% quantile", so `osa_diagnostics()` gains `lower_r` / `upper_r` and
+  `lower_p` / `upper_p` naming which order statistic was used and the nominal
+  probability it sits at. Short series are handled: `r` is clamped to `[1, n]`,
+  without which `qbeta(p, n + 1, 0)` returns 1 and `qnorm()` returns `Inf`,
+  making the upper tail check pass for every series with `n <= 19`.
+
+## Deprecated
+
+* **`osa_diagnostics(nsim=, seed=)` are ignored** and warn when supplied. The
+  tail null intervals are exact, so nothing in that function simulates. Note
+  the OSA residuals themselves remain randomized-quantile residuals: pass a seed
+  to `osa_residuals()` to control those.
+
+## Plotting
+
+* **OSA and Pearson residual bubbles are drawn on a fixed `[0, 6]` size scale**
+  in both `plot.rceattle_osa()` and `plot_comp()`, so two figures can be
+  compared by eye -- a free scale made a well-fitting fleet and a badly-fitting
+  one look alike, and the two figures scaled the same residuals differently.
+  Residuals beyond 6 are truncated with a warning naming the original values;
+  the truncation precedes the limit because `scale_size_continuous()` sets
+  out-of-bounds values to `NA` and drops them silently. Bin axes take
+  whole-number breaks while there are fewer than 20 bins.
+
+* **The OSA Q-Q panels annotate the tail statistics** and their exact null
+  intervals in the lower right, alongside SDNR in the upper left, following
+  `afscOSA`. `plot.rceattle_osa()` gains `add_sdnr_ci` and `add_qq_quantiles`
+  (both `TRUE`) to suppress either annotation.
+
+* **`plot_comp()`'s aggregated composition pools counts across years** rather
+  than averaging proportions, so a year with 20 otoliths no longer carries the
+  same weight as one with 2000, and gains a 95% interval and the input /
+  effective sample sizes (`add_agg_ci`, `add_agg_n`, both `TRUE`). The interval
+  is the range holding 95% of the data the fitted model predicts, not a
+  confidence interval on the mean, so observations outside it indicate misfit.
+  Its variance is the exact sum of the per-year variances under each fleet's own
+  likelihood -- the same variances the Pearson residuals are divided by -- with
+  a normal approximation for the interval itself, which is poor below about 10
+  expected counts. Rows past `endyr` are excluded, matching the C++ likelihood's
+  own gate, so a projection row no longer inflates the input sample size.
+
+  `afscOSA`'s constructions were deliberately **not** ported here. Its band is a
+  binomial at the pooled sample size, and its aggregate effective sample size a
+  single ratio taken from the pooled composition; measured against the installed
+  package on data simulated with no misspecification, that ESS returns a median
+  of 1.16 x ISS with a range of 0.34-9.16, because pooling first discards the
+  between-year replication. The effective sample size reported here is instead
+  the McAllister-Ianelli weight `fit_mod()` already computes -- a harmonic mean
+  across years, which is the unbiased scale to average an effective sample size
+  on (the estimator is a ratio with the random part in its denominator, so
+  averaging `Neff` directly runs about 50% high).
+
+## Output format
+
+* **`residuals(type = "pearson")` gains an `Sd` column** on composition sources:
+  the standard deviation the fleet's own likelihood assumes for the observed
+  proportion, i.e. the denominator the residual was divided by. `NA` on index
+  and catch. The aggregated composition band reads it, so the band and the
+  residuals cannot disagree about the assumed variance.
+
 # Rceattle 5.28.1
 
 ## Documentation

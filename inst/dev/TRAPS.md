@@ -169,6 +169,39 @@ than switch on `estimateMode`.
 
 ## Silent-wrong-number traps
 
+**A Pearson residual must divide by the effective sample size the likelihood used.** Fixed in
+5.29.0; the structure that caused it is still there, so a fourth composition-like source would
+repeat it.
+
+- `Comp_weights` multiplies the multinomial log-likelihood (`ceattle.cpp:3686`), so it is an
+  effective sample size — the model's own simulator says so, drawing at
+  `n_nom * comp_weights(flt)` (`:3758`). Dividing by the raw `Sample_size` gives a residual
+  `1/sqrt(w)` times the right one: too small on an upweighted fleet, too large on a downweighted
+  one. `MultinomialAFSC` is the schema default, so this was the *common* case, and
+  `reweight_comps()` tunes either side of 1.
+- A Dirichlet-multinomial is additionally overdispersed by `(n + conc)/(1 + conc)`, so those
+  residuals were inflated into apparent misfit.
+- **Three sources, three different alpha constructions.** comp (`ceattle.cpp:3665`) and CAAL
+  (`:3819`) build the concentration on the offset-inflated total, so `sum(alpha) = N·S²·theta`
+  with `S = 1 + comp_offset·nbins`; diet (`:4848`) renormalizes first, so it is the clean
+  `N_s·theta`. Sharing one formula across all three is wrong for two of them — measured up to
+  1% in the sd on the smallest bins from the offset alone, at the default `comp_offset = 1e-5`.
+
+`.rce_comp_pearson()` and `.rce_diet_pearson()` are the only places this is resolved.
+`test-likelihood-pearson-effective-n.R` checks it by simulation — data drawn under the family
+the likelihood assumes must return residuals with `sd = 1` — because a test that restates the
+formula passes on a wrong variance.
+
+**The OSA tail statistic and its null must be the same estimator.** Also 5.29.0. The observed
+value was `quantile()`'s type-7 interpolation; the null was simulated from type-7 quantiles, so
+the pair was consistent but seed-dependent. Replacing only the null with the closed-form order
+statistic looks like a strict improvement and is not: measured coverage of the nominal 95%
+interval falls to **0.855 at n ≈ 50**, and oscillates non-monotonically in n because
+`round(q(n+1))` steps while type-7's `1 + (n-1)q` moves continuously. Both sides are now
+`sort(resid)[r]` against `Beta(r, n-r+1)`; measured coverage 0.949–0.951 for n = 5..800.
+`r` must be clamped to `[1, n]`: unclamped, `qbeta(p, n+1, 0)` returns 1 and `qnorm(1)` is `Inf`,
+so `upper_ok` is TRUE for every series with **n ≤ 19** — a silent pass, not a visible gap.
+
 **A reference point CEATTLE never estimated is a NUMBER, not a gap.** Three cases, all
 verified against the 2026 GOA three-species assessment (2026-08-29):
 

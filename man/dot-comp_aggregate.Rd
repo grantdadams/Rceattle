@@ -4,7 +4,7 @@
 \alias{.comp_aggregate}
 \title{Aggregate composition proportions across hindcast years}
 \usage{
-.comp_aggregate(d)
+.comp_aggregate(d, endyr = NULL)
 }
 \arguments{
 \item{d}{One panel's rows from \code{\link[=.comp_resid_long]{.comp_resid_long()}}.}

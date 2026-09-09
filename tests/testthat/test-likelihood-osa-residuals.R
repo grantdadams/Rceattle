@@ -351,6 +351,35 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
 })
 
 
+# Reference diet Pearson residual, written out on the scale the stomach-content
+# likelihood works in (ceattle.cpp:4815-4860): each stomach carries an "other
+# prey" balance that enters the density but not the residual frame, observed and
+# fitted are each normalized by their own offset-inflated total over prey + other,
+# and the counts are formed AFTER that normalization, so the total is N_s.
+# Before v5.29.0 the residual divided by the raw multinomial variance at N_s,
+# ignoring all of this and the Diet_comp_weights effective sample size.
+#
+# This checks residuals()' wiring -- grouping, normalization, family lookup --
+# not the variance itself, which is checked against simulation in
+# test-likelihood-pearson-effective-n.R.
+diet_pearson_ref <- function(dd, hat, off = 1e-5, family = 0L, weight = 1) {
+  sid    <- paste(dd$Pred, dd$Pred_sex, dd$Pred_age, dd$Year)
+  obs    <- dd$Stomach_proportion_by_weight
+  nbin   <- as.numeric(stats::ave(rep(1, length(obs)), sid, FUN = sum)) + 1
+  sum_o  <- as.numeric(stats::ave(obs, sid, FUN = sum))
+  sum_h  <- as.numeric(stats::ave(hat, sid, FUN = sum))
+  S_o    <- sum_o + (1 - pmin(sum_o, 1)) + off * nbin
+  S_h    <- sum_h + pmax(1 - sum_h, 1e-5) + off * nbin
+  p_o    <- (obs + off) / S_o
+  p_h    <- (hat + off) / S_h
+  n      <- as.numeric(dd$Sample_size)
+  fam    <- rep_len(family, length(obs)); w <- rep_len(weight, length(obs))
+  ifelse(fam == 1L,
+         (p_o - p_h) / sqrt(p_h * (1 - p_h) * (n + n * exp(w)) / (n * (1 + n * exp(w)))),
+         (p_o - p_h) / sqrt(p_h * (1 - p_h) / (w * n)))
+}
+
+
 testthat::test_that("residuals(source = 'diet') computes diet Pearson residuals", {
   testthat::skip_if_not_installed("Rceattle")
 
@@ -370,8 +399,9 @@ testthat::test_that("residuals(source = 'diet') computes diet Pearson residuals"
   testthat::expect_true(all(c("Pred_sex", "Prey", "Prey_sex", "Pred_age", "Prey_age",
                               "Observed", "Fitted", "Residual") %in% names(r)))
   hat <- fit$quantities$diet_hat[, 2]
-  testthat::expect_equal(r$Residual, (dd$Stomach_proportion_by_weight - hat) /
-                           sqrt(hat * (1 - hat) / dd$Sample_size))
+  # No bioenergetics_control and no fitted weights on this stand-in, so the
+  # family falls back to the multinomial at weight 1.
+  testthat::expect_equal(r$Residual, diet_pearson_ref(dd, hat))
   testthat::expect_equal(residuals(fit, type = "response", source = "diet")$Residual,
                          dd$Stomach_proportion_by_weight - hat)
   # diet uses a predator/prey schema, so it must be requested on its own.
@@ -405,13 +435,18 @@ testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet mode
   r <- residuals(fit, type = "pearson", source = "diet")
   testthat::expect_setequal(unique(r$Source), "diet")
   testthat::expect_equal(nrow(r), nrow(fit$data_list$diet_data))
-  # The diet Pearson matches the proportion formula (finite rows).
+  # The diet Pearson matches the likelihood's own construction (finite rows).
   dd  <- fit$data_list$diet_data
   hat <- fit$quantities$diet_hat[, 2]
+  fam <- fit$data_list$bioenergetics_control$Diet_distribution
+  fam <- if (is.null(fam)) 0L else as.integer(fam)[dd$Pred]
+  w   <- fit$estimated_params$diet_comp_weights
+  w   <- if (is.null(w)) 1 else as.numeric(w)[dd$Pred]
   fin <- is.finite(r$Residual)
-  testthat::expect_equal(r$Residual[fin],
-    ((dd$Stomach_proportion_by_weight - hat) /
-       sqrt(hat * (1 - hat) / dd$Sample_size))[fin])
+  testthat::expect_equal(
+    r$Residual[fin],
+    diet_pearson_ref(dd, hat, off = fit$data_list$comp_offset,
+                     family = fam, weight = w)[fin])
 
   # plot_diet_comp() now sources its residuals from residuals(source = "diet").
   if (requireNamespace("ggplot2", quietly = TRUE)) {
@@ -697,9 +732,12 @@ testthat::test_that("CAAL residuals label both frames as age bins", {
   testthat::expect_identical(unique(pear$index_label), "age")
 
   # The two frames differ only where the residual definitions differ: OSA has a
-  # conditional sd, Pearson the sample size it standardised by.
+  # conditional `sd`, Pearson the sample size and the `Sd` its own likelihood
+  # assumes. The two sd columns are different quantities, so they keep separate
+  # names rather than one being renamed onto the other.
   testthat::expect_identical(setdiff(names(osa), names(pear)), "sd")
-  testthat::expect_identical(setdiff(names(pear), names(osa)), "sample_size")
+  testthat::expect_setequal(setdiff(names(pear), names(osa)),
+                            c("sample_size", "Sd"))
 
   # One age per length group is fixed by sum-to-N, so OSA is that much shorter.
   n_len <- length(unique(pear$length))

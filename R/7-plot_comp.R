@@ -9,12 +9,16 @@
 #'   \item **Pearson residual bubbles** by year and bin, faceted by fleet (and,
 #'     for joint-sex data, by sex); red = positive, blue = negative, sized by
 #'     magnitude. The Pearson residual is
-#'     \eqn{(p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}}, the same form used by
-#'     [residuals.Rceattle()].
+#'     the same form used by [residuals.Rceattle()] -- standardized by the
+#'     variance the fleet's own likelihood assumes, so the weight column and any
+#'     Dirichlet-multinomial overdispersion are already in the denominator.
 #'   \item **Annual composition** -- observed (shaded area) vs fitted (line)
 #'     proportion at age / length, one panel per year. Joint-sex data are
 #'     mirrored (females up, males down).
-#'   \item **Aggregated composition** -- the same, summed over (hindcast) years.
+#'   \item **Aggregated composition** -- observed vs fitted, counts pooled over
+#'     the fitted hindcast years. The interval holds 95% of the data the model
+#'     predicts (not a confidence interval on the mean), so observations outside
+#'     it indicate misfit. Poor where the expected count is below about 10.
 #' }
 #' The shaded area and fitted line span only the observed bins (they do not
 #' extend past the first/last bin), and bins with zero observed proportion are
@@ -37,6 +41,10 @@
 #'   [plot.rceattle_osa()] -- a Q-Q plot (with SDNR / tail annotation) alongside
 #'   signed OSA- and Pearson-residual bubbles. The `"osa"` path builds its
 #'   observation data on demand, so it works with any fit.
+#' @param add_agg_ci Logical. Draw the 95% prediction interval on the aggregated
+#'   composition figure. Default `TRUE`.
+#' @param add_agg_n Logical. Annotate the aggregated composition figure with the
+#'   input and effective sample sizes. Default `TRUE`.
 #'
 #' @return Invisibly, a named list of the `ggplot` objects. Called for its side
 #'   effect of drawing (and optionally saving) the figures.
@@ -44,7 +52,8 @@
 #' @export
 plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
                       cex = 3, lwd = 3, right_adj = 0,
-                      residual_type = c("pearson", "osa")) {
+                      residual_type = c("pearson", "osa"),
+                      add_agg_ci = TRUE, add_agg_n = TRUE) {
 
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Please only use one Rceattle model")
@@ -80,12 +89,25 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
   # ---- Pearson residual bubbles (faceted by fleet x type [x sex]) ----
   pear <- long[is.finite(long$pearson), , drop = FALSE]
   if (nrow(pear) > 0) {
+    # Truncated to +/-6 and scaled on a fixed [0, 6], matching the bubbles in
+    # plot.rceattle_osa() -- the same residuals appear in both figures, so a
+    # free scale here would draw them at a different size. Truncation must
+    # precede the limit: ggplot2 sets out-of-bounds sizes to NA and drops them.
+    big <- which(abs(pear$pearson) > 6)
+    if (length(big)) {
+      warning("Composition Pearson residuals: ", length(big),
+              " residual(s) beyond +/-6 truncated for plotting (",
+              paste(sprintf("%.2f", pear$pearson[big]), collapse = ", "), ").",
+              call. = FALSE)
+      pear$pearson[big] <- 6 * sign(pear$pearson[big])
+    }
     pear$sign <- ifelse(pear$pearson >= 0, "positive", "negative")
     g <- ggplot2::ggplot(pear, ggplot2::aes(.data$Year, .data$bin)) +
       ggplot2::geom_point(ggplot2::aes(size = abs(.data$pearson),
                                        colour = .data$sign), alpha = 0.8) +
       ggplot2::scale_colour_manual(values = sign_cols, guide = "none") +
-      ggplot2::scale_size_continuous(range = c(0.5, 6), name = "|Pearson|") +
+      ggplot2::scale_size_continuous(breaks = c(0, 2, 4, 6), limits = c(0, 6),
+                                     range = c(0.1, 3), name = "|Pearson|") +
       ggplot2::facet_wrap(~ source, scales = "free_y") +
       ggplot2::labs(x = "Year", y = "Age / length bin",
                     title = "Composition Pearson residuals") +
@@ -122,16 +144,53 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
     plots[[paste0("annual_", nm)]] <- g_a; print(g_a)
     save_png(g_a, paste0("annual_fleet", d$Fleet[1], "_", d$type_lab[1]))
 
-    # Aggregated across hindcast years
-    agg <- .comp_aggregate(d)
+    # Aggregated across hindcast years, pooling counts
+    agg <- .comp_aggregate(d, endyr = Rceattle$data_list$endyr)
     if (nrow(agg) > 0) {
-      g_g <- comp_area_plot(agg, "Mean proportion", paste(nm, "(aggregated)"))
+      g_g <- comp_area_plot(agg, "Pooled proportion", paste(nm, "(aggregated)"))
+      if (add_agg_ci && any(is.finite(agg$y_lwr))) {
+        g_g <- g_g + ggplot2::geom_linerange(
+          data = agg, ggplot2::aes(x = .data$bin, ymin = .data$y_lwr,
+                                   ymax = .data$y_upr, colour = .data$sex_grp),
+          alpha = 0.55, linewidth = 0.4, show.legend = FALSE)
+      }
+      if (add_agg_n) {
+        g_g <- g_g + ggplot2::annotate(
+          "text", x = Inf, y = Inf, hjust = 1.05, vjust = 1.3, size = 2.8,
+          label = .comp_n_label(Rceattle, d$Fleet[1], agg$ISS[1]))
+      }
       plots[[paste0("aggregated_", nm)]] <- g_g; print(g_g)
       save_png(g_g, paste0("aggregated_fleet", d$Fleet[1], "_", d$type_lab[1]))
     }
   }
 
   invisible(plots)
+}
+
+
+#' Input and effective sample size label for the aggregated composition
+#'
+#' `ISS` is the summed input sample size over fitted hindcast years; `ESS` is
+#' that times the fleet's McAllister-Ianelli weight, already computed by
+#' `fit_mod()` as a harmonic mean across years. A single effective N taken from
+#' the aggregate instead is too noisy to read from one fit.
+#'
+#' @param Rceattle The fitted model.
+#' @param fleet The fleet code.
+#' @param iss The summed input sample size.
+#' @return A one- or two-line label.
+#' @noRd
+.comp_n_label <- function(Rceattle, fleet, iss) {
+  lab <- sprintf("ISS = %s", format(round(iss), big.mark = ","))
+  w <- Rceattle$data_list$fleet_control$Comp_weights_mcallister
+  if (!is.null(w)) {
+    i <- match(fleet, Rceattle$data_list$fleet_control$Fleet_code)
+    if (!is.na(i) && is.finite(w[i])) {
+      lab <- sprintf("%s\nESS = %s", lab,
+                     format(round(w[i] * iss), big.mark = ","))
+    }
+  }
+  lab
 }
 
 
@@ -166,7 +225,8 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
     bin        = r$Bin,
     obs        = r$Observed,      # observed proportion
     hat        = r$Fitted,        # fitted proportion
-    pearson    = r$Residual,      # (obs - hat) / sqrt(hat (1 - hat) / N)
+    pearson    = r$Residual,      # (obs - hat) / Sd
+    Sd         = r$Sd,            # sd the fleet's own likelihood assumes
     stringsAsFactors = FALSE)
 
   # Joint-sex (Sex == 3) stacks females in bins 1..nbin and males in
@@ -198,15 +258,48 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #' @param d One panel's rows from [.comp_resid_long()].
 #' @return A data frame with `bin`, `sex_grp`, `obs`, `hat`, `y_obs`, `y_hat`.
 #' @keywords internal
-.comp_aggregate <- function(d) {
+.comp_aggregate <- function(d, endyr = NULL) {
   d <- d[d$Year > 0, , drop = FALSE]              # hindcast only
+  # The C++ composition likelihood gates on Year <= endyr, so a projection row
+  # carries no fit and must not enter the aggregate or its input sample size.
+  if (!is.null(endyr)) d <- d[d$Year <= endyr, , drop = FALSE]
   if (nrow(d) == 0) return(d[, c("bin", "sex_grp"), drop = FALSE])
-  agg <- stats::aggregate(cbind(obs, hat) ~ bin + sex_grp, data = d, FUN = sum)
-  agg$obs <- agg$obs / sum(agg$obs)               # joint normalization (mean prop)
-  agg$hat <- agg$hat / sum(agg$hat)
+
+  # Pool counts, not proportions: averaging proportions weights a year with 20
+  # otoliths like one with 2000. The pooled count is a sum of independent draws,
+  # so its variance is exactly the sum of the per-year variances.
+  d$o_n <- d$obs * d$N
+  d$e_n <- d$hat * d$N
+  # Var of the pooled count in a bin = sum_y (N_y * sd_yb)^2, with sd_yb the sd
+  # the fleet's own likelihood assumes for that year's proportion.
+  d$v_n <- if (is.null(d$Sd)) NA_real_ else (d$N * d$Sd)^2
+
+  # na.action = na.pass: the formula interface drops whole rows on any NA, so a
+  # bin with no assumed sd would vanish from the composition rather than just
+  # lose its interval. A variance missing any year is NA rather than a partial
+  # sum, which would understate the spread and draw a band that is too narrow.
+  agg <- stats::aggregate(cbind(o_n, e_n, v_n) ~ bin + sex_grp, data = d,
+                          FUN = function(x) if (anyNA(x)) NA_real_ else sum(x),
+                          na.action = stats::na.pass)
+
+  # Displayed on the proportion scale, as before, so the figure keeps its axis.
+  tot_o <- sum(agg$o_n); tot_e <- sum(agg$e_n)
+  agg$obs <- agg$o_n / tot_o
+  agg$hat <- agg$e_n / tot_e
+  # 95% range of the data the model predicts, not a CI on the mean. Normal
+  # approximation on an exact variance; poor below ~10 expected counts.
+  agg$lwr <- (agg$e_n - 1.96 * sqrt(agg$v_n)) / tot_e
+  agg$upr <- (agg$e_n + 1.96 * sqrt(agg$v_n)) / tot_e
+
   agg$bin_lab <- d$bin_lab[1]
-  agg$y_obs <- ifelse(agg$sex_grp == "male", -agg$obs, agg$obs)
-  agg$y_hat <- ifelse(agg$sex_grp == "male", -agg$hat, agg$hat)
+  # Proportions sum to one across a row's bins (both sexes when joint), so the
+  # pooled observed count is the summed input sample size.
+  agg$ISS <- tot_o
+  mir <- ifelse(agg$sex_grp == "male", -1, 1)
+  agg$y_obs <- mir * agg$obs
+  agg$y_hat <- mir * agg$hat
+  agg$y_lwr <- mir * agg$lwr
+  agg$y_upr <- mir * agg$upr
   agg
 }
 

@@ -12,7 +12,9 @@ plot_comp(
   cex = 3,
   lwd = 3,
   right_adj = 0,
-  residual_type = c("pearson", "osa")
+  residual_type = c("pearson", "osa"),
+  add_agg_ci = TRUE,
+  add_agg_n = TRUE
 )
 }
 \arguments{
@@ -39,6 +41,12 @@ one-step-ahead residual diagnostics via \code{\link[=osa_residuals]{osa_residual
 \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} -- a Q-Q plot (with SDNR / tail annotation) alongside
 signed OSA- and Pearson-residual bubbles. The \code{"osa"} path builds its
 observation data on demand, so it works with any fit.}
+
+\item{add_agg_ci}{Logical. Draw the 95\% prediction interval on the aggregated
+composition figure. Default \code{TRUE}.}
+
+\item{add_agg_n}{Logical. Annotate the aggregated composition figure with the
+input and effective sample sizes. Default \code{TRUE}.}
 }
 \value{
 Invisibly, a named list of the \code{ggplot} objects. Called for its side
@@ -53,12 +61,16 @@ fleet x composition type:
 \item \strong{Pearson residual bubbles} by year and bin, faceted by fleet (and,
 for joint-sex data, by sex); red = positive, blue = negative, sized by
 magnitude. The Pearson residual is
-\eqn{(p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}}, the same form used by
-\code{\link[=residuals.Rceattle]{residuals.Rceattle()}}.
+the same form used by \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} -- standardized by the
+variance the fleet's own likelihood assumes, so the weight column and any
+Dirichlet-multinomial overdispersion are already in the denominator.
 \item \strong{Annual composition} -- observed (shaded area) vs fitted (line)
 proportion at age / length, one panel per year. Joint-sex data are
 mirrored (females up, males down).
-\item \strong{Aggregated composition} -- the same, summed over (hindcast) years.
+\item \strong{Aggregated composition} -- observed vs fitted, counts pooled over
+the fitted hindcast years. The interval holds 95\% of the data the model
+predicts (not a confidence interval on the mean), so observations outside
+it indicate misfit. Poor where the expected count is below about 10.
 }
 The shaded area and fitted line span only the observed bins (they do not
 extend past the first/last bin), and bins with zero observed proportion are

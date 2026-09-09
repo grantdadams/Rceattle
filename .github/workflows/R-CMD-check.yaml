@@ -57,6 +57,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The runner image ships third-party apt repos (Chrome, Microsoft) that
+      # nothing here uses. When one of them serves an index whose hash does not
+      # match its Release file, every later `apt-get install` exits 100 --
+      # including the one inside setup-r, which then reports the misleading
+      # "Failed to install R". Seen 2026-09-09 on a Chrome hash mismatch, which
+      # took down ubuntu-latest (release) while devel and Windows passed. Drop
+      # the unused repos before anything touches apt.
+      - name: Drop unused third-party apt repositories (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list \
+                     /etc/apt/sources.list.d/microsoft-prod.list
+          sudo apt-get update
+
       - uses: r-lib/actions/setup-pandoc@v2
 
       - uses: r-lib/actions/setup-r@v2

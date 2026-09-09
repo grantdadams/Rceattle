@@ -34,6 +34,10 @@
 #'   share one figure (age in the left column, length in the right). When
 #'   `FALSE`, they are drawn as separate `composition_age` / `composition_length`
 #'   figures.
+#' @param add_sdnr_ci Logical. Show the chi-square null interval beside the SDNR
+#'   annotation on each Q-Q panel. Default `TRUE`.
+#' @param add_qq_quantiles Logical. Annotate each Q-Q panel with the tail order
+#'   statistics and their exact null intervals. Default `TRUE`.
 #' @param ... Unused.
 #'
 #' @return Invisibly, a named list of the assembled `ggplot` / `cowplot`
@@ -46,7 +50,8 @@
 #' @seealso [osa_residuals()], [osa_diagnostics()]
 #' @export
 plot.rceattle_osa <- function(x, source = "all", species = NULL,
-                              combine = TRUE, ...) {
+                              combine = TRUE, add_sdnr_ci = TRUE,
+                              add_qq_quantiles = TRUE, ...) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("ggplot2 is required to plot OSA residuals.")
   }
@@ -86,14 +91,16 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   # Aggregate (index / catch): Q-Q only -- no age/length bin to bubble.
   if (nrow(agg) > 0) {
     agg$source <- .osa_source_label(agg)
-    plots$aggregate <- .osa_qqplot(agg)
+    plots$aggregate <- .osa_qqplot(agg, add_sdnr_ci, add_qq_quantiles)
   }
 
   # Composition (comp / caal): Q-Q + OSA bubbles + Pearson bubbles. One combined
   # figure (age | length columns) by default, or separate figures per bin type.
   if (nrow(comp) > 0) {
     plots <- c(plots, .osa_composition_figures(comp, pearson, combine = combine,
-                                               nages = nages, nlengths = nlengths))
+                                               nages = nages, nlengths = nlengths,
+                                               add_sdnr_ci = add_sdnr_ci,
+                                               add_qq_quantiles = add_qq_quantiles))
   }
 
   # Process residuals: Q-Q + residual-by-year.
@@ -101,7 +108,8 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
     proc$source <- paste0(proc$source,
                           ifelse(is.na(proc$species), "",
                                  paste0(" - sp ", proc$species)))
-    plots$process <- .osa_stack(list(.osa_qqplot(proc),
+    plots$process <- .osa_stack(list(.osa_qqplot(proc, add_sdnr_ci,
+                                                 add_qq_quantiles),
                                      .osa_resid_year_plot(proc)))
   }
 
@@ -121,10 +129,13 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @param nages,nlengths Per-species bin counts (the `rceattle_osa` `"nages"` /
 #'   `"nlengths"` attributes), used to split joint-sex (Sex == 3) bins onto a
 #'   single age/length axis, matching [plot_comp()].
+#' @param add_sdnr_ci,add_qq_quantiles Passed to [.osa_qqplot()].
 #' @return A named list of `cowplot`/`ggplot` objects.
 #' @keywords internal
 .osa_composition_figures <- function(comp, pearson = NULL, combine = TRUE,
-                                     nages = NULL, nlengths = NULL) {
+                                     nages = NULL, nlengths = NULL,
+                                     add_sdnr_ci = TRUE,
+                                     add_qq_quantiles = TRUE) {
   comp$source <- .osa_source_label(comp)
   comp$.side  <- .osa_bin_side(comp$index_label)
   comp        <- .osa_jointsex(comp, nages, nlengths)
@@ -140,8 +151,8 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
     pear        <- .osa_jointsex(pear, nages, nlengths)
   }
 
-  age_fig <- .osa_comp_side(comp, pear, "age")
-  len_fig <- .osa_comp_side(comp, pear, "length")
+  age_fig <- .osa_comp_side(comp, pear, "age", add_sdnr_ci, add_qq_quantiles)
+  len_fig <- .osa_comp_side(comp, pear, "length", add_sdnr_ci, add_qq_quantiles)
 
   if (!combine) {
     out <- list()
@@ -168,14 +179,16 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @param comp Composition rows with `source` and `.side` columns.
 #' @param pear Reshaped Pearson rows with `source` and `.side` columns, or `NULL`.
 #' @param side `"age"` or `"length"`.
+#' @param add_sdnr_ci,add_qq_quantiles Passed to [.osa_qqplot()].
 #' @return A stacked `cowplot`/`ggplot` object, or `NULL` if no rows on that side.
 #' @keywords internal
-.osa_comp_side <- function(comp, pear, side) {
+.osa_comp_side <- function(comp, pear, side, add_sdnr_ci = TRUE,
+                           add_qq_quantiles = TRUE) {
   cs <- comp[comp$.side == side, , drop = FALSE]
   if (nrow(cs) == 0) return(NULL)
   ylab   <- if (side == "age") "Age bin" else "Length bin"
   panels <- list(
-    .osa_qqplot(cs),
+    .osa_qqplot(cs, add_sdnr_ci, add_qq_quantiles),
     .osa_bubble_plot(cs, ylab = ylab, title = "OSA residuals"))
   if (!is.null(pear)) {
     ps <- pear[pear$.side == side, , drop = FALSE]
@@ -240,11 +253,16 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 
 #' Q-Q plot of OSA residuals with standard-normal null envelope
 #'
+#' SDNR upper left, tail order statistics against their exact nulls lower right,
+#' following `afscOSA`. The annotation names the nominal probability each order
+#' statistic sits at, since it is not exactly 2.5%.
+#'
 #' @param osa An `rceattle_osa` data frame with a `source` column.
-#' @param nsim,seed Passed to the SDNR / tail-statistic annotation.
+#' @param add_sdnr_ci Show the chi-square null interval beside SDNR.
+#' @param add_qq_quantiles Annotate the tail order statistics and their nulls.
 #' @return A `ggplot` object.
 #' @keywords internal
-.osa_qqplot <- function(osa, nsim = 10000, seed = 123) {
+.osa_qqplot <- function(osa, add_sdnr_ci = TRUE, add_qq_quantiles = TRUE) {
   # Per-source quantile points and SDNR/tail annotation.
   srcs <- split(osa, osa$source, drop = TRUE)
   qq <- do.call(rbind, lapply(srcs, function(g) {
@@ -255,15 +273,17 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
                stringsAsFactors = FALSE)
   }))
 
-  ann <- do.call(rbind, lapply(srcs, function(g) {
-    s <- .osa_sdnr_tails(g$residual, nsim = nsim, seed = seed)
-    data.frame(source = g$source[1],
-               label  = sprintf("SDNR=%.2f\n(%.2f-%.2f)",
-                                s$sdnr, s$sdnr_lo, s$sdnr_hi),
-               stringsAsFactors = FALSE)
-  }))
+  stats_by_src <- lapply(srcs, function(g) .osa_sdnr_tails(g$residual))
 
-  ggplot2::ggplot(qq, ggplot2::aes(x = .data$theoretical, y = .data$sample)) +
+  ann <- do.call(rbind, Map(function(g, s) {
+    lab <- sprintf("SDNR=%.2f", s$sdnr)
+    if (add_sdnr_ci) {
+      lab <- sprintf("%s\n(%.2f-%.2f)", lab, s$sdnr_lo, s$sdnr_hi)
+    }
+    data.frame(source = g$source[1], label = lab, stringsAsFactors = FALSE)
+  }, srcs, stats_by_src))
+
+  p <- ggplot2::ggplot(qq, ggplot2::aes(x = .data$theoretical, y = .data$sample)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, colour = "grey60") +
     ggplot2::geom_point(colour = "#2c7fb8", alpha = 0.7) +
     ggplot2::geom_text(data = ann,
@@ -273,6 +293,23 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
     ggplot2::labs(x = "Theoretical quantiles", y = "Sample quantiles",
                   title = "OSA residual Q-Q") +
     ggplot2::theme_bw(base_size = 10)
+
+  if (add_qq_quantiles) {
+    tails <- do.call(rbind, Map(function(g, s) {
+      data.frame(
+        source = g$source[1],
+        label  = if (is.na(s$sdnr)) "" else sprintf(
+          "tails at p=%.3f / %.3f\nlow  %.2f (%.2f, %.2f)\nhigh %.2f (%.2f, %.2f)",
+          s$lower_p, s$upper_p,
+          s$lower, s$lower_lo, s$lower_hi,
+          s$upper, s$upper_lo, s$upper_hi),
+        stringsAsFactors = FALSE)
+    }, srcs, stats_by_src))
+    p <- p + ggplot2::geom_text(
+      data = tails, ggplot2::aes(x = Inf, y = -Inf, label = .data$label),
+      hjust = 1.05, vjust = -0.15, size = 2.6, inherit.aes = FALSE)
+  }
+  p
 }
 
 
@@ -300,18 +337,31 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 
 #' Bubble plot of composition residuals (afscOSA styling)
 #'
+#' The size scale is pinned to `[0, 6]` so two figures compare by eye. Residuals
+#' beyond 6 are truncated first, with a warning: `scale_size_continuous()` drops
+#' out-of-bounds values silently, so truncation cannot be left to the limit.
+#'
 #' @param osa A data frame with `source`, `year`, `age_length_bin`, and
 #'   `residual` columns. Bubbles are placed at (year, age/length bin); red =
-#'   positive, blue = negative; size and transparency scale with the absolute
-#'   residual; outliers (`|resid| > 3`) are drawn as triangles.
+#'   positive, blue = negative; size scales with the absolute residual;
+#'   outliers (`|resid| > 3`) are drawn as triangles.
 #' @param ylab Y-axis label (e.g. `"Age bin"` or `"Length bin"`).
 #' @param title Panel title.
 #' @return A `ggplot` object.
 #' @keywords internal
 .osa_bubble_plot <- function(osa, ylab = "Bin", title = "OSA residuals") {
+  big <- which(abs(osa$residual) > 6)
+  if (length(big)) {
+    warning(title, ": ", length(big), " residual(s) beyond +/-6 truncated for ",
+            "plotting (", paste(sprintf("%.2f", osa$residual[big]),
+                                collapse = ", "), ").", call. = FALSE)
+    osa$residual[big] <- 6 * sign(osa$residual[big])
+  }
   osa$sign  <- ifelse(osa$residual >= 0, "positive", "negative")
   osa$shape <- ifelse(abs(osa$residual) > 3, "outlier", "normal")
-  ggplot2::ggplot(osa, ggplot2::aes(x = .data$year, y = .data$age_length_bin)) +
+
+  p <- ggplot2::ggplot(osa, ggplot2::aes(x = .data$year,
+                                         y = .data$age_length_bin)) +
     ggplot2::geom_point(ggplot2::aes(size = abs(.data$residual),
                                      alpha = abs(.data$residual),
                                      colour = .data$sign,
@@ -321,11 +371,21 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
                                  guide = "none") +
     ggplot2::scale_shape_manual(values = c(normal = 16L, outlier = 17L),
                                 guide = "none") +
-    ggplot2::scale_size_continuous(range = c(0.5, 5), guide = "none") +
-    ggplot2::scale_alpha_continuous(range = c(0.3, 0.9), guide = "none") +
+    ggplot2::scale_size_continuous(breaks = c(0, 2, 4, 6), limits = c(0, 6),
+                                   range = c(0.1, 3), guide = "none") +
+    ggplot2::scale_alpha_continuous(limits = c(0, 6), range = c(0.3, 0.9),
+                                    guide = "none") +
     ggplot2::facet_wrap(~ source, nrow = 1L) +
     ggplot2::labs(x = "Year", y = ylab, title = title) +
     ggplot2::theme_bw(base_size = 10)
+
+  # Whole-number bin breaks while they stay readable; a length axis with many
+  # bins keeps the default continuous breaks.
+  bins <- sort(unique(osa$age_length_bin))
+  if (length(bins) > 0 && length(bins) < 20) {
+    p <- p + ggplot2::scale_y_continuous(breaks = bins, limits = range(bins))
+  }
+  p
 }
 
 
