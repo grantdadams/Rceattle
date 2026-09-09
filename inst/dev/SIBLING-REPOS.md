@@ -48,6 +48,7 @@ That is cheaper than it sounds: the terminal fit is under a minute for either po
 | EBS pollock 2024 | `../Rceattle-models/EBS pollock/2024/04-fit-and-diagnostics.R` |
 | GOA arrowtooth | `../GOA-ATF-ESP/R/2026 assessment w HCR projection.R` (2025: `R/Run_2025_ceattle.R`) |
 | Pacific hake MSE | `../Rceattle-models/Pacific hake/04-mse.R` |
+| Pacific hake MSE, 2024 | `../Rceattle-models/Pacific hake/MSE_yr2024.R` |
 
 **The hake MSE is the one script that runs `run_mse()` end to end**, and the only routine
 exercise of three-species predation with estimated suitability, of `suitMode` differing per
@@ -81,6 +82,32 @@ bit-identical, so the parameters are unchanged either way. The script's own
 inline comments give the first three ~5 higher and the fourth as 2262.318: those are Rceattle
 5.6.1 numbers that still included the `theta_diet` prior constants. `README.md` in that folder
 records the "clean" values, which are what the current package reproduces.
+
+### `MSE_yr2024.R` — the four-species MSE
+
+`MSE_yr2024.R` is the newer run and the one to check first: California sea lion, sablefish,
+arrowtooth and hake from `MSE_hake_yr24_final.xlsx`, `endyr` 2023, projected to 2030, with
+Dirichlet-multinomial age and diet composition and a lognormal prior on every DM weight. Six
+fits plus `run_mse(nsim = 2, cores = 2)`, ~8 min.
+
+Baseline objectives, first recorded 2026-09-09 on 5.28.0:
+
+| Fit | -log L |
+|---|---|
+| `ss_run_DM_CSL` | 2436.8886423469 |
+| `ss_run_DM_hcr_CSL` | 2437.4573180484 |
+| `ms_run_DM_CSL` | 2443.8538668576 |
+| `run_ms_CSL_Mest_prior_DM_CSL` | 2663.8053181057 |
+| `run_ms_CSL_Mest_prior_DM_CSL_stable` | 2663.8053181057 |
+| `ss_run_DM_hcr_B0` | 2436.8886423469 |
+
+Two of those equalities are structural, not coincidences: the `_stable` refit starts from its
+parent's `data_list` and returns to the same optimum, and `ss_run_DM_hcr_B0` matches
+`ss_run_DM_CSL` because a `ConstantF` HCR never re-optimizes the projection, so `fit$opt` stays
+the hindcast's. `ss_run_DM_hcr_CSL` differs because its HCR does estimate.
+
+Its linkage table is **composition-only** — 6 rows, all `process = "comp"`, none carrying a sex
+stratum — so a selectivity or per-sex linkage change cannot reach it.
 
 Traps:
 

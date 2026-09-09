@@ -72,13 +72,15 @@ projection, MSE, diagnostics, plotting — is R.
 14. **`../Rceattle-models` and `../GOA-ATF-ESP` consume this API.** Sweep after a breaking change
     (`/ecosystem-sweep`), and refit a real assessment when a sweep is not enough.
     See `inst/dev/SIBLING-REPOS.md`.
-15. **`../Rceattle-models/Pacific hake/04-mse.R` is the MSE and predation check.** It is the one
-    script that runs `run_mse()` end to end, and the only routine exercise of three-species
-    predation with estimated suitability and of DM comps carrying a prior on their own weight —
-    none of which `/golden-check` touches. Run it after changing predation, suitability, the DM
-    likelihood, `sim_mod()` or `run_mse()`. Reference objectives are in `SIBLING-REPOS.md`; the
-    script's own inline numbers are Rceattle 5.6.1 and still carry the `theta_diet` constants,
-    so compare against that folder's `README.md` "clean" values instead.
+15. **The Pacific hake MSEs are the MSE and predation check.** They are the only scripts that
+    run `run_mse()` end to end, and the only routine exercise of predation with estimated
+    suitability and of DM comps carrying a prior on their own weight — none of which
+    `/golden-check` touches. Run them after changing predation, suitability, the DM likelihood,
+    `sim_mod()` or `run_mse()`. `../Rceattle-models/Pacific hake/MSE_yr2024.R` is the current
+    four-species run and the one to check first; `04-mse.R` is the older three-species one.
+    Reference objectives for both are in `SIBLING-REPOS.md`. `04-mse.R`'s own inline numbers are
+    Rceattle 5.6.1 and still carry the `theta_diet` constants, so compare against that folder's
+    `README.md` "clean" values instead.
 
 ---
 
