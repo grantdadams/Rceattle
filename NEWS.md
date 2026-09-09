@@ -48,6 +48,25 @@ version throughout.
   `switch_check()`, so it checks the column itself; a typo such as `Maxx` used
   to resolve to blank and silently turn normalization off.
 
+## Documentation
+
+* **Which selectivity forms can give the two sexes different levels.**
+  `vignette("model-options-and-functionality")` described `Sel_norm_bin` and
+  `Sel_norm_scope` as though they decided whether males and females could be
+  selected at different levels, and its `"Max"` / `"AcrossSexes"` row promised
+  that "one sex peaks at 1, the other keeps its relative level". Normalization
+  only *preserves* a ratio the form already has -- `"AcrossSexes"` divides both
+  sexes by one pooled scalar -- so on a logistic both sexes measure 1.00 and the
+  promise is empty.
+
+  The section now says which forms can carry a level difference and which
+  cannot, with the ratios measured on `GOAatf`: `Logistic` 1.00,
+  `DoubleLogistic` 1.97, `2DAR1` 4.53. Going non-parametric does not help
+  either, which is the counter-intuitive part: those forms re-centre each sex to
+  a mean of one every year, so the ratio is a by-product of shape rather than
+  something the data inform. `inst/dev/Two sex nonparametric selectivity
+  example.R` fits the comparison and is now tracked.
+
 ## Bug fixes
 
 * **A per-sex selectivity linkage no longer fixes the other sex too.** When a

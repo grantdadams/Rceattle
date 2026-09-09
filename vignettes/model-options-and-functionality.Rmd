@@ -274,7 +274,7 @@ two columns:
 | `Sel_norm_bin` | `Sel_norm_scope` | Result |
 |---|---|---|
 | `"Off"` | — | nothing normalized; the relative scale is free |
-| `"Max"` | `"AcrossSexes"` | maximum over bins **and sexes** — one sex peaks at 1, the other keeps its relative level |
+| `"Max"` | `"AcrossSexes"` | maximum over bins **and sexes** — one sex peaks at 1, the other keeps whatever relative level its form gives it |
 | `"Max"` | `"WithinSex"` | each sex scaled at **its own plateau**, wherever that falls |
 | a bin | `"AcrossSexes"` | anchored at that bin, sexes kept comparable |
 | a bin | `"WithinSex"` | both sexes forced to 1 at that bin; only the shape differs |
@@ -291,6 +291,30 @@ Note that `Sel_norm_scope` has no effect on a one-sex species, or where
 `"WithinSex"` and max-normalization always implied `"AcrossSexes"`; a two-sex
 fleet normalizing at a named bin should set `Sel_norm_scope = "WithinSex"`
 explicitly to keep its old behaviour.
+
+#### Which forms can carry a sex difference in level
+
+Normalization *preserves* a level ratio; it cannot create one. `"AcrossSexes"`
+divides both sexes by one pooled scalar, so whether the sexes can reach
+different levels at all is a property of the **form**, not of these two columns:
+
+| Form | Sex difference in level |
+|---|---|
+| `Logistic`, `DescendingLogistic`, `LogisticPM` | **none** — the curve tends to 1 for either sex, whatever its parameters |
+| `NonParametric`, `NonParametricPM` | **none** — each sex is re-centred so its own mean selectivity-at-age is exactly 1, every year |
+| `Hake` | **none** — normalizes within sex by its own maximum, and ignores `Sel_norm_scope` |
+| `DoubleNormal` | **old-age plateau only** — the right-tail floor is sex-specific, but both sexes peak at exactly 1 |
+| `DoubleLogistic`, `2DAR1`, `3DAR1` | **free** — the height is a free function of that sex's own parameters |
+
+Measured on `GOAatf`'s two-sex fishery, as the ratio of male to female maximum
+selectivity: `Logistic` 1.00, `DoubleLogistic` 1.97, `2DAR1` 4.53. The same
+`DoubleLogistic` fit under `"WithinSex"` returns to 1.00, which is the column
+doing its job — not the form losing the difference.
+
+Going non-parametric does **not** open this up: those forms pin each sex's mean
+to 1, so a level ratio is a by-product of shape rather than something the data
+can inform. `inst/dev/Two sex nonparametric selectivity example.R` fits the
+comparison.
 
 Two things constrain what is actually estimable:
 
