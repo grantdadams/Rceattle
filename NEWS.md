@@ -50,6 +50,25 @@ version throughout.
 
 ## Bug fixes
 
+* **A per-sex selectivity linkage no longer fixes the other sex too.** When a
+  linkage supplies the base level -- a fixed intercept (`est_phase = 0`), or a
+  slope-only formula -- `build_map()` masks the base parameter it replaces. The
+  selectivity branch masked it across **every** sex of the fleet, so a linkage
+  stratified on one sex (`by = ~ fleet + sex, sex = 2`) also fixed the other
+  sex's inflection or slope at its starting value. That is exactly the sex a
+  Stock Synthesis-style offset parameterization needs left estimated: the
+  reference the offset is measured from. The `M` and growth branches beside it
+  always honoured the row's own sex; selectivity was the outlier and now
+  matches them.
+
+  A linkage with no sex stratum -- `by = ~ fleet`, the default -- still masks
+  both sexes, because the offset then applies to the whole fleet. Only a
+  *selectivity* linkage naming a single sex changes, and nothing in the package
+  or the reference fits does that: the golden models' only linkages are on
+  composition, which this branch never touches.
+  `test-linkage-selectivity-per-sex.R` covers both cases, which nothing did
+  before.
+
 * **An `env_data` year outside the model years is dropped on the linkage path,
   rather than refusing the fit.** Rows are matched to model years by position
   (row `r` is model year `styr + r - 1`), so a row before `styr` shifts every

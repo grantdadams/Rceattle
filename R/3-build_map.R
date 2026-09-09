@@ -1845,17 +1845,21 @@ map_linkage_adjuster <- function(map_list, data_list) {
         map_list$index_log_q[idx$fleet] <- NA
       },
       sel = {
-        # Selectivity is indexed by (slot, fleet, sex). A slope-only formula
-        # masks the base slot across all sexes of the linked fleet; the coff
-        # form masks every bin.
+        # sel_inf / log_sel_slp are [slot, fleet, sex]; sel_coff is [fleet, sex,
+        # bin]. Mask only the sex the row is stratified on, as the M and growth
+        # branches do -- fixing both would also fix the reference sex an offset
+        # is measured from. A row with no sex stratum still masks them all.
         m <- .SEL_PARAM_TO_SLOT[[row$param]]
         if (!is.null(m)) {
+          sx <- function(arr, d)
+            if (is.na(row$sex)) seq_len(dim(arr)[d]) else as.integer(row$sex)
           if (m$arr == "log_sel_slp") {
-            map_list$log_sel_slp[m$slot, idx$fleet, ] <- NA
+            map_list$log_sel_slp[m$slot, idx$fleet,
+                                 sx(map_list$log_sel_slp, 3L)] <- NA
           } else if (m$arr == "sel_inf") {
-            map_list$sel_inf[m$slot, idx$fleet, ] <- NA
+            map_list$sel_inf[m$slot, idx$fleet, sx(map_list$sel_inf, 3L)] <- NA
           } else if (m$arr == "sel_coff") {
-            map_list$sel_coff[idx$fleet, , ] <- NA
+            map_list$sel_coff[idx$fleet, sx(map_list$sel_coff, 2L), ] <- NA
           }
         }
       }
