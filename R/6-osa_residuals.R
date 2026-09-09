@@ -555,7 +555,8 @@ osa_residuals <- function(object = NULL,
     # data-sheet style (Fleet_code, Year, Observed, ...); this data frame names
     # them in the style of the object it is attached to. Carrying both
     # conventions on one object means a reader has to know which half they are
-    # holding, so rename to match here.
+    # holding, so rename to match here. `Sd` becomes `assumed_sd`, not `sd`:
+    # the OSA frame's `sd` is the conditional sd of the OSA residual.
     if (!is.null(pear)) {
       nm <- c(Source = "source", Fleet_code = "fleet", Fleet_name = "fleet_name",
               Species = "species", Sex = "sex", Year = "year",
@@ -563,7 +564,7 @@ osa_residuals <- function(object = NULL,
               Length = "length", Sample_size = "sample_size",
               Accumulated = "accumulated",
               Observed = "observed", Fitted = "predicted",
-              Residual = "residual")
+              Residual = "residual", Sd = "assumed_sd")
       hit <- names(pear) %in% names(nm)
       names(pear)[hit] <- unname(nm[names(pear)[hit]])
 
@@ -690,25 +691,29 @@ osa_residuals <- function(object = NULL,
 #' Under a correctly specified model OSA residuals are already iid standard
 #' normal, so the SDNR is simply their sample standard deviation. Its null
 #' interval follows the chi-square result for the sample standard deviation of
-#' `n` standard normals (Francis 2014); the tail-statistic null intervals are
-#' obtained by simulation.
+#' `n` standard normals (Francis 2014). Each tail statistic is the `r`-th
+#' order statistic of the residuals, `r = round(p * (n + 1))`, and its null
+#' interval is exact: the `r`-th order statistic of `n` uniforms is
+#' `Beta(r, n - r + 1)`. Nothing is simulated.
 #'
 #' @param osa An `rceattle_osa` object from [osa_residuals()], or a data frame
 #'   with `residual` and (optionally) `type`/`fleet` columns.
-#' @param nsim Number of simulations for the tail-statistic null intervals.
-#'   Default 10000.
+#' @param nsim Ignored from 5.29.0, when the tail null intervals became exact;
+#'   retained so existing calls keep working, and warns when supplied.
 #' @param probs Lower/upper tail probabilities. Default `c(0.025, 0.975)`.
-#' @param seed Seed for the tail-interval simulation (reproducibility).
-#'   Default 123.
+#' @param seed Ignored from 5.29.0, as `nsim` is; the residuals themselves are
+#'   randomized-quantile, so seed [osa_residuals()] instead.
 #'
 #' @return A data frame (class `"rceattle_osa_diagnostics"`, so it prints as a
 #'   compact severity-tagged summary; every column is still there and `$` works
 #'   as before) with one row per data source plus an `"all"` row, with columns:
 #'   `group` (the `"<source> fleet <n>"` label), `source`, `fleet`, `n`, `sdnr`,
 #'   `sdnr_lo`, `sdnr_hi`, `lower`, `lower_lo`, `lower_hi`, `upper`, `upper_lo`,
-#'   `upper_hi`, and the logical flags `sdnr_ok`, `lower_ok`, `upper_ok` (TRUE
-#'   when the statistic is inside its null interval). On the `"all"` row
-#'   `source` and `fleet` are `NA`.
+#'   `upper_hi`, the order statistic each tail was read at (`lower_r`, `upper_r`)
+#'   and its exact nominal probability `r / (n + 1)` (`lower_p`, `upper_p`,
+#'   which differ from `probs` at small `n`), and the logical flags `sdnr_ok`,
+#'   `lower_ok`, `upper_ok` (TRUE when the statistic is inside its null
+#'   interval). On the `"all"` row `source` and `fleet` are `NA`.
 #'
 #' @references
 #' Francis, R.I.C.C. 2014. Replacing the multinomial in stock assessment models:
@@ -761,7 +766,7 @@ osa_diagnostics <- function(osa, nsim = 10000, probs = c(0.025, 0.975),
                                stringsAsFactors = FALSE))
   rownames(out) <- NULL
   # Still a data frame -- every column and `$` access is unchanged. The class
-  # only adds a print method, so the sixteen columns stop wrapping across three
+  # only adds a print method, so the twenty columns stop wrapping across three
   # screen-widths with no verdict; see print.rceattle_osa_diagnostics().
   class(out) <- c("rceattle_osa_diagnostics", "data.frame")
   out

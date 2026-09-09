@@ -788,8 +788,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   res <- sdv <- rep(NA_real_, length(obs))
   dm  <- !is.na(family) & family == 1L
 
-  if (any(!dm)) {
-    i <- !dm
+  # Comp_weights = 0 multiplies a multinomial fleet's log-likelihood by zero, so
+  # it is not fit and has no effective sample size: NA, not a residual of 0.
+  i <- which(!dm & is.finite(weight) & weight > 0 & n_row > 0)
+  if (length(i)) {
     sdv[i] <- sqrt(p_hat[i] * (1 - p_hat[i]) / (weight[i] * n_row[i]))
   }
   if (any(dm)) {
@@ -826,9 +828,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   d   <- object$data_list
   off <- .rce_comp_offset(d)
 
-  # Rows of one stomach are contiguous and share a stomach_id; fall back to the
-  # predator/year/age key when an older data_list carries no id.
-  sid <- d$stomach_id
+  # Each stomach is scored separately, on a contiguous run of stomach_id
+  # (ceattle.cpp, section 13.2). Without that column the predator/sex/age/year
+  # key is one stomach per group, which is every bundled dataset.
+  sid <- dd$stomach_id
   if (is.null(sid) || length(sid) != nrow(dd)) {
     sid <- paste(dd$Pred, dd$Pred_sex, dd$Pred_age, dd$Year)
   }

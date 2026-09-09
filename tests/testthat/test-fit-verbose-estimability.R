@@ -22,8 +22,17 @@ fake_estimability <- function(obj) {
 run_and_capture <- function(verbose) {
   so <- textConnection("so_out", "w", local = TRUE)
   sink(so)
+  # Pop exactly once, whether the fit returns or throws; a second sink() would
+  # remove the reporter's own sink under test_file().
+  sunk <- TRUE
+  unsink <- function() {
+    if (sunk) {
+      suppressWarnings(try(sink(), silent = TRUE))
+      sunk <<- FALSE
+    }
+  }
   on.exit({
-    suppressWarnings(try(sink(), silent = TRUE))
+    unsink()
     close(so)
   }, add = TRUE)
 
@@ -44,7 +53,7 @@ run_and_capture <- function(verbose) {
       invokeRestart("muffleMessage")
     })
 
-  suppressWarnings(try(sink(), silent = TRUE))
+  unsink()
   list(fit = fit, stdout = so_out, stderr = msgs)
 }
 

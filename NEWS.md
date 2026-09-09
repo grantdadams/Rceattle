@@ -83,6 +83,22 @@ version throughout.
   without which `qbeta(p, n + 1, 0)` returns 1 and `qnorm()` returns `Inf`,
   making the upper tail check pass for every series with `n <= 19`.
 
+* **A composition fleet switched off returns no Pearson residual, rather than
+  zero.** `Comp_weights = 0` multiplies a multinomial fleet's log-likelihood by
+  zero, so the fleet is not fit and has no effective sample size. The residual
+  divided by it anyway, giving `sd = Inf` and a residual of exactly `0` in every
+  bin -- `plot_comp()` drew a fleet the model never saw as a perfect fit. Those
+  rows are now `NA`. A Dirichlet-multinomial reads the same column as a log, so
+  `0` there is a weight of 1 and is unaffected.
+
+* **Diet Pearson residuals group by `stomach_id` where the data carry it.** The
+  grouping was read off `fit$data_list`, which is the pre-`rearrange_data()`
+  list and never holds that element, so the predator/sex/age/year fallback ran
+  even when the table had an id. Where a dataset holds more than one stomach per
+  predator-age-year, that pooled them into one normalizing total; the C++ scores
+  each stomach separately (section 13.2). No bundled dataset carries the column,
+  so nothing in the package changes.
+
 ## Deprecated
 
 * **`osa_diagnostics(nsim=, seed=)` are ignored** and warn when supplied. The
@@ -160,6 +176,11 @@ version throughout.
   proportion, i.e. the denominator the residual was divided by. `NA` on index
   and catch. The aggregated composition band reads it, so the band and the
   residuals cannot disagree about the assumed variance.
+
+  On the copy carried as `attr(osa_residuals(), "pearson")`, which renames every
+  column into that object's style, it is `assumed_sd` -- not `sd`, which on the
+  OSA frame beside it is the conditional standard deviation of the OSA residual,
+  a different quantity.
 
 # Rceattle 5.28.1
 

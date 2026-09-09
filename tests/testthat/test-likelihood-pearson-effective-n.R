@@ -122,6 +122,24 @@ test_that("an unweighted multinomial with no offset reproduces the old residual"
 })
 
 
+test_that("a multinomial fleet switched off has no Pearson residual", {
+  # Comp_weights = 0 drops a multinomial fleet from the likelihood, so it has no
+  # effective sample size. Dividing anyway gave sd = Inf and a residual of 0 in
+  # every bin, which plot_comp() drew as a perfect fit.
+  K <- 6L; N <- 90
+  p   <- c(0.1, 0.2, 0.3, 0.2, 0.15, 0.05)
+  obs <- stats::rmultinom(1, N, p)[, 1] / N
+
+  r <- .rce_comp_pearson(obs, p, N, rep(1L, K), rep(0L, K), rep(0, K), 0)
+  expect_true(all(is.na(as.numeric(r))))
+  expect_true(all(is.na(attr(r, "sd"))))
+
+  # A Dirichlet-multinomial reads that column as a log, so 0 is a weight of 1.
+  dm <- .rce_comp_pearson(obs, p, N, rep(1L, K), rep(1L, K), rep(0, K), 0)
+  expect_true(all(is.finite(as.numeric(dm))))
+})
+
+
 test_that("the composition offset is carried onto the likelihood's own scale", {
   # comp_offset (default 1e-5) is added to both proportions before the density,
   # so the fitted proportions no longer sum to one. The residual is taken on the
