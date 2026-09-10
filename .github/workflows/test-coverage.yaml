@@ -87,6 +87,10 @@ jobs:
 
       - name: Install system dependencies for TMB (Linux)
         run: |
+          # See R-CMD-check.yaml: an unused third-party apt repo serving a bad
+          # index makes apt-get exit 100 and fails this step.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list \
+                     /etc/apt/sources.list.d/microsoft-prod.list
           sudo apt-get update
           sudo apt-get install -y \
             libgsl-dev \

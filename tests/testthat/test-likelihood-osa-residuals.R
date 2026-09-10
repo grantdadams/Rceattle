@@ -351,6 +351,35 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
 })
 
 
+# Reference diet Pearson residual, written out on the scale the stomach-content
+# likelihood works in (ceattle.cpp:4815-4860): each stomach carries an "other
+# prey" balance that enters the density but not the residual frame, observed and
+# fitted are each normalized by their own offset-inflated total over prey + other,
+# and the counts are formed AFTER that normalization, so the total is N_s.
+# Before v5.29.0 the residual divided by the raw multinomial variance at N_s,
+# ignoring all of this and the Diet_comp_weights effective sample size.
+#
+# This checks residuals()' wiring -- grouping, normalization, family lookup --
+# not the variance itself, which is checked against simulation in
+# test-likelihood-pearson-effective-n.R.
+diet_pearson_ref <- function(dd, hat, off = 1e-5, family = 0L, weight = 1) {
+  sid    <- paste(dd$Pred, dd$Pred_sex, dd$Pred_age, dd$Year)
+  obs    <- dd$Stomach_proportion_by_weight
+  nbin   <- as.numeric(stats::ave(rep(1, length(obs)), sid, FUN = sum)) + 1
+  sum_o  <- as.numeric(stats::ave(obs, sid, FUN = sum))
+  sum_h  <- as.numeric(stats::ave(hat, sid, FUN = sum))
+  S_o    <- sum_o + (1 - pmin(sum_o, 1)) + off * nbin
+  S_h    <- sum_h + pmax(1 - sum_h, 1e-5) + off * nbin
+  p_o    <- (obs + off) / S_o
+  p_h    <- (hat + off) / S_h
+  n      <- as.numeric(dd$Sample_size)
+  fam    <- rep_len(family, length(obs)); w <- rep_len(weight, length(obs))
+  ifelse(fam == 1L,
+         (p_o - p_h) / sqrt(p_h * (1 - p_h) * (n + n * exp(w)) / (n * (1 + n * exp(w)))),
+         (p_o - p_h) / sqrt(p_h * (1 - p_h) / (w * n)))
+}
+
+
 testthat::test_that("residuals(source = 'diet') computes diet Pearson residuals", {
   testthat::skip_if_not_installed("Rceattle")
 
@@ -370,8 +399,9 @@ testthat::test_that("residuals(source = 'diet') computes diet Pearson residuals"
   testthat::expect_true(all(c("Pred_sex", "Prey", "Prey_sex", "Pred_age", "Prey_age",
                               "Observed", "Fitted", "Residual") %in% names(r)))
   hat <- fit$quantities$diet_hat[, 2]
-  testthat::expect_equal(r$Residual, (dd$Stomach_proportion_by_weight - hat) /
-                           sqrt(hat * (1 - hat) / dd$Sample_size))
+  # No Diet_distribution and no fitted weights on this stand-in, so the family
+  # falls back to the schema default, the multinomial, at weight 1.
+  testthat::expect_equal(r$Residual, diet_pearson_ref(dd, hat))
   testthat::expect_equal(residuals(fit, type = "response", source = "diet")$Residual,
                          dd$Stomach_proportion_by_weight - hat)
   # diet uses a predator/prey schema, so it must be requested on its own.
@@ -379,6 +409,54 @@ testthat::test_that("residuals(source = 'diet') computes diet Pearson residuals"
   # species filter acts on the predator species.
   testthat::expect_setequal(unique(residuals(fit, source = "diet", species = 1)$Species),
                             1L)
+})
+
+
+testthat::test_that("a Dirichlet-multinomial predator gets the DM variance", {
+  # Regression: the family was read off `bioenergetics_control`, a workbook
+  # sheet that is never an element of a data_list, so every predator scored as a
+  # multinomial and `Diet_comp_weights` -- a LOG under a DM -- was used as a
+  # natural-scale multiplier on the sample size. Both defects are silent: the
+  # residuals come back finite and plausible, just standardized by the wrong
+  # variance.
+  dd <- data.frame(Pred = c(1L, 1L, 2L), Pred_sex = 0L, Prey = c(1L, 2L, 1L),
+                   Prey_sex = 0L, Pred_age = c(3L, 3L, 4L), Prey_age = c(1L, 2L, 1L),
+                   Year = c(2000L, 2000L, 2001L),
+                   Stomach_proportion_by_weight = c(0.6, 0.3, 0.5),
+                   Sample_size = c(50, 50, 40))
+  hat <- c(0.55, 0.35, 0.45)
+  # Predator 1 is Dirichlet-multinomial, predator 2 multinomial, so one call
+  # covers the branch and its neighbour.
+  mk <- function(dist, wt) structure(list(
+    data_list = list(diet_data = dd, spnames = c("A", "B"), comp_offset = 1e-5,
+                     Diet_distribution = dist, Diet_comp_weights = wt),
+    quantities = list(diet_hat = cbind(NA_real_, hat))), class = "Rceattle")
+
+  # A positive log weight, so the multinomial reading of it is still a valid
+  # variance -- the contrast below then comes from the family, not from a
+  # negative effective sample size turning the comparison into NaN against NaN.
+  # theta = 20 rather than 2: at 2 the DM's effective N (34.0) and the
+  # multinomial misreading (34.7) very nearly collide, so the contrast would
+  # rest on all.equal()'s default tolerance instead of on the families differing.
+  lw  <- log(20)
+  fit <- mk(c(1L, 0L), c(lw, 1))
+  r   <- residuals(fit, type = "pearson", source = "diet")$Residual
+  testthat::expect_equal(
+    r, diet_pearson_ref(dd, hat, family = c(1L, 1L, 0L),
+                        weight = c(lw, lw, 1)))
+  testthat::expect_true(all(is.finite(r)))
+
+  # The DM rows must differ from what the multinomial fallback would have given;
+  # equality there is the bug returning, not a coincidence.
+  mn <- residuals(mk(c(0L, 0L), c(lw, 1)), type = "pearson",
+                  source = "diet")$Residual
+  testthat::expect_true(all(is.finite(mn)))
+  # A real separation, not one resting on all.equal()'s tolerance. At theta = 20
+  # the DM assumes an effective N of 47.7 (= n(1+A)/(n+A), A = n*theta = 1000)
+  # where the misreading assumes log(20) * 50 = 149.8. A residual scales with
+  # the square root of that, so the two differ by sqrt(149.8/47.7) = 1.77x.
+  testthat::expect_gt(min(abs(mn[1:2] / r[1:2])), 1.7)
+  testthat::expect_equal(r[3], mn[3])
 })
 
 
@@ -405,13 +483,23 @@ testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet mode
   r <- residuals(fit, type = "pearson", source = "diet")
   testthat::expect_setequal(unique(r$Source), "diet")
   testthat::expect_equal(nrow(r), nrow(fit$data_list$diet_data))
-  # The diet Pearson matches the proportion formula (finite rows).
+  # The diet Pearson matches the likelihood's own construction (finite rows).
   dd  <- fit$data_list$diet_data
   hat <- fit$quantities$diet_hat[, 2]
+  # Read off the data_list itself. `bioenergetics_control` is a workbook sheet
+  # name, not a data_list element, so reading the switch off one resolves to
+  # NULL and scores every predator as a multinomial. Keeping this reference on
+  # the real field is what stops it agreeing with that defect in residuals().
+  fam <- fit$data_list$Diet_distribution
+  testthat::expect_false(is.null(fam))
+  fam <- as.integer(fam)[dd$Pred]
+  w   <- fit$estimated_params$diet_comp_weights
+  w   <- if (is.null(w)) 1 else as.numeric(w)[dd$Pred]
   fin <- is.finite(r$Residual)
-  testthat::expect_equal(r$Residual[fin],
-    ((dd$Stomach_proportion_by_weight - hat) /
-       sqrt(hat * (1 - hat) / dd$Sample_size))[fin])
+  testthat::expect_equal(
+    r$Residual[fin],
+    diet_pearson_ref(dd, hat, off = fit$data_list$comp_offset,
+                     family = fam, weight = w)[fin])
 
   # plot_diet_comp() now sources its residuals from residuals(source = "diet").
   if (requireNamespace("ggplot2", quietly = TRUE)) {
@@ -697,9 +785,12 @@ testthat::test_that("CAAL residuals label both frames as age bins", {
   testthat::expect_identical(unique(pear$index_label), "age")
 
   # The two frames differ only where the residual definitions differ: OSA has a
-  # conditional sd, Pearson the sample size it standardised by.
+  # conditional `sd`, Pearson the sample size and the `assumed_sd` its own
+  # likelihood assumes. The two sd columns are different quantities, so they
+  # keep separate names rather than one being renamed onto the other.
   testthat::expect_identical(setdiff(names(osa), names(pear)), "sd")
-  testthat::expect_identical(setdiff(names(pear), names(osa)), "sample_size")
+  testthat::expect_setequal(setdiff(names(pear), names(osa)),
+                            c("sample_size", "assumed_sd"))
 
   # One age per length group is fixed by sum-to-N, so OSA is that much shorter.
   n_len <- length(unique(pear$length))

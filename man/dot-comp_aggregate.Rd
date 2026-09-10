@@ -2,19 +2,35 @@
 % Please edit documentation in R/7-plot_comp.R
 \name{.comp_aggregate}
 \alias{.comp_aggregate}
-\title{Aggregate composition proportions across hindcast years}
+\title{Pool composition counts across the fitted hindcast years}
 \usage{
-.comp_aggregate(d)
+.comp_aggregate(d, endyr = NULL)
 }
 \arguments{
 \item{d}{One panel's rows from \code{\link[=.comp_resid_long]{.comp_resid_long()}}.}
+
+\item{endyr}{Last year the composition likelihood fits, or \code{NULL} to keep
+every hindcast row. Default \code{NULL}.}
 }
 \value{
-A data frame with \code{bin}, \code{sex_grp}, \code{obs}, \code{hat}, \code{y_obs}, \code{y_hat}.
+A data frame with \code{bin}, \code{sex_grp}, the pooled \code{obs} / \code{hat}
+proportions and their counts \code{o_n} / \code{e_n}, the pooled count variance
+\code{v_n}, the 95\% prediction limits \code{lwr} / \code{upr}, the summed input and
+assumed effective sample sizes \code{ISS} / \code{ESS}, and the sex-mirrored drawing
+columns \code{y_obs}, \code{y_hat}, \code{y_lwr}, \code{y_upr}.
 }
 \description{
-Sums observed and fitted proportions over years (for one fleet x type panel)
-and renormalizes to the mean composition; joint-sex groups keep their shared
-normalization (females + males sum to 1).
+Multiplies each year's proportions by its input sample size, sums the counts
+over years (for one fleet x type panel), and puts the total back on the
+proportion scale; joint-sex groups keep their shared normalization (females +
+males sum to 1). Pooling counts rather than averaging proportions is what
+stops a year with 20 otoliths carrying the weight of one with 2000.
+}
+\details{
+The pooled count is a sum of independent draws, so its variance is the exact
+sum of the per-year variances the fleet's own likelihood assumes (the \code{Sd}
+column). The resulting interval treats the fitted proportions as known, so it
+is slightly narrower than one that carried the estimation uncertainty in
+\code{p_hat} as well.
 }
 \keyword{internal}

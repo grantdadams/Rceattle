@@ -15,6 +15,14 @@
 # is verified to draw the *correct numbers*, not merely to render.
 # =============================================================================
 
+# Largest |residual| the bubble figures draw at full size. Every residual-bubble
+# panel is pinned to [0, this] so a well-fitting fleet and a badly-fitting one
+# cannot be made to look alike by a free scale, and so the OSA and Pearson
+# panels drawn from the same fit stay comparable. Beyond it the bubble stops
+# growing (.rce_truncate_resid) -- a standard normal residual past 6 is already
+# far outside anything a size scale can usefully distinguish.
+.RCE_BUBBLE_MAX <- 6
+
 #' Coerce the `Rceattle` plotting argument to a list of fits
 #'
 #' Accepts a single `Rceattle` fit, a list of fits (multi-model overlay), or an
@@ -1097,4 +1105,35 @@ NULL
     return(b[c("lower", "upper")])
   }
   NULL
+}
+
+
+#' Truncate residuals onto the fixed bubble-size scale
+#'
+#' `plot_comp()` and [.osa_bubble_plot()] both draw residual bubbles on a fixed
+#' `[0, .RCE_BUBBLE_MAX]` size scale so two figures compare by eye. Truncation
+#' has to happen here rather than being left to the scale's `limits`, because
+#' `scale_size_continuous()` sets an out-of-bounds value to `NA` and drops the
+#' point silently -- the largest residuals on the panel would be the ones that
+#' vanished.
+#'
+#' The warning names the count and the largest magnitude rather than every
+#' offending value: an upweighted fleet's residuals scale by `sqrt(w)`, so this
+#' can fire on hundreds of points at once.
+#'
+#' @param x Residuals, signed.
+#' @param what Figure name, to open the warning.
+#' @return `x` with magnitudes above the cap pulled back to it, sign kept.
+#' @keywords internal
+#' @noRd
+.rce_truncate_resid <- function(x, what) {
+  big <- which(abs(x) > .RCE_BUBBLE_MAX)
+  if (length(big)) {
+    warning(what, ": ", length(big), " residual(s) beyond +/-", .RCE_BUBBLE_MAX,
+            " truncated for plotting (largest |residual| ",
+            sprintf("%.2f", max(abs(x[big]))), "). The bubble area understates ",
+            "the misfit at those points.", call. = FALSE)
+    x[big] <- .RCE_BUBBLE_MAX * sign(x[big])
+  }
+  x
 }

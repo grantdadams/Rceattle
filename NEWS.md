@@ -12,6 +12,218 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.29.0
+
+## Bug fixes
+
+* **Composition Pearson residuals divide by the effective sample size the
+  likelihood used, not the raw input N.** `residuals(type = "pearson")` always
+  used the multinomial variance at `Sample_size`, for every composition source.
+  The likelihood does not. Under a multinomial (and the `MultinomialAFSC`
+  default) the weight column multiplies the log-likelihood, so it *is* an
+  effective sample size -- the model's own simulator draws at
+  `n_nom * comp_weights(flt)` (`ceattle.cpp:3758`). The reported residual was
+  therefore `1/sqrt(w)` times the right one: too small on an upweighted fleet,
+  too large on a downweighted one, and `reweight_comps()` routinely tunes either
+  way. Under a Dirichlet-multinomial the proportions are additionally
+  overdispersed by `(n + conc)/(1 + conc)`, so a DM fleet's residuals were
+  inflated and read as systematic misfit that was not there.
+
+  Age/length composition, conditional age-at-length and diet are each rebuilt on
+  their own likelihood's scale, because all three differ: comp and CAAL form
+  their Dirichlet-multinomial concentration on the offset-inflated total, while
+  diet renormalizes over the prey bins **plus** its "other prey" balance before
+  scaling by the stomach sample size. The composition proportion offset
+  (`comp_offset`, default 1e-5) is carried onto that scale too, which moves the
+  smallest bins by ~1e-4 relative even at weight 1.
+
+  Each of the three reads its family and weight from the `data_list` element
+  that actually holds them: `fleet_control$Comp_distribution` /
+  `CAAL_distribution` for the two composition sources, and the per-species
+  `Diet_distribution` for diet. `bioenergetics_control` is a workbook sheet
+  name rather than a `data_list` element, and a diet lookup routed through one
+  resolves to `NULL`, silently scoring every predator as a multinomial and then
+  reading `Diet_comp_weights` -- a **log** under a Dirichlet-multinomial -- as a
+  natural-scale multiplier on the stomach sample size. Where a
+  Dirichlet-multinomial weight genuinely cannot be recovered, the row falls back
+  to the multinomial variance and says so; it is not left on the
+  Dirichlet-multinomial with a substituted concentration, which would inflate
+  the variance by a factor that looks deliberate and is not.
+
+  Each switch is also read through its deprecated spellings (`Comp_loglike`,
+  `CAAL_loglike`, `Diet_loglike`). `switch_check()` upgrades those in place when
+  a model is built, but a fit **saved** before a rename still carries the old
+  name, and `residuals()` runs on the saved object -- so without the fallback an
+  old fit would quietly resolve to the schema default rather than to the family
+  it was actually fitted under.
+
+  This moves Pearson residuals on essentially every fit. It does not move any
+  likelihood, parameter estimate or reference point -- `residuals()`,
+  `plot_comp()` and the Pearson panel of `plot.rceattle_osa()` are the only
+  outputs affected. Index and catch residuals are untouched (they have no
+  composition family), and `report_tables()` reads only those.
+  `test-likelihood-pearson-effective-n.R` checks the variance by simulation --
+  data drawn under the family the likelihood assumes must return residuals with
+  `sd = 1` -- rather than by restating the formula.
+
+* **The OSA tail statistics and their null intervals now come from one
+  estimator.** `osa_diagnostics()` reported `quantile()`'s type-7 interpolated
+  tail against a *simulated* null. Both sides are now the `r`-th order
+  statistic, whose exact distribution is `Beta(r, n - r + 1)` on the probability
+  scale, so the interval is closed-form and covers at its nominal rate (measured
+  0.94-0.96 for n = 10 to 200). Mixing the two -- an interpolated statistic
+  against a closed-form order-statistic null -- drops coverage to about 0.86
+  near n = 50, non-monotonically in n; `test-diagnostics-osa-tail-nulls.R` pins
+  the coverage so that pairing cannot come back.
+
+  The reported tail is now genuinely the `r`-th order statistic rather than "the
+  2.5% quantile", so `osa_diagnostics()` gains `lower_r` / `upper_r` and
+  `lower_p` / `upper_p` naming which order statistic was used and the nominal
+  probability it sits at. Short series are handled: `r` is clamped to `[1, n]`,
+  without which `qbeta(p, n + 1, 0)` returns 1 and `qnorm()` returns `Inf`,
+  making the upper tail check pass for every series with `n <= 19`.
+
+* **A composition fleet switched off returns no Pearson residual, rather than
+  zero.** `Comp_weights = 0` multiplies a multinomial fleet's log-likelihood by
+  zero, so the fleet is not fit and has no effective sample size. The residual
+  divided by it anyway, giving `sd = Inf` and a residual of exactly `0` in every
+  bin -- `plot_comp()` drew a fleet the model never saw as a perfect fit. Those
+  rows are now `NA`. A Dirichlet-multinomial reads the same column as a log, so
+  `0` there is a weight of 1 and is unaffected.
+
+* **Diet Pearson residuals group by `stomach_id` where the data carry it.** The
+  grouping was read off `fit$data_list`, which is the pre-`rearrange_data()`
+  list and never holds that element, so the predator/sex/age/year fallback ran
+  even when the table had an id. Where a dataset holds more than one stomach per
+  predator-age-year, that pooled them into one normalizing total; the C++ scores
+  each stomach separately (section 13.2). No bundled dataset carries the column,
+  so nothing in the package changes.
+
+## Deprecated
+
+* **`osa_diagnostics(nsim=, seed=)` are ignored** and warn when supplied. The
+  tail null intervals are exact, so nothing in that function simulates. Note
+  the OSA residuals themselves remain randomized-quantile residuals: pass a seed
+  to `osa_residuals()` to control those.
+
+## Plotting
+
+* **OSA and Pearson residual bubbles are drawn on a fixed `[0, 6]` size scale**
+  in both `plot.rceattle_osa()` and `plot_comp()`, so two figures can be
+  compared by eye -- a free scale made a well-fitting fleet and a badly-fitting
+  one look alike, and the two figures scaled the same residuals differently.
+  Residuals beyond 6 are truncated with a warning naming their count and largest
+  magnitude; the truncation precedes the limit because `scale_size_continuous()`
+  sets out-of-bounds values to `NA` and drops them silently, which would hide
+  the very points worth looking at. The warning does not list every offending
+  value: dividing by the effective sample size scales residuals by `sqrt(w)`, so
+  an upweighted fleet can put thousands of them past the cap at once. Bin axes
+  take whole-number breaks while there are fewer than 20 bins.
+
+* **The OSA Q-Q panels annotate the tail statistics** and their exact null
+  intervals in the lower right, alongside SDNR in the upper left, following
+  `afscOSA`. `plot.rceattle_osa()` gains `add_sdnr_ci` and `add_qq_quantiles`
+  (both `TRUE`) to suppress either annotation.
+
+* **`plot_comp()`'s aggregated composition pools counts across years** rather
+  than averaging proportions, so a year with 20 otoliths no longer carries the
+  same weight as one with 2000, and gains a 95% interval and the input /
+  effective sample sizes (`add_agg_ci`, `add_agg_n`, both `TRUE`). The interval
+  is the range holding 95% of the data the fitted model predicts, not a
+  confidence interval on the mean, so observations outside it indicate misfit.
+  Its variance is the exact sum of the per-year variances under each fleet's own
+  likelihood -- the same variances the Pearson residuals are divided by -- with
+  a normal approximation for the interval itself, which is poor below about 10
+  expected counts. It also treats the fitted proportions as known, so it is
+  slightly narrower than one carrying the estimation uncertainty in `p_hat`.
+  Rows past `endyr` are excluded, matching the C++ likelihood's own gate, so a
+  projection row no longer inflates the input sample size.
+
+  The annotation names **two** effective sample sizes rather than one, because
+  they answer different questions and the gap between them is the reweighting
+  decision. `ESS (likelihood)` is what the model assumed, recovered from the
+  same per-year variances the band is built on -- `sd^2 = p(1-p)/N_eff` holds
+  for every family, so it needs no family branching and covers a
+  Dirichlet-multinomial's overdispersion as readily as a multinomial weight.
+  `ESS (McAllister-Ianelli)` is the tuning target this fit's own residuals
+  imply, the harmonic mean across years `fit_mod()` already computes, which is
+  the unbiased scale to average a ratio estimator on (averaging `Neff` directly
+  runs about 50% high). Labelling either one "ESS" alone invited it to be read
+  as the other. The McAllister-Ianelli line is drawn on multinomial fleets only:
+  `reweight_comps()` names and skips a Dirichlet-multinomial fleet, because it
+  estimates its own weight inside the likelihood, so printing an external tuning
+  target beside one would invite the adjustment the package refuses to make.
+
+  The effective sample size belongs to the observation, so it is summed over
+  `(fleet, species, sex, year)` -- `data_check()`'s own uniqueness key -- not
+  over years. A fleet may record a female-only and a male-only row in the same
+  year, which are two observations; pooling them would report half the effective
+  sample size beside an `ISS` that correctly counted both, reading as a fleet
+  downweighted by half. Joint-sex rows (`Sex = 3`) remain one observation,
+  because one multinomial spans both sexes.
+
+  `afscOSA`'s constructions were deliberately **not** ported here. Its band is a
+  binomial at the pooled sample size, and its aggregate effective sample size a
+  single ratio taken from the pooled composition; measured against the installed
+  package on data simulated with no misspecification, that ESS returns a median
+  of 1.16 x ISS with a range of 0.34-9.16, because pooling first discards the
+  between-year replication.
+
+## Output format
+
+* **`residuals(type = "pearson")` gains an `Sd` column** on composition sources:
+  the standard deviation the fleet's own likelihood assumes for the observed
+  proportion, i.e. the denominator the residual was divided by. `NA` on index
+  and catch. The aggregated composition band reads it, so the band and the
+  residuals cannot disagree about the assumed variance.
+
+  On the copy carried as `attr(osa_residuals(), "pearson")`, which renames every
+  column into that object's style, it is `assumed_sd` -- not `sd`, which on the
+  OSA frame beside it is the conditional standard deviation of the OSA residual,
+  a different quantity.
+
+# Rceattle 5.28.1
+
+## Documentation
+
+* **Which selectivity forms can give the two sexes different levels.**
+  `vignette("model-options-and-functionality")` described `Sel_norm_bin` and
+  `Sel_norm_scope` as though they decided whether males and females could be
+  selected at different levels, and its `"Max"` / `"AcrossSexes"` row promised
+  that "one sex peaks at 1, the other keeps its relative level". Normalization
+  only *preserves* a ratio the form already has -- `"AcrossSexes"` divides both
+  sexes by one pooled scalar -- so on a logistic both sexes measure 1.00 and the
+  promise is empty.
+
+  The section now says which forms can carry a level difference and which
+  cannot, with the ratios measured on `GOAatf`: `Logistic` 1.00,
+  `DoubleLogistic` 1.97, `2DAR1` 4.53. Going non-parametric does not help
+  either, which is the counter-intuitive part: those forms re-centre each sex to
+  a mean of one every year, so the ratio is a by-product of shape rather than
+  something the data inform. `inst/dev/two-sex-selectivity-example.R` fits the
+  comparison and is now tracked.
+
+## Bug fixes
+
+* **A per-sex selectivity linkage no longer fixes the other sex too.** When a
+  linkage supplies the base level -- a fixed intercept (`est_phase = 0`), or a
+  slope-only formula -- `build_map()` masks the base parameter it replaces. The
+  selectivity branch masked it across **every** sex of the fleet, so a linkage
+  stratified on one sex (`by = ~ fleet + sex, sex = 2`) also fixed the other
+  sex's inflection or slope at its starting value. That is exactly the sex a
+  Stock Synthesis-style offset parameterization needs left estimated: the
+  reference the offset is measured from. The `M` and growth branches beside it
+  always honoured the row's own sex; selectivity was the outlier and now
+  matches them.
+
+  A linkage with no sex stratum -- `by = ~ fleet`, the default -- still masks
+  both sexes, because the offset then applies to the whole fleet. Only a
+  *selectivity* linkage naming a single sex changes, and nothing in the package
+  or the reference fits does that: the golden models' only linkages are on
+  composition, which this branch never touches.
+  `test-linkage-selectivity-per-sex.R` covers both cases, which nothing did
+  before.
+
 # Rceattle 5.28.0
 
 ## Input format

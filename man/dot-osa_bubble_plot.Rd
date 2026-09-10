@@ -9,8 +9,8 @@
 \arguments{
 \item{osa}{A data frame with \code{source}, \code{year}, \code{age_length_bin}, and
 \code{residual} columns. Bubbles are placed at (year, age/length bin); red =
-positive, blue = negative; size and transparency scale with the absolute
-residual; outliers (\verb{|resid| > 3}) are drawn as triangles.}
+positive, blue = negative; size scales with the absolute residual;
+outliers (\verb{|resid| > 3}) are drawn as triangles.}
 
 \item{ylab}{Y-axis label (e.g. \code{"Age bin"} or \code{"Length bin"}).}
 
@@ -20,6 +20,7 @@ residual; outliers (\verb{|resid| > 3}) are drawn as triangles.}
 A \code{ggplot} object.
 }
 \description{
-Bubble plot of composition residuals (afscOSA styling)
+The size scale is pinned to \verb{[0, .RCE_BUBBLE_MAX]} so two figures compare by
+eye, with larger residuals truncated onto it by \code{.rce_truncate_resid()}.
 }
 \keyword{internal}

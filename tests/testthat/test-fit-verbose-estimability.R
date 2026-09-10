@@ -11,30 +11,50 @@ fake_estimability <- function(obj) {
 }
 
 # iter.max = 1 stops far from the optimum, so sdreport fails and the branch runs.
+#
+# Messages are captured with testthat::capture_messages() rather than
+# sink(type = "message"). Under test_file() the reporter has already redirected
+# the message stream, so a nested sink here returns empty and the assertions
+# below silently pass on nothing -- they fail rather than mislead, but they were
+# testing the harness, not the model. The stdout sink is still a sink because
+# the estimability table arrives via print(), which capture_messages() cannot
+# see.
 run_and_capture <- function(verbose) {
   so <- textConnection("so_out", "w", local = TRUE)
-  se <- textConnection("se_out", "w", local = TRUE)
-  sink(so); sink(se, type = "message")
+  sink(so)
+  # Pop exactly once, whether the fit returns or throws; a second sink() would
+  # remove the reporter's own sink under test_file().
+  sunk <- TRUE
+  unsink <- function() {
+    if (sunk) {
+      suppressWarnings(try(sink(), silent = TRUE))
+      sunk <<- FALSE
+    }
+  }
   on.exit({
-    suppressWarnings(try(sink(type = "message"), silent = TRUE))
-    suppressWarnings(try(sink(), silent = TRUE))
-    close(so); close(se)
+    unsink()
+    close(so)
   }, add = TRUE)
 
   testthat::local_mocked_bindings(.check_estimability = fake_estimability,
                                   .package = "Rceattle")
   # The non-positive-definite Hessian is the condition being induced.
-  fit <- suppressWarnings(try(Rceattle::fit_mod(
-    Rceattle::BS2017SS, file = NULL, estimateMode = 1, msmMode = 0,
-    random_rec = FALSE,
-    fit_control = Rceattle::fit_control(
-      getsd = TRUE, verbose = verbose, phase = FALSE, newtonsteps = 0,
-      nlminb_control = list(eval.max = 2, iter.max = 1, trace = 0))),
-    silent = TRUE))
+  msgs <- character()
+  fit <- withCallingHandlers(
+    suppressWarnings(try(Rceattle::fit_mod(
+      Rceattle::BS2017SS, file = NULL, estimateMode = 1, msmMode = 0,
+      random_rec = FALSE,
+      fit_control = Rceattle::fit_control(
+        getsd = TRUE, verbose = verbose, phase = FALSE, newtonsteps = 0,
+        nlminb_control = list(eval.max = 2, iter.max = 1, trace = 0))),
+      silent = TRUE)),
+    message = function(m) {
+      msgs <<- c(msgs, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    })
 
-  suppressWarnings(try(sink(type = "message"), silent = TRUE))
-  suppressWarnings(try(sink(), silent = TRUE))
-  list(fit = fit, stdout = so_out, stderr = se_out)
+  unsink()
+  list(fit = fit, stdout = so_out, stderr = msgs)
 }
 
 testthat::test_that("the estimability table is silent at verbose = 0", {

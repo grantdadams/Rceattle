@@ -10,13 +10,13 @@ osa_diagnostics(osa, nsim = 10000, probs = c(0.025, 0.975), seed = 123)
 \item{osa}{An \code{rceattle_osa} object from \code{\link[=osa_residuals]{osa_residuals()}}, or a data frame
 with \code{residual} and (optionally) \code{type}/\code{fleet} columns.}
 
-\item{nsim}{Number of simulations for the tail-statistic null intervals.
-Default 10000.}
+\item{nsim}{Ignored from 5.29.0, when the tail null intervals became exact;
+retained so existing calls keep working, and warns when supplied.}
 
 \item{probs}{Lower/upper tail probabilities. Default \code{c(0.025, 0.975)}.}
 
-\item{seed}{Seed for the tail-interval simulation (reproducibility).
-Default 123.}
+\item{seed}{Ignored from 5.29.0, as \code{nsim} is; the residuals themselves are
+randomized-quantile, so seed \code{\link[=osa_residuals]{osa_residuals()}} instead.}
 }
 \value{
 A data frame (class \code{"rceattle_osa_diagnostics"}, so it prints as a
@@ -24,9 +24,11 @@ compact severity-tagged summary; every column is still there and \code{$} works
 as before) with one row per data source plus an \code{"all"} row, with columns:
 \code{group} (the \code{"<source> fleet <n>"} label), \code{source}, \code{fleet}, \code{n}, \code{sdnr},
 \code{sdnr_lo}, \code{sdnr_hi}, \code{lower}, \code{lower_lo}, \code{lower_hi}, \code{upper}, \code{upper_lo},
-\code{upper_hi}, and the logical flags \code{sdnr_ok}, \code{lower_ok}, \code{upper_ok} (TRUE
-when the statistic is inside its null interval). On the \code{"all"} row
-\code{source} and \code{fleet} are \code{NA}.
+\code{upper_hi}, the order statistic each tail was read at (\code{lower_r}, \code{upper_r})
+and its exact nominal probability \code{r/(n + 1)} (\code{lower_p}, \code{upper_p},
+which differ from \code{probs} at small \code{n}), and the logical flags \code{sdnr_ok},
+\code{lower_ok}, \code{upper_ok} (TRUE when the statistic is inside its null
+interval). On the \code{"all"} row \code{source} and \code{fleet} are \code{NA}.
 }
 \description{
 Computes the Stewart and Monnahan (2025) statistical diagnostics for a set of
@@ -38,8 +40,10 @@ rather than by eye). Computed per data source (type x fleet) and overall.
 Under a correctly specified model OSA residuals are already iid standard
 normal, so the SDNR is simply their sample standard deviation. Its null
 interval follows the chi-square result for the sample standard deviation of
-\code{n} standard normals (Francis 2014); the tail-statistic null intervals are
-obtained by simulation.
+\code{n} standard normals (Francis 2014). Each tail statistic is the \code{r}-th
+order statistic of the residuals, at index \code{round(p * (n + 1))}, and its
+null interval is exact: the \code{r}-th order statistic of \code{n} uniforms is
+\code{Beta(r, n - r + 1)}. Nothing is simulated.
 }
 \references{
 Francis, R.I.C.C. 2014. Replacing the multinomial in stock assessment models:
