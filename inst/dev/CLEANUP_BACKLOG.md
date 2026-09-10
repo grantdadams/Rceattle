@@ -11,17 +11,25 @@ Three tiers: a **known defect** is a wrong answer waiting for the right input an
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
 marking a judgement call for Grant, and is never resolved by an agent.
 
-64 remain after Tier 0 and Tier 2. Counts by area: `src/TMB/ceattle.cpp` 25 ·
-`src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 · `R/9-retro_and_jitter.R` 4 ·
-`R/10-run_mse.R` 4 · `src/TMB/growth.hpp` 3 · `R/3-build_map.R` 3 · `R/0-rceattle_class.R` 3 ·
-rest 1–2. Re-derive with `grep -rn 'TODO|FIXME' R/ src/TMB/`, excluding the `todo <-`
-variable in `R/6-process_residuals.R`.
+62 remain as of 5.29.0. Counts by area: `src/TMB/ceattle.cpp` 24 ·
+`src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 · `R/10-run_mse.R` 4 ·
+`src/TMB/growth.hpp` 3 · `R/3-build_map.R` 3 · `R/9-retro_and_jitter.R` 3 ·
+`R/0-rceattle_class.R` 3 · rest 1–2. Re-derive with
+`grep -rnE 'TODO|FIXME' R/ src/TMB/ | grep -v 'todo <-' | grep -v 'TODO-'` -- the `-E` is
+needed for the alternation, the first filter drops a variable in `R/6-process_residuals.R`, and
+the second drops pointers to `inst/dev/TODO-*.md` notes, which are not markers.
 
 ---
 
 ## Tier 0 — known defects, with the input that triggers them
 
 These say, in the source, that the code is wrong under a stated condition.
+
+Open:
+
+| Where | Condition | Consequence |
+|---|---|---|
+| `src/TMB/ceattle.cpp` (`KNOWN LIMITATION (multispecies only)`) | `msmMode > 0`, HCR 5, `DynamicHCR = FALSE` | SBF is computed on the realized M2 under the projection's own F, not an equilibrium M2, while SB0 is overwritten with the `MSSB0` input. HCR 5 (NPFMC Tier 3) reads both, so its two legs sit on different mortality bases and the catch advice rests on them. The fix solves an equilibrium M2 from `NByage0` / `NByageF`. Was a `TODO(review)` until `5d423172` restated it as a limitation. Should become a GitHub issue. |
 
 Three further defects of the same class were found reviewing the fixes below, and are resolved
 in 5.13.0 alongside them. None carried a marker, which is why none appeared in this file: they
@@ -57,13 +65,22 @@ Not bugs, but they bound what the model can be asked. Worth documenting in a vig
 than fixing.
 
 - **Forecast growth is ignored** by the retrospective and MSE projection paths
-  (`R/9-retro_and_jitter.R:235,249`, `R/10-run_mse.R:436`) — the terminal-year growth is carried
-  forward.
-- **Projection quantities are held at the terminal hindcast year** (`R/10-run_mse.R:460`).
-- **`ration_data` is sized for the hindcast only** (`R/5-rearrange_data.R:683`).
-- **SPR reference points**: `sex_ratio` is fixed rather than estimated for two-sex models
-  (`src/TMB/ceattle.cpp:1542`), and the M used is the terminal-year value
-  (`src/TMB/ceattle.cpp:1514`, `:1522`).
+  (`ignores forecasted growth`, twice in `R/9-retro_and_jitter.R`, once in `R/10-run_mse.R`) —
+  the terminal-year growth is carried forward.
+- **Projection quantities are held at the terminal hindcast year** (`R/10-run_mse.R`,
+  `assuming same as terminal year of hindcast`).
+- **`ration_data` is sized for the hindcast only** (`R/5-rearrange_data.R`,
+  `Change for forecast`).
+- **SPR reference points**: `sex_ratio` is an input rather than estimated for two-sex models,
+  and the M used is the terminal-year value (`src/TMB/ceattle.cpp`, `rates for a reference point
+  are the terminal hindcast year's`). The `sex_ratio` marker went in 5.24.1, when SPR was
+  corrected to apply only the recruitment split `sex_ratio(sp, 0)` to a two-sex species
+  (`female_split`); the ratio itself is still read from data.
+- **Linkage random-effect priors are penalties, not proper densities** (`src/TMB/ceattle.cpp`,
+  `FIXME(jacobian)`, twice). The sigma and rho priors sit on the natural scale without the
+  Jacobian of the `log` / `rho_trans` transform. Fine as a penalty under maximum likelihood;
+  under a Bayesian (`tmbstan`) run the stated density is not the prior actually applied. A
+  `lognormal` sigma prior is exempt; rho has only normal and beta families.
 
 ## Tier 2 — design notes and refactor wishes
 
@@ -156,18 +173,32 @@ Still open. No user-visible consequence; do them opportunistically.
 - The `logH_*` / `H_4` / `log_gam_*` markers belong to the stubbed Kinzey-Punt predation forms
   (`msmMode` 3–9) and the gamma predator selectivity. They are pinned as stubbed in
   `tests/testthat/test-schema-registries.R`; leave them until that work is picked up.
+- `src/TMB/ceattle.cpp` (`penalize every selectivity deviation rather than a sub-range`) —
+  would pin the unidentified directions and drop the year/bin indexing of the deviation penalty.
+  It would **not** retire the four columns the marker names: `Sel_cap_bin` holds the
+  NonParametricRPM curve flat past a bin, `Sel_start_year` builds the curve from the base
+  coefficients through that year and pins the random walk's level in `build_map()`, and
+  `Sel_pen_first_bin` / `Sel_pen_last_bin` bound the shape penalty, not the deviation penalty.
+  Moves every fit with penalized deviations, so it needs `/golden-check`.
+- `R/0-osa_data.R` (`switch_check() does not run`) — the comment above it says `comp_offset` is
+  filled by `switch_check()`; on the exported `rearrange_data()` path it and the
+  `bias_adjust_*` scalars are filled in `build_osa_data()`. Reword only; no behaviour.
 
 ## `TODO(review)` — Grant's calls, not an agent's
 
 Six, each a judgement about what the right behaviour *is*:
 
-- `R/0-rceattle_class.R:268` — whether `residuals(source = "all")` should include diet, given
-  `osa_residuals("all")` does.
-- `R/0-rceattle_class.R:420`, `:452` — how held-out rows (`Year <= 0`) carrying a positive
-  observation should be treated.
-- `R/6-fit_mod.R:780` — what a user-supplied `NA` bias-adjustment should mean.
-- `R/7-plot_osa.R:58` — how process-residual objects should be plotted.
-- `src/TMB/growth.hpp` — carries one; see the file.
+- `R/0-rceattle_class.R` (`osa_residuals("all") includes diet`) — whether
+  `residuals(source = "all")` should include diet too.
+- `R/0-rceattle_class.R` (`held-out rows (Year <= 0) with a positive observation`, twice) — how
+  those rows should be treated.
+- `R/6-fit_mod.R` (`a user-supplied NA`) — what an `NA` bias-adjustment should mean.
+- `R/7-plot_osa.R` (`process-residual objects`) — how `process_residuals()` output should be
+  plotted.
+- `src/TMB/growth.hpp` (`this branch (and its Richards mirror below) tests`) — see the file.
+
+A seventh, on multispecies SBF, was restated as a known limitation in `5d423172` and now sits in
+Tier 1.
 
 ## Deliberately not changed
 

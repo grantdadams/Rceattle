@@ -32,7 +32,7 @@
 #' @param mse,OM When `mse = TRUE`, pull the operating model (`OM = TRUE`) or
 #'   the terminal estimation model from each MSE element.
 #' @return A list of `Rceattle` fits.
-#' @keywords internal
+#' @noRd
 .as_plot_models <- function(Rceattle, mse = FALSE, OM = TRUE) {
   if (mse) {
     if (OM) {
@@ -338,7 +338,7 @@
 #' The returned `index` preserves the order the caller asked for, so
 #' `species = c(3, 1)` yields facets in that order rather than model order.
 #'
-#' @param models A list of `Rceattle` fits (from [.as_plot_models()]).
+#' @param models A list of `Rceattle` fits (from `.as_plot_models()`).
 #' @param species Species selection; see above.
 #' @param spnames Species labels, length `nspp`. `NULL` takes the model's own.
 #' @return `list(index = <integer>, spnames = <character, nspp>,
