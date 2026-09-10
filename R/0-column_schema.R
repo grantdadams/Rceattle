@@ -659,8 +659,3 @@
   )
   stats::setNames(rows, vapply(rows, function(r) r$name, character(1)))
 }
-
-#' Names of the model-level switches
-#' @keywords internal
-#' @noRd
-.rce_model_switch_names <- function() names(.rce_model_switch_schema())
