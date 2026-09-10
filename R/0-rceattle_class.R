@@ -727,7 +727,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #' sample size (the model's own simulator draws at `N * Comp_weights`). `conc`
 #' is the Dirichlet-multinomial concentration total, i.e. the sum of the alphas.
 #' @param observed,fitted Observed and fitted proportions, on the offset scale
-#'   the likelihood works in (see [.rce_comp_pearson()]).
+#'   the likelihood works in (see `.rce_comp_pearson()`).
 #' @param n Effective count total for the observation.
 #' @param conc Dirichlet-multinomial concentration total, or `NULL` for the
 #'   multinomial variance.

@@ -692,8 +692,8 @@ osa_residuals <- function(object = NULL,
 #' normal, so the SDNR is simply their sample standard deviation. Its null
 #' interval follows the chi-square result for the sample standard deviation of
 #' `n` standard normals (Francis 2014). Each tail statistic is the `r`-th
-#' order statistic of the residuals, `r = round(p * (n + 1))`, and its null
-#' interval is exact: the `r`-th order statistic of `n` uniforms is
+#' order statistic of the residuals, at index `round(p * (n + 1))`, and its
+#' null interval is exact: the `r`-th order statistic of `n` uniforms is
 #' `Beta(r, n - r + 1)`. Nothing is simulated.
 #'
 #' @param osa An `rceattle_osa` object from [osa_residuals()], or a data frame
@@ -710,7 +710,7 @@ osa_residuals <- function(object = NULL,
 #'   `group` (the `"<source> fleet <n>"` label), `source`, `fleet`, `n`, `sdnr`,
 #'   `sdnr_lo`, `sdnr_hi`, `lower`, `lower_lo`, `lower_hi`, `upper`, `upper_lo`,
 #'   `upper_hi`, the order statistic each tail was read at (`lower_r`, `upper_r`)
-#'   and its exact nominal probability `r / (n + 1)` (`lower_p`, `upper_p`,
+#'   and its exact nominal probability `r/(n + 1)` (`lower_p`, `upper_p`,
 #'   which differ from `probs` at small `n`), and the logical flags `sdnr_ok`,
 #'   `lower_ok`, `upper_ok` (TRUE when the statistic is inside its null
 #'   interval). On the `"all"` row `source` and `fleet` are `NA`.

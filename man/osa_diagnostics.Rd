@@ -25,7 +25,7 @@ as before) with one row per data source plus an \code{"all"} row, with columns:
 \code{group} (the \code{"<source> fleet <n>"} label), \code{source}, \code{fleet}, \code{n}, \code{sdnr},
 \code{sdnr_lo}, \code{sdnr_hi}, \code{lower}, \code{lower_lo}, \code{lower_hi}, \code{upper}, \code{upper_lo},
 \code{upper_hi}, the order statistic each tail was read at (\code{lower_r}, \code{upper_r})
-and its exact nominal probability \code{r / (n + 1)} (\code{lower_p}, \code{upper_p},
+and its exact nominal probability \code{r/(n + 1)} (\code{lower_p}, \code{upper_p},
 which differ from \code{probs} at small \code{n}), and the logical flags \code{sdnr_ok},
 \code{lower_ok}, \code{upper_ok} (TRUE when the statistic is inside its null
 interval). On the \code{"all"} row \code{source} and \code{fleet} are \code{NA}.
@@ -41,8 +41,8 @@ Under a correctly specified model OSA residuals are already iid standard
 normal, so the SDNR is simply their sample standard deviation. Its null
 interval follows the chi-square result for the sample standard deviation of
 \code{n} standard normals (Francis 2014). Each tail statistic is the \code{r}-th
-order statistic of the residuals, \code{r = round(p * (n + 1))}, and its null
-interval is exact: the \code{r}-th order statistic of \code{n} uniforms is
+order statistic of the residuals, at index \code{round(p * (n + 1))}, and its
+null interval is exact: the \code{r}-th order statistic of \code{n} uniforms is
 \code{Beta(r, n - r + 1)}. Nothing is simulated.
 }
 \references{
