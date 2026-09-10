@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -78,9 +78,9 @@
 
       <h1>3. Model diagnostics</h1>
             
-            <h4 data-toc-skip class="date">2026-09-08</h4>
+            <h4 data-toc-skip class="date">2026-09-10</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.28.0/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
       <div class="d-none name"><code>model-diagnostics.Rmd</code></div>
     </div>
 
@@ -375,12 +375,17 @@ Hindcast years only — the model does not project catchability.</p>
 <p>Pearson residuals on composition data are <em>not</em> standard
 normal even when the model is correct: the age/length bins are
 correlated (more fish in one bin means fewer in another), and random
-effects induce correlation across years. One-step-ahead (OSA) residuals
-remove both problems. Each observation is residualized conditional on
-the observations added before it, integrating out the random effects, so
-under a correctly specified model the residuals are iid standard normal
-(Thygesen et al. 2017; Trijoulet et al. 2023). This makes them suitable
-for objective goodness-of-fit testing.</p>
+effects induce correlation across years. They are at least standardized
+by the variance the fleet’s own likelihood assumes – the composition
+weight enters as an effective sample size under a multinomial, and a
+Dirichlet-multinomial’s overdispersion is in the denominator – so a
+weighted or DM fleet is not inflated on that account alone.
+One-step-ahead (OSA) residuals remove both problems. Each observation is
+residualized conditional on the observations added before it,
+integrating out the random effects, so under a correctly specified model
+the residuals are iid standard normal (Thygesen et al. 2017; Trijoulet
+et al. 2023). This makes them suitable for objective goodness-of-fit
+testing.</p>
 <p><code><a href="../reference/osa_residuals.html">osa_residuals()</a></code> computes them <em>post hoc</em> for any
 combination of the fitted data types – survey indices
 (<code>"index"</code>), fishery catch (<code>"catch"</code>), age/length
@@ -438,7 +443,15 @@ the Pearson residuals and not in the OSA residuals.</p>
 <li>
 <strong>Inspect the aggregate fit</strong> across years
 (<code>plot_comp(model_1)</code>): systematic lack of fit here points to
-structural misspecification (e.g. the wrong selectivity shape).</li>
+structural misspecification (e.g. the wrong selectivity shape). Counts
+are pooled across the fitted hindcast years, and the interval holds 95%
+of the data the model predicts – not a confidence interval on the mean –
+so observations outside it are the ones to explain. The panel is
+annotated with the input sample size, the effective sample size the
+likelihood assumed (<code>ESS (likelihood)</code>), and the one this
+fit’s residuals imply (<code>ESS (McAllister-Ianelli)</code>). The gap
+between those two is the reweighting decision: they agree when the fleet
+is already weighted the way its residuals suggest.</li>
 <li>
 <strong>Compare the SDNR</strong> to its null interval (from
 <code><a href="../reference/osa_diagnostics.html">osa_diagnostics()</a></code>): a value outside the interval flags
@@ -447,7 +460,16 @@ effective-sample-size issue.</li>
 <li>
 <strong>Compare the lower/upper tail statistics</strong> to their
 null intervals: these localize departures to the tails of the residual
-distribution.</li>
+distribution. They are reported as order statistics –
+<code>lower_r</code> / <code>upper_r</code> name which one, and
+<code>lower_p</code> / <code>upper_p</code> the nominal probability it
+sits at, which is near but not exactly 2.5% – against the exact
+<code>Beta(r, n - r + 1)</code> null. The statistic and its interval
+must come from the same estimator, so <code><a href="../reference/osa_diagnostics.html">osa_diagnostics()</a></code> no
+longer simulates and its <code>nsim</code> / <code>seed</code> arguments
+are ignored. The residuals themselves remain randomized-quantile
+residuals: pass a seed to <code><a href="../reference/osa_residuals.html">osa_residuals()</a></code> to control
+those.</li>
 <li>
 <strong>Inspect Pearson bubble plots</strong>
 (<code>plot_comp(model_1)</code>, the default): patterns in the sign of

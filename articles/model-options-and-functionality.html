@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 Adams</h4>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.28.0/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
       <div class="d-none name"><code>model-options-and-functionality.Rmd</code></div>
     </div>
 
@@ -764,7 +764,7 @@ differs by sex.</li>
 <td><code>"Max"</code></td>
 <td><code>"AcrossSexes"</code></td>
 <td>maximum over bins <strong>and sexes</strong> — one sex peaks at 1,
-the other keeps its relative level</td>
+the other keeps whatever relative level its form gives it</td>
 </tr>
 <tr class="odd">
 <td><code>"Max"</code></td>
@@ -799,6 +799,75 @@ Before Rceattle 5.8.0 a named bin always implied
 <code>"AcrossSexes"</code>; a two-sex fleet normalizing at a named bin
 should set <code>Sel_norm_scope = "WithinSex"</code> explicitly to keep
 its old behaviour.</p>
+<div class="section level4">
+<h4 id="which-forms-can-carry-a-sex-difference-in-level">Which forms can carry a sex difference in level<a class="anchor" aria-label="anchor" href="#which-forms-can-carry-a-sex-difference-in-level"></a>
+</h4>
+<p>Normalization <em>preserves</em> a level ratio; it cannot create one.
+<code>"AcrossSexes"</code> divides both sexes by one pooled scalar, so
+whether the sexes can reach different levels at all is a property of the
+<strong>form</strong>, not of these two columns:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>Form</th>
+<th>Sex difference in level</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>
+<code>Logistic</code>, <code>DescendingLogistic</code>,
+<code>LogisticPM</code>
+</td>
+<td>
+<strong>none</strong> — the curve tends to 1 for either sex,
+whatever its parameters</td>
+</tr>
+<tr class="even">
+<td>
+<code>NonParametric</code>, <code>NonParametricPM</code>
+</td>
+<td>
+<strong>none</strong> — each sex is re-centred so its own mean
+selectivity-at-age is exactly 1, every year</td>
+</tr>
+<tr class="odd">
+<td><code>Hake</code></td>
+<td>
+<strong>none</strong> — normalizes within sex by its own maximum,
+and ignores <code>Sel_norm_scope</code>
+</td>
+</tr>
+<tr class="even">
+<td><code>DoubleNormal</code></td>
+<td>
+<strong>old-age plateau only</strong> — the right-tail floor is
+sex-specific, but both sexes peak at exactly 1</td>
+</tr>
+<tr class="odd">
+<td>
+<code>DoubleLogistic</code>, <code>2DAR1</code>,
+<code>3DAR1</code>
+</td>
+<td>
+<strong>free</strong> — the height is a free function of that sex’s
+own parameters</td>
+</tr>
+</tbody>
+</table>
+<p>Measured on <code>GOAatf</code>’s two-sex fishery, as the ratio of
+male to female maximum selectivity: <code>Logistic</code> 1.00,
+<code>DoubleLogistic</code> 1.97, <code>2DAR1</code> 4.53. The same
+<code>DoubleLogistic</code> fit under <code>"WithinSex"</code> returns
+to 1.00, which is the column doing its job — not the form losing the
+difference.</p>
+<p>Going non-parametric does <strong>not</strong> open this up: those
+forms pin each sex’s mean to 1, so a level ratio is a by-product of
+shape rather than something the data can inform.
+<code>inst/dev/two-sex-selectivity-example.R</code> fits the
+comparison.</p>
 <p>Two things constrain what is actually estimable:</p>
 <ul>
 <li>
@@ -827,6 +896,7 @@ and its <code>sex =</code> filter.</p>
 column. It is <strong>inert</strong> — read nowhere in the model — and
 is retained only so older workbooks still read. Sex is set per
 observation on <code>comp_data</code>, not per fleet.</p>
+</div>
 </div>
 </div>
 <div class="section level2">

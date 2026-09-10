@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>CLAUDE.md — Rceattle</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.28.0/CLAUDE.md" class="external-link"><code>CLAUDE.md</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/CLAUDE.md" class="external-link"><code>CLAUDE.md</code></a></small>
     </div>
 
 <div id="claudemd--rceattle" class="section level1">
@@ -103,7 +103,7 @@
 <li>
 <strong><code>../Rceattle-models</code> and <code>../GOA-ATF-ESP</code> consume this API.</strong> Sweep after a breaking change (<code>/ecosystem-sweep</code>), and refit a real assessment when a sweep is not enough. See <code>inst/dev/SIBLING-REPOS.md</code>.</li>
 <li>
-<strong><code>../Rceattle-models/Pacific hake/04-mse.R</code> is the MSE and predation check.</strong> It is the one script that runs <code><a href="reference/run_mse.html">run_mse()</a></code> end to end, and the only routine exercise of three-species predation with estimated suitability and of DM comps carrying a prior on their own weight — none of which <code>/golden-check</code> touches. Run it after changing predation, suitability, the DM likelihood, <code><a href="reference/sim_mod.html">sim_mod()</a></code> or <code><a href="reference/run_mse.html">run_mse()</a></code>. Reference objectives are in <code>SIBLING-REPOS.md</code>; the script’s own inline numbers are Rceattle 5.6.1 and still carry the <code>theta_diet</code> constants, so compare against that folder’s <code>README.md</code> “clean” values instead.</li>
+<strong>The Pacific hake MSEs are the MSE and predation check.</strong> They are the only scripts that run <code><a href="reference/run_mse.html">run_mse()</a></code> end to end, and the only routine exercise of predation with estimated suitability and of DM comps carrying a prior on their own weight — none of which <code>/golden-check</code> touches. Run them after changing predation, suitability, the DM likelihood, <code><a href="reference/sim_mod.html">sim_mod()</a></code> or <code><a href="reference/run_mse.html">run_mse()</a></code>. <code>../Rceattle-models/Pacific hake/MSE_yr2024.R</code> is the current four-species run and the one to check first; <code>04-mse.R</code> is the older three-species one. Reference objectives for both are in <code>SIBLING-REPOS.md</code>. <code>04-mse.R</code>’s own inline numbers are Rceattle 5.6.1 and still carry the <code>theta_diet</code> constants, so compare against that folder’s <code>README.md</code> “clean” values instead.</li>
 </ol><hr></div>
 <div class="section level2">
 <h2 id="dev-workflow">Dev workflow<a class="anchor" aria-label="anchor" href="#dev-workflow"></a></h2>
@@ -225,6 +225,8 @@
 <strong>A <code>data_list</code> element with no <code><a href="reference/write_data.html">write_data()</a></code>/<code><a href="reference/read_data.html">read_data()</a></code> support round-trips to nothing</strong> — this is how <code>index_cov</code> was lost.</li>
 <li>
 <strong>A <code>Comp_weights</code> of 1 under a Dirichlet-multinomial is a starting weight of e</strong> — that likelihood reads the column as a log.</li>
+<li>
+<strong>A Pearson residual divides by the effective sample size the likelihood used, not the input N</strong> — <code>Comp_weights</code> multiplies the multinomial log-likelihood, so it <em>is</em> an effective sample size (<code>ceattle.cpp:3758</code> draws at <code>n_nom * comp_weights</code>), and a DM is overdispersed by <code>(n + conc)/(1 + conc)</code>. Comp, CAAL and diet each have their own switch, weight and DM parameter block, and three <em>different</em> alpha constructions — only diet’s is the clean <code>p·N·theta</code>. <code>.rce_comp_pearson()</code> is the one place that resolves this.</li>
 <li>
 <strong><code>fit_mod(estimateMode=)</code></strong> takes a string or the integer behind it: <code>"Estimate"</code> (0) = hindcast + HCR projection, <code>"Hindcast"</code> (1) = hindcast only, <code>"Projection"</code> (2) = projection-only from <code>inits</code>, <code>"DebugBuild"</code> (3) = build without optimizing, <code>"DebugOptimize"</code> (4). Prefer the strings.</li>
 <li>

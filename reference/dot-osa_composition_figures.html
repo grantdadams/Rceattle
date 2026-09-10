@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Composition OSA figure(s): Q-Q + OSA bubbles + Pearson bubbles (age / length)</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.28.0/R/7-plot_osa.R" class="external-link"><code>R/7-plot_osa.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/7-plot_osa.R" class="external-link"><code>R/7-plot_osa.R</code></a></small>
       <div class="d-none name"><code>dot-osa_composition_figures.Rd</code></div>
     </div>
 
@@ -66,7 +66,9 @@
 <span>  pearson <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  combine <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  nages <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  nlengths <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  nlengths <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  add_sdnr_ci <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  add_qq_quantiles <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -93,6 +95,10 @@ separate <code>composition_age</code> and <code>composition_length</code> figure
 <dd><p>Per-species bin counts (the <code>rceattle_osa</code> <code>"nages"</code> /
 <code>"nlengths"</code> attributes), used to split joint-sex (Sex == 3) bins onto a
 single age/length axis, matching <code><a href="plot_comp.html">plot_comp()</a></code>.</p></dd>
+
+
+<dt id="arg-add-sdnr-ci-add-qq-quantiles">add_sdnr_ci, add_qq_quantiles<a class="anchor" aria-label="anchor" href="#arg-add-sdnr-ci-add-qq-quantiles"></a></dt>
+<dd><p>Passed to <code><a href="dot-osa_qqplot.html">.osa_qqplot()</a></code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

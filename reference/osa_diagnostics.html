@@ -7,8 +7,10 @@ rather than by eye). Computed per data source (type x fleet) and overall.
 Under a correctly specified model OSA residuals are already iid standard
 normal, so the SDNR is simply their sample standard deviation. Its null
 interval follows the chi-square result for the sample standard deviation of
-n standard normals (Francis 2014); the tail-statistic null intervals are
-obtained by simulation."><meta property="og:description" content="Computes the Stewart and Monnahan (2025) statistical diagnostics for a set of
+n standard normals (Francis 2014). Each tail statistic is the r-th
+order statistic of the residuals, at index round(p * (n + 1)), and its
+null interval is exact: the r-th order statistic of n uniforms is
+Beta(r, n - r + 1). Nothing is simulated."><meta property="og:description" content="Computes the Stewart and Monnahan (2025) statistical diagnostics for a set of
 OSA residuals: the standard deviation of the normalized residuals (SDNR) and
 the lower/upper tail statistics, each with the 95% interval expected under
 the standard normal null hypothesis (so departures can be judged objectively
@@ -16,8 +18,10 @@ rather than by eye). Computed per data source (type x fleet) and overall.
 Under a correctly specified model OSA residuals are already iid standard
 normal, so the SDNR is simply their sample standard deviation. Its null
 interval follows the chi-square result for the sample standard deviation of
-n standard normals (Francis 2014); the tail-statistic null intervals are
-obtained by simulation."></head><body>
+n standard normals (Francis 2014). Each tail statistic is the r-th
+order statistic of the residuals, at index round(p * (n + 1)), and its
+null interval is exact: the r-th order statistic of n uniforms is
+Beta(r, n - r + 1). Nothing is simulated."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -25,7 +29,7 @@ obtained by simulation."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -69,7 +73,7 @@ obtained by simulation."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Statistical diagnostics for OSA residuals</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.28.0/R/6-osa_residuals.R" class="external-link"><code>R/6-osa_residuals.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/6-osa_residuals.R" class="external-link"><code>R/6-osa_residuals.R</code></a></small>
       <div class="d-none name"><code>osa_diagnostics.Rd</code></div>
     </div>
 
@@ -82,8 +86,10 @@ rather than by eye). Computed per data source (type x fleet) and overall.</p>
 <p>Under a correctly specified model OSA residuals are already iid standard
 normal, so the SDNR is simply their sample standard deviation. Its null
 interval follows the chi-square result for the sample standard deviation of
-<code>n</code> standard normals (Francis 2014); the tail-statistic null intervals are
-obtained by simulation.</p>
+<code>n</code> standard normals (Francis 2014). Each tail statistic is the <code>r</code>-th
+order statistic of the residuals, at index <code>round(p * (n + 1))</code>, and its
+null interval is exact: the <code>r</code>-th order statistic of <code>n</code> uniforms is
+<code>Beta(r, n - r + 1)</code>. Nothing is simulated.</p>
     </div>
 
     <div class="section level2">
@@ -101,8 +107,8 @@ with <code>residual</code> and (optionally) <code>type</code>/<code>fleet</code>
 
 
 <dt id="arg-nsim">nsim<a class="anchor" aria-label="anchor" href="#arg-nsim"></a></dt>
-<dd><p>Number of simulations for the tail-statistic null intervals.
-Default 10000.</p></dd>
+<dd><p>Ignored from 5.29.0, when the tail null intervals became exact;
+retained so existing calls keep working, and warns when supplied.</p></dd>
 
 
 <dt id="arg-probs">probs<a class="anchor" aria-label="anchor" href="#arg-probs"></a></dt>
@@ -110,8 +116,8 @@ Default 10000.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>Seed for the tail-interval simulation (reproducibility).
-Default 123.</p></dd>
+<dd><p>Ignored from 5.29.0, as <code>nsim</code> is; the residuals themselves are
+randomized-quantile, so seed <code><a href="osa_residuals.html">osa_residuals()</a></code> instead.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -121,9 +127,11 @@ compact severity-tagged summary; every column is still there and <code>$</code> 
 as before) with one row per data source plus an <code>"all"</code> row, with columns:
 <code>group</code> (the <code>"&lt;source&gt; fleet &lt;n&gt;"</code> label), <code>source</code>, <code>fleet</code>, <code>n</code>, <code>sdnr</code>,
 <code>sdnr_lo</code>, <code>sdnr_hi</code>, <code>lower</code>, <code>lower_lo</code>, <code>lower_hi</code>, <code>upper</code>, <code>upper_lo</code>,
-<code>upper_hi</code>, and the logical flags <code>sdnr_ok</code>, <code>lower_ok</code>, <code>upper_ok</code> (TRUE
-when the statistic is inside its null interval). On the <code>"all"</code> row
-<code>source</code> and <code>fleet</code> are <code>NA</code>.</p>
+<code>upper_hi</code>, the order statistic each tail was read at (<code>lower_r</code>, <code>upper_r</code>)
+and its exact nominal probability <code>r/(n + 1)</code> (<code>lower_p</code>, <code>upper_p</code>,
+which differ from <code>probs</code> at small <code>n</code>), and the logical flags <code>sdnr_ok</code>,
+<code>lower_ok</code>, <code>upper_ok</code> (TRUE when the statistic is inside its null
+interval). On the <code>"all"</code> row <code>source</code> and <code>fleet</code> are <code>NA</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

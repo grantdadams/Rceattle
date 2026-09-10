@@ -32,7 +32,15 @@ are drawn as a Q-Q panel plus a residual-by-year panel.
 
 ``` r
 # S3 method for class 'rceattle_osa'
-plot(x, source = "all", species = NULL, combine = TRUE, ...)
+plot(
+  x,
+  source = "all",
+  species = NULL,
+  combine = TRUE,
+  add_sdnr_ci = TRUE,
+  add_qq_quantiles = TRUE,
+  ...
+)
 ```
 
 ## Arguments
@@ -63,6 +71,16 @@ plot(x, source = "all", species = NULL, combine = TRUE, ...)
   figure (age in the left column, length in the right). When `FALSE`,
   they are drawn as separate `composition_age` / `composition_length`
   figures.
+
+- add_sdnr_ci:
+
+  Logical. Show the chi-square null interval beside the SDNR annotation
+  on each Q-Q panel. Default `TRUE`.
+
+- add_qq_quantiles:
+
+  Logical. Annotate each Q-Q panel with the tail order statistics and
+  their exact null intervals. Default `TRUE`.
 
 - ...:
 

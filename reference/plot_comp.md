@@ -9,15 +9,23 @@ per fleet x composition type:
 
 - **Pearson residual bubbles** by year and bin, faceted by fleet (and,
   for joint-sex data, by sex); red = positive, blue = negative, sized by
-  magnitude. The Pearson residual is \\(p - \hat p)/\sqrt{\hat p (1 -
-  \hat p)/N}\\, the same form used by
-  [`residuals.Rceattle()`](https://grantdadams.github.io/Rceattle/reference/residuals.Rceattle.md).
+  magnitude. The Pearson residual is the same form used by
+  [`residuals.Rceattle()`](https://grantdadams.github.io/Rceattle/reference/residuals.Rceattle.md)
+  – standardized by the variance the fleet's own likelihood assumes, so
+  the weight column and any Dirichlet-multinomial overdispersion are
+  already in the denominator.
 
 - **Annual composition** – observed (shaded area) vs fitted (line)
   proportion at age / length, one panel per year. Joint-sex data are
   mirrored (females up, males down).
 
-- **Aggregated composition** – the same, summed over (hindcast) years.
+- **Aggregated composition** – observed vs fitted, counts pooled over
+  the fitted hindcast years. The interval holds 95% of the data the
+  model predicts (not a confidence interval on the mean), so
+  observations outside it indicate misfit. Poor where the expected count
+  is below about 10, and slightly narrow throughout, because it treats
+  the fitted proportions as known rather than estimated from these same
+  data.
 
 The shaded area and fitted line span only the observed bins (they do not
 extend past the first/last bin), and bins with zero observed proportion
@@ -35,7 +43,9 @@ plot_comp(
   cex = 3,
   lwd = 3,
   right_adj = 0,
-  residual_type = c("pearson", "osa")
+  residual_type = c("pearson", "osa"),
+  add_agg_ci = TRUE,
+  add_agg_n = TRUE
 )
 ```
 
@@ -85,6 +95,18 @@ plot_comp(
   – a Q-Q plot (with SDNR / tail annotation) alongside signed OSA- and
   Pearson-residual bubbles. The `"osa"` path builds its observation data
   on demand, so it works with any fit.
+
+- add_agg_ci:
+
+  Logical. Draw the 95% prediction interval on the aggregated
+  composition figure. Default `TRUE`.
+
+- add_agg_n:
+
+  Logical. Annotate the aggregated composition figure with the input
+  sample size, the effective sample size the likelihood assumed, and the
+  McAllister-Ianelli effective sample size this fit implies. Default
+  `TRUE`.
 
 ## Value
 

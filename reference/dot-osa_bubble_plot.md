@@ -1,6 +1,8 @@
 # Bubble plot of composition residuals (afscOSA styling)
 
-Bubble plot of composition residuals (afscOSA styling)
+The size scale is pinned to `[0, .RCE_BUBBLE_MAX]` so two figures
+compare by eye, with larger residuals truncated onto it by
+`.rce_truncate_resid()`.
 
 ## Usage
 
@@ -14,8 +16,8 @@ Bubble plot of composition residuals (afscOSA styling)
 
   A data frame with `source`, `year`, `age_length_bin`, and `residual`
   columns. Bubbles are placed at (year, age/length bin); red = positive,
-  blue = negative; size and transparency scale with the absolute
-  residual; outliers (`|resid| > 3`) are drawn as triangles.
+  blue = negative; size scales with the absolute residual; outliers
+  (`|resid| > 3`) are drawn as triangles.
 
 - ylab:
 

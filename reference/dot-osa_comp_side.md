@@ -6,7 +6,7 @@ bubbles
 ## Usage
 
 ``` r
-.osa_comp_side(comp, pear, side)
+.osa_comp_side(comp, pear, side, add_sdnr_ci = TRUE, add_qq_quantiles = TRUE)
 ```
 
 ## Arguments
@@ -22,6 +22,11 @@ bubbles
 - side:
 
   `"age"` or `"length"`.
+
+- add_sdnr_ci, add_qq_quantiles:
+
+  Passed to
+  [`.osa_qqplot()`](https://grantdadams.github.io/Rceattle/reference/dot-osa_qqplot.md).
 
 ## Value
 

@@ -102,20 +102,22 @@ it — data prep, fitting, projection, MSE, diagnostics, plotting — is R.
     Sweep after a breaking change (`/ecosystem-sweep`), and refit a real
     assessment when a sweep is not enough. See
     `inst/dev/SIBLING-REPOS.md`.
-15. **`../Rceattle-models/Pacific hake/04-mse.R` is the MSE and
-    predation check.** It is the one script that runs
+15. **The Pacific hake MSEs are the MSE and predation check.** They are
+    the only scripts that run
     [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
-    end to end, and the only routine exercise of three-species predation
-    with estimated suitability and of DM comps carrying a prior on their
-    own weight — none of which `/golden-check` touches. Run it after
+    end to end, and the only routine exercise of predation with
+    estimated suitability and of DM comps carrying a prior on their own
+    weight — none of which `/golden-check` touches. Run them after
     changing predation, suitability, the DM likelihood,
     [`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
     or
     [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md).
-    Reference objectives are in `SIBLING-REPOS.md`; the script’s own
-    inline numbers are Rceattle 5.6.1 and still carry the `theta_diet`
-    constants, so compare against that folder’s `README.md` “clean”
-    values instead.
+    `../Rceattle-models/Pacific hake/MSE_yr2024.R` is the current
+    four-species run and the one to check first; `04-mse.R` is the older
+    three-species one. Reference objectives for both are in
+    `SIBLING-REPOS.md`. `04-mse.R`’s own inline numbers are Rceattle
+    5.6.1 and still carry the `theta_diet` constants, so compare against
+    that folder’s `README.md` “clean” values instead.
 
 ------------------------------------------------------------------------
 
@@ -353,6 +355,15 @@ One line each; the evidence and the measured numbers are in
   support round-trips to nothing** — this is how `index_cov` was lost.
 - **A `Comp_weights` of 1 under a Dirichlet-multinomial is a starting
   weight of e** — that likelihood reads the column as a log.
+- **A Pearson residual divides by the effective sample size the
+  likelihood used, not the input N** — `Comp_weights` multiplies the
+  multinomial log-likelihood, so it *is* an effective sample size
+  (`ceattle.cpp:3758` draws at `n_nom * comp_weights`), and a DM is
+  overdispersed by `(n + conc)/(1 + conc)`. Comp, CAAL and diet each
+  have their own switch, weight and DM parameter block, and three
+  *different* alpha constructions — only diet’s is the clean
+  `p·N·theta`. `.rce_comp_pearson()` is the one place that resolves
+  this.
 - **`fit_mod(estimateMode=)`** takes a string or the integer behind it:
   `"Estimate"` (0) = hindcast + HCR projection, `"Hindcast"` (1) =
   hindcast only, `"Projection"` (2) = projection-only from `inits`,

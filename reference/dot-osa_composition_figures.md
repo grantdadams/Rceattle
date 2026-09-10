@@ -11,7 +11,9 @@ length)
   pearson = NULL,
   combine = TRUE,
   nages = NULL,
-  nlengths = NULL
+  nlengths = NULL,
+  add_sdnr_ci = TRUE,
+  add_qq_quantiles = TRUE
 )
 ```
 
@@ -38,6 +40,11 @@ length)
   attributes), used to split joint-sex (Sex == 3) bins onto a single
   age/length axis, matching
   [`plot_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_comp.md).
+
+- add_sdnr_ci, add_qq_quantiles:
+
+  Passed to
+  [`.osa_qqplot()`](https://grantdadams.github.io/Rceattle/reference/dot-osa_qqplot.md).
 
 ## Value
 
