@@ -76,6 +76,17 @@ version throughout.
   the median under `FALSE`. Every fit with `M1_use_prior` or `M2_use_prior`
   changes, including fits with the flag off.
 
+* **Dynamic B0 uses the hindcast's realized recruitment for cohorts spawned
+  before the first model year** (`minage > 1`). Under a stock-recruit curve,
+  including the Ianelli form, those years used the curve at the first year's
+  spawning biomass. Under mean recruitment with `proj_mean_rec = FALSE` they
+  used that year's R0, which differs only with a year-varying R0 linkage.
+  Neither is the recruitment the hindcast used. `DynamicB0`, `DynamicSB0` and
+  `DynamicSBF` change. With `DynamicHCR = TRUE` so do the projections, the
+  HCR 3 target, and `biomass_depletion` and `ssb_depletion`. Equilibrium `SB0`
+  and `SBF` do not change. Models with `minage = 1`, including every bundled
+  dataset, are unchanged.
+
 ## Documentation
 
 * `?build_srr`: a linkage on `R0` acts under mean recruitment only. Under a

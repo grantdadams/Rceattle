@@ -134,6 +134,9 @@ penalty, so these objectives cannot be compared with 5.33.0 fits.
     - `retrospective()`'s predation guard is untested, and the peel refit
       overwrites the column it writes.
     - A year-varying R0 linkage is inert on the hindcast-curve path.
+    - Under mean recruitment with `minage > 1`, the hindcast takes `R_init` for
+      the first `minage - 1` years (`ceattle.cpp` section 6.5), so a year-varying R0
+      linkage has no effect there. Dynamic B0 copies the hindcast's R.
     - `R_init` starts at exp(9) = 8103, and the alpha/beta defaults are
       off-scale for tonnes; document seeding with `srr_alpha_init` /
       `srr_beta_init`.

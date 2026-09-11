@@ -2035,13 +2035,8 @@ Type objective_function<Type>::operator() () {
           if((proj_mean_rec == 0) | (srr_pred_fun >= 2)){
 
             // - Equilibrium reference points (No recruitment deviation: pass Type(0.0))
-            // Reference-point spawning biomass exists for every year, so unlike
-            // the hindcast there is always something for the curve to read and
-            // the minage lag only has to stay in bounds: yr < minage takes the
-            // first year's value. Year 0 is the F = Finit equilibrium the
-            // hindcast is seeded from, so under initMode 1-5 these years come
-            // back at R_init anyway. This block runs from yr = 1, so the lag
-            // cannot go negative at minage = 1.
+            // Equilibrium spawning biomass exists every year; yr < minage reads the
+            // first year's value so the lag stays in bounds.
             int rp_yr = yr - minage(sp);
             if(rp_yr < 0){ rp_yr = 0; }
 
@@ -2049,9 +2044,17 @@ Type objective_function<Type>::operator() () {
             NByageF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
 
             // -  Dynamic reference points (Includes annual recruitment deviation: pass rdev)
+            // Cohorts spawned before the first year take the hindcast's realized R
+            // (R_init with its deviation), so both runs start from the same cohorts.
             Type rdev = rec_dev(sp, yr);
-            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
-            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            if(yr < minage(sp)){
+              Type R_early = (yr < nyrs_hind) ? R(sp, yr) : R_init(sp) * exp(rdev);
+              N_at_age_dB0(sp, 0, 0, yr) = R_early;
+              N_at_age_dBF(sp, 0, 0, yr) = R_early;
+            } else {
+              N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+              N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            }
 
           } // End recruitment switch
 

@@ -216,3 +216,69 @@ test_that("no recruitment site indexes the spawning year without guarding it", {
   expect_true(all(grepl(named, uses)),
               info = paste("unguarded:", paste(setdiff(uses, grep(named, uses, value = TRUE)), collapse = " | ")))
 })
+
+
+# Dynamic B0 is the hindcast's recruitment history with no fishing, so cohorts
+# spawned before the first year take the hindcast's realized recruitment there
+# too. With fishing near zero, dynamic B0 then equals hindcast biomass exactly,
+# in every species and year. The initial deviations are non-zero so the curve at
+# the first year's spawning biomass is not R_init; reading the curve for those
+# years breaks the equality.
+.dyn_b0_check_pars <- function(m) {
+  pars <- m$obj$env$last.par
+  pars[names(pars) == "log_F"] <- -30
+  iid <- which(names(pars) == "init_dev")
+  testthat::expect_gt(length(iid), 0)
+  pars[iid] <- rep_len(c(0.3, -0.2, 0.1, -0.25), length(iid))
+  pars
+}
+
+test_that("dynamic B0 uses the hindcast's recruitment for cohorts spawned before styr", {
+  testthat::skip_on_cran()
+  m    <- minage_fit(3L)
+  pars <- .dyn_b0_check_pars(m)
+  rid  <- which(names(pars) == "rec_dev")
+  pars[rid[1:5]] <- c(0.2, -0.1, 0.25, -0.15, 0.1)
+  r  <- m$obj$report(pars)
+  nh <- length(m$data_list$styr:m$data_list$endyr)
+  expect_lt(max(abs(r$DynamicB0[1, 1:nh] / r$biomass[1, 1:nh] - 1)), 1e-10)
+
+  # Not vacuous: the Beverton-Holt curve at the first year's SSB is not R_init.
+  pl <- m$obj$env$parList(pars)
+  a  <- exp(pl$rec_pars[1, 2]); b <- exp(pl$rec_pars[1, 3]); s1 <- r$ssb[1, 1]
+  expect_gt(abs(a * s1 / (1 + b * s1) / r$R_init[1] - 1), 1e-3)
+})
+
+test_that("under predation dynamic B0 also uses the hindcast's recruitment for those cohorts", {
+  testthat::skip_on_cran()
+  set.seed(123)
+  d <- make_msm_test_data()$data_list
+  d$minage <- rep(3L, d$nspp)
+  # Relabel every age column to the new minage, so ages 1-15 become 3-17.
+  for (cn in c("Pred_age", "Prey_age")) d$diet_data[[cn]] <- d$diet_data[[cn]] + 2
+  d$age_error$True_age   <- d$age_error$True_age + 2
+  d$age_trans_matrix$Age <- d$age_trans_matrix$Age + 2
+  m <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, inits = NULL, estimateMode = 3, msmMode = 1, suitMode = 0,
+    initMode = "NonEquilibrium", random_rec = FALSE,
+    recFun = build_srr(srr_fun = "Ricker"),
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))))
+  pars <- .dyn_b0_check_pars(m)
+  r  <- m$obj$report(pars)
+  nh <- length(d$styr:d$endyr)
+
+  # The hindcast floors numbers-at-age at 0.001 and the dynamic run does not. At
+  # these start values the prey reaches that floor in year 2, so compare only
+  # species-years whose every age has stayed well above it: the whole predator
+  # series.
+  min_n <- apply(r$N_at_age[, , , 1:nh, drop = FALSE], c(1, 4), min)
+  clear <- t(apply(min_n > 1, 1, cumprod)) == 1
+  expect_true(all(clear[1, ]))
+  rel <- r$DynamicB0[, 1:nh] / r$biomass[, 1:nh] - 1
+  expect_lt(max(abs(rel[clear])), 1e-8)
+
+  # Not vacuous: the predator's Ricker curve at the first year's SSB is not R_init.
+  pl <- m$obj$env$parList(pars)
+  a  <- exp(pl$rec_pars[1, 2]); b <- exp(pl$rec_pars[1, 3]); s1 <- r$ssb[1, 1]
+  expect_gt(abs(a * s1 * exp(-b * s1 / 1e6) / r$R_init[1] - 1), 1e-3)
+})
