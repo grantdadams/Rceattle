@@ -537,9 +537,15 @@ and are weighted via `CAAL_weights` per fleet.
 | `2` | `"BevertonHolt"` | Beverton-Holt |
 | `4` | `"Ricker"` | Ricker |
 
-Priors and environmental relationships can be added to stock-functions 
-via `build_srr()`. See `?build_srr` for options and 
-`vignette("environmental-linkages-and-priors")` for details. 
+Priors and environmental relationships can be added to stock-functions
+via `build_srr()`. See `?build_srr` for options and
+`vignette("environmental-linkages-and-priors")` for details.
+
+Under multispecies mode (`msmMode > 0`) a stock-recruit curve can enter only as
+a recruitment penalty (`srr_fun = "mean"` with the curve as `srr_pred_fun`),
+and not with a prior on Beverton-Holt steepness. A curve fitted in the hindcast
+and steepness both need spawning biomass per recruit, which is undefined when
+mortality includes predation.
 
 ## 7. Natural mortality (`M1Fun = build_M1()`)
 

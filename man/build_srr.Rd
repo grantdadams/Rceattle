@@ -89,6 +89,19 @@ coefficient in the equation above; \code{Bmsy_lim} (\eqn{\approx 1/\beta_{srr}})
 the same scaling.
 
 When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_endyr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
+
+\strong{Multispecies models.} Under \code{msmMode > 0} the curve must enter as
+this penalty. Spawning biomass per recruit is undefined when mortality
+includes predation, so \code{data_check()} refuses the two uses that need
+it: a curve fitted in the hindcast (\code{srr_fun} 2--5), whose initial
+recruitment derives from it, and a prior on Beverton-Holt steepness
+(\code{srr_est_mode} 2 or 3). Estimating alpha and beta, fixing alpha, or a
+Ricker prior on alpha are all available, and a prior on alpha or beta goes
+through \code{linkages}: an intercept-only \code{\link[=linkage_spec]{linkage_spec()}} puts its prior on
+the parameter itself, e.g.
+\code{linkages = list(alpha = linkage_spec(~ 1, priors = list(`(Intercept)` = prior_lognormal(log(5), 0.5))))},
+where the lognormal's first argument is the log of the median.
+\code{steepness} is reported as 0.
 }
 \examples{
 # Beverton-Holt fitted to the hindcast, with a prior on steepness.

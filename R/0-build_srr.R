@@ -55,6 +55,19 @@
 #'
 #' When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_endyr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
 #'
+#' **Multispecies models.** Under \code{msmMode > 0} the curve must enter as
+#' this penalty. Spawning biomass per recruit is undefined when mortality
+#' includes predation, so \code{data_check()} refuses the two uses that need
+#' it: a curve fitted in the hindcast (\code{srr_fun} 2--5), whose initial
+#' recruitment derives from it, and a prior on Beverton-Holt steepness
+#' (\code{srr_est_mode} 2 or 3). Estimating alpha and beta, fixing alpha, or a
+#' Ricker prior on alpha are all available, and a prior on alpha or beta goes
+#' through \code{linkages}: an intercept-only [linkage_spec()] puts its prior on
+#' the parameter itself, e.g.
+#' \code{linkages = list(alpha = linkage_spec(~ 1, priors = list(`(Intercept)` = prior_lognormal(log(5), 0.5))))},
+#' where the lognormal's first argument is the log of the median.
+#' \code{steepness} is reported as 0.
+#'
 #'
 #' @return A \code{list} containing the stock recruitment relationship settings
 #' @examples
@@ -91,8 +104,23 @@ build_srr <- function(srr_fun = 0,  #srr_model
     srr_pred_fun = srr_fun
   }
 
+  # Bmsy_lim bounds the Ricker curve only. -999 is the stored "off" value that
+  # refits pass back in, so it does not warn.
   if(!srr_pred_fun %in% c(4,5, "Ricker")){
+    if (any(!is.na(Bmsy_lim) & Bmsy_lim != -999)) {
+      warning("`Bmsy_lim` bounds a Ricker curve only and is ignored for ",
+              "`srr_pred_fun = ", srr_pred_fun, "`.", call. = FALSE)
+    }
     Bmsy_lim = -999
+  }
+
+  # The beta prior is a prior on Beverton-Holt steepness; the template has no
+  # Ricker form of it, so a Ricker curve would be estimated with no prior.
+  if (isTRUE(srr_est_mode == 3) && srr_pred_fun %in% c(4, 5)) {
+    stop("`srr_est_mode = 3` (\"BetaPrior\") is a prior on Beverton-Holt ",
+         "steepness and has no Ricker form. For a Ricker curve use ",
+         "`srr_est_mode = 2` (\"LognormalPrior\"), a prior on alpha.",
+         call. = FALSE)
   }
 
   # For a Beverton-Holt curve, srr_est_mode 2 and 3 put the prior on steepness,

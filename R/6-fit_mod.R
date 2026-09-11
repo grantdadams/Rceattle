@@ -678,6 +678,21 @@ fit_mod <-
           seen <<- c(seen, msg)
         }
       )
+    } else if (isTRUE(data_list$srr_pred_fun > 1) && !is.null(map$mapList$rec_pars)) {
+      # A supplied map is used as given; one from a mean-recruitment fit pins
+      # alpha and beta while the curve still shapes recruitment.
+      rp    <- as.matrix(map$mapList$rec_pars)
+      est   <- (data_list$estDynamics %||% rep(0, data_list$nspp)) == 0
+      stuck <- est & is.na(rp[, 2]) & is.na(rp[, 3])
+      if (any(stuck)) {
+        warning("The supplied `map` fixes both stock-recruit parameters (alpha ",
+                "and beta) for ", paste(data_list$spnames[stuck], collapse = ", "),
+                ", so the curve stays at its starting values while it still ",
+                "shapes recruitment. A map carried over from a mean-recruitment ",
+                "fit does this. Free map$mapList$rec_pars[, 2:3] and rebuild ",
+                "map$mapFactor$rec_pars to estimate the curve; if the curve is ",
+                "fixed on purpose, ignore this warning.", call. = FALSE)
+      }
     }
     if (verbose > 0) { message("Step 2: Map build complete") }
 

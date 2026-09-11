@@ -12,6 +12,62 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.30.0
+
+## New features
+
+* **A multispecies model can carry a stock-recruit curve as a recruitment
+  penalty.** `data_check()` refused every Beverton-Holt or Ricker curve under
+  `msmMode > 0` (5.12.0), including the Ianelli configuration
+  (`build_srr(srr_fun = "mean", srr_pred_fun = "BevertonHolt")`). That
+  configuration never needed spawning biomass per recruit: the penalty, the
+  dynamic reference points and -- with `proj_mean_rec = FALSE` -- the
+  projection read alpha, beta and SSB only. It is now allowed, and so are
+  estimating alpha and beta, fixing alpha (`srr_est_mode = "Fixed"`) and a
+  Ricker prior on alpha. Under the default `proj_mean_rec = TRUE` the
+  projection, and so the multispecies `MSSB0` derived from it, runs on mean
+  recruitment while dynamic B0 follows the curve.
+
+  Two uses still read spawning biomass per recruit, which is undefined under
+  predation, and are still refused: a curve fitted in the hindcast
+  (`srr_fun` Beverton-Holt or Ricker), whose initial recruitment derives from
+  `SPRFinit`, and a prior on Beverton-Holt steepness (`srr_est_mode =
+  "LognormalPrior"` or `"BetaPrior"`).
+
+  Under predation the penalty curve's first-year `R_hat` is `R_init`, where it
+  was `-Inf`; `sim_mod()` and `retrospective()` take `log(R_hat)` over that
+  year. `steepness` is reported as 0, and `convergence_diagnostics()` records a
+  NOTE rather than testing the curve against the replacement line. No fit that
+  ran before this change moves.
+
+* **A species with input numbers-at-age (`estDynamics > 0`) carries no
+  stock-recruit prior, Bmsy penalty or curve penalty.** Its recruitment is a
+  placeholder, so those terms scored nothing real, and with an estimated
+  population scalar (`estDynamics` 2 or 3) the curve penalty pulled on that
+  scalar. Only a model combining a stock-recruit curve with such a species
+  moves.
+
+* `fit_mod()` warns when a supplied `map` fixes both stock-recruit parameters
+  while the curve still shapes recruitment, as a map reused from a
+  mean-recruitment fit does. `build_srr()` stops on `srr_est_mode =
+  "BetaPrior"` with a Ricker curve, which has no Ricker form and was estimated
+  with no prior, and warns when `Bmsy_lim` is given for a non-Ricker curve,
+  where it is ignored.
+
+## Bug fixes
+
+* **Dynamic B0 holds a species with input numbers-at-age (`estDynamics > 0`)
+  at those numbers.** The dynamic reference runs (`DynamicB0`, `DynamicSB0`,
+  `DynamicSBF`) projected such a species from its first-year numbers on its
+  placeholder recruitment, so a fixed predator collapsed in the unfished run
+  and took its prey's predation mortality there with it. In the Pacific hake
+  four-species model, with arrowtooth, sablefish and California sea lion fixed,
+  arrowtooth dynamic SSB was 38.6 mt in 2023 against an input 43,490 mt. Hake
+  dynamic SB0 in 2023 falls from 2.73e6 to 1.95e6 mt, and its depletion
+  against it rises from 0.516 to 0.723. Only multispecies models with a
+  fixed-dynamics species move: their dynamic reference quantities, and the
+  objective when `DynamicHCR = TRUE` fits the projection against them.
+
 # Rceattle 5.29.0
 
 ## Bug fixes

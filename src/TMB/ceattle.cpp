@@ -1727,7 +1727,7 @@ Type objective_function<Type>::operator() () {
       //
       // R0 is deliberately NOT re-derived here: recruitment in this
       // configuration is R0 * exp(rec_dev), so R0 keeps its estimated value.
-      if((srr_fun < 2) & (srr_pred_fun > 1)){
+      if((srr_fun < 2) & (srr_pred_fun > 1) & (msmMode == 0)){
         for(yr = 0; yr < nyrs; yr++){
           if((srr_pred_fun == 2) | (srr_pred_fun == 3)){
             steepness(sp, yr) = alpha(sp, yr) * SPR0(sp)/(4.0 + alpha(sp, yr) * SPR0(sp));
@@ -1736,6 +1736,11 @@ Type objective_function<Type>::operator() () {
             steepness(sp, yr) = 0.2 * exp(0.8*log(alpha(sp, yr) * SPR0(sp)));
           }
         }
+      }
+      // SPR0 is undefined under predation, so steepness is reported as 0;
+      // data_check() refuses a steepness prior there.
+      if((srr_fun < 2) & (srr_pred_fun > 1) & (msmMode > 0)){
+        for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0; }
       }
     }
 
@@ -2088,6 +2093,19 @@ Type objective_function<Type>::operator() () {
           }
         }
 
+        // A species with input numbers-at-age (estDynamics > 0) keeps them in the
+        // dynamic runs; projection years are read directly, as 6.8 fills N later.
+        if(estDynamics(sp) > 0){
+          for(sex = 0; sex < nsex(sp); sex ++){
+            for(age = 0; age < nages(sp); age++){
+              Type n_fixed = (yr < nyrs_hind) ? N_at_age(sp, sex, age, yr) :
+                ((estDynamics(sp) == 3) ? pop_scalar(sp, age) : pop_scalar(sp, 0)) * NByageFixed(sp, sex, age, yr);
+              N_at_age_dB0(sp, sex, age, yr) = n_fixed;
+              N_at_age_dBF(sp, sex, age, yr) = n_fixed;
+            }
+          }
+        }
+
 
         // Calculate Dynamic SB0 and SB at F target
         for(age = 0; age < nages(sp); age++) {
@@ -2316,32 +2334,38 @@ Type objective_function<Type>::operator() () {
     for(sp = 0; sp < nspp; sp++) {
 
       // Year 1 (arent fit in likelihood)
-      switch(srr_pred_fun){
-      case 0: // Random about mean (e.g. Alaska)
-        R_hat(sp, first_yr) = R0(sp, first_yr);
-        break;
+      // Under predation there is no SPRFinit (6.2) to place the first year on
+      // the curve, so it takes R_init, the anchor its realised recruitment uses.
+      if((msmMode > 0) & (srr_pred_fun > 1)){
+        R_hat(sp, first_yr) = R_init(sp);
+      } else {
+        switch(srr_pred_fun){
+        case 0: // Random about mean (e.g. Alaska)
+          R_hat(sp, first_yr) = R0(sp, first_yr);
+          break;
 
-      case 1: // Random about mean with environmental effects
-        R_hat(sp, first_yr) = R0(sp, first_yr);
-        break;
+        case 1: // Random about mean with environmental effects
+          R_hat(sp, first_yr) = R0(sp, first_yr);
+          break;
 
-      case 2: // Beverton-Holt
-        R_hat(sp, first_yr) = (alpha(sp, first_yr) - 1/SPRFinit(sp)) / Beta(sp, first_yr); // (Alpha-1/SPR0)/beta
-        break;
+        case 2: // Beverton-Holt
+          R_hat(sp, first_yr) = (alpha(sp, first_yr) - 1/SPRFinit(sp)) / Beta(sp, first_yr); // (Alpha-1/SPR0)/beta
+          break;
 
-      case 3: // Beverton-Holt with environmental impacts on alpha
-        R_hat(sp, first_yr) = (alpha(sp, first_yr) - 1/SPRFinit(sp)) / Beta(sp, first_yr); // (Alpha-1/SPR0)/beta
-        break;
+        case 3: // Beverton-Holt with environmental impacts on alpha
+          R_hat(sp, first_yr) = (alpha(sp, first_yr) - 1/SPRFinit(sp)) / Beta(sp, first_yr); // (Alpha-1/SPR0)/beta
+          break;
 
-      case 4: // Ricker
-        R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
-        break;
+        case 4: // Ricker
+          R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
+          break;
 
-      case 5: // Ricker with environmental impacts on alpha
-        R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
-        break;
-      default:
-        error("Invalid 'srr_pred_fun'");
+        case 5: // Ricker with environmental impacts on alpha
+          R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
+          break;
+        default:
+          error("Invalid 'srr_pred_fun'");
+        }
       }
 
       // Year 1+
@@ -4373,15 +4397,19 @@ Type objective_function<Type>::operator() () {
   // Slots 8-11 -- Recruitment
   for(sp = 0; sp < nspp; sp++) {
     penalty = 0.0;
+    // Input numbers-at-age (estDynamics > 0) leave R a placeholder, so no SRR
+    // prior, Bmsy penalty or curve penalty.
+    int srr_terms_on = (estDynamics(sp) == 0);
+
     // Slot 9 -- stock-recruit prior for Beverton
     // -- Lognormal. Bias correction centered at -sigma^2/2 so E[steepness] =
     //    srr_prior (mean-unbiased), matching the rec/init-dev convention.
-    if((srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
+    if(srr_terms_on && (srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
       jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // -- Beta
-    if((srr_est_mode == 3) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
+    if(srr_terms_on && (srr_est_mode == 3) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
       // Convert mean and SD to beta params
       Type beta_alpha = ((1 - srr_prior(sp))/ square(srr_prior_sd(sp)) - 1/srr_prior(sp)) * square(srr_prior(sp));
       Type beta_beta = beta_alpha * (1/srr_prior(sp) - 1);
@@ -4389,12 +4417,12 @@ Type objective_function<Type>::operator() () {
     }
 
     // Slot 9 -- stock-recruit prior for Ricker
-    if((srr_est_mode == 2) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){
+    if(srr_terms_on && (srr_est_mode == 2) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){
       jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior(sp)), srr_prior_sd(sp), true);
     }
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim for Ricker
-    if((!isNA(Bmsy_lim(sp))) && ((srr_pred_fun == 4) || (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
+    if(srr_terms_on && (!isNA(Bmsy_lim(sp))) && ((srr_pred_fun == 4) || (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
       Type bmsy = 1.0/exp(rec_pars(sp, 2));
       bmsy =  posfun(Bmsy_lim(sp)/Type(1000000.0) - bmsy, Type(0.001), penalty);
       jnll_comp(JNLL_SRR_PRIOR, sp) += 100 * penalty;
@@ -4418,7 +4446,7 @@ Type objective_function<Type>::operator() () {
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)
-    if((srr_fun == 0) & (srr_pred_fun  > 0)){
+    if(srr_terms_on && (srr_fun == 0) & (srr_pred_fun  > 0)){
       for(yr = srr_hat_styr; yr <= srr_hat_endyr; yr++) {
         jnll_comp(JNLL_SRR_PENALTY, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), R_sd(sp), true);
       }

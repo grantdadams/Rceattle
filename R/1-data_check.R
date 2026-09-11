@@ -1877,34 +1877,40 @@ data_check <- function(data_list) {
     errors <- c(errors, "msmMode > 0 requires other_food > 0 for all species; zero values cause divide-by-zero in suitability")
   }
 
-  # A Beverton-Holt or Ricker curve is anchored on spawning biomass per recruit:
-  # steepness, R0 and R_init all derive from SPR0 or SPRFinit. Under predation
-  # there is no such anchor -- total mortality carries M2, which scales with
-  # predator abundance, so per-recruit spawning output is not a property of the
-  # prey stock alone. The combination is refused rather than fitted.
-  #
-  # Resolve through .SRR_FUNS rather than comparing the raw value: a hand-built
-  # data_list can carry the string, and in R `"mean" >= 2` is TRUE, which would
-  # refuse a perfectly good mean-recruitment multispecies model. An unrecognised
-  # value is validate_switches()' business to report, not this check's.
-  .srr_needs_spr <- function(x) {
-    if (is.null(x) || length(x) != 1L || all(is.na(x))) return(FALSE)
-    code <- if (is.numeric(x)) as.integer(x) else unname(.SRR_FUNS[as.character(x)])
-    isTRUE(!is.na(code) && code >= 2L)
+  # SPR is undefined under predation (M2 moves with predators), so refuse the
+  # curve uses that read it: a hindcast curve (R_init) and a BH steepness prior.
+  .switch_code <- function(x, map) {   # compare codes: "mean" >= 2 is TRUE in R
+    if (is.null(x) || length(x) != 1L || all(is.na(x))) return(NA_integer_)
+    if (is.numeric(x)) return(as.integer(x))
+    x <- as.character(x)
+    if (grepl("^[0-9]+$", x)) return(as.integer(x))   # a code read in as text
+    as.integer(unname(map[x]))
   }
   if(!is.null(data_list$msmMode) && any(data_list$msmMode > 0)){
-    bad_srr <- c(if(.srr_needs_spr(data_list$srr_fun)) "srr_fun",
-                 if(.srr_needs_spr(data_list$srr_pred_fun)) "srr_pred_fun")
-    if(length(bad_srr)){
+    srr_code  <- .switch_code(data_list$srr_fun,      .SRR_FUNS)
+    pred_code <- .switch_code(data_list$srr_pred_fun, .SRR_FUNS)
+    est_code  <- .switch_code(data_list$srr_est_mode, srr_est_mode_map)
+    if(isTRUE(srr_code >= 2L)){
       errors <- c(errors, paste0(
         "msmMode > 0 cannot be combined with a Beverton-Holt or Ricker ",
-        paste(bad_srr, collapse = " / "), ". Those curves are anchored on ",
-        "spawning biomass per recruit, which is undefined under predation: ",
-        "total mortality includes M2, so per-recruit spawning output depends on ",
-        "predator abundance rather than on the prey stock alone. SPR0 is left at ",
-        "0 and the derived steepness, R0 and R_init are meaningless. Use ",
-        "build_srr(srr_fun = 'mean', srr_pred_fun = 'mean'), or fit the ",
-        "stock-recruit curve in single-species mode."))
+        "srr_fun. A curve fitted in the hindcast seeds the initial age ",
+        "structure from spawning biomass per recruit, which is undefined under ",
+        "predation: total mortality includes M2, so per-recruit spawning output ",
+        "depends on predator abundance rather than on the prey stock alone. Fit ",
+        "the curve as a recruitment penalty instead, build_srr(srr_fun = ",
+        "'mean', srr_pred_fun = 'BevertonHolt'), or fit it in single-species ",
+        "mode."))
+    } else if(isTRUE(pred_code %in% c(2L, 3L)) && isTRUE(est_code %in% c(2L, 3L))){
+      errors <- c(errors, paste0(
+        "msmMode > 0 cannot be combined with a prior on Beverton-Holt ",
+        "steepness (srr_est_mode = 'LognormalPrior' or 'BetaPrior'). Steepness ",
+        "is alpha * SPR0 / (4 + alpha * SPR0), and spawning biomass per recruit ",
+        "is undefined under predation: total mortality includes M2, so ",
+        "per-recruit spawning output depends on predator abundance rather than ",
+        "on the prey stock alone. Use srr_est_mode = 'Estimated', or 'Fixed' ",
+        "to hold alpha at srr_prior, and put any prior on alpha itself: ",
+        "build_srr(linkages = list(alpha = linkage_spec(~ 1, priors = ",
+        "list(`(Intercept)` = prior_lognormal(log(median), sd)))))."))
     }
   }
 
