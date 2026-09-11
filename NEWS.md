@@ -12,6 +12,28 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.32.0
+
+## Breaking changes
+
+* **`srr_fun` / `srr_pred_fun` codes 1, 3 and 5, and `srr_indices`, are now
+  errors.** These were the environment-driven stock-recruit forms. 4.4.0
+  removed their environmental term from the template, but `build_srr()` kept
+  accepting them with only a soft-deprecation warning. A model built with them
+  was fitted without its covariate and reported nothing wrong: its objective and
+  parameter count were identical to the non-environmental model's. The 4.4.0
+  entry below, which says they "continue to work", was wrong.
+
+  `build_srr()` now stops and names the linkage that replaces them:
+  `srr_fun = 0` with `linkages = list(R0 = linkage_spec(~ <covariate>))` for
+  code 1, and `srr_fun` 2 or 4 with an `alpha` linkage for 3 or 5.
+  `srr_indices = k` referred to `env_data` column `k + 1`, counting after
+  `Year`. A fit made with code 1, 3 or 5 still refits, through `retrospective()`,
+  `run_mse()` and the other refitting diagnostics, as code 0, 2 or 4 with a
+  warning; that is the model it actually fitted. Results produced with these
+  codes from 4.4.0 through 5.31.0 carry no environmental effect and should be
+  refit with a linkage. No fit without them changes.
+
 # Rceattle 5.31.0
 
 ## New features

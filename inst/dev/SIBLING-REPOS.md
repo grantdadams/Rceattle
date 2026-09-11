@@ -25,20 +25,20 @@ Entry point `R/Climate_MSE_GOA_runs.R`: it sources the OM and EM conditioning sc
 `run_climate_mse()`. Both conditioning scripts start their fits from
 `Models/GOA_20_1_1_mod_list.RData`, which `Models/GOA_23.1.1. fit models.R` writes.
 
-It will not run until two things are done, and neither is a rename:
+It will not run until the saved 2024 fits are regenerated. They predate the current parameter
+set, so `fit_mod()` stops on them as `inits`; rerun the fit script first.
 
-- **The saved 2024 fits cannot be used as `inits`.** They predate the current parameter set, so
-  `fit_mod()` stops on the missing blocks. Rerun the fit script first.
-- **The workbook fails two data checks that 2024 Rceattle did not have.** `Pcod_spawn_srv` and
-  `Pcod_seine_srv` estimate selectivity with no composition data, and 252 of 4,096 `diet_data`
-  rows carry ages beyond the species' oldest age. All of those rows are cod at ages 11–12.
+Two data checks that 2024 Rceattle did not have also refused its workbook, and the scripts now
+handle both after `read_data()`. `Pcod_spawn_srv` and `Pcod_seine_srv` estimated selectivity with
+no composition data, so they are turned off. 252 of 4,096 `diet_data` rows carried cod at ages
+11–12 against a cod model of ages 1–10; `fold_diet_plus_group()` folds them into age 10.
 
 The port had to catch three silent changes. Any 2024-era script carries the same risk:
 
 - **`initMode = 1` meant unfished equilibrium *with* initial deviates in 2024. That is now `2`.**
   Leaving it at `1` drops the deviates without an error.
-- **`srr_fun = 1|3|5` with `srr_indices` has been inert since 4.4.0.** Commit `862ad197` removed
-  the term, although NEWS 4.4.0 says both still work. The objective and parameter count are
+- **`srr_fun = 1|3|5` with `srr_indices` was inert from 4.4.0 through 5.31.0, and is an error from
+  5.32.0.** Commit `862ad197` removed the term, although NEWS 4.4.0 says both still work. The objective and parameter count are
   identical to the non-environmental model. Climate-driven recruitment is now a linkage on `R0`
   (mean recruitment) or `alpha` (Ricker). The old `srr_env_indices` counted `env_data` columns
   *after* `Year`, so Climate_MSE's `c(2,3,4)` meant winter SST, SST squared and zooplankton. It

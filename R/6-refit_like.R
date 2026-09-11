@@ -99,6 +99,11 @@
       HCRorder   = dl$HCRorder)
   }
 
+  # A fit stored with srr_fun 1|3|5 refits as the structural form it fitted; the
+  # warning is raised here, outside the suppressWarnings() below.
+  srr_fun_refit      <- .srr_fun_structural(dl$srr_fun)
+  srr_pred_fun_refit <- .srr_fun_structural(dl$srr_pred_fun)
+
   fit_mod(
     data_list    = dl,
     inits        = inits,
@@ -107,10 +112,10 @@
     file         = NULL,
     estimateMode = estimateMode,
     HCR          = HCR,
-    # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+    # suppressWarnings: build_srr()'s advisory warnings only.
     recFun = suppressWarnings(build_srr(
-      srr_fun          = dl$srr_fun,
-      srr_pred_fun     = dl$srr_pred_fun,
+      srr_fun          = srr_fun_refit,
+      srr_pred_fun     = srr_pred_fun_refit,
       proj_mean_rec    = proj_mean_rec,
       srr_mse_switchyr = srr_mse_switchyr,
       srr_hat_styr     = srr_hat_styr,
@@ -121,7 +126,6 @@
       srr_alpha_init   = dl$srr_alpha_init,
       srr_beta_init    = dl$srr_beta_init,
       Bmsy_lim         = dl$Bmsy_lim,
-      srr_indices      = dl$srr_indices,
       linkages         = dl$srr_linkages)),
     # suppressWarnings: legacy M1_indices may travel via data_list.
     M1Fun = suppressWarnings(build_M1(

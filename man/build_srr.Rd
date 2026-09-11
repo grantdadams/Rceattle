@@ -61,7 +61,7 @@ steepness \eqn{h} and unfished spawning biomass per recruit \eqn{\phi_0}:
 \deqn{\alpha = \frac{4h}{\phi_0 (1 - h)}, \qquad
         \beta  = \frac{\alpha - 1/\phi_0}{R_0}.}}
 
-\item{srr_indices}{Soft-deprecated. Use the \code{linkages} argument instead. See \code{vignette("environmental-linkages-and-priors")}.}
+\item{srr_indices}{Defunct: supplying it is an error, because it has had no effect since 4.4.0. Express an environmental effect through \code{linkages}; see \code{vignette("environmental-linkages-and-priors")}.}
 
 \item{Bmsy_lim}{Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default \code{NA} is not used.}
 

@@ -1246,9 +1246,10 @@ design matrix that was already right.
 * **Non-parametric selectivity** -- a `coff` linkage needs a per-bin
   covariate, since a per-year scalar cancels under the annual
   mean-centring; the formula grammar does not yet express that.
-* **Legacy retirement** -- `srr_indices`, `M1_indices`,
-  `srr_fun %in% c(1, 3, 5)`, and `M1_model %in% c(4, 5)` are
-  deprecated; see the migration table in `NEWS.md`.
+* **Legacy retirement** -- `srr_fun %in% c(1, 3, 5)` and `srr_indices`
+  are errors from 5.32.0: express the environmental effect as a
+  recruitment linkage. `M1_indices` and `M1_model %in% c(4, 5)` remain
+  deprecated. See the migration table in `NEWS.md`.
 
 ## See also
 

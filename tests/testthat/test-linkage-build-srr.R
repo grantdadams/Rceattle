@@ -12,7 +12,7 @@ testthat::test_that("build_srr() accepts string srr_fun (parity with int)", {
     Rceattle::build_srr(srr_fun = "BevertonHolt")$srr_fun, 2L
   )
   testthat::expect_equal(Rceattle::build_srr(srr_fun = "Ricker")$srr_fun, 4L)
-  # No string aliases for the soft-deprecated env-driven codes.
+  # No string aliases for the retired env-driven codes.
   testthat::expect_error(
     Rceattle::build_srr(srr_fun = "mean_env"),
     "unknown `srr_fun`"
@@ -20,36 +20,43 @@ testthat::test_that("build_srr() accepts string srr_fun (parity with int)", {
 })
 
 
-testthat::test_that("build_srr(srr_fun = 1|3|5) still works but warns", {
-  testthat::expect_warning(
-    res1 <- Rceattle::build_srr(srr_fun = 1),
-    "soft-deprecated"
-  )
-  testthat::expect_equal(res1$srr_fun, 1L)
-  testthat::expect_warning(
-    res3 <- Rceattle::build_srr(srr_fun = 3),
-    "soft-deprecated"
-  )
-  testthat::expect_warning(
-    res5 <- Rceattle::build_srr(srr_fun = 5),
-    "soft-deprecated"
-  )
+# From 4.4.0 the template no longer applied the environmental recruitment term,
+# but srr_fun 1/3/5 and srr_indices kept running with only a soft-deprecation
+# warning, so a model was fitted without its covariate and reported no error.
+# They now stop and point to the linkage that replaces them.
+testthat::test_that("build_srr(srr_fun / srr_pred_fun = 1|3|5) is an error", {
+  for (code in c(1, 3, 5)) {
+    testthat::expect_error(Rceattle::build_srr(srr_fun = code), "linkages",
+                           info = code)
+    testthat::expect_error(Rceattle::build_srr(srr_pred_fun = code), "linkages",
+                           info = code)
+  }
 })
 
 
-testthat::test_that("build_srr(srr_indices = ...) emits deprecation warning", {
-  # NA / not supplied -> no warning.
+testthat::test_that("build_srr(srr_indices = ...) is an error; NA or NULL is not supplied", {
+  # .refit_like() passes data_list$srr_indices, which a current fit leaves NULL.
   testthat::expect_silent(Rceattle::build_srr(srr_indices = NA))
+  testthat::expect_silent(Rceattle::build_srr(srr_indices = NULL))
+  testthat::expect_error(Rceattle::build_srr(srr_indices = 1), "linkages")
+  testthat::expect_error(Rceattle::build_srr(srr_indices = c(1, 2, 3)), "linkages")
+})
 
-  # Any other value triggers the soft-deprecation warning.
-  testthat::expect_warning(
-    Rceattle::build_srr(srr_indices = 1),
-    "deprecated"
-  )
-  testthat::expect_warning(
-    Rceattle::build_srr(srr_indices = c(1, 2, 3)),
-    "deprecated"
-  )
+
+testthat::test_that("a refit maps a stored code 1/3/5 to the form it fitted, with a warning", {
+  # A fit made before 5.32.0 can carry code 1, 3 or 5; from 4.4.0 those fitted
+  # 0, 2 or 4, so the refitting diagnostics must still rebuild it.
+  for (code in c(1L, 3L, 5L)) {
+    testthat::expect_warning(
+      mapped <- Rceattle:::.srr_fun_structural(code), "no effect since 4.4.0"
+    )
+    testthat::expect_identical(mapped, code - 1L)
+  }
+  for (code in c(0L, 2L, 4L)) {
+    testthat::expect_silent(mapped <- Rceattle:::.srr_fun_structural(code))
+    testthat::expect_identical(mapped, code)
+  }
+  testthat::expect_null(Rceattle:::.srr_fun_structural(NULL))
 })
 
 

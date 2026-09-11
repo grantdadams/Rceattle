@@ -28,7 +28,7 @@
 #'   steepness \eqn{h} and unfished spawning biomass per recruit \eqn{\phi_0}:
 #'   \deqn{\alpha = \frac{4h}{\phi_0 (1 - h)}, \qquad
 #'         \beta  = \frac{\alpha - 1/\phi_0}{R_0}.}
-#' @param srr_indices Soft-deprecated. Use the `linkages` argument instead. See `vignette("environmental-linkages-and-priors")`.
+#' @param srr_indices Defunct: supplying it is an error, because it has had no effect since 4.4.0. Express an environmental effect through `linkages`; see `vignette("environmental-linkages-and-priors")`.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
 #' @param srr_mse_switchyr Year at which an MSE switches from the annual recruitment-penalty estimate to the stock-recruit function (the \code{srr_fun = 0}, \code{srr_pred_fun > 0} case).
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by recruitment parameter name (must be one of `"R0"`, `"alpha"`, `"beta"`). Each spec describes how that parameter depends on environmental covariates and on stratifying factors (species, sex). The offset enters additively (on the log scale) inside the recruitment compute. See `vignette("environmental-linkages-and-priors")` for details.
@@ -179,10 +179,10 @@ build_srr <- function(srr_fun = 0,  #srr_model
 
   linkages <- .validate_recruitment_linkages(linkages, srr_pred_fun)
 
-  # `srr_indices` is soft-deprecated in favour of `linkages = list(R0
-  # = ..., alpha = ..., beta = ...)`. NA is "not supplied".
-  if (!(length(srr_indices) == 1L && is.na(srr_indices))) {
-    .warn_srr_indices_deprecation()
+  # `srr_indices` has had no effect since 4.4.0, so it stops rather than fit a model
+  # without its covariate. NA or NULL is "not supplied" (.refit_like() passes NULL).
+  if (!is.null(srr_indices) && !(length(srr_indices) == 1L && is.na(srr_indices))) {
+    .stop_srr_indices_defunct()
   }
 
   list(srr_fun = srr_fun,
@@ -235,10 +235,9 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #'
 #' Either form is accepted; the canonical integer code is what the
 #' TMB template ultimately consumes. Only the structural codes (0,
-#' 2, 4) get string aliases. The env-driven codes (1, 3,
-#' 5) still work with a soft-deprecation warning -- their structural
-#' part is identical to 0 / 2 / 4 respectively, and the env effect
-#' is expressed via the `linkages` argument to [build_srr()].
+#' 2, 4) get string aliases. The env-driven codes (1, 3, 5) are errors
+#' from 5.32.0: the environmental effect is expressed through the
+#' `linkages` argument to [build_srr()].
 #'
 #' @keywords internal
 .SRR_FUNS <- c(
@@ -248,7 +247,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
 )
 
 
-#' Deprecated env-driven `srr_fun` / `srr_pred_fun` integer codes.
+#' Retired env-driven `srr_fun` / `srr_pred_fun` integer codes: an error in
+#' [build_srr()], mapped to 0 / 2 / 4 when a refit reads one off an older fit.
 #' @keywords internal
 #' @noRd
 .SRR_DEPRECATED_FUNS <- c(1L, 3L, 5L)
@@ -257,8 +257,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #' Coerce an `srr_fun` / `srr_pred_fun` value to canonical integer.
 #'
 #' Accepts either a string from [.SRR_FUNS] (length-1) or a length-1
-#' integer in 0..5. Integer codes 1, 3, 5 emit a soft-deprecation
-#' warning pointing users at the linkage table.
+#' integer 0, 2 or 4. Codes 1, 3 and 5 stop with the linkage that
+#' replaces them.
 #'
 #' @keywords internal
 #' @noRd
@@ -266,26 +266,43 @@ build_srr <- function(srr_fun = 0,  #srr_model
   .coerce_switch_arg(
     x, map = .SRR_FUNS, what = what,
     deprecated = .SRR_DEPRECATED_FUNS,
-    warn_fn = function(int) .warn_srr_fun_deprecation(int, what),
-    length_exact_one = TRUE,
-    legacy_note = ", plus 1/3/5 for legacy env modes")
+    warn_fn = function(int) .stop_srr_fun_defunct(int, what),
+    length_exact_one = TRUE)
+}
+
+
+# A fit made before 5.32.0 can store code 1, 3 or 5. From 4.4.0 those fitted the
+# structural form 0, 2 or 4 with no environmental term, so a refit maps them there.
+.srr_fun_structural <- function(x) {
+  if (is.null(x)) return(x)
+  x   <- as.integer(x)
+  old <- !is.na(x) & x %in% .SRR_DEPRECATED_FUNS
+  if (any(old)) {
+    warning(sprintf(paste0(
+      "This fit used srr_fun / srr_pred_fun = %s, whose environmental term has had ",
+      "no effect since 4.4.0; refitting it as %s, the model it fitted. Refit with a ",
+      "recruitment linkage to include the environmental effect."),
+      paste(unique(x[old]), collapse = ", "), paste(unique(x[old] - 1L), collapse = ", ")),
+      call. = FALSE)
+    x[old] <- x[old] - 1L
+  }
+  x
 }
 
 
 #' @keywords internal
 #' @noRd
-.warn_srr_fun_deprecation <- function(int, what) {
-  warning(
-    sprintf("%s = %d is soft-deprecated: the structural part of ", what, int),
-    "mode 1 / 3 / 5 is identical to mode 0 / 2 / 4 respectively, ",
-    "and the environmental effect formerly driven by ",
-    "`srr_indices` is now better expressed through the linkages ",
-    "argument to build_srr():\n\n",
-    "  build_srr(srr_fun = ", switch(as.character(int),
-                                     "1" = 0, "3" = 2, "5" = 4), ",\n",
-    "            linkages = list(",
-    switch(as.character(int), "1" = "R0", "alpha"),
-    " = linkage_spec(formula = ~ <env_col>)))\n\n",
+.stop_srr_fun_defunct <- function(int, what) {
+  form <- switch(as.character(int), "1" = "mean recruitment",
+                 "3" = "Beverton-Holt", "Ricker")
+  stop(
+    sprintf("%s = %d (%s with an environmental effect) is no longer supported: ",
+            what, int, form),
+    "from 4.4.0 it fitted the model without its environmental term. Express ",
+    "the effect as a linkage:\n\n",
+    "  build_srr(", what, " = ", int - 1L, ",\n",
+    "            linkages = list(", switch(as.character(int), "1" = "R0", "alpha"),
+    " = linkage_spec(~ <env_col>)))\n\n",
     "See vignette('environmental-linkages-and-priors').",
     call. = FALSE
   )
@@ -294,15 +311,15 @@ build_srr <- function(srr_fun = 0,  #srr_model
 
 #' @keywords internal
 #' @noRd
-.warn_srr_indices_deprecation <- function() {
-  warning(
-    "`srr_indices` is deprecated. Environmental ",
-    "effects are now expressed through the linkages argument ",
-    "to build_srr():\n\n",
+.stop_srr_indices_defunct <- function() {
+  stop(
+    "`srr_indices` is no longer supported: from 4.4.0 it had no effect, so a ",
+    "model fitted with it carried no environmental term. Express the effect as ",
+    "a linkage:\n\n",
     "  build_srr(srr_fun = ...,\n",
-    "            linkages = list(R0 = linkage_spec(\n",
-    "              formula = ~ <env_col>)))\n\n",
-    " See vignette('environmental-linkages-and-priors').",
+    "            linkages = list(R0 = linkage_spec(~ <env_col>)))\n\n",
+    "srr_indices = k referred to env_data column k + 1, counting after Year. ",
+    "See vignette('environmental-linkages-and-priors').",
     call. = FALSE
   )
 }
