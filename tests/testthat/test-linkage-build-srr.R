@@ -35,7 +35,6 @@ testthat::test_that("build_srr(srr_fun / srr_pred_fun = 1|3|5) is an error", {
 
 
 testthat::test_that("build_srr(srr_indices = ...) is an error; NA or NULL is not supplied", {
-  # .refit_like() passes data_list$srr_indices, which a current fit leaves NULL.
   testthat::expect_silent(Rceattle::build_srr(srr_indices = NA))
   testthat::expect_silent(Rceattle::build_srr(srr_indices = NULL))
   testthat::expect_error(Rceattle::build_srr(srr_indices = 1), "linkages")
@@ -43,9 +42,9 @@ testthat::test_that("build_srr(srr_indices = ...) is an error; NA or NULL is not
 })
 
 
+# A fit made before 5.32.0 can store code 1, 3 or 5; from 4.4.0 those fitted
+# 0, 2 or 4, so the refitting diagnostics must still rebuild it.
 testthat::test_that("a refit maps a stored code 1/3/5 to the form it fitted, with a warning", {
-  # A fit made before 5.32.0 can carry code 1, 3 or 5; from 4.4.0 those fitted
-  # 0, 2 or 4, so the refitting diagnostics must still rebuild it.
   for (code in c(1L, 3L, 5L)) {
     testthat::expect_warning(
       mapped <- Rceattle:::.srr_fun_structural(code), "no effect since 4.4.0"

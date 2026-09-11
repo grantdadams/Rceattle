@@ -92,16 +92,21 @@ Alaska hindcasts, with no MSE and no estimated suitability. Run it after touchin
 suitability, the DM likelihood, `sim_mod()`, or `run_mse()`.
 
 Its four fits take ~3.5 min together on an M-series Mac, plus ~2 min for `nsim = 2, cores = 2`.
-Reference objectives (verified equal on `dev` and `pr3-schema-order-and-qar1`, 2026-08-22):
+Reference objectives on 5.33.0 (2026-09-11), after its lognormal priors became mean-centred
+under `bias_adjust_proc`. The 5.32.1 values are in the right-hand column; the change comes from the DM
+`prior_lognormal(0, 2)` weights and the M prior. Survey DM theta fell from 35 to 25
+(single-species) and 32 to 23 (MSVPA); hake terminal SSB changed by at most 0.71%. Every fit kept a
+positive-definite Hessian. The 5.32.1 column is measured on dev `7f1c695b`.
 
-| Stage | -log L |
-|---|---|
-| single-species | 2133.8207228717 |
-| single-species + category-1 HCR | 2134.4713926593 |
-| MSVPA, estimated M | 2137.4433306648 |
-| estimated suitability | 2260.7063099135 |
+| Stage | -log L (5.33.0) | 5.32.1 |
+|---|---|---|
+| single-species | 2136.8588547522 | 2133.8207228717 |
+| single-species + category-1 HCR | 2137.5094597505 | 2134.4713944220 |
+| MSVPA, estimated M | 2140.4295989555 | 2137.4433306648 |
+| estimated suitability | 2267.4725502601 | 2260.7063099168 |
 
-Re-run on 5.25.0 (2026-09-01): stages 1, 3 and 4 bit-identical to the table, and stage 2 higher
+Re-run on 5.25.0 (2026-09-01), against that day's references (stage 2 2134.4713926593, stage 4
+2260.7063099135): stages 1, 3 and 4 bit-identical, and stage 2 higher
 by 1.8e-06 (8.3e-10 relative, below the optimizer's own tolerance). Stage 2 is the only one that
 runs the reference-point penalty, so it is the only one that touches the SPR sum, whose factors
 5.24.1 reordered -- floating-point addition is not associative, so the last bits move and the F
@@ -121,19 +126,23 @@ records the "clean" values, which are what the current package reproduces.
 
 `MSE_yr2024.R` is the newer run and the one to check first: California sea lion, sablefish,
 arrowtooth and hake from `MSE_hake_yr24_final.xlsx`, `endyr` 2023, projected to 2030, with
-Dirichlet-multinomial age and diet composition and a lognormal prior on every DM weight. Six
-fits plus `run_mse(nsim = 2, cores = 2)`, ~8 min.
+Dirichlet-multinomial age and diet composition and a lognormal prior on every DM weight. Seven
+fits plus `run_mse(nsim = 2, cores = 2)`, about 13 min.
 
-Baseline objectives, first recorded 2026-09-09 on 5.28.0:
+Baseline objectives on 5.33.0 (2026-09-11), after the lognormal DM and M priors and the
+Ianelli penalty became mean-centred; 5.32.1 on the right. Hake terminal SSB changed by at most
+0.86%, survey DM theta fell from 43-49 to 31-35 and diet theta from 94.2 to 56.5 and 18.4 to 11.8 (the M-estimated fits), and every fit kept a
+positive-definite Hessian. The script ran end to end, `run_mse()` included.
 
-| Fit | -log L |
-|---|---|
-| `ss_run_DM_CSL` | 2436.8886423469 |
-| `ss_run_DM_hcr_CSL` | 2437.4573180484 |
-| `ms_run_DM_CSL` | 2443.8538668576 |
-| `run_ms_CSL_Mest_prior_DM_CSL` | 2663.8053181057 |
-| `run_ms_CSL_Mest_prior_DM_CSL_stable` | 2663.8053181057 |
-| `ss_run_DM_hcr_B0` | 2436.8886423469 |
+| Fit | -log L (5.33.0) | 5.32.1 |
+|---|---|---|
+| `ss_run_DM_CSL` | 2440.0941615088 | 2436.8886423469 |
+| `ss_run_DM_hcr_CSL` | 2440.6633379056 | 2437.4573180484 |
+| `ms_run_DM_CSL` | 2447.0048917469 | 2443.8538668697 |
+| `run_ms_CSL_Mest_prior_DM_CSL` | 2669.3775502006 | 2663.8053181169 |
+| `run_ms_CSL_Mest_prior_DM_CSL_BH` | 2737.7386222058 | 2732.2034482321 |
+| `run_ms_CSL_Mest_prior_DM_CSL_stable` | 2669.3775502006 | 2663.8053181169 |
+| `ss_run_DM_hcr_B0` | 2440.0941615088 | 2436.8886423469 |
 
 Two of those equalities are structural, not coincidences: the `_stable` refit starts from its
 parent's `data_list` and returns to the same optimum, and `ss_run_DM_hcr_B0` matches

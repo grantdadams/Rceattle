@@ -1899,7 +1899,7 @@ data_check <- function(data_list) {
         "on the prey stock alone. Use srr_est_mode = 'Estimated', or 'Fixed' ",
         "to hold alpha at srr_prior, and put any prior on alpha itself: ",
         "build_srr(linkages = list(alpha = linkage_spec(~ 1, priors = ",
-        "list(`(Intercept)` = prior_lognormal(log(median), sd)))))."))
+        "list(`(Intercept)` = prior_lognormal(log(mean), sd)))))."))
     }
   }
 

@@ -44,7 +44,7 @@ lognormal \code{M_prior} / \code{M_prior_sd} to \code{M1} directly.}
 \item{M2_use_prior}{Vector or scalar; if \code{TRUE}, apply the
 lognormal prior to \code{M1 + M2} in multi-species models.}
 
-\item{M_prior}{Mean (natural-scale) of the lognormal prior on M.}
+\item{M_prior}{Natural-scale mean of the lognormal prior on M (its median when \code{bias_adjust_proc = FALSE}).}
 
 \item{M_prior_sd}{SD (log-scale) of the lognormal prior on M.}
 

@@ -662,3 +662,39 @@ testthat::test_that("a peel reports standard errors for its own hindcast", {
   testthat::expect_true(all(vapply(r_no$Rceattle_list[no_refit],
                                    function(m) is.null(m$sdrep), logical(1))))
 })
+
+
+# A penalty-form peel that ends before srr_hat_styr has no curve fitted to
+# recruitment. retrospective() warns once, before the peels run (warnings from peels
+# run in parallel are lost), and each such peel averages over its own years.
+testthat::test_that("retrospective() warns once about penalty-form peels with no penalty years", {
+  testthat::skip_on_cran()
+  d <- make_test_data()
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, file = NULL, estimateMode = 0,
+    recFun = build_srr(srr_fun = "mean", srr_pred_fun = "BevertonHolt",
+                       srr_hat_styr = d$endyr),
+    fit_control = fit_control(phase = FALSE, getsd = FALSE, verbose = 0))))
+  w <- character(0)
+  r <- withCallingHandlers(
+    suppressMessages(retrospective(fit, peels = 2, cores = 1, getsd = FALSE)),
+    warning = function(cnd) {
+      w <<- c(w, conditionMessage(cnd))
+      invokeRestart("muffleWarning")
+    })
+  hit <- grep("contain no stock-recruit penalty years", w, value = TRUE)
+  testthat::expect_length(hit, 1L)
+  testthat::expect_match(hit, paste0("ending ", d$endyr - 1, ", ", d$endyr - 2), fixed = TRUE)
+  # Both peels survive, each projecting the mean ratio to the curve over its own
+  # years (styr skipped); peels are picked by terminal year, as the list is by year.
+  testthat::expect_length(r$Rceattle_list, 3L)
+  peel_mods <- Filter(function(m) m$data_list$endyr_peel < d$endyr, r$Rceattle_list)
+  testthat::expect_length(peel_mods, 2L)
+  for (m in peel_mods) {
+    n  <- m$data_list$endyr_peel - m$data_list$styr + 1
+    rd <- m$estimated_params$rec_dev[1, n + 1]
+    testthat::expect_true(is.finite(rd))
+    testthat::expect_equal(rd, log(mean((m$quantities$R / m$quantities$R_hat)[1, 2:n])),
+                           tolerance = 1e-6)
+  }
+})

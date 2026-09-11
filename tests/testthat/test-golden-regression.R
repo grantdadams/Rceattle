@@ -10,6 +10,8 @@
 # command for the recipe these constants were generated from.
 # =============================================================================
 
+# The GOA reference objectives changed in 5.33.0 (goa_ss -0.0150, goa_ms -0.0030):
+# GOA2018SS fleet 2 has a q prior, which is now mean-centred under bias_adjust_proc.
 testthat::test_that("the four reference fits reproduce their pinned objectives", {
   testthat::skip_on_cran()
   # covr instruments the TMB model at -O0, which historically moved the GOA fits
@@ -31,8 +33,8 @@ testthat::test_that("the four reference fits reproduce their pinned objectives",
   # under any such perturbation. getsd = FALSE is numerically inert here.
   ref <- c(ss     = 10241.0304272585,
            ms     = 10267.2478324443,
-           goa_ss = 12868.0052289274,
-           goa_ms = 12932.7931701136)
+           goa_ss = 12867.9902664788,
+           goa_ms = 12932.7902167145)
   tol <- 1e-6
 
   fc <- function(...) Rceattle::fit_control(getsd = FALSE, verbose = 0,

@@ -14,14 +14,14 @@ and `SPRFinit` at 0 when `msmMode > 0`. Everything below follows from that.
     `srr_pred_fun`).
   - A Beverton-Holt steepness prior is refused. An alpha prior goes through a
     linkage, which acts on `rec_pars` itself: `normal()` is on natural-scale
-    alpha; `prior_lognormal()` is `dnorm(log alpha)` with no bias correction, so
-    its mean is the log median.
+    alpha; `prior_lognormal()` is `dnorm(log alpha)`, centred so `exp(meanlog)`
+    is alpha's mean under `bias_adjust_proc` (5.33.0) and its median without.
   - Species with input numbers-at-age (`estDynamics > 0`) carry no curve terms.
   - Dynamic B0 keeps those species at their input numbers.
   - `fit_mod()` warns when a supplied map fixes the curve.
 - **5.31.0**
-  - A curve fitted in the hindcast is allowed under predation, currently only
-    with `initMode = "FreeParams"` (see item 1).
+  - A curve fitted in the hindcast is allowed under predation, in every
+    initMode (see item 1).
   - `R_init` is the free level `exp(rec_pars[, "R0"])`; steepness is 0; the
     Ricker `posfun(alpha * SPR0 - 1)` penalty is skipped.
   - `sample_rec(sample_rec = FALSE)` and `retrospective()` project
@@ -36,10 +36,10 @@ and `SPRFinit` at 0 when `msmMode > 0`. Everything below follows from that.
 | Ianelli BH penalty, alpha/beta free | 2732.20 | 18.8, 2.7e-6 | +0.04% |
 | FreeParams, mean recruitment (control) | 2520.14 | — | −34.7% |
 | FreeParams, BH in the hindcast | 2520.08 | 4.5e8, 57 (flat) | −34.7% |
-| NonEquilibrium, BH in the hindcast, free `R_init`* | 2654.13 | 5.2e8, 58.5 (flat) | −24.9% |
+| NonEquilibrium, BH in the hindcast, free `R_init` | 2654.13 | 5.2e8, 58.5 (flat) | −24.9% |
 
-\* An experiment: `data_check()`'s FreeParams refusal was bypassed in that
-session only.
+Measured on 5.31.0. 5.33.0 mean-centred the lognormal priors and the Ianelli
+penalty, so these objectives cannot be compared with 5.33.0 fits.
 
 - **The penalty row's objective** excludes the fixed predators' curve penalty
   (5,137.9 nats), which 5.30.0 removed. Objectives are not comparable across
@@ -87,15 +87,12 @@ session only.
    - the predicted/asymptote ratio across the observed SSB range;
    - alpha or beta at a boundary, or with NaN standard errors;
    - optionally, a clearly labelled M1-only steepness as a diagnostic.
-5. **Align the projected-deviation conventions.** There are three:
-   - single-species: `log(mean R) - log R0`;
-   - Ianelli: `mean(log R - log R_hat)`, which projects about the median;
-   - hindcast curve: `log(mean(R / R_hat))`.
-
-   Make the Ianelli branch mean-unbiased too; this moves existing penalty-OM
-   projections. The median form ran hake projections at 46% of the curve's
-   mean. `sample_rec(TRUE)` is already mean-unbiased.
-   Test: expected projected R agrees with and without resampling.
+5. **Projected-deviation conventions: done in 5.33.0.** The Ianelli branch now
+   projects `log(mean(R / R_hat))` over the penalty years, and its
+   penalty is mean-centred under `bias_adjust_proc`. The median form ran hake
+   projections at about 45% of the curve's mean. Single-species keeps
+   `log(mean R) - log R0`. Still open: a test that expected projected R agrees
+   with and without resampling.
 6. **The Ianelli dynamic B0 mixes bases.** It applies `curve × exp(rec_dev)`,
    with `rec_dev` about the mean (`ceattle.cpp` ~2052–2055), rather than
    `log R - log R_hat`. The fitted `log R_hat - log R0` reaches 0.61, so

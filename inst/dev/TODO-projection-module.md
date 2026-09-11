@@ -73,11 +73,11 @@ tape, with the HCR setting F. Structurally it already does what SPM does:
 
 | SPM | Rceattle | where |
 |---|---|---|
-| Tier 3 ramp on B/B40% | `HCR = "NPFMC"`, static or dynamic reference points | `ceattle.cpp:2136`, `:2160` |
-| F apportioned across gears (`Fratio`) | `proj_F_prop` | `:2209` |
-| Baranov catch, plus group, sex ratio, spawn month | same | `:2254-2300` |
-| B100%, B40%, B35% | `SB0` | `:2136` |
-| Recruitment from the historical mean or an SRR | `proj_mean_rec` | `:2231-2246` |
+| Tier 3 ramp on B/B40% | `HCR = "NPFMC"`, static or dynamic reference points | `ceattle.cpp`, the projection's HCR block |
+| F apportioned across gears (`Fratio`) | `proj_F_prop` | `F_flt_age(...) = sel_at_age(...) * proj_F_prop(flt) * proj_F(sp, yr)` |
+| Baranov catch, plus group, sex ratio, spawn month | same | the projection's catch and numbers-at-age loop |
+| B100%, B40%, B35% | `SB0` | `Calculate Dynamic SB0 and SB at F target` |
+| Recruitment from the historical mean or an SRR | `proj_mean_rec` | `if(proj_mean_rec == 1)` in the projection |
 
 Two things it does that SPM cannot: propagate parameter uncertainty into the
 projection (`fit_control(projection_uncertainty = TRUE)`, the WHAM approach),
@@ -86,9 +86,9 @@ and carry predation mortality forward under `msmMode > 0`.
 ## The gaps
 
 **Gap 0 — averaging window.** The projection freezes biology at the terminal
-year: `sel_at_age(..., nyrs_hind - 1)` at `ceattle.cpp:2209` (carrying a
-`// FIXME using last year of selectivity`), and `weight_hat(..., nyrs_hind-1)`
-at `:2289` and `:2296`. SPM, SS3 and WHAM average a window (WHAM `avg.yrs`,
+year: `sel_at_age(..., nyrs_hind - 1)` in the projection's F (marked
+`// FIXME using last year of selectivity`), and `weight_hat(..., nyrs_hind - 1)`
+in the SB0/SBF sums. SPM, SS3 and WHAM average a window (WHAM `avg.yrs`,
 default the last 5); the bridge averages 5 (`spm_bridge.R:104-110`). Identical
 for arrowtooth, whose biology is time-invariant; different on any stock with
 time-varying selectivity or weight-at-age. Moves numbers, so `/golden-check`.

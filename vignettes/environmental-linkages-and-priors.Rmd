@@ -164,7 +164,9 @@ linkage_spec(
 **Prior semantics.** On `(Intercept)` rows the prior is evaluated on the
 *natural scale* (e.g. `normal(0.3, 0.1)` on `K` means
 `dnorm(K_natural, 0.3, 0.1)`). Use `lognormal(meanlog, sdlog)` to put a normal
-directly on the log scale. On covariate rows the prior applies to the
+directly on the log scale; under the default `fit_control(bias_adjust_proc =
+TRUE)` it is centred at `meanlog - sdlog^2/2`, so `exp(meanlog)` is the prior
+mean (the median with `FALSE`). On covariate rows the prior applies to the
 coefficient as-is, regardless of link function.
 
 For programmatic prior assembly (e.g. species-specific priors built in
@@ -681,8 +683,11 @@ vector `beta_linkage` indexes both.
 `build_srr()` accepts the same `linkages` argument with three
 allowed parameter keys:
 
-* **`R0`** -- meaningful for *any* `srr_fun`; the right target if
-  recruitment should respond to env without fitting an SRR.
+* **`R0`** -- acts under mean recruitment (`srr_fun = "mean"`, penalty
+  form included); the right target if recruitment should respond to env
+  without fitting an SRR. Under a curve fitted in the hindcast a
+  single-species `R0` is derived from alpha and beta and the linkage has
+  no effect; in a multispecies model only its first-year value acts.
 * **`alpha`** (productivity) and **`beta`** (density-dependence) --
   only do work when the model has a curve: `srr_fun` (or, for the
   penalty form, `srr_pred_fun`) is `"BevertonHolt"` or `"Ricker"`.
@@ -729,7 +734,7 @@ same grammar gives a prior or a fixed value. This is the recommended
 alternative to `srr_est_mode` / `srr_prior`:
 
 ```{r}
-# Lognormal prior on alpha (median 5, log-scale SD 0.5), species 1 only.
+# Lognormal prior on alpha (mean 5, log-scale SD 0.5), species 1 only.
 rec_prior <- build_srr(
   srr_fun  = "BevertonHolt",
   linkages = list(
@@ -748,8 +753,10 @@ rec_fixed <- build_srr(
 ```
 
 `prior_lognormal(p1, p2)` is a normal density on the log of the
-parameter, so `p1` is the log of its median. For a Ricker curve it is
-identical to `srr_est_mode = "LognormalPrior"`. The one prior a linkage
+parameter, centred so `p1` is the log of its mean under the default
+`fit_control(bias_adjust_proc = TRUE)`, and of its median with `FALSE`. For
+a Ricker curve it gives the same objective as
+`srr_est_mode = "LognormalPrior"`. The one prior a linkage
 cannot express is on Beverton-Holt steepness, which needs spawning
 biomass per recruit: `srr_est_mode = "LognormalPrior"` or `"BetaPrior"`
 remains for it, in single-species models only.

@@ -235,7 +235,8 @@ probe against the pre-change build on BS2017MS, and the hake MSE.
   under the fleet's own `Index_distribution` now, which shifts the RNG stream. At `nsim = 2` the
   hake summary swung `catch_iav` 0.25 vs 0.74 between branches on identical OM and EM fits.
 - The golden reference on `dev` is `ss = 10241.0304272585` (`ms = 10267.2478324443`,
-  `goa_ss = 12868.0052289274`, `goa_ms = 12932.7931701136`), pinned in
+  `goa_ss = 12867.9902664788`, `goa_ms = 12932.7902167145` since 5.33.0 mean-centred the q
+  prior on GOA2018SS fleet 2), set in
   `test-golden-regression.R`.
 
 ## Blocked

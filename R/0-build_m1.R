@@ -147,7 +147,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #'   lognormal `M_prior` / `M_prior_sd` to `M1` directly.
 #' @param M2_use_prior Vector or scalar; if `TRUE`, apply the
 #'   lognormal prior to `M1 + M2` in multi-species models.
-#' @param M_prior Mean (natural-scale) of the lognormal prior on M.
+#' @param M_prior Natural-scale mean of the lognormal prior on M (its median when `bias_adjust_proc = FALSE`).
 #' @param M_prior_sd SD (log-scale) of the lognormal prior on M.
 #' @param M1_indices Soft-deprecated. Vector of column indices into
 #'   `env_data` (excluding `Year`) for environmentally linked M1 when

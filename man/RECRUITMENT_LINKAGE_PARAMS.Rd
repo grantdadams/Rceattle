@@ -8,10 +8,10 @@ RECRUITMENT_LINKAGE_PARAMS
 }
 \description{
 Natural-scale names of the underlying recruitment parameters
-that the linkage system can address. Linkages on \code{R0} are
-meaningful for any \code{srr_fun} (the offset is added to the log of
-equilibrium / mean recruitment when the default log link is used);
-linkages on \code{alpha} and \code{beta} only do work when the chosen
-\code{srr_fun} actually uses alpha / beta (Beverton-Holt, Ricker).
+that the linkage system can address. Linkages on \code{R0} act under mean
+recruitment (the offset is added to log mean recruitment with the
+default log link); under a hindcast curve a single-species \code{R0} is
+derived from alpha and beta. Linkages on \code{alpha} and \code{beta} only do
+work when the model has a curve (Beverton-Holt, Ricker).
 }
 \keyword{internal}

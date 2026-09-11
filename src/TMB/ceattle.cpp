@@ -4338,9 +4338,10 @@ Type objective_function<Type>::operator() () {
   for(flt = 0; flt < n_flt; flt++){
    if(flt_q_lead(flt) == 1){
 
-    // Prior on catchability
+    // Lognormal prior on catchability: Catchability_init is the mean of q when
+    // bias_adjust_proc = 1, the median when 0.
     if( est_index_q(flt) == 2){
-      jnll_comp(JNLL_Q_PRIOR, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt), index_q_sd(flt), true);
+      jnll_comp(JNLL_Q_PRIOR, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt) - bias_adjust_proc*square(index_q_sd(flt))/2.0, index_q_sd(flt), true);
     }
 
     // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
@@ -4397,8 +4398,8 @@ Type objective_function<Type>::operator() () {
     int srr_terms_on = (estDynamics(sp) == 0);
 
     // Slot 9 -- stock-recruit prior for Beverton
-    // -- Lognormal. Bias correction centered at -sigma^2/2 so E[steepness] =
-    //    srr_prior (mean-unbiased), matching the rec/init-dev convention.
+    // -- Lognormal on steepness. srr_prior is its mean when bias_adjust_proc = 1
+    //    (centred at -sigma^2/2, as rec_dev), its median when 0.
     if(srr_terms_on && (srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
       jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
@@ -4411,9 +4412,10 @@ Type objective_function<Type>::operator() () {
       jnll_comp(JNLL_SRR_PRIOR, sp) -= dbeta(steepness(sp, 0), beta_alpha, beta_beta, true);
     }
 
-    // Slot 9 -- stock-recruit prior for Ricker
+    // Slot 9 -- stock-recruit prior for Ricker, lognormal on alpha. srr_prior is alpha's
+    //    mean when bias_adjust_proc = 1, its median when 0.
     if(srr_terms_on && (srr_est_mode == 2) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){
-      jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior(sp)), srr_prior_sd(sp), true);
+      jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm(rec_pars(sp, 1), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim for Ricker
@@ -4440,10 +4442,11 @@ Type objective_function<Type>::operator() () {
       jnll_comp(JNLL_REC_DEV, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
-    // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)
+    // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli). R_hat is the mean of R
+    //    when bias_adjust_proc = 1 (Ianelli's pm.tpl, Dorn 2002), the median (AMAK) when 0.
     if(srr_terms_on && (srr_fun == 0) & (srr_pred_fun  > 0)){
       for(yr = srr_hat_styr; yr <= srr_hat_endyr; yr++) {
-        jnll_comp(JNLL_SRR_PENALTY, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), R_sd(sp), true);
+        jnll_comp(JNLL_SRR_PENALTY, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)) - bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
   }
@@ -4570,8 +4573,9 @@ Type objective_function<Type>::operator() () {
     // 2 = sex-specific (two-sex model), age-invariant M1_at_age
     // 3 = estimate sex- and age-specific M1_at_age.
 
-    // PRE-CALCULATE PRIOR MEAN (Huge performance save for the AD tape)
-    Type M_prior_mean = log(M_prior(sp)) + square(M_prior_sd(sp)) / 2.0;
+    // Lognormal prior on M: M_prior is its mean when bias_adjust_proc = 1, its median
+    // when 0. The log-scale centre is computed once per species, outside the age loop.
+    Type M_prior_mean = log(M_prior(sp)) - bias_adjust_proc*square(M_prior_sd(sp)) / 2.0;
 
     // Prior on M1_at_age only
     if( (M1_use_prior(sp) == 1) && (M2_use_prior(sp) == 0) ) {
@@ -4679,7 +4683,7 @@ Type objective_function<Type>::operator() () {
   // Families:
   //   0 = none    -- no contribution
   //   1 = normal  -- dnorm(b_nat, p1, p2)    prior on natural-scale value
-  //   2 = lognormal -- dnorm(log(b_nat), p1, p2)  prior on log of natural scale
+  //   2 = lognormal -- dnorm(log(b_nat), p1 - bias_adjust_proc*p2^2/2, p2); exp(p1) = mean if bias_adjust_proc = 1, median if 0
   //   3 = gamma   -- dgamma(b_nat, p1, 1/p2)  prior on natural-scale value
   //   4 = beta    -- dbeta(b_nat, p1, p2)     prior on natural-scale value
   //
@@ -4781,12 +4785,13 @@ Type objective_function<Type>::operator() () {
     if (fam == 1) {                         // normal(p1, p2) on natural scale
       jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(b_nat, p1, p2, true);
       unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(b_nat, p1, p2, true);
-    } else if (fam == 2) {                  // lognormal: normal on log of natural scale
+    } else if (fam == 2) {                  // lognormal on log(b_nat); exp(p1) = mean when bias_adjust_proc = 1, median when 0
       // For a log-scale intercept base: log(b_nat) = b (efficient form avoids
       // log(exp(b))). A natural-scale intercept base (sel_inf) takes log(b_nat).
       Type log_b_nat = (linkage_is_intercept(i) == 1 && base_is_log) ? b : log(b_nat);
-      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(log_b_nat, p1, p2, true);
-      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(log_b_nat, p1, p2, true);
+      Type mu_log    = p1 - bias_adjust_proc * square(p2) / 2.0;
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(log_b_nat, mu_log, p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(log_b_nat, mu_log, p2, true);
     } else if (fam == 3) {                  // gamma(p1=shape, p2=rate) on natural scale
       jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dgamma(b_nat, p1, Type(1.0)/p2, true);
       unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dgamma(b_nat, p1, Type(1.0)/p2, true);
@@ -5279,9 +5284,10 @@ Type objective_function<Type>::operator() () {
       if (fam == 1) {                         // normal(p1, p2) on the SD
         jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(sd, p1, p2, true);
         unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(sd, p1, p2, true);
-      } else if (fam == 2) {                  // lognormal: normal on log(SD)
-        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(log(sd), p1, p2, true);
-        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(log(sd), p1, p2, true);
+      } else if (fam == 2) {                  // lognormal on the SD; exp(p1) = mean when bias_adjust_proc = 1, median when 0
+        Type mu_log = p1 - bias_adjust_proc * square(p2) / 2.0;
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(log(sd), mu_log, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(log(sd), mu_log, p2, true);
       } else if (fam == 3) {                  // gamma(shape, rate)
         jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dgamma(sd, p1, Type(1.0)/p2, true);
         unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dgamma(sd, p1, Type(1.0)/p2, true);
