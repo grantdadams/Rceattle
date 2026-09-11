@@ -1613,7 +1613,12 @@ Type objective_function<Type>::operator() () {
     penalty = 0.0;
     zero_N_pen.setZero();
     for( sp = 0; sp < nspp ; sp++) {
-      switch(srr_fun){
+      // Under predation SPR is undefined: a hindcast curve takes R_init from the
+      // free level R0(sp, 0) and reports steepness 0, skipping the cases below.
+      if((msmMode > 0) & (srr_fun > 1)){
+        for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0; }
+        R_init(sp) = R0(sp, 0);
+      } else switch(srr_fun){
       case 0: // Random about mean (e.g. Alaska)
         // No compensation, so steepness is constant across years.
         for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0.99; }
@@ -1898,9 +1903,8 @@ Type objective_function<Type>::operator() () {
         int spawn_yr = yr - minage(sp);
         int srr_use = (spawn_yr < 0) ? 0 : srr_switch;
         Type ssb_tmp = (spawn_yr < 0) ? Type(0.0) : ssb(sp, spawn_yr);
-        // Not R0(sp, yr): under a stock-recruit hindcast build_map() maps the
-        // mean-recruit parameter out and only R0(sp, 0) is overwritten with the
-        // derived (alpha - 1/SPR0)/Beta, leaving R0(sp, yr) at its starting value.
+        // Pre-styr years take R_init, not R0(sp, yr): under a hindcast curve R0 is
+        // set only at year 0 (derived, or the free level under predation).
         Type rec_mean = (spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
 
         R(sp, yr) = calculate_recruitment(srr_use, rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));

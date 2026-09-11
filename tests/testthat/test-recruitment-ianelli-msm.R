@@ -1,6 +1,6 @@
 # Stock-recruit curves under predation (msmMode > 0), where SPR is undefined.
-# The Ianelli penalty is allowed; a hindcast curve and a BH steepness prior are
-# refused. Before 5.30.0 all were refused; before 5.12.0 R_hat[, 1] was -Inf.
+# The Ianelli penalty and a hindcast curve (with a free R_init) are allowed; a BH
+# steepness prior is refused. Before 5.30.0 all were refused.
 
 msm_srr_data <- function() {
   set.seed(123)
@@ -50,19 +50,17 @@ test_that("a Ricker penalty with a prior on alpha builds under predation", {
   expect_true(all(is.finite(m$quantities$R_hat)))
 })
 
-test_that("a hindcast curve or a steepness prior is refused under predation", {
-  expect_error(msm_srr_build(build_srr(srr_fun = "BevertonHolt")),
-               "hindcast")
-  expect_error(msm_srr_build(build_srr(srr_fun = "Ricker")),
-               "hindcast")
-  expect_error(msm_srr_build(build_srr(srr_fun = "mean", srr_pred_fun = "BevertonHolt",
-                                       srr_est_mode = "LognormalPrior",
-                                       srr_prior = 0.8, srr_prior_sd = 0.2)),
-               "steepness")
-  expect_error(msm_srr_build(build_srr(srr_fun = "mean", srr_pred_fun = "BevertonHolt",
-                                       srr_est_mode = "BetaPrior",
-                                       srr_prior = 0.8, srr_prior_sd = 0.2)),
-               "steepness")
+test_that("a steepness prior is refused under predation", {
+  for (f in c("mean", "BevertonHolt")) {
+    expect_error(msm_srr_build(build_srr(srr_fun = f, srr_pred_fun = "BevertonHolt",
+                                         srr_est_mode = "LognormalPrior",
+                                         srr_prior = 0.8, srr_prior_sd = 0.2)),
+                 "steepness", info = f)
+    expect_error(msm_srr_build(build_srr(srr_fun = f, srr_pred_fun = "BevertonHolt",
+                                         srr_est_mode = "BetaPrior",
+                                         srr_prior = 0.8, srr_prior_sd = 0.2)),
+                 "steepness", info = f)
+  }
 })
 
 test_that("data_check() resolves string switches before comparing them", {
@@ -82,10 +80,10 @@ test_that("data_check() resolves string switches before comparing them", {
   expect_true(srr_msg(d))
 
   d$srr_fun <- "BevertonHolt"; d$srr_est_mode <- "Estimated"
-  expect_true(srr_msg(d))
+  expect_false(srr_msg(d))
 
   d$srr_fun <- "2"
-  expect_true(srr_msg(d))
+  expect_false(srr_msg(d))
 
   d$srr_fun <- "0"; d$srr_pred_fun <- "2"; d$srr_est_mode <- "2"
   expect_true(srr_msg(d))
@@ -147,4 +145,43 @@ test_that("build_srr() refuses a Ricker beta prior and flags an ignored Bmsy_lim
   # -999 is the stored "off" value a refit passes back in.
   expect_no_warning(build_srr(srr_fun = "mean", srr_pred_fun = "BevertonHolt",
                               Bmsy_lim = -999))
+})
+
+test_that("a hindcast curve under predation builds in every initMode", {
+  modes <- c("FreeParams", "Equilibrium", "NonEquilibrium", "FishedNonEquilibrium",
+             "FishedNonEquilibriumScaled", "OffsetEquilibrium")
+  cases <- rbind(data.frame(f = "BevertonHolt", im = modes),
+                 data.frame(f = "Ricker", im = c("FreeParams", "NonEquilibrium")))
+  for (k in seq_len(nrow(cases))) {
+    lab <- paste(cases$f[k], cases$im[k])
+    m <- suppressMessages(suppressWarnings(fit_mod(
+      data_list = msm_srr_data(), inits = NULL, estimateMode = 3, msmMode = 1,
+      suitMode = 0, initMode = cases$im[k], random_rec = FALSE,
+      recFun = build_srr(srr_fun = cases$f[k]),
+      fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))))
+    q <- m$quantities
+    expect_true(is.finite(m$obj$fn()), info = lab)
+    expect_true(all(is.finite(m$obj$gr())), info = lab)
+    expect_true(all(is.finite(q$R)) && all(is.finite(q$R_hat)), info = lab)
+
+    # R_init is the free level exp(rec_pars[, "R0"]), not an SPR equilibrium.
+    expect_false(anyNA(m$map$mapList$rec_pars[, 1]), info = lab)
+    expect_equal(as.numeric(q$R_init), as.numeric(exp(m$estimated_params$rec_pars[, 1])),
+                 tolerance = 1e-12, info = lab)
+    expect_true(all(q$steepness == 0), info = lab)
+
+    # sample_rec() projects the mean ratio to the curve, not log(mean R / R0).
+    s  <- sample_rec(m, sample_rec = FALSE, update_model = FALSE)
+    nh <- m$data_list$endyr - m$data_list$styr + 1
+    expect_equal(unname(s$estimated_params$rec_dev[, nh + 1]),
+                 unname(log(rowMeans((q$R / q$R_hat)[, 1:nh]))), tolerance = 1e-12,
+                 info = lab)
+  }
+})
+
+test_that("the Ricker positivity penalty is skipped under predation", {
+  # posfun(alpha * SPR0 - 1) with SPR0 = 0 would add ~0.02 per species.
+  m <- msm_srr_build(build_srr(srr_fun = "Ricker"))
+  zn <- m$quantities$jnll_comp[grep("Zero n-at-age", rownames(m$quantities$jnll_comp)), 1:2]
+  expect_lt(max(zn), 0.005)
 })

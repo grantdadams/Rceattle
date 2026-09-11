@@ -333,6 +333,11 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
       # -- where SR curve is estimated directly
       if(newmod$data_list$srr_fun == newmod$data_list$srr_pred_fun){
         rec_dev <- log(mean(newmod$quantities$R[sp,1:nyrs_peel]))  - log(newmod$quantities$R0[sp])
+        # No unfished R0 under predation: scale by the mean ratio to the curve.
+        if (isTRUE(.map_switch(newmod$data_list$msmMode, msmMode_map, "msmMode") > 0) &&
+            newmod$data_list$srr_fun > 1) {
+          rec_dev <- log(mean((newmod$quantities$R / newmod$quantities$R_hat)[sp, 1:nyrs_peel]))
+        }
       }
 
       # -- OMs where SR curve is estimated as penalty (sensu Ianelli)

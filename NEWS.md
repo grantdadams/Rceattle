@@ -12,6 +12,27 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.31.0
+
+## New features
+
+* **A multispecies model can fit a stock-recruit curve in the hindcast.**
+  Spawning biomass per recruit is undefined under predation, so the curve's
+  initial recruitment level (`R0`), which seeds the first year and the initial
+  age structure, is estimated rather than derived as `(alpha - 1/SPR)/beta`;
+  every year with modelled spawners follows the curve. Any `initMode` is
+  accepted; under the fished modes (3, 4) `R0` trades off against the initial
+  F. The initial state matters: on the Pacific hake four-species model,
+  `"FreeParams"` moved terminal SSB by -35% and `"NonEquilibrium"` by -25%
+  against the mean-recruitment fit, while the hindcast curve itself came out
+  flat (see `inst/dev/TODO-srr-multispecies.md`). Steepness is reported as 0,
+  the Ricker positivity penalty on `alpha * SPR0 - 1` (which added to the
+  objective at every evaluation) is skipped, and `sample_rec(sample_rec =
+  FALSE)` and `retrospective()` scale the projection by the mean ratio of
+  recruitment to the curve, since there is no unfished recruitment to scale
+  against. Single-species fits
+  are unchanged.
+
 # Rceattle 5.30.0
 
 ## New features

@@ -541,11 +541,12 @@ Priors and environmental relationships can be added to stock-functions
 via `build_srr()`. See `?build_srr` for options and
 `vignette("environmental-linkages-and-priors")` for details.
 
-Under multispecies mode (`msmMode > 0`) a stock-recruit curve can enter only as
-a recruitment penalty (`srr_fun = "mean"` with the curve as `srr_pred_fun`),
-and not with a prior on Beverton-Holt steepness. A curve fitted in the hindcast
-and steepness both need spawning biomass per recruit, which is undefined when
-mortality includes predation.
+Under multispecies mode (`msmMode > 0`) spawning biomass per recruit is
+undefined, because mortality includes predation. A curve fitted in the
+hindcast then estimates its initial recruitment level instead of deriving it,
+and the choice of `initMode` can move the fitted stock substantially; the curve
+can also enter as a recruitment penalty (`srr_fun = "mean"` with the curve as
+`srr_pred_fun`). A prior on Beverton-Holt steepness is refused.
 
 ## 7. Natural mortality (`M1Fun = build_M1()`)
 

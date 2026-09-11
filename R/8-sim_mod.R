@@ -1143,6 +1143,12 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
     if(object$data_list$srr_fun == object$data_list$srr_pred_fun){
       if(sample_rec){ # Sample devs from hindcast
         rec_dev <- sample(x = object$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
+      } else if (isTRUE(.map_switch(object$data_list$msmMode, msmMode_map, "msmMode") > 0) &&
+                 object$data_list$srr_fun > 1) {
+        # No unfished R0 under predation: scale by the mean ratio to the curve
+        # (arithmetic, so mean- not median-unbiased, as the branch below).
+        rec_dev <- log(mean((object$quantities$R / object$quantities$R_hat)[sp, 1:hind_nyrs])) +
+          log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))
       } else{ # Set to mean rec otherwise
         rec_dev <- log(mean(object$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - log(object$quantities$R0[sp]) # - Scale mean rec for rec trend
       }
