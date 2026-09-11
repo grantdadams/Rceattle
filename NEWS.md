@@ -12,6 +12,25 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.32.1
+
+## Documentation
+
+* **`?build_srr` now leads with `linkages` for priors, fixed values and
+  covariates on `R0`, alpha and beta.** An intercept-only `linkage_spec()` acts
+  on the parameter itself: a prior (`prior_lognormal()`, `prior_normal()`), a
+  fixed value (`init` with `est_phase = 0`), or one species (`species =`). For a
+  Ricker curve the lognormal linkage prior on alpha is identical to
+  `srr_est_mode = "LognormalPrior"`. `srr_est_mode` and `srr_prior` remain for a
+  Beverton-Holt steepness prior, the one a linkage cannot express. The old
+  example labelled "with a prior on steepness" set `srr_est_mode =
+  "Estimated"`, which applies no prior and turns `srr_prior = 0.8` into alpha's
+  starting value; it is replaced. The linkages vignette's Recruitment section
+  gains the same recipes.
+
+* `?linkage_spec`: `init` is a named list, not a numeric vector. The old example,
+  `c(...)`, is refused by the function.
+
 # Rceattle 5.32.0
 
 ## Breaking changes

@@ -84,9 +84,9 @@ NULL
 #'   `param = X * beta` -- slope contributions are additive on the
 #'   natural scale. The linkage targets are estimated on the log scale,
 #'   so `"log"` is the default.
-#' @param init optional named numeric vector of initial values keyed by
-#'   the design-matrix column name (e.g.
-#'   `c(`(Intercept)` = 4, temp = 0)`). Missing entries default to `0`.
+#' @param init optional named list of initial values keyed by the
+#'   design-matrix column name (e.g. \code{list(`(Intercept)` = 4, temp = 0)}).
+#'   Missing entries default to `0`.
 #' @param bounds optional named list of `c(lower, upper)` keyed the same
 #'   way as `init`.
 #' @param priors optional named list of [Rceattle_priors] objects, keyed by

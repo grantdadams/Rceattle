@@ -94,9 +94,9 @@ contributions are multiplicative on the natural-scale parameter. With \code{link
 natural scale. The linkage targets are estimated on the log scale,
 so \code{"log"} is the default.}
 
-\item{init}{optional named numeric vector of initial values keyed by
-the design-matrix column name (e.g.
-\verb{c(}(Intercept)\verb{ = 4, temp = 0)}). Missing entries default to \code{0}.}
+\item{init}{optional named list of initial values keyed by the
+design-matrix column name (e.g. \code{list(`(Intercept)` = 4, temp = 0)}).
+Missing entries default to \code{0}.}
 
 \item{bounds}{optional named list of \code{c(lower, upper)} keyed the same
 way as \code{init}.}

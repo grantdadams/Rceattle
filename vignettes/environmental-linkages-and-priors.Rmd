@@ -684,8 +684,8 @@ allowed parameter keys:
 * **`R0`** -- meaningful for *any* `srr_fun`; the right target if
   recruitment should respond to env without fitting an SRR.
 * **`alpha`** (productivity) and **`beta`** (density-dependence) --
-  only do work when `srr_fun %in% c(2, 3, 4, 5)` (Beverton-Holt or
-  Ricker).
+  only do work when the model has a curve: `srr_fun` (or, for the
+  penalty form, `srr_pred_fun`) is `"BevertonHolt"` or `"Ricker"`.
 
 ```{r}
 # Mean-recruitment with a temperature linkage on R0.
@@ -721,6 +721,38 @@ fit <- fit_mod(
   msmMode     = 0
 )
 ```
+
+### Priors and fixed values on R0, alpha and beta
+
+An intercept-only formula (`~ 1`) acts on the parameter itself, so the
+same grammar gives a prior or a fixed value. This is the recommended
+alternative to `srr_est_mode` / `srr_prior`:
+
+```{r}
+# Lognormal prior on alpha (median 5, log-scale SD 0.5), species 1 only.
+rec_prior <- build_srr(
+  srr_fun  = "BevertonHolt",
+  linkages = list(
+    alpha = linkage_spec(~ 1, species = 1,
+                         priors = list(`(Intercept)` = prior_lognormal(log(5), 0.5)))
+  )
+)
+
+# Alpha fixed at 20: an intercept held at its `init`.
+rec_fixed <- build_srr(
+  srr_fun  = "BevertonHolt",
+  linkages = list(
+    alpha = linkage_spec(~ 1, init = list(`(Intercept)` = 20), est_phase = 0)
+  )
+)
+```
+
+`prior_lognormal(p1, p2)` is a normal density on the log of the
+parameter, so `p1` is the log of its median. For a Ricker curve it is
+identical to `srr_est_mode = "LognormalPrior"`. The one prior a linkage
+cannot express is on Beverton-Holt steepness, which needs spawning
+biomass per recruit: `srr_est_mode = "LognormalPrior"` or `"BetaPrior"`
+remains for it, in single-species models only.
 
 The structural choice (`srr_fun`) accepts either integer codes or
 readable strings interchangeably:
