@@ -25,12 +25,6 @@ the second drops pointers to `inst/dev/TODO-*.md` notes, which are not markers.
 
 These say, in the source, that the code is wrong under a stated condition.
 
-Open:
-
-| Where | Condition | Consequence |
-|---|---|---|
-| `src/TMB/ceattle.cpp` (`KNOWN LIMITATION (multispecies only)`) | `msmMode > 0`, HCR 5, `DynamicHCR = FALSE` | SBF is computed on the realized M2 under the projection's own F, not an equilibrium M2, while SB0 is overwritten with the `MSSB0` input. HCR 5 (NPFMC Tier 3) reads both, so its two legs sit on different mortality bases and the catch advice rests on them. The fix solves an equilibrium M2 from `NByage0` / `NByageF`. Was a `TODO(review)` until `5d423172` restated it as a limitation. Should become a GitHub issue. |
-
 Three further defects of the same class were found reviewing the fixes below, and are resolved
 in 5.13.0 alongside them. None carried a marker, which is why none appeared in this file: they
 are what the markers pointed *near*, not what they said.
@@ -197,11 +191,17 @@ Six, each a judgement about what the right behaviour *is*:
   plotted.
 - `src/TMB/growth.hpp` (`this branch (and its Richards mirror below) tests`) — see the file.
 
-A seventh, on multispecies SBF, was restated as a known limitation in `5d423172` and now sits in
-Tier 1.
+A seventh, on multispecies SBF, was restated as a known limitation in `5d423172`; it is settled
+under "Deliberately not changed".
 
 ## Deliberately not changed
 
+- **Multispecies SBF sits on the projection's realized M2** (`src/TMB/ceattle.cpp`, `Multispecies:
+  M_at_age carries the projection's realized M2`). Under `msmMode > 0` it is reported but nothing
+  live reads it. The one rule that does, NPFMC (5), is refused there along with 4 and 7;
+  ConstantFSSB tunes realized SSB against SB0, CMSY reads depletion, and `mse_summary()` reads SBF
+  only when `msmMode == 0`. Allowing HCR 5 in multispecies mode would make this a defect;
+  `test-switches-hcr-multispecies.R` pins the refusal.
 - **Non-parametric growth** is declared and calls `error("not yet implemented")`.
 - **The `msmMode` 3–9 Kinzey-Punt branches are not declared at all** -- the whole block in
   `predation.hpp` is inside a `/* ... */`, so there is no dispatch, live or erroring. The live

@@ -6,6 +6,9 @@ change here breaks scripts that produce federal catch advice.
 - **`../Rceattle-models`** — EBS/GOA pollock, sablefish, arrowtooth, plaice, POP, hake.
 - **`../GOA-ATF-ESP`** — GOA arrowtooth and its multispecies (cannibalism) run: **the only live
   two-sex, `suitMode = 0` model**, so it is what exercises the sexed and predation paths.
+- **`../Climate_MSE`** — GOA climate-linked multispecies MSE: pollock, arrowtooth and cod, with
+  SSP126/245/585 operating models. Brought to the current API on 2026-09-11 but **not yet refit**;
+  see its section below.
 - **Ignore `EBS_CEATTLE_TMB`** — a vendored fork, not a consumer.
 
 Fitted `*.rds` are ~50 MB each. Keep them out of git.
@@ -13,8 +16,39 @@ Fitted `*.rds` are ~50 MB each. Keep them out of git.
 ## Sweeping
 
 ```
-grep -rn "<symbol>" --include=*.R "../Rceattle-models" "../GOA-ATF-ESP"
+grep -rn "<symbol>" --include=*.R "../Rceattle-models" "../GOA-ATF-ESP" "../Climate_MSE"
 ```
+
+### `Climate_MSE`
+
+Entry point `R/Climate_MSE_GOA_runs.R`: it sources the OM and EM conditioning scripts, then
+`run_climate_mse()`. Both conditioning scripts start their fits from
+`Models/GOA_20_1_1_mod_list.RData`, which `Models/GOA_23.1.1. fit models.R` writes.
+
+It will not run until two things are done, and neither is a rename:
+
+- **The saved 2024 fits cannot be used as `inits`.** They predate the current parameter set, so
+  `fit_mod()` stops on the missing blocks. Rerun the fit script first.
+- **The workbook fails two data checks that 2024 Rceattle did not have.** `Pcod_spawn_srv` and
+  `Pcod_seine_srv` estimate selectivity with no composition data, and 252 of 4,096 `diet_data`
+  rows carry ages beyond the species' oldest age. All of those rows are cod at ages 11–12.
+
+The port had to catch three silent changes. Any 2024-era script carries the same risk:
+
+- **`initMode = 1` meant unfished equilibrium *with* initial deviates in 2024. That is now `2`.**
+  Leaving it at `1` drops the deviates without an error.
+- **`srr_fun = 1|3|5` with `srr_indices` has been inert since 4.4.0.** Commit `862ad197` removed
+  the term, although NEWS 4.4.0 says both still work. The objective and parameter count are
+  identical to the non-environmental model. Climate-driven recruitment is now a linkage on `R0`
+  (mean recruitment) or `alpha` (Ricker). The old `srr_env_indices` counted `env_data` columns
+  *after* `Year`, so Climate_MSE's `c(2,3,4)` meant winter SST, SST squared and zooplankton. It
+  did not include bottom temperature.
+- **Projected recruitment ignores an `R0` linkage under the default `proj_mean_rec = TRUE`.** It is
+  the hindcast mean, where 2024 multiplied that mean by the environmental term. The ported
+  mean-recruitment climate OMs therefore lose the effect in every projected year. `run_mse()`
+  moves assessed years into the OM's hindcast, where the effect applies. The Ricker OMs set
+  `proj_mean_rec = FALSE` and keep it. Restoring the 2024 behaviour was declined (2026-09-11), so
+  treat those OMs' projected years as climate-naive recruitment.
 
 Two limits, and both need saying out loud when you report a sweep:
 
