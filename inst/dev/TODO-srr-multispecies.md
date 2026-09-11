@@ -1,6 +1,6 @@
 # TODO: stock-recruit curves in multispecies models
 
-Status: **open**. Opened 2026-09-11 with 5.30.0 (`8c5fe1ba`) and 5.31.0, after
+Status: **open**. Opened 2026-09-11 with 5.30.0 (`35fbc19b`) and 5.31.0, after
 two adversarial reviews of each.
 
 Spawning biomass per recruit (SPR) is undefined under predation: total mortality

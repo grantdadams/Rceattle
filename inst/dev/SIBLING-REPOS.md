@@ -96,7 +96,7 @@ Reference objectives on 5.33.0 (2026-09-11), after its lognormal priors became m
 under `bias_adjust_proc`. The 5.32.1 values are in the right-hand column; the change comes from the DM
 `prior_lognormal(0, 2)` weights and the M prior. Survey DM theta fell from 35 to 25
 (single-species) and 32 to 23 (MSVPA); hake terminal SSB changed by at most 0.71%. Every fit kept a
-positive-definite Hessian. The 5.32.1 column is measured on dev `7f1c695b`.
+positive-definite Hessian. The 5.32.1 column is measured on dev `cff500c7`.
 
 | Stage | -log L (5.33.0) | 5.32.1 |
 |---|---|---|
