@@ -304,6 +304,27 @@ peels that survive, so **two runs of the same model can report different rho** d
 `getsd`. `test-functions-retrospective.R` compares the two runs peel by peel over the shared
 names for exactly this reason.
 
+**`fit_mod(d, config = cfg)` replaces `d$model_config` with `cfg$model_config`, linkages and
+all.** `R/6-fit_mod.R:318` attaches the config's structure to the data list unconditionally, so
+a config built from scratch discards every linkage `build_data()` put on `d`. Measured on 5.29.0,
+`GOAatf` with a survey `slp_asc ~ rw(1 | Year)` linkage:
+
+| call | random effects |
+|---|---|
+| `fit_mod(d)` | 57 (`beta_linkage_re`) |
+| `fit_mod(d, config = run_config(d, random_sel = FALSE))` | 57 |
+| `fit_mod(d, config = run_config(model_config(), random_sel = FALSE))` | **0** |
+
+No warning; the fit runs and returns a model without the time-varying survey selectivity. Build
+the config from the data (`run_config(d, ...)`) or from a fit. The same applies to every
+`model_config()` field, not only `selFun`.
+
+`random_sel` does not reach the linkage REs either way — it gates only the `fleet_control`
+`Time_varying_sel` deviations (`R/6-fit_mod.R:760`, `:818`); linkage REs are integrated whenever
+present, unless the spec sets `integrate = FALSE` (`:836`). Its config description ("Estimate time-varying selectivity as random effects",
+`R/0-save_config.R:306`) reads otherwise, and IPHC read it that way. `random_q` is the same: it
+gates only `index_q_dev` (`:757`).
+
 **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing.**
 The feature is then silently lossy through the standard xlsx format. This is how `index_cov` was
 lost.

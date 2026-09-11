@@ -107,14 +107,42 @@ rather than adding one:
   whether the `Time_varying_sel` deviations are integrated — and whether a fleet's
   deviations *can* be integrated is already computed per fleet from
   `fleet_control` alone (`.rce_np_unintegrable_fleets(fleet_control)`,
-  `R/3-build_map.R:634`). Integrating every fleet that can be and penalizing the
+  `R/3-build_map.R:633`). Integrating every fleet that can be and penalizing the
   rest would delete the flag and the class of error the user hit. Behaviour change:
   needs a deprecation path, since `random_sel = FALSE` on an integrable fleet is
   a legitimate choice today.
-- **`fit_mod(config = )` already exists** (`R/0-save_config.R`) and bundles the
-  estimation controls into one object. Extending that to carry the per-fleet
-  switches is a smaller change than merging `fleet_control` into `fit_mod()`, and
-  it keeps the workbook path working.
+- **Most of the merge already exists; the user has not been shown it.** `build_data()`
+  takes `fleet_control` and `model_config` (linkages included) as named blocks, so
+  one R object carries every switch, and `run_config()` / `save_config()` put the
+  estimation controls in one YAML. Verified on 5.29.0, `GOAatf` with a survey
+  `rw(1 | Year)` linkage: the pattern below integrates 57 linkage REs, and the
+  YAML round-trips the linkage exactly.
+
+  ```r
+  d   <- build_data(base = my_data, fleet_control = fc,
+                    model_config = model_config(selFun = sel))
+  cfg <- run_config(d, estimateMode = "Hindcast", random_sel = FALSE,
+                    fit_control = fit_control(phase = TRUE))
+  save_config(cfg, "halibut.yaml")
+  fit <- fit_mod(d, config = cfg)
+  ```
+
+  What is left:
+  - **The `config =` trap** (`TRAPS.md`). A config built from `model_config()`
+    rather than from `d` silently replaces `d`'s linkages (`R/6-fit_mod.R:318`):
+    57 REs become 0, no message. Warn when the two differ, or skip the overwrite
+    when the config's `model_config` is the default.
+  - **Fix the `random_sel` / `random_q` docs** (`R/0-save_config.R:305-306`).
+    "Estimate time-varying selectivity as random effects" is what prompted the question
+    whether `random_sel = FALSE` turns off the linkage REs. It does not: they are
+    integrated unless the spec sets `integrate = FALSE`. `fit_mod()`'s `@param`s (`R/6-fit_mod.R:25-26`)
+    name the `Time_varying_*_sd` columns but should say the same.
+  - **`save_config()` writes no `fleet_control`,** so the YAML is not the whole
+    model; the `fleet_control` still lives in the data object or workbook.
+    Serializing it is the remaining step toward one file.
+  - **`random_sel` cannot live on the data object** — `fit_mod()` overwrites
+    `data_list$random_sel` from its argument (`R/6-fit_mod.R:373`). Moot if the
+    first bullet derives it.
 
 ---
 
@@ -153,4 +181,6 @@ four that is a half-hour job.
 2. **(1)** apex offset — what the user needs, and the only one that unblocks
    their assessment.
 3. **(2)** widen the guard now; the underlying fix waits on the ATF cycle.
-4. **(3)** `random_sel` derivation, if the deprecation path is acceptable.
+4. **(3)** send the user the `build_data()` + `run_config(d)` pattern now, and fix the
+   `config =` trap and the `random_sel` wording with it. The `random_sel`
+   derivation waits on whether the deprecation path is acceptable.
