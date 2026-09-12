@@ -26,6 +26,13 @@ test_that("penalty years outside the hindcast are refused", {
 
   d2 <- d; d2$srr_hat_styr <- d$styr - 1
   expect_true(.srr_guard_msg(d2, "srr_hat_styr .* must be >= styr"))
+
+  # build_srr(srr_hat_endyr = ) on its own resets srr_pred_fun to 0 and drops the
+  # penalty, so the message must point at the model's full build_srr() call.
+  expect_true(.srr_guard_msg(d1, "full build_srr\\(\\) call"))
+  expect_true(.srr_guard_msg(d2, "full build_srr\\(\\) call"))
+  expect_true(.srr_guard_msg(d1, "on its own .*drops the penalty"))
+  expect_true(.srr_guard_msg(d2, "on its own .*drops the penalty"))
 })
 
 test_that("an empty penalty window, or no penalty at all, is not refused", {

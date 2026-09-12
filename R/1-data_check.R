@@ -1914,14 +1914,19 @@ data_check <- function(data_list) {
         data_list$srr_hat_styr < data_list$styr) {
       errors <- c(errors, paste0("srr_hat_styr (", data_list$srr_hat_styr,
                                  ") must be >= styr (", data_list$styr, "): the stock-recruit ",
-                                 "penalty has no recruitment before styr. Set build_srr(srr_hat_styr = )."))
+                                 "penalty has no recruitment before styr (a stored value is kept when styr is ",
+                                 "raised). Set srr_hat_styr in the model's full build_srr() call, or in ",
+                                 "data_list; build_srr(srr_hat_styr = ) on its own resets the curve to mean ",
+                                 "recruitment and drops the penalty."))
     }
     if (yr_ok(data_list$srr_hat_endyr) && yr_ok(data_list$endyr) &&
         data_list$srr_hat_endyr > data_list$endyr) {
       errors <- c(errors, paste0("srr_hat_endyr (", data_list$srr_hat_endyr,
                                  ") must be <= endyr (", data_list$endyr, "): ",
                                  "the stock-recruit penalty would score projected recruitment. ",
-                                 "Set build_srr(srr_hat_endyr = ); a stored value is kept when endyr is lowered."))
+                                 "Set srr_hat_endyr in the model's full build_srr() call, or in data_list (a ",
+                                 "stored value is kept when endyr is lowered); build_srr(srr_hat_endyr = ) on ",
+                                 "its own resets the curve to mean recruitment and drops the penalty."))
     }
   }
 
