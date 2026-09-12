@@ -575,6 +575,8 @@ fit_mod <-
     # a covariate offset at all.)
     .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control)
     .check_q_linkage_support(data_list$linkage_table, data_list$fleet_control)
+    .check_M_linkage_prior(data_list$linkage_table, data_list$M1_use_prior,
+                           data_list$M2_use_prior, data_list$spnames)
     .check_comp_linkage_support(data_list$linkage_table, data_list)
 
     # Random-effect linkage rows (IID `~ (1 | group)`) are now consumed by the

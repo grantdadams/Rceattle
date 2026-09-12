@@ -103,3 +103,15 @@ test_that("under predation an intercept R0 prior lands on R_init", {
                -dnorm(log(unname(q$R_init[1])), log(1e4) - 0.5^2 / 2, 0.5, log = TRUE),
                tolerance = 1e-8)
 })
+
+test_that("minage = 0 with a stock-recruit curve is refused", {
+  # The curve would read that year's spawning biomass before the model computes it.
+  d <- .penalty_data(); d$minage[1] <- 0
+  expect_true(.srr_guard_msg(d, "minage = 0 \\(Pollock\\)"))
+  d$srr_fun <- 2L
+  expect_true(.srr_guard_msg(d, "minage = 0 \\(Pollock\\)"))
+
+  # Mean recruitment reads no spawning biomass.
+  d$srr_fun <- d$srr_pred_fun <- 0L
+  expect_false(.srr_guard_msg(d, "minage = 0"))
+})

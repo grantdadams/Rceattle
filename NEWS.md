@@ -16,9 +16,8 @@ version throughout.
 
 ## Breaking changes
 
-None of the refused configurations below fitted the model it described; each
-entry says why and gives the rebuild. Stored fits with them no longer refit.
-This release stays a minor version.
+None of the refused configurations below fitted the model it described, so this
+release stays a minor version. Stored fits with them no longer refit.
 
 * **`data_check()` refuses an `R0` linkage under a stock-recruit curve fitted
   in the hindcast.** Beverton-Holt and Ricker recruitment read only alpha, beta
@@ -26,28 +25,37 @@ This release stays a minor version.
   linkage did not change recruitment. In a multispecies model `R0` sets only
   the initial recruitment level (`R_init`), so an intercept-only linkage
   (`~ 1`, a prior or fixed value) is accepted and a covariate or random effect
-  is refused. A stored fit with such a linkage no longer refits. Put an
-  environmental effect on
-  productivity through an `alpha` linkage, or use `srr_fun = "mean"` with the
-  `R0` linkage.
+  is refused. Put an environmental effect on productivity through an `alpha`
+  linkage, or use `srr_fun = "mean"` with the `R0` linkage.
 * **A stored fit with `srr_est_mode = "BetaPrior"` on a Ricker curve does not
-  refit.** This dates from 5.30.0, when `build_srr()` began refusing the pair.
-  The prior is on Beverton-Holt steepness and never applied to a Ricker curve.
-  Rebuild with `srr_est_mode = "Estimated"`, the model it fitted.
+  refit**; `build_srr()` has refused the pair since 5.30.0. The prior is on
+  Beverton-Holt steepness and never applied to a Ricker curve. Rebuild with
+  `srr_est_mode = "Estimated"`, the model it fitted.
 * **`srr_est_mode = "Fixed"` together with an alpha linkage fixed at its init
-  (`est_phase = 0`) is refused**, and a stored fit with both no longer refits.
-  Each fixed alpha at a different value. Keep the linkage alone.
+  (`est_phase = 0`) is refused.** Each fixed alpha at a different value. Keep
+  the linkage alone.
 * **A stored fit with stock-recruit penalty years outside the hindcast no
-  longer refits** (see "Stock-recruit penalty years must lie in the hindcast"
-  below). `retrospective()` still runs on one whose `srr_hat_endyr` is past
-  `endyr`, because it truncates that year to each peel. Rebuild with the
-  model's full `build_srr()` call, with the penalty years set inside `styr` to
-  `endyr`. `build_srr(srr_hat_endyr = )` on its own resets the curve and its
-  priors to the defaults (mean recruitment, `srr_pred_fun = 0`), which drops the
-  penalty.
+  longer refits** (see Bug fixes). Rebuild with the model's full `build_srr()`
+  call, with the penalty years inside `styr` to `endyr`:
+  `build_srr(srr_hat_endyr = )` on its own resets the curve and its priors to
+  the defaults (mean recruitment, `srr_pred_fun = 0`), which drops the penalty.
+  `retrospective()` still runs when only `srr_hat_endyr` is past `endyr`,
+  truncating it to each peel.
 * **A stored fit with a Ricker `srr_est_mode = "LognormalPrior"` and an alpha
-  linkage intercept prior no longer refits** (see the Bug fixes entry below).
-  The two are one density counted twice. Keep one of them.
+  linkage intercept prior no longer refits** (see Bug fixes): one density
+  counted twice. Keep one.
+* **`Catchability = "Estimated-with-prior"` with a prior on that fleet's q
+  linkage intercept is refused**: both are priors on the same q. Set
+  `Catchability = "Estimated"`, or drop the intercept prior.
+* **`M1_use_prior = TRUE` with a prior on that species' M1 linkage intercept is
+  refused** unless `M2_use_prior = TRUE`, which puts the M prior on total M.
+  Both are priors on the same M1. Set `M1_use_prior = FALSE`, or drop the
+  intercept prior.
+* **`minage = 0` with a Beverton-Holt or Ricker curve is refused.** The curve
+  read that year's spawning biomass before the model computed it, so it gave
+  zero recruitment in the hindcast (`srr_fun`) or in `SB0`, the reference points
+  and a `proj_mean_rec = FALSE` projection (`srr_pred_fun`, the Ianelli form
+  included). Use mean recruitment.
 
 ## Deprecated
 
@@ -84,19 +92,20 @@ This release stays a minor version.
   SDs), the Ricker alpha prior (`srr_est_mode = "LognormalPrior"`) and the
   catchability prior (`Catchability = "Estimated-with-prior"`). The penalty's
   curve term now treats the curve as the mean of recruitment, as in Ianelli's
-  EBS pollock model (`pm.tpl`, Dorn 2002); `pm.tpl` scores its recruitment
+  EBS pollock model (`pm.tpl`, Dorn 2002); `pm.tpl` penalizes its recruitment
   deviations without a sigma, which no setting reproduces.
   `bias_adjust_proc = FALSE` gives the AMAK form, where the curve is the
-  median. In the penalty years the Ianelli form scores recruitment twice: as a
-  deviation around `R0`, and in the penalty around the curve. With the flag on,
-  centring the penalty lowers the recruitment these two terms favour by a factor
-  of `exp(-sigma_R^2/4)`, which is 8.6% at `sigma_R = 0.6`. Their prior mean
-  falls from `sqrt(R0 * R_hat)` to `sqrt(R0 * R_hat) * exp(-sigma_R^2/4)`, and
-  their median falls by the same factor. Recruitment that the data inform moves
-  less. Every fit that uses these features with the flag on changes. With
+  median. Every fit that uses these features with the flag on changes. With
   the flag off, only fits with an M prior (below) and penalty-form projections
   (next item) change. Wide priors change most: for `prior_lognormal(0, 2)` the
   mean falls from 7.39 to 1 and the median from 1 to 0.14.
+
+  In the penalty years the Ianelli form penalizes recruitment twice, as a
+  deviation from `R0` and as a departure from the curve. With the flag on,
+  centring the penalty lowers the recruitment the two favour by
+  `exp(-sigma_R^2/4)`: 8.6% at `sigma_R = 0.6`. Their mean was the geometric
+  mean of `R0` and the curve; it and the median fall alike. Recruitment the
+  data inform moves less.
 
   Measured changes:
   - **Pacific hake MSEs.** Their Dirichlet-multinomial weights have
@@ -172,12 +181,10 @@ This release stays a minor version.
 
 * **Stock-recruit penalty years must lie in the hindcast.** `data_check()`
   refuses `srr_hat_styr < styr` and `srr_hat_endyr > endyr` under the Ianelli
-  penalty. Past `endyr` the penalty scored projected recruitment (BS2017SS,
+  penalty. Past `endyr` the penalty applied to projected recruitment (BS2017SS,
   `endyr + 5`: objective +1,215), and `sample_rec()` averaged over different
   years than the template. A stored `srr_hat_endyr` is kept when `endyr` is
-  lowered, so set it again in the model's full `build_srr()` call.
-  `build_srr(srr_hat_endyr = )` on its own resets the curve and its priors to
-  the defaults (mean recruitment, `srr_pred_fun = 0`).
+  lowered; Breaking changes gives the rebuild.
 
 * **A Ricker `srr_est_mode = "LognormalPrior"` together with an alpha linkage
   intercept prior is refused.** They are the same density, which the objective

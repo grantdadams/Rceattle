@@ -42,10 +42,10 @@ projection, MSE, diagnostics, plotting — is R.
    keeps old fits working is a *minor* bump, even when NEWS files it under `## Breaking changes`.
    `growth_re` is the worked example — removed with a `switch_check()` deprecation message and a
    `fit_mod()` guard dropping retired parameter blocks from `inits`, and shipped as a minor.
-   **Exception:** refusing a configuration that never fitted the model it described is a minor
-   bump, even though stored fits with it stop refitting. That covers an option that did nothing,
-   one that contradicted itself, one that scored a term twice, and one that scored years outside
-   the hindcast. List each under `## Breaking changes`, with the rebuild. 5.33.0 is the example.
+   **Exception:** refusing a configuration that never fitted the model it described (e.g. inert,
+   self-contradictory, double-counted, reading values not yet computed, or penalizing years
+   outside the hindcast) is also minor, though stored fits with it stop refitting. List each
+   under `## Breaking changes` with the rebuild; 5.33.0 is the example.
 6. **Never hand-edit `man/*.Rd` or `NAMESPACE`.** Run `/document`. Check `git diff DESCRIPTION`
    **first** — if the roxygen version key moved, the `man/` churn is the version, not your change.
 7. **TMB source is inert until `pkgload::load_all(".")`.** Then test with
@@ -258,9 +258,9 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   with `run_config(d, ...)`. `random_sel` never gates linkage REs.
 - **`bias_adjust_proc` centres the lognormal priors and the recruitment deviations together**
   (5.33.0) — `FALSE` gives median priors *and* uncentred deviations. Reproduce an old prior by
-  shifting its input; the Ianelli penalty with centred deviations cannot be reproduced. In the
-  penalty years, with the flag on, the penalty and the deviations favour recruitment
-  `exp(-sigma_R^2/4)` times what they favoured before 5.33.0.
+  shifting its input; the Ianelli penalty with centred deviations cannot be reproduced. With the
+  flag on, in the penalty years the pair favours `exp(-sigma_R^2/4)` times the pre-5.33.0
+  recruitment.
 - **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing** —
   this is how `index_cov` was lost.
 - **A `Comp_weights` of 1 under a Dirichlet-multinomial is a starting weight of e** — that

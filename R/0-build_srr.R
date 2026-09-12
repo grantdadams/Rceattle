@@ -369,7 +369,7 @@ build_srr <- function(srr_fun = 0,  #srr_model
 
 #' Coerce an `srr_fun` / `srr_pred_fun` value to canonical integer.
 #'
-#' Accepts either a string from [.SRR_FUNS] (length-1) or a length-1
+#' Accepts either a string from `.SRR_FUNS` (length-1) or a length-1
 #' integer 0, 2 or 4. Codes 1, 3 and 5 stop with the linkage that
 #' replaces them.
 #'

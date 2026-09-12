@@ -591,20 +591,16 @@ case: they fit no stock-recruit curve, and urm's median-centred q and M priors r
 `Catchability_init = 1.107` (1.0 * exp(0.45^2/2)) and `M_prior = 0.06008` (0.06 * exp(0.05^2/2)). A `bias_adjust_proc` between 0 and 1 gives priors (DM weights included) a centre that is
 neither mean nor median.
 
-**The Ianelli form scores recruitment twice in the penalty years (`srr_hat_styr` to
-`srr_hat_endyr`), and from 5.33 `bias_adjust_proc` centres both scores.** `rec_dev` is scored
-around `R0` (`ceattle.cpp:4447`), and log R around `R_hat` (`:4454`). With flag value b, their
-product in log R is N((log R0 + log R_hat)/2 - b*sigma_R^2/2, sigma_R/sqrt(2)). Before 5.33 the
-penalty had no `-b*sigma_R^2/2`, so 5.33 lowers the recruitment the two favour by
-`exp(-b*sigma_R^2/4)`. With b = 1:
-- The prior mean falls from `sqrt(R0 * R_hat)` to `sqrt(R0 * R_hat) * exp(-sigma_R^2/4)`, which is
-  8.6% lower at sigma_R = 0.6 and 22% lower at 1.0.
-- The median, which a penalized fit shrinks towards, falls by the same factor, from
-  `sqrt(R0 * R_hat) * exp(-sigma_R^2/4)` to `sqrt(R0 * R_hat) * exp(-sigma_R^2/2)`.
+**In the penalty years the Ianelli form penalizes recruitment twice, and from 5.33.0
+`bias_adjust_proc` centres both.** `rec_dev` is penalized around `R0` (`JNLL_REC_DEV`) and log R
+around `R_hat` (`JNLL_SRR_PENALTY`). With flag value b, their product in log R is
+N((log R0 + log R_hat)/2 - b*sigma_R^2/2, sigma_R/sqrt(2)). Before 5.33.0 the penalty lacked its
+`-b*sigma_R^2/2`, so the recruitment the pair favours now falls by `exp(-b*sigma_R^2/4)`. At b = 1
+that is 8.6% at sigma_R = 0.6 and 22% at 1.0, for both the prior mean (from `sqrt(R0 * R_hat)`)
+and the median a penalized fit shrinks towards (from `sqrt(R0 * R_hat) * exp(-sigma_R^2/4)`).
 
-Only centring exactly one of the two terms gives a mean of exactly `sqrt(R0 * R_hat)`. Turning
-the flag off doesn't: the mean is then `exp(+sigma_R^2/4)` high. The curve term alone still treats
-`R_hat` as the mean of R, which is what the reference points and a `proj_mean_rec = FALSE`
-projection read. The data dampen the shift on hindcast R. This was
-accepted for 5.33.0 (2026-09-12); removing it would move the hake baselines again.
+Only centring exactly one term gives a mean of `sqrt(R0 * R_hat)`; with the flag off the mean is
+`exp(+sigma_R^2/4)` high. The curve term alone still treats `R_hat` as the mean of R, which the
+reference points and a `proj_mean_rec = FALSE` projection read. The data dampen the shift on
+hindcast R. Accepted for 5.33.0 (2026-09-12); removing it would move the hake baselines again.
 `test-likelihood-prior-bias-adjust.R` pins the formula, not this property.

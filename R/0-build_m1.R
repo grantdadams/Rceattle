@@ -143,8 +143,9 @@ M_LINKAGE_PARAMS <- c("M1")
 #'   `6` / `"ar1_age_year"`.
 #' @param updateM1 If using initial parameters, use M1 fixed effects
 #'   from data (`M1_base`) instead. Default `FALSE`.
-#' @param M1_use_prior Vector or scalar; if `TRUE`, apply the
-#'   lognormal `M_prior` / `M_prior_sd` to `M1` directly.
+#' @param M1_use_prior Vector or scalar; if `TRUE` and `M2_use_prior` is `FALSE`, apply the
+#'   lognormal `M_prior` / `M_prior_sd` to `M1` directly, which is refused alongside a prior
+#'   on that species' `M1` linkage intercept.
 #' @param M2_use_prior Vector or scalar; if `TRUE`, apply the
 #'   lognormal prior to `M1 + M2` in multi-species models.
 #' @param M_prior Natural-scale mean of the lognormal prior on M (its median when `bias_adjust_proc = FALSE`).
@@ -222,4 +223,27 @@ build_M1 <- function(M1_model = 0,
 #' @noRd
 .validate_M_linkages <- function(linkages) {
   .validate_process_linkages(linkages, M_LINKAGE_PARAMS, "M")
+}
+
+
+# An M1 linkage intercept prior and M1_use_prior both penalize that species' log M1, so the
+# prior would count twice. A row with no species targets species 1, as in the template.
+.check_M_linkage_prior <- function(linkage_table, M1_use_prior, M2_use_prior, spnames) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
+  pri <- linkage_table[linkage_table$process == "M" &
+                         linkage_table$design_col == "(Intercept)" &
+                         !is.na(linkage_table$prior_family) &
+                         linkage_table$prior_family != "none", , drop = FALSE]
+  if (nrow(pri) == 0L) return(invisible())
+  sp <- unique(ifelse(is.na(pri$species), 1L, as.integer(pri$species)))
+  # With M2_use_prior on, the M prior is on total M, not log M1.
+  both <- sp[(M1_use_prior[sp] %in% 1) & (M2_use_prior[sp] %in% 0)]
+  if (length(both) > 0L) {
+    stop(sprintf(paste0(
+      "species %s: M1_use_prior = TRUE and a prior on the M1 linkage's intercept are ",
+      "both priors on the same M1, so it would be counted twice. Keep one: set ",
+      "M1_use_prior = FALSE, or drop the intercept prior."),
+      paste(spnames[both] %||% both, collapse = ", ")), call. = FALSE)
+  }
+  invisible()
 }

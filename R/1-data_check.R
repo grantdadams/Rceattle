@@ -1904,7 +1904,7 @@ data_check <- function(data_list) {
     }
   }
 
-  # Penalty years must lie in the hindcast: past endyr the penalty scores projected
+  # Penalty years must lie in the hindcast: past endyr the penalty would apply to projected
   # recruitment. An empty window is allowed; a short retrospective peel has one.
   fun_code <- .switch_code(data_list$srr_fun, .SRR_FUNS)
   if (isTRUE(fun_code == 0L) &&
@@ -1914,20 +1914,33 @@ data_check <- function(data_list) {
         data_list$srr_hat_styr < data_list$styr) {
       errors <- c(errors, paste0("srr_hat_styr (", data_list$srr_hat_styr,
                                  ") must be >= styr (", data_list$styr, "): the stock-recruit ",
-                                 "penalty has no recruitment before styr (a stored value is kept when styr is ",
-                                 "raised). Set srr_hat_styr in the model's full build_srr() call, or in ",
-                                 "data_list; build_srr(srr_hat_styr = ) on its own resets the curve to mean ",
-                                 "recruitment and drops the penalty."))
+                                 "penalty has no recruitment before styr. Set it in the model's full ",
+                                 "build_srr() call or in data_list; build_srr(srr_hat_styr = ) on its own ",
+                                 "drops the penalty."))
     }
     if (yr_ok(data_list$srr_hat_endyr) && yr_ok(data_list$endyr) &&
         data_list$srr_hat_endyr > data_list$endyr) {
       errors <- c(errors, paste0("srr_hat_endyr (", data_list$srr_hat_endyr,
                                  ") must be <= endyr (", data_list$endyr, "): ",
-                                 "the stock-recruit penalty would score projected recruitment. ",
-                                 "Set srr_hat_endyr in the model's full build_srr() call, or in data_list (a ",
-                                 "stored value is kept when endyr is lowered); build_srr(srr_hat_endyr = ) on ",
-                                 "its own resets the curve to mean recruitment and drops the penalty."))
+                                 "the stock-recruit penalty would apply to projected recruitment. Set it in the ",
+                                 "model's full build_srr() call or in data_list; build_srr(srr_hat_endyr = ) ",
+                                 "on its own drops the penalty."))
     }
+  }
+
+  # With minage = 0 a curve reads that year's spawning biomass before it is computed: zero
+  # recruitment in the hindcast (srr_fun), and in SB0, SBF and curve projections (srr_pred_fun).
+  srr_curve <- isTRUE(fun_code >= 2L) ||
+    isTRUE(.switch_code(data_list$srr_pred_fun, .SRR_FUNS) >= 2L)
+  age0 <- which(data_list$minage == 0)
+  if (srr_curve && length(age0) > 0L) {
+    errors <- c(errors, paste0(
+      "minage = 0 (", paste(data_list$spnames[age0] %||% age0, collapse = ", "),
+      ") cannot be combined with a Beverton-Holt or Ricker curve: age-0 recruits would ",
+      "come from spawning biomass the model has not yet computed, so the curve gives zero ",
+      "recruitment in the hindcast (srr_fun) or in SB0, the reference points and a ",
+      "proj_mean_rec = FALSE projection (srr_pred_fun). Use srr_fun = 'mean' and ",
+      "srr_pred_fun = 'mean'."))
   }
 
   # Beverton-Holt and Ricker use only alpha, beta and SSB, so under a hindcast curve an

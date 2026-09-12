@@ -212,6 +212,10 @@ growth_spec <- build_growth(
 The same pattern works for any linkage target -- `Linf`, `L1`,
 `m` (Richards), `M1`, `R0`, `alpha`, `beta`.
 
+An `M1` intercept prior replaces `build_M1(M1_use_prior = TRUE)` for that
+species, and `fit_mod()` refuses the pair unless `M2_use_prior = TRUE` (a prior
+on total M).
+
 ### Growth SD endpoints
 
 The standard deviations of length-at-age at the `L1` and `Linf` anchors
@@ -849,7 +853,9 @@ The prior is on `q` on its natural scale, so a `lognormal(log(1), 0.2)` says
 "`q` is near 1, and I'd be mildly surprised by a factor of ~1.5 either way."
 `~ 1` alone gives an estimated `q` with a prior on its level and no
 environmental effect; write `~ 1 + temp` to keep the level prior *and* link
-`q` to a covariate.
+`q` to a covariate. This replaces `Catchability = "Estimated-with-prior"`: both
+put a prior on the same `q`, so `fit_mod()` refuses the pair, including on a `q`
+shared through `Catchability_index`.
 
 ## Selectivity
 
