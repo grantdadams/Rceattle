@@ -2052,6 +2052,12 @@ Type objective_function<Type>::operator() () {
               N_at_age_dB0(sp, 0, 0, yr) = R_early;
               N_at_age_dBF(sp, 0, 0, yr) = R_early;
             } else {
+              // Under the Ianelli form the hindcast is on mean recruitment until srr_mse_switchyr, so rec_dev
+              // there is measured from R0; the curve takes the realized deviation from it, log R - log R_hat.
+              if((srr_fun != srr_pred_fun) & (yr < nyrs_srrmean)){
+                Type R_curve = calculate_recruitment(srr_pred_fun, R0(sp, yr), ssb(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+                rdev = log(R(sp, yr)) - log(R_curve);
+              }
               N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
               N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
             }

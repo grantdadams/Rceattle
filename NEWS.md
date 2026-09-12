@@ -163,6 +163,22 @@ release stays a minor version. Stored fits with them no longer refit.
   and `SBF` do not change. Models with `minage = 1`, including every bundled
   dataset, are unchanged.
 
+* **Under the Ianelli penalty form, dynamic B0 uses each year's realized
+  deviation from the curve.** Before `srr_mse_switchyr` the hindcast is on mean
+  recruitment, so `rec_dev` there is measured from R0, and dynamic B0 multiplied
+  the curve by it. On the Pacific hake operating model the curve sat at about
+  1.5 times R0 in those years, so no-fishing recruitment ran about 1.5 times too
+  high in every year before the switch. It now takes `log R - log R_hat`, and
+  with fishing near zero dynamic B0 equals hindcast biomass, while
+  numbers-at-age stay above the model's 0.001 floor. Suitability is
+  unchanged: the dynamic runs use the suitability fitted in the hindcast.
+  `DynamicB0`, `DynamicSB0` and `DynamicSBF` change for every penalty-form model
+  (`srr_fun = 0` with a curve in `srr_pred_fun`), and so does `mse_summary()`'s
+  dynamic depletion for a single-species penalty-form operating model. With
+  `DynamicHCR = TRUE` so do the projections, the HCR 3 target, and
+  `biomass_depletion` and `ssb_depletion`. Models with a curve fitted in the
+  hindcast, or on mean recruitment, are unchanged.
+
 * **A linkage intercept fixed at its `init` (`est_phase = 0`) holds that value
   when `fit_mod()` is given `inits`.** The init was applied only to freshly
   built parameters, so a warm start kept the `inits` value and mapped it off:

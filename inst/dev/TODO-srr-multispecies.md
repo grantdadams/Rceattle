@@ -96,10 +96,13 @@ penalty, so these objectives cannot be compared with 5.33.0 fits.
    projections at about 45% of the curve's mean. Single-species keeps
    `log(mean R) - log R0`. Still open: a test that expected projected R agrees
    with and without resampling.
-6. **The Ianelli dynamic B0 mixes bases.** It applies `curve × exp(rec_dev)`,
-   with `rec_dev` about the mean (`ceattle.cpp` ~2052–2055), rather than
-   `log R - log R_hat`. The fitted `log R_hat - log R0` reaches 0.61, so
-   no-fishing recruitment can be off by up to 1.84× at equal SSB.
+6. **Done in 5.33.0: the Ianelli dynamic B0 uses the realized deviation from
+   the curve.** Before `srr_mse_switchyr` it takes `log R - log R_hat` rather
+   than `rec_dev`, which is measured from R0 there. On the hake operating model
+   `R_hat / R0` was about 1.5 in those years. The dynamic runs keep the
+   suitability fitted in the hindcast; a full no-fishing refit would re-derive
+   empirical suitability from its own abundances, which is why `remove_F()`
+   removes fishing only after `suit_endyr`.
 7. **Multispecies SB0 (`MSSB0`).**
    - It is derived only when `HCR != "NoFishing"` (`fit_mod.R`); otherwise it is
      the 999 mt placeholder.
