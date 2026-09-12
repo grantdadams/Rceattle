@@ -24,7 +24,7 @@
 #' - \code{srr_fun = 0} or \code{"mean"}: No stock recruit relationship. Recruitment is a function of \eqn{R0} (on the log scale) and annual deviates (i.e. steepness = 0.99).
 #'  \deqn{R_y = exp(R0 + R_{dev,y})}
 #'
-#' - \code{srr_fun = 2} or \code{"BevertonHolt"}: Beverton-holt stock-recruitment relationship
+#' - \code{srr_fun = 2} or \code{"BevertonHolt"}: Beverton-Holt stock-recruitment relationship
 #'   \deqn{R_y = \frac{\alpha_{srr} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
 #'
 #' - \code{srr_fun = 4} or \code{"Ricker"}: Ricker stock-recruitment relationship

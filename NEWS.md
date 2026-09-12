@@ -71,7 +71,7 @@ twice and kept only one of the two values. This release stays a minor version.
   SDs), the Ricker alpha prior (`srr_est_mode = "LognormalPrior"`) and the
   catchability prior (`Catchability = "Estimated-with-prior"`). The penalty's
   curve term now treats the curve as the mean of recruitment, as in Ianelli's
-  EBS pollock model (pm.tpl, Dorn 2002); pm.tpl scores its recruitment
+  EBS pollock model (`pm.tpl`, Dorn 2002); `pm.tpl` scores its recruitment
   deviations without a sigma, which no setting reproduces.
   `bias_adjust_proc = FALSE` gives the AMAK form, where the curve is the
   median. Every fit that uses these features with the flag on changes. With
@@ -84,8 +84,9 @@ twice and kept only one of the two values. This release stays a minor version.
     `prior_lognormal(0, 2)` priors, and they use an M prior. Objectives rise
     by 3.0 to 6.8, and hake terminal SSB changes by at most 0.86%. The survey
     DM weight falls from 43-49 to 31-35 (`MSE_yr2024.R`) and from 32-35 to
-    23-25 (`04-mse.R`), and the Ianelli Beverton-Holt alpha rises from 18.8 to
-    41.0. Every fit still has a positive-definite Hessian.
+    23-25 (`04-mse.R`), and the Ianelli Beverton-Holt alpha, fitted then with
+    no alpha prior, rises from 18.8 to 41.0. Every fit still has a
+    positive-definite Hessian.
   - **GOA2018SS**, which has a q prior (SD 0.1). The golden objectives change
     by -0.015 (single-species) and -0.003 (multispecies).
   - **BSAI northern rock sole bridging** (a q prior; M priors and a Ricker

@@ -60,7 +60,7 @@ values and environmental effects on \code{R0}, alpha and beta go through
 \itemize{
 \item \code{srr_fun = 0} or \code{"mean"}: No stock recruit relationship. Recruitment is a function of \eqn{R0} (on the log scale) and annual deviates (i.e. steepness = 0.99).
 \deqn{R_y = exp(R0 + R_{dev,y})}
-\item \code{srr_fun = 2} or \code{"BevertonHolt"}: Beverton-holt stock-recruitment relationship
+\item \code{srr_fun = 2} or \code{"BevertonHolt"}: Beverton-Holt stock-recruitment relationship
 \deqn{R_y = \frac{\alpha_{srr} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
 \item \code{srr_fun = 4} or \code{"Ricker"}: Ricker stock-recruitment relationship
 \deqn{R_y = \alpha_{srr} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}

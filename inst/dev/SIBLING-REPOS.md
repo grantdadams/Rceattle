@@ -140,9 +140,17 @@ positive-definite Hessian. The script ran end to end, `run_mse()` included.
 | `ss_run_DM_hcr_CSL` | 2440.6633379056 | 2437.4573180484 |
 | `ms_run_DM_CSL` | 2447.0048917469 | 2443.8538668697 |
 | `run_ms_CSL_Mest_prior_DM_CSL` | 2669.3775502006 | 2663.8053181169 |
-| `run_ms_CSL_Mest_prior_DM_CSL_BH` | 2737.7386222058 | 2732.2034482321 |
+| `run_ms_CSL_Mest_prior_DM_CSL_BH` | 2735.6792676724 | n/a (see below) |
 | `run_ms_CSL_Mest_prior_DM_CSL_stable` | 2669.3775502006 | 2663.8053181169 |
 | `ss_run_DM_hcr_B0` | 2440.0941615088 | 2436.8886423469 |
+
+The `_BH` row is re-recorded on 5.33.0 (2026-09-12) for section 5 of the script as it now stands:
+a `prior_lognormal(log(100), 0.05)` on hake alpha, chosen for strong density dependence. The
+earlier 2737.74 and the 5.32.1 value came from drafts of that section without this prior. The fit
+has a positive-definite Hessian and max gradient 5.9e-4; hake alpha is 99.87 and beta 7.63e-6, so
+1/beta (1.3e5 t) lies well below observed SSB (0.80-3.29 million t) and R/R_max is 0.86 / 0.93 /
+0.96 at the minimum / median / maximum. With an SD of 0.05 the prior, not the data, sets alpha.
+`run_mse()` takes the `_stable` fit as its OM, not this one, so the prior leaves the MSE unchanged.
 
 Two of those equalities are structural, not coincidences: the `_stable` refit starts from its
 parent's `data_list` and returns to the same optimum, and `ss_run_DM_hcr_B0` matches
