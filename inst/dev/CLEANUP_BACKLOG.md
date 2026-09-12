@@ -178,6 +178,20 @@ Still open. No user-visible consequence; do them opportunistically.
   filled by `switch_check()`; on the exported `rearrange_data()` path it and the
   `bias_adjust_*` scalars are filled in `build_osa_data()`. Reword only; no behaviour.
 
+- **Single-species hindcast-curve projection double-counts the SSB drop.** `sample_rec()` and
+  `retrospective()` set the deviation to `log(mean(...R...)) - log(...R0...)`. Under a curve R0
+  is unfished recruitment, so the curve applies the SSB drop again: 8.6% below its mean at
+  h = 0.8 and 40% SB0, 27% at h = 0.5. It hits `run_mse(sample_rec = FALSE)` OM years and the
+  dynamic reference points. The multispecies branch's `log(mean(R / R_hat))` is the model.
+- **Dynamic B0 under the penalty form** ("Dynamic reference points (Includes annual recruitment
+  deviation: pass rdev)") applies `exp(rec_dev)` = R/R0, not R/R_hat, to the curve.
+- **`.map_switch()` passes a factor through**, so a factor `srr_est_mode` skips `build_srr()`'s
+  checks and fits as its level code.
+- **The refit warning for retired srr codes is hidden** by the `suppressWarnings()` wrapped
+  around `.refit_like()` in `retrospective()`, `jitter()`, `profile()` and `self_test()`.
+- **A one-year retrospective peel** averages over that year, though its warning says "after the
+  first".
+
 ## `TODO(review)` — Grant's calls, not an agent's
 
 Six, each a judgement about what the right behaviour *is*:

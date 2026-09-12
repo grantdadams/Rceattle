@@ -1886,7 +1886,8 @@ data_check <- function(data_list) {
     if (grepl("^[0-9]+$", x)) return(as.integer(x))   # a code read in as text
     as.integer(unname(map[x]))
   }
-  if(!is.null(data_list$msmMode) && any(data_list$msmMode > 0)){
+  msm <- isTRUE(.switch_code(data_list$msmMode, msmMode_map) > 0L)
+  if(msm){
     pred_code <- .switch_code(data_list$srr_pred_fun, .SRR_FUNS)
     est_code  <- .switch_code(data_list$srr_est_mode, srr_est_mode_map)
     if(isTRUE(pred_code %in% c(2L, 3L)) && isTRUE(est_code %in% c(2L, 3L))){
@@ -1896,10 +1897,54 @@ data_check <- function(data_list) {
         "is alpha * SPR0 / (4 + alpha * SPR0), and spawning biomass per recruit ",
         "is undefined under predation: total mortality includes M2, so ",
         "per-recruit spawning output depends on predator abundance rather than ",
-        "on the prey stock alone. Use srr_est_mode = 'Estimated', or 'Fixed' ",
-        "to hold alpha at srr_prior, and put any prior on alpha itself: ",
+        "on the prey stock alone. Use srr_est_mode = 'Estimated' and put any ",
+        "prior or fixed value on alpha itself: ",
         "build_srr(linkages = list(alpha = linkage_spec(~ 1, priors = ",
         "list(`(Intercept)` = prior_lognormal(log(mean), sd)))))."))
+    }
+  }
+
+  # Penalty years must lie in the hindcast: past endyr the penalty scores projected
+  # recruitment. An empty window is allowed; a short retrospective peel has one.
+  fun_code <- .switch_code(data_list$srr_fun, .SRR_FUNS)
+  if (isTRUE(fun_code == 0L) &&
+      isTRUE(.switch_code(data_list$srr_pred_fun, .SRR_FUNS) > 0L)) {
+    yr_ok <- function(x) length(x) == 1L && !is.na(x)
+    if (yr_ok(data_list$srr_hat_styr) && yr_ok(data_list$styr) &&
+        data_list$srr_hat_styr < data_list$styr) {
+      errors <- c(errors, paste0("srr_hat_styr (", data_list$srr_hat_styr,
+                                 ") must be >= styr (", data_list$styr, "): the stock-recruit ",
+                                 "penalty has no recruitment before styr. Set build_srr(srr_hat_styr = )."))
+    }
+    if (yr_ok(data_list$srr_hat_endyr) && yr_ok(data_list$endyr) &&
+        data_list$srr_hat_endyr > data_list$endyr) {
+      errors <- c(errors, paste0("srr_hat_endyr (", data_list$srr_hat_endyr,
+                                 ") must be <= endyr (", data_list$endyr, "): ",
+                                 "the stock-recruit penalty would score projected recruitment. ",
+                                 "Set build_srr(srr_hat_endyr = ); a stored value is kept when endyr is lowered."))
+    }
+  }
+
+  # Beverton-Holt and Ricker use only alpha, beta and SSB, so under a hindcast curve an
+  # R0 linkage does nothing (single-species) or sets only R_init (multispecies).
+  r0_specs <- data_list$srr_linkages$R0
+  if (!is.null(r0_specs) && isTRUE(fun_code >= 2L)) {
+    if (inherits(r0_specs, "Rceattle_linkage_spec")) r0_specs <- list(r0_specs)
+    if (!msm) {
+      errors <- c(errors, paste0(
+        "An R0 linkage has no effect under a stock-recruit curve fitted in the ",
+        "hindcast (srr_fun = 'BevertonHolt' or 'Ricker'): recruitment depends on ",
+        "alpha, beta and SSB only, and R0 is derived from them. Put an ",
+        "environmental effect on productivity through an alpha linkage, or use ",
+        "srr_fun = 'mean' with the R0 linkage for an effect on recruitment level."))
+    } else if (any(vapply(r0_specs, .linkage_has_terms, logical(1)))) {
+      errors <- c(errors, paste0(
+        "Under msmMode > 0 with a stock-recruit curve fitted in the hindcast, R0 ",
+        "sets only the initial recruitment level R_init (the initial numbers-at-age ",
+        "and cohorts spawned before styr), so a covariate or random effect on it is ",
+        "unidentified. Use an intercept-only ",
+        "R0 linkage (~ 1) for a prior or fixed value on R_init, and an alpha ",
+        "linkage for an environmental effect on productivity."))
     }
   }
 

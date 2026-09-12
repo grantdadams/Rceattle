@@ -14,6 +14,43 @@ version throughout.
 
 # Rceattle 5.33.0
 
+## Breaking changes
+
+The first two refused configurations never changed a fit. The third fixed alpha
+twice and kept only one of the two values. This release stays a minor version.
+
+* **`data_check()` refuses an `R0` linkage under a stock-recruit curve fitted
+  in the hindcast.** Beverton-Holt and Ricker recruitment read only alpha, beta
+  and SSB, so in a single-species model `R0` is derived from them and the
+  linkage did nothing. In a multispecies model `R0` sets only the initial
+  recruitment level (`R_init`), so an intercept-only linkage (`~ 1`, a prior or
+  fixed value) is accepted and a covariate or random effect is refused. A stored
+  fit with such a linkage no longer refits. Put an environmental effect on
+  productivity through an `alpha` linkage, or use `srr_fun = "mean"` with the
+  `R0` linkage.
+* **A stored fit with `srr_est_mode = "BetaPrior"` on a Ricker curve no longer
+  refits.** `build_srr()` has refused that pair since 5.30.0; the prior is on
+  Beverton-Holt steepness and never applied to a Ricker curve. Rebuild with
+  `srr_est_mode = "Estimated"`, the model it fitted.
+* **`srr_est_mode = "Fixed"` together with an alpha linkage fixed at its init
+  (`est_phase = 0`) is refused**, and a stored fit with both no longer refits.
+  Each fixed alpha at a different value. Keep the linkage alone.
+
+## Deprecated
+
+* **Alpha priors, fixed values and starting values outside a linkage.** Each
+  still works and warns once from `build_srr()`; refits are silent.
+  - `srr_est_mode = "Fixed"`: use ``linkages = list(alpha = linkage_spec(~ 1,
+    est_phase = 0, init = list(`(Intercept)` = <alpha>)))``.
+  - `srr_est_mode = "LognormalPrior"` on a Ricker curve: use an alpha linkage
+    prior, which gives the same objective, with `init` at the prior mean for the
+    same start.
+  - `srr_prior` as alpha's starting value (supplied, not the default 4): use
+    `srr_alpha_init` or `init` on an alpha linkage.
+
+  `srr_prior` stays for the Beverton-Holt steepness prior. `Bmsy_lim` is
+  unchanged.
+
 ## Results change
 
 * **Lognormal priors and the Ianelli stock-recruit penalty are mean-centred
@@ -21,11 +58,21 @@ version throughout.
   default, each is centred at `-sd^2/2` on the log scale, so the value given is
   the prior mean of the natural-scale quantity. The Beverton-Holt steepness
   prior and the recruitment deviations already worked this way. With `FALSE`
-  the value is the median, as before. This applies to `prior_lognormal()` in
-  every linkage (intercepts, slopes and random-effect SDs), the Ricker alpha
-  prior (`srr_est_mode = "LognormalPrior"`) and the catchability prior
-  (`Catchability = "Estimated-with-prior"`). The penalty now treats the curve
-  as the mean of recruitment, as in Ianelli's EBS pollock model (Dorn 2002);
+  the value is the median, as before, but the recruitment deviations lose their
+  centring too, so a fit with both a lognormal prior and recruitment deviations
+  cannot be reproduced as it was by this flag. Reproduce an old prior with the
+  flag on by shifting its input: `prior_lognormal(p1 + s^2/2, s)`,
+  `Catchability_init * exp(s^2/2)`, a Ricker `srr_prior * exp(s^2/2)`, or
+  `M_prior * exp(s^2)` for the old M centre (`inst/dev/TRAPS.md`). The
+  Ianelli penalty with centred deviations has no input to shift; the GOA
+  northern rockfish ADMB bridge is that case. A value between 0 and 1 gives
+  priors a centre that is neither the mean nor the median. This applies to
+  `prior_lognormal()` in every linkage (intercepts, slopes and random-effect
+  SDs), the Ricker alpha prior (`srr_est_mode = "LognormalPrior"`) and the
+  catchability prior (`Catchability = "Estimated-with-prior"`). The penalty's
+  curve term now treats the curve as the mean of recruitment, as in Ianelli's
+  EBS pollock model (pm.tpl, Dorn 2002); pm.tpl scores its recruitment
+  deviations without a sigma, which no setting reproduces.
   `bias_adjust_proc = FALSE` gives the AMAK form, where the curve is the
   median. Every fit that uses these features with the flag on changes. With
   the flag off, only fits with an M prior (below) and penalty-form projections
@@ -87,12 +134,47 @@ version throughout.
   and `SBF` do not change. Models with `minage = 1`, including every bundled
   dataset, are unchanged.
 
+* **A linkage intercept fixed at its `init` (`est_phase = 0`) holds that value
+  when `fit_mod()` is given `inits`.** The init was applied only to freshly
+  built parameters, so a warm start kept the `inits` value and mapped it off:
+  a refit at alpha = 500 warm-started from a fit at 1170 stayed at 1170. It
+  also wins over `srr_alpha_init`. This applies to every process with an
+  intercept linkage (recruitment, M, q, selectivity, growth). Refits through
+  `retrospective()`, `profile()` and the other diagnostics keep their fitted,
+  or profiled, value, and skip the `srr_prior`, `srr_alpha_init` and
+  `srr_beta_init` starting values too; `profile()` over alpha or beta on a fit
+  with those was flat. A hand-written profile loop through
+  `fit_mod(inits = , map = )` over a linkage-fixed parameter is now held at the
+  init: use `profile()`, or give the loop's linkage `est_phase = 1`. On a fit
+  with `srr_alpha_init` or `srr_beta_init`, `jitter()` and `self_test()` now
+  perturb alpha and beta (they were reset after jittering), and retrospective
+  peels start from the fitted alpha.
+
+* **Stock-recruit penalty years must lie in the hindcast.** `data_check()`
+  refuses `srr_hat_styr < styr` and `srr_hat_endyr > endyr` under the Ianelli
+  penalty. Past `endyr` the penalty scored projected recruitment (BS2017SS,
+  `endyr + 5`: objective +1,215), and `sample_rec()` averaged over different
+  years than the template. A stored `srr_hat_endyr` is kept when `endyr` is
+  lowered, so set it again with `build_srr(srr_hat_endyr = )`.
+
+* **A Ricker `srr_est_mode = "LognormalPrior"` together with an alpha linkage
+  intercept prior is refused.** They are the same density, which the objective
+  counted twice.
+
+* **The warning that a supplied `map` fixes both stock-recruit parameters no
+  longer fires on a refit's own map**: not for a debug or projection map, nor
+  for a species whose alpha or beta linkage estimates a covariate or random
+  effect. An intercept-only linkage still counts as fixed.
+
+* `data_check()` resolves a string `msmMode` (e.g. `"SingleSpecies"`) before
+  its multispecies stock-recruit checks; `"SingleSpecies" > 0` is TRUE in R.
+
 ## Documentation
 
 * `?build_srr`: a linkage on `R0` acts under mean recruitment only. Under a
-  curve fitted in the hindcast a single-species `R0` is derived from alpha and
-  beta, so the linkage has no effect; in a multispecies model only its
-  first-year value acts. The "Starting values" section gave alpha's default
+  curve fitted in the hindcast a single-species `R0` linkage is refused; in a
+  multispecies model only an intercept-only one is accepted, as the initial
+  recruitment level. The "Starting values" section gave alpha's default
   start as `e^3`; it is `srr_prior` (default 4) wherever that is an alpha.
 * `?linkage_spec`: an intercept's `init` is on the parameter's natural scale,
   a slope's on the link scale.
@@ -133,9 +215,13 @@ version throughout.
   code 1, and `srr_fun` 2 or 4 with an `alpha` linkage for 3 or 5.
   `srr_indices = k` meant the k-th `env_data` column after `Year`. A fit made
   with code 1, 3 or 5 still refits, through `retrospective()`, `run_mse()` and
-  the other refitting diagnostics, as code 0, 2 or 4 with a warning; that is the
-  model it actually fitted. A code stored in a data object's `model_config` is
-  not checked and fits as 0, 2 or 4 without a warning. Results produced with
+  the other refitting diagnostics, as code 0, 2 or 4; that is the model it
+  actually fitted. `run_mse()` shows the warning, but `retrospective()`,
+  `jitter()`, `profile()` and `self_test()` suppress it. The one exception is
+  `srr_fun = 0` with `srr_pred_fun = 1`, which scored the penalty around mean
+  recruitment: it refits without that penalty, so its objective changes. A code
+  stored in a data object's `model_config` is not checked and fits as 0, 2 or 4
+  without a warning, and a stored `srr_indices` is ignored. Results produced with
   these codes from 4.4.0 through 5.31.0 have no environmental effect and should
   be refit with a linkage. No fit without them changes.
 

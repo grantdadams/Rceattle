@@ -683,8 +683,21 @@ fit_mod <-
       # alpha and beta while the curve still shapes recruitment.
       rp    <- as.matrix(map$mapList$rec_pars)
       est   <- (data_list$estDynamics %||% rep(0, data_list$nspp)) == 0
-      stuck <- est & is.na(rp[, 2]) & is.na(rp[, 3])
-      if (any(stuck)) {
+      # Skip an all-NA (debug/projection) map, and species whose alpha or beta spec estimates a
+      # covariate or RE term; an intercept-only linkage keeps its level on the mapped rec_pars.
+      moved <- rep(FALSE, data_list$nspp)
+      for (nm in intersect(names(data_list$srr_linkages), c("alpha", "beta"))) {
+        specs <- data_list$srr_linkages[[nm]]
+        if (inherits(specs, "Rceattle_linkage_spec")) specs <- list(specs)
+        for (s in specs) {
+          if (as.integer(s$est_phase) == 0L || !.linkage_has_terms(s)) next
+          sp <- if (is.null(s$species)) seq_len(data_list$nspp) else
+            if (is.character(s$species)) match(s$species, data_list$spnames) else as.integer(s$species)
+          moved[sp[!is.na(sp)]] <- TRUE
+        }
+      }
+      stuck <- est & is.na(rp[, 2]) & is.na(rp[, 3]) & !moved
+      if (any(stuck) && !all(is.na(rp))) {
         warning("The supplied `map` fixes both stock-recruit parameters (alpha ",
                 "and beta) for ", paste(data_list$spnames[stuck], collapse = ", "),
                 ", so the curve stays at its starting values while it still ",
@@ -1071,21 +1084,31 @@ fit_mod <-
       start_par$log_M1 <- log(m1)
     }
 
+    # A refit's inits hold the fitted, or profiled, value, so the starting-value
+    # overrides below skip it (.refit_like() sets this attribute).
+    refit_inits <- isTRUE(attr(inits, "rceattle_refit"))
+
     # Fix alpha at the prior mean, where srr_prior is an alpha rather than a
     # steepness (see .srr_prior_is_alpha). build_params() applies the same rule;
     # this covers the case where the caller supplied `inits` instead.
-    if (data_list$srr_est_mode %in% c(0, 2) & data_list$srr_pred_fun > 1 &&
+    if (!refit_inits && data_list$srr_est_mode %in% c(0, 2) & data_list$srr_pred_fun > 1 &&
         .srr_prior_is_alpha(data_list) && !is.null(data_list$srr_prior)) {
       start_par$rec_pars[, 2] <- log(data_list$srr_prior)
     }
 
     # Explicit stock-recruit starting values from build_srr(), which override
     # both the defaults and the prior mean.
-    if (!is.null(data_list$srr_alpha_init)) {
+    if (!refit_inits && !is.null(data_list$srr_alpha_init)) {
       start_par$rec_pars[, 2] <- log(data_list$srr_alpha_init)
     }
-    if (!is.null(data_list$srr_beta_init)) {
+    if (!refit_inits && !is.null(data_list$srr_beta_init)) {
       start_par$rec_pars[, 3] <- log(data_list$srr_beta_init)
+    }
+
+    # A linkage intercept fixed at its init (est_phase = 0) wins over supplied `inits` and the
+    # overrides above.
+    if (!refit_inits) {
+      start_par <- .push_linkage_intercept_inits(start_par, data_list, fixed_only = TRUE)
     }
 
     # Starting parameters as the model uses them: the blocks above set

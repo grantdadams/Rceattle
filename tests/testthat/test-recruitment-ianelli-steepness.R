@@ -62,17 +62,19 @@ test_that("mean recruitment with no penalty curve is still skipped", {
 })
 
 test_that("build_srr warns when a steepness is passed as srr_est_mode 0's alpha", {
+  # Mode 0 is deprecated (5.33.0); that warning is silenced so only this one is tested.
+  quiet_dep <- function(expr) suppressWarnings(expr, classes = "rceattle_deprecated")
   expect_warning(
-    build_srr(srr_fun = 0, srr_pred_fun = 2, srr_est_mode = 0, srr_prior = 0.8),
+    quiet_dep(build_srr(srr_fun = 0, srr_pred_fun = 2, srr_est_mode = 0, srr_prior = 0.8)),
     "is an alpha here, not a steepness")
 
   # A plausible alpha must not warn, and modes 2/3 genuinely do take a steepness.
   expect_no_warning(
-    build_srr(srr_fun = 0, srr_pred_fun = 2, srr_est_mode = 0, srr_prior = 1170))
+    quiet_dep(build_srr(srr_fun = 0, srr_pred_fun = 2, srr_est_mode = 0, srr_prior = 1170)))
   expect_no_warning(
     build_srr(srr_fun = 0, srr_pred_fun = 2, srr_est_mode = 2,
               srr_prior = 0.8, srr_prior_sd = 0.2))
   # Ricker's srr_prior is an alpha in every mode, so there is nothing to confuse.
   expect_no_warning(
-    build_srr(srr_fun = 0, srr_pred_fun = 4, srr_est_mode = 0, srr_prior = 0.8))
+    quiet_dep(build_srr(srr_fun = 0, srr_pred_fun = 4, srr_est_mode = 0, srr_prior = 0.8)))
 })

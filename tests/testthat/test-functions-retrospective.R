@@ -698,3 +698,39 @@ testthat::test_that("retrospective() warns once about penalty-form peels with no
                            tolerance = 1e-6)
   }
 })
+
+
+# A multispecies hindcast curve has no unfished R0, so each peel projects
+# log(mean(R / R_hat)) over its own years. Alpha and beta are held by linkages:
+# estimated on this fixture they run toward overflow (TODO-srr-multispecies.md).
+testthat::test_that("retrospective() scales a multispecies hindcast curve by its mean ratio to R", {
+  testthat::skip_on_cran()
+  set.seed(123)
+  d  <- make_msm_test_data()$data_list
+  fc <- fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
+  msm_fit <- function(recFun, mode) suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = mode, msmMode = 1,
+    suitMode = 0, initMode = "NonEquilibrium", random_rec = FALSE,
+    recFun = recFun, fit_control = fc)))
+
+  # A Beverton-Holt curve through each species' mean (SSB, R): alpha = 2 Rbar / Sbar, beta = 1 / Sbar.
+  mr   <- msm_fit(build_srr(), 1)
+  nh   <- d$endyr - d$styr + 1
+  Rbar <- rowMeans(mr$quantities$R[, 1:nh, drop = FALSE])
+  Sbar <- rowMeans(mr$quantities$ssb[, 1:nh, drop = FALSE])
+  fixed <- function(v) lapply(seq_along(v), function(sp) linkage_spec(
+    ~ 1, species = sp, est_phase = 0, init = list(`(Intercept)` = unname(v[sp]))))
+  fit <- msm_fit(build_srr(srr_fun = "BevertonHolt", linkages = list(
+    alpha = fixed(2 * Rbar / Sbar), beta = fixed(1 / Sbar))), 0)
+
+  r <- suppressWarnings(suppressMessages(retrospective(fit, peels = 1, cores = 1, getsd = FALSE)))
+  peel <- Filter(function(m) m$data_list$endyr_peel < d$endyr, r$Rceattle_list)
+  testthat::expect_length(peel, 1L)
+  m  <- peel[[1]]
+  n  <- m$data_list$endyr_peel - m$data_list$styr + 1
+  rd <- m$estimated_params$rec_dev[, n + 1]
+  testthat::expect_true(all(is.finite(rd)))
+  testthat::expect_equal(unname(rd),
+                         unname(log(rowMeans((m$quantities$R / m$quantities$R_hat)[, 1:n, drop = FALSE]))),
+                         tolerance = 1e-6)
+})

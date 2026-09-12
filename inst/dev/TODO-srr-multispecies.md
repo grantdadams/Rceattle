@@ -60,6 +60,9 @@ penalty, so these objectives cannot be compared with 5.33.0 fits.
    predation, `R_init = R0` for every initMode (`ceattle.cpp` 6.3), and none
    reads SPR. Still open:
    - Under 3/4, `R_init` is confounded with Finit.
+   - Under FreeParams or OffsetEquilibrium with `minage = 1`, `R_init` enters only through
+     `R(0) = R_init * exp(dev0)`, so one deviation's density pins it. No fitted, Hessian or
+     simulation-recovery test covers the free level.
    - NonEquilibrium converged on the fixture when started from the
      mean-recruitment fit (gradient 0.05), but collapsed from default starts.
      Add a fitted test and document warm-starting.

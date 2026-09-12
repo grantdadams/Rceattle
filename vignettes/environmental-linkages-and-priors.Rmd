@@ -686,8 +686,10 @@ allowed parameter keys:
 * **`R0`** -- acts under mean recruitment (`srr_fun = "mean"`, penalty
   form included); the right target if recruitment should respond to env
   without fitting an SRR. Under a curve fitted in the hindcast a
-  single-species `R0` is derived from alpha and beta and the linkage has
-  no effect; in a multispecies model only its first-year value acts.
+  single-species `R0` is derived from alpha and beta, so an `R0` linkage
+  is refused. In a multispecies model `R0` sets only the initial level
+  (`R_init`), so only an intercept-only linkage (`~ 1`, a prior or fixed
+  value) is accepted there.
 * **`alpha`** (productivity) and **`beta`** (density-dependence) --
   only do work when the model has a curve: `srr_fun` (or, for the
   penalty form, `srr_pred_fun`) is `"BevertonHolt"` or `"Ricker"`.
@@ -756,7 +758,8 @@ rec_fixed <- build_srr(
 parameter, centred so `p1` is the log of its mean under the default
 `fit_control(bias_adjust_proc = TRUE)`, and of its median with `FALSE`. For
 a Ricker curve it gives the same objective as
-`srr_est_mode = "LognormalPrior"`. The one prior a linkage
+`srr_est_mode = "LognormalPrior"`, which is deprecated (5.33.0); using both is
+refused. The one prior a linkage
 cannot express is on Beverton-Holt steepness, which needs spawning
 biomass per recruit: `srr_est_mode = "LognormalPrior"` or `"BetaPrior"`
 remains for it, in single-species models only.
@@ -1083,7 +1086,10 @@ base parameter** rather than to the linkage row. The linkage row's
 This is the recommended way to set a sensible starting value for
 intercept-bearing linkages -- it composes naturally with phasing
 (the base parameter goes through the existing per-process phase
-logic) and keeps the optimizer grounded.
+logic) and keeps the optimizer grounded. With `est_phase = 0` the base
+parameter is held at `X` even when `fit_mod(inits = )` carries another
+value; for an estimated intercept `X` is only a starting value, and
+`inits` win.
 
 ```{r}
 # Start M1 at 0.06 without estimating an extra intercept beta.

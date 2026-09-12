@@ -570,3 +570,22 @@ across the boundary.
 **`goa_ms` (fixed-M GOA multispecies) sits on a flat likelihood ridge:** the same objective at
 different `par`/`ssb` across *different* code, though deterministic on same-code re-runs. Judge
 it on `obj`/`jnll`, not `par`/`ssb`.
+
+## Prior centring shares `bias_adjust_proc` with the recruitment deviations
+
+From 5.33.0 every lognormal prior and the Ianelli penalty are centred at `-sd^2/2` when
+`bias_adjust_proc = TRUE`, so a prior value is a mean; with `FALSE` it is a median, but the
+recruitment deviations lose their centring too. To reproduce a pre-5.33 fit's priors with the
+flag on, shift the inputs instead:
+
+| Prior | Pre-5.33 input `v` becomes |
+|---|---|
+| `prior_lognormal(p1, s)` | `prior_lognormal(p1 + s^2/2, s)` |
+| q prior | `Catchability_init = v * exp(s^2/2)` (also moves the starting value) |
+| Ricker alpha prior | `srr_prior = v * exp(s^2/2)` |
+| M prior (old centre `log M + s^2/2`) | `M_prior = v * exp(s^2)` |
+
+The one case no input reproduces is the Ianelli penalty with centred deviations: the penalty has
+no input of its own and shares `R_sd` with them. The GOA northern rockfish ADMB bridge is this
+case. A `bias_adjust_proc` between 0 and 1 gives priors (DM weights included) a centre that is
+neither mean nor median.

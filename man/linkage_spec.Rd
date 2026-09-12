@@ -112,7 +112,9 @@ design-matrix column name. Inside this argument you may write \code{normal()},
 for these coefficients. \code{NA} (default) means fixed.}
 
 \item{est_phase}{optional integer estimation phase. Default \code{1L}; \code{0} fixes
-the coefficient at its \code{init}. Applies to \strong{fixed-effect} rows only -- the
+the coefficient at its \code{init}, which then holds over any \code{inits} given to
+\code{\link[=fit_mod]{fit_mod()}} (an estimated intercept's \code{init} is only a starting value, and
+\code{inits} win). Applies to \strong{fixed-effect} rows only -- the
 coefficients in \code{beta_linkage}. A random-effect term's deviations are held
 in a separate vector that \code{est_phase} does not reach, so \code{est_phase < 1} on
 a formula containing one is an error rather than a silent no-op; drop the

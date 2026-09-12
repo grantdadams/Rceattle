@@ -34,9 +34,9 @@ build_srr(
 
 \item{srr_hat_endyr}{Integer. Last year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}). Defaults to \code{endyr} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship does not span the full time series but projections are still wanted.}
 
-\item{srr_est_mode}{The curve's built-in prior, as a code or string: 0 / \code{"Fixed"} (alpha held at \code{srr_prior}), 1 / \code{"Estimated"} (default, no prior), 2 / \code{"LognormalPrior"} (on Beverton-Holt steepness or Ricker alpha) or 3 / \code{"BetaPrior"} (on Beverton-Holt steepness); a steepness prior is single-species only.}
+\item{srr_est_mode}{The curve's built-in prior, as a code or string: 1 / \code{"Estimated"} (default, no prior), or 2 / \code{"LognormalPrior"} or 3 / \code{"BetaPrior"} on Beverton-Holt steepness (single-species only); 0 / \code{"Fixed"} (alpha held at \code{srr_prior}) and \code{"LognormalPrior"} on a Ricker curve (a prior on alpha) are deprecated in favour of an \code{alpha} linkage.}
 
-\item{srr_prior}{Natural-scale prior mean (the median of a lognormal prior when \code{bias_adjust_proc = FALSE}) of Beverton-Holt steepness under modes 2 and 3; in every other case an alpha, which also sets alpha's starting value (see \strong{Starting values}).}
+\item{srr_prior}{Natural-scale prior mean (the median of a lognormal prior when \code{bias_adjust_proc = FALSE}) of Beverton-Holt steepness under modes 2 and 3; its other uses, as a Ricker alpha prior, a fixed alpha or alpha's starting value, are deprecated (see \strong{Starting values}).}
 
 \item{srr_prior_sd}{Prior standard deviation: log scale for the lognormal prior (mode 2), natural scale for the beta prior (mode 3).}
 
@@ -94,7 +94,7 @@ is lognormal with mean \code{m} (median \code{m} when
 \code{bias_adjust_proc = FALSE}) and log-scale SD \code{s};
 \code{\link[=prior_normal]{prior_normal()}} is normal on the natural scale.
 \item \strong{Fixed value:} \code{init = list(`(Intercept)` = v), est_phase = 0}
-holds the parameter at \code{v}.
+holds the parameter at \code{v}, over supplied \code{inits} too.
 \item \strong{One species:} add \code{species = 1}; the default applies to every
 species.
 \item \strong{Environmental effect:} a covariate formula such as \code{~ temp} adds a
@@ -104,21 +104,23 @@ log-scale effect by year; see
 
 A linkage on \code{R0} acts under mean recruitment, penalty form included.
 Under a curve fitted in the hindcast a single-species \code{R0} is derived
-from alpha and beta, so the linkage has no effect; in a multispecies model
-only its first-year value acts, as the initial recruitment level.
+from alpha and beta, so an \code{R0} linkage is refused; in a multispecies
+model \code{R0} is the initial recruitment level, and only an intercept-only
+linkage is accepted.
 
 For a Ricker curve the lognormal linkage prior on alpha gives the same
-objective as \code{srr_est_mode = "LognormalPrior"}. \code{srr_est_mode} and
-\code{srr_prior} remain for the one prior a linkage cannot express, on
-Beverton-Holt steepness, which needs spawning biomass per recruit and so
-exists only in single-species models.
+objective as \code{srr_est_mode = "LognormalPrior"}, which is deprecated;
+using both is refused. \code{srr_est_mode} and \code{srr_prior} remain for the
+one prior a linkage cannot express, on Beverton-Holt steepness, which needs
+spawning biomass per recruit and so exists only in single-species models.
 }
 
 \section{Starting values}{
 
 Alpha starts at \code{srr_prior} (default 4) wherever that is an alpha, and at
-\eqn{e^3} otherwise; beta starts at 3. Neither knows the stock's scale, and
-\code{srr_alpha_init} / \code{srr_beta_init} override both. \eqn{\beta} sets the density dependence in
+\eqn{e^3} otherwise; beta starts at 3. Neither knows the stock's scale. Set them
+with \code{srr_alpha_init} / \code{srr_beta_init} or a linkage \code{init};
+supplying \code{srr_prior} as alpha's starting value is deprecated. \eqn{\beta} sets the density dependence in
 \eqn{R = \alpha S / (1 + \beta S)}, so it must be on the order of
 \eqn{(\alpha - 1/\phi_0) / R_0} -- typically \eqn{10^{-3}} or smaller for a
 stock measured in tonnes; starting three orders of magnitude away drives

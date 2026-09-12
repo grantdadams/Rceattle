@@ -11,7 +11,8 @@ Natural-scale names of the underlying recruitment parameters
 that the linkage system can address. Linkages on \code{R0} act under mean
 recruitment (the offset is added to log mean recruitment with the
 default log link); under a hindcast curve a single-species \code{R0} is
-derived from alpha and beta. Linkages on \code{alpha} and \code{beta} only do
+derived from alpha and beta, so an \code{R0} linkage is refused there, and a
+multispecies one takes an intercept only. Linkages on \code{alpha} and \code{beta} only do
 work when the model has a curve (Beverton-Holt, Ricker).
 }
 \keyword{internal}

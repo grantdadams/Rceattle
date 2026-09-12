@@ -11,9 +11,9 @@
 }
 .ba_row <- function(fit, row) fit$quantities$jnll_comp[row, ]
 
-.ricker_prior <- function() {
-  Rceattle::build_srr(srr_fun = "Ricker", srr_est_mode = "LognormalPrior",
-                      srr_prior = 5, srr_prior_sd = 0.5)
+.ricker_prior <- function() {   # deprecated form, still checked against the linkage form
+  suppressWarnings(Rceattle::build_srr(srr_fun = "Ricker", srr_est_mode = "LognormalPrior",
+                                       srr_prior = 5, srr_prior_sd = 0.5))
 }
 
 # At the starting value a centre shifted the wrong way gives the same density, so
@@ -44,9 +44,10 @@ testthat::test_that("the linkage lognormal prior on alpha gives the same objecti
   for (bias in c(TRUE, FALSE)) {
     a <- .ba_build(bias, recFun = .ricker_prior())
     b <- .ba_build(bias, recFun = Rceattle::build_srr(
-      srr_fun = "Ricker", srr_prior = 5,
+      srr_fun = "Ricker",
       linkages = list(alpha = Rceattle::linkage_spec(
-        ~ 1, priors = list(`(Intercept)` = lognormal(log(5), 0.5))))))
+        ~ 1, init = list(`(Intercept)` = 5),
+        priors = list(`(Intercept)` = lognormal(log(5), 0.5))))))
     testthat::expect_equal(sum(.ba_row(b, "Linkage-table priors")),
                            sum(.ba_row(a, "Stock-recruit prior")),
                            tolerance = 1e-10, info = as.character(bias))

@@ -252,6 +252,9 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
 - **`fit_mod(d, config = cfg)` replaces `d$model_config` with the config's** — a config from
   `run_config(model_config(), ...)` silently drops every linkage on `d` (57 REs → 0). Build it
   with `run_config(d, ...)`. `random_sel` never gates linkage REs.
+- **`bias_adjust_proc` centres the lognormal priors and the recruitment deviations together**
+  (5.33.0) — `FALSE` gives median priors *and* uncentred deviations. Reproduce an old prior by
+  shifting its input; the Ianelli penalty with centred deviations cannot be reproduced.
 - **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing** —
   this is how `index_cov` was lost.
 - **A `Comp_weights` of 1 under a Dirichlet-multinomial is a starting weight of e** — that

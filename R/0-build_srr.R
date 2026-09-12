@@ -5,8 +5,8 @@
 #' @param proj_mean_rec Recruitment used in the projection: `TRUE`/1 (default) = mean recruitment, the average R over the hindcast; `FALSE`/0 = the stock-recruit relationship given by `srr_pred_fun`. Equilibrium and dynamic reference points follow the curve whenever `srr_pred_fun` is a stock-recruit form, regardless of this switch.
 #' @param srr_hat_styr Integer. First year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}), starting at \code{styr + 1}. Defaults to \code{styr + 1} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship is not available until the terminal year but projections are still wanted.
 #' @param srr_hat_endyr Integer. Last year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}). Defaults to \code{endyr} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship does not span the full time series but projections are still wanted.
-#' @param srr_est_mode The curve's built-in prior, as a code or string: 0 / `"Fixed"` (alpha held at `srr_prior`), 1 / `"Estimated"` (default, no prior), 2 / `"LognormalPrior"` (on Beverton-Holt steepness or Ricker alpha) or 3 / `"BetaPrior"` (on Beverton-Holt steepness); a steepness prior is single-species only.
-#' @param srr_prior Natural-scale prior mean (the median of a lognormal prior when `bias_adjust_proc = FALSE`) of Beverton-Holt steepness under modes 2 and 3; in every other case an alpha, which also sets alpha's starting value (see **Starting values**).
+#' @param srr_est_mode The curve's built-in prior, as a code or string: 1 / `"Estimated"` (default, no prior), or 2 / `"LognormalPrior"` or 3 / `"BetaPrior"` on Beverton-Holt steepness (single-species only); 0 / `"Fixed"` (alpha held at `srr_prior`) and `"LognormalPrior"` on a Ricker curve (a prior on alpha) are deprecated in favour of an `alpha` linkage.
+#' @param srr_prior Natural-scale prior mean (the median of a lognormal prior when `bias_adjust_proc = FALSE`) of Beverton-Holt steepness under modes 2 and 3; its other uses, as a Ricker alpha prior, a fixed alpha or alpha's starting value, are deprecated (see **Starting values**).
 #' @param srr_prior_sd Prior standard deviation: log scale for the lognormal prior (mode 2), natural scale for the beta prior (mode 3).
 #' @param srr_alpha_init,srr_beta_init Optional starting values for alpha and beta, natural scale, one per species, used only when the curve estimates them (see **Starting values**).
 #' @param srr_indices Defunct: supplying it is an error; express an environmental effect through `linkages`.
@@ -57,7 +57,7 @@
 #'   \code{bias_adjust_proc = FALSE}) and log-scale SD \code{s};
 #'   [prior_normal()] is normal on the natural scale.
 #' - **Fixed value:** \code{init = list(`(Intercept)` = v), est_phase = 0}
-#'   holds the parameter at \code{v}.
+#'   holds the parameter at \code{v}, over supplied \code{inits} too.
 #' - **One species:** add \code{species = 1}; the default applies to every
 #'   species.
 #' - **Environmental effect:** a covariate formula such as \code{~ temp} adds a
@@ -66,19 +66,21 @@
 #'
 #' A linkage on \code{R0} acts under mean recruitment, penalty form included.
 #' Under a curve fitted in the hindcast a single-species \code{R0} is derived
-#' from alpha and beta, so the linkage has no effect; in a multispecies model
-#' only its first-year value acts, as the initial recruitment level.
+#' from alpha and beta, so an \code{R0} linkage is refused; in a multispecies
+#' model \code{R0} is the initial recruitment level, and only an intercept-only
+#' linkage is accepted.
 #'
 #' For a Ricker curve the lognormal linkage prior on alpha gives the same
-#' objective as \code{srr_est_mode = "LognormalPrior"}. \code{srr_est_mode} and
-#' \code{srr_prior} remain for the one prior a linkage cannot express, on
-#' Beverton-Holt steepness, which needs spawning biomass per recruit and so
-#' exists only in single-species models.
+#' objective as \code{srr_est_mode = "LognormalPrior"}, which is deprecated;
+#' using both is refused. \code{srr_est_mode} and \code{srr_prior} remain for the
+#' one prior a linkage cannot express, on Beverton-Holt steepness, which needs
+#' spawning biomass per recruit and so exists only in single-species models.
 #'
 #' @section Starting values:
 #' Alpha starts at \code{srr_prior} (default 4) wherever that is an alpha, and at
-#' \eqn{e^3} otherwise; beta starts at 3. Neither knows the stock's scale, and
-#' \code{srr_alpha_init} / \code{srr_beta_init} override both. \eqn{\beta} sets the density dependence in
+#' \eqn{e^3} otherwise; beta starts at 3. Neither knows the stock's scale. Set them
+#' with \code{srr_alpha_init} / \code{srr_beta_init} or a linkage \code{init};
+#' supplying \code{srr_prior} as alpha's starting value is deprecated. \eqn{\beta} sets the density dependence in
 #' \eqn{R = \alpha S / (1 + \beta S)}, so it must be on the order of
 #' \eqn{(\alpha - 1/\phi_0) / R_0} -- typically \eqn{10^{-3}} or smaller for a
 #' stock measured in tonnes; starting three orders of magnitude away drives
@@ -143,6 +145,7 @@ build_srr <- function(srr_fun = 0,  #srr_model
     srr_pred_fun = srr_fun
   }
 
+
   # Bmsy_lim bounds the Ricker curve only. -999 is the stored "off" value that
   # refits pass back in, so it does not warn.
   if(!srr_pred_fun %in% c(4,5, "Ricker")){
@@ -160,6 +163,17 @@ build_srr <- function(srr_fun = 0,  #srr_model
          "steepness and has no Ricker form. For a Ricker curve use ",
          "`srr_est_mode = 2` (\"LognormalPrior\"), a prior on alpha.",
          call. = FALSE)
+  }
+
+  # Alpha priors, fixed values and starting values outside a linkage are deprecated;
+  # srr_prior stays for the Beverton-Holt steepness prior. Refits pass it silently.
+  if (isTRUE(srr_est_mode == 0)) {
+    .warn_srr_alpha_deprecated("fixed")
+  } else if (isTRUE(srr_est_mode == 2) && srr_pred_fun %in% c(4, 5)) {
+    .warn_srr_alpha_deprecated("prior")
+  } else if (isTRUE(srr_est_mode == 1) && !missing(srr_prior) &&
+             isTRUE(any(srr_prior != 4, na.rm = TRUE))) {   # 4, the default, is what refits pass back
+    .warn_srr_alpha_deprecated("start")
   }
 
   # For a Beverton-Holt curve, srr_est_mode 2 and 3 put the prior on steepness,
@@ -218,6 +232,24 @@ build_srr <- function(srr_fun = 0,  #srr_model
 
   linkages <- .validate_recruitment_linkages(linkages, srr_pred_fun)
 
+  # srr_est_mode = 0 and an alpha linkage fixed at its init would give alpha two fixed values.
+  if (isTRUE(srr_est_mode == 0) && .has_fixed_intercept(linkages$alpha)) {
+    stop("`srr_est_mode = \"Fixed\"` and an alpha linkage with est_phase = 0 both fix ",
+         "alpha; use the linkage alone.", call. = FALSE)
+  }
+
+  # For a Ricker curve srr_est_mode = 2 and an alpha intercept prior are the same
+  # lognormal density, so together they would count it twice.
+  if (isTRUE(srr_est_mode == 2) && srr_pred_fun %in% c(4, 5) &&
+      .has_intercept_prior(linkages$alpha)) {
+    stop("`srr_est_mode = \"LognormalPrior\"` and a prior on the alpha linkage's ",
+         "intercept are the same prior on Ricker alpha; use one, not both. The ",
+         "linkage form is preferred: drop srr_est_mode (if the intercept prior is ",
+         "species-restricted, add a linkage prior for the other species), or drop ",
+         "the intercept prior.",
+         call. = FALSE)
+  }
+
   # `srr_indices` is defunct: it stops rather than fit a model without its
   # covariate. NA or NULL means not supplied.
   if (!is.null(srr_indices) && !(length(srr_indices) == 1L && is.na(srr_indices))) {
@@ -239,6 +271,47 @@ build_srr <- function(srr_fun = 0,  #srr_model
        Bmsy_lim = Bmsy_lim,
        linkages = linkages
   )
+}
+
+
+# TRUE if any spec in `specs` (one linkage_spec or a list) has an intercept prior.
+.has_intercept_prior <- function(specs) {
+  if (is.null(specs)) return(FALSE)
+  if (inherits(specs, "Rceattle_linkage_spec")) specs <- list(specs)
+  any(vapply(specs, function(s)
+    any(names(s$priors) %in% c("(Intercept)", "intercept", "Intercept")), logical(1)))
+}
+
+# Deprecation warnings for alpha set outside a linkage, each naming its replacement.
+.warn_srr_alpha_deprecated <- function(which) {
+  msg <- switch(which,
+    fixed = paste0("`srr_est_mode = \"Fixed\"` is deprecated. Fix alpha with a linkage ",
+                   "(natural scale): linkages = list(alpha = linkage_spec(~ 1, est_phase = 0, ",
+                   "init = list(`(Intercept)` = <alpha>)))."),
+    prior = paste0("`srr_est_mode = \"LognormalPrior\"` on a Ricker curve is deprecated. The ",
+                   "linkage prior gives the same objective and start: linkages = list(alpha = ",
+                   "linkage_spec(~ 1, init = list(`(Intercept)` = <mean>), ",
+                   "priors = list(`(Intercept)` = prior_lognormal(log(<mean>), <sd>))))."),
+    start = paste0("`srr_prior` as alpha's starting value is deprecated; it will mean only a ",
+                   "Beverton-Holt steepness prior. Use `srr_alpha_init`, or `init` on an alpha linkage."))
+  # Classed, so a test can silence exactly this warning.
+  warning(warningCondition(msg, class = "rceattle_deprecated"))
+}
+
+# TRUE if any spec in `specs` is intercept-bearing and fixed (est_phase = 0).
+.has_fixed_intercept <- function(specs) {
+  if (is.null(specs)) return(FALSE)
+  if (inherits(specs, "Rceattle_linkage_spec")) specs <- list(specs)
+  has_int <- function(f) tryCatch(isTRUE(attr(stats::terms(f), "intercept") == 1L),
+                                  error = function(e) TRUE)   # `~ .` fails terms()
+  any(vapply(specs, function(s) as.integer(s$est_phase) == 0L && has_int(s$formula), logical(1)))
+}
+
+# TRUE if a linkage spec has a covariate or random-effect term, not just an
+# intercept. terms() fails on `~ .`, which is counted as having terms.
+.linkage_has_terms <- function(spec) {
+  tryCatch(length(attr(stats::terms(spec$formula), "term.labels")) > 0L,
+           error = function(e) TRUE)
 }
 
 
@@ -313,10 +386,21 @@ build_srr <- function(srr_fun = 0,  #srr_model
 
 # A fit made before 5.32.0 can store code 1, 3 or 5. From 4.4.0 those fitted the
 # structural form 0, 2 or 4 with no environmental term, so a refit maps them there.
-.srr_fun_structural <- function(x) {
+# `penalty = TRUE` is srr_pred_fun under srr_fun = 0: code 1 there scored the penalty
+# around mean recruitment, which code 0 drops, so the objective changes.
+.srr_fun_structural <- function(x, penalty = FALSE) {
   if (is.null(x)) return(x)
   x   <- as.integer(x)
   old <- !is.na(x) & x %in% .SRR_DEPRECATED_FUNS
+  if (isTRUE(penalty) && any(old & x == 1L)) {
+    warning("This fit used srr_fun = 0 with srr_pred_fun = 1, which scored the ",
+            "stock-recruit penalty around mean recruitment. Code 1 is retired, so it ",
+            "refits as srr_pred_fun = 0 without that penalty: the objective changes, ",
+            "and sim_mod() now draws its recruitment deviations.",
+            call. = FALSE)
+    x[old] <- x[old] - 1L
+    return(x)
+  }
   if (any(old)) {
     warning(sprintf(paste0(
       "This fit used srr_fun / srr_pred_fun = %s, whose environmental term has had ",
@@ -371,7 +455,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #' that the linkage system can address. Linkages on `R0` act under mean
 #' recruitment (the offset is added to log mean recruitment with the
 #' default log link); under a hindcast curve a single-species `R0` is
-#' derived from alpha and beta. Linkages on `alpha` and `beta` only do
+#' derived from alpha and beta, so an `R0` linkage is refused there, and a
+#' multispecies one takes an intercept only. Linkages on `alpha` and `beta` only do
 #' work when the model has a curve (Beverton-Holt, Ricker).
 #'
 #' @keywords internal

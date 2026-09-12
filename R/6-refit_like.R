@@ -99,10 +99,15 @@
       HCRorder   = dl$HCRorder)
   }
 
-  # A fit stored with srr_fun 1|3|5 refits as the structural form it fitted; the
-  # warning is raised here, outside the suppressWarnings() below.
+  # A fit stored with srr_fun 1|3|5 refits as the structural form it fitted. The warning
+  # escapes the suppressWarnings() below, but retrospective(), jitter(), profile() and self_test() hide it.
   srr_fun_refit      <- .srr_fun_structural(dl$srr_fun)
-  srr_pred_fun_refit <- .srr_fun_structural(dl$srr_pred_fun)
+  srr_pred_fun_refit <- .srr_fun_structural(
+    dl$srr_pred_fun, penalty = isTRUE(as.integer(dl$srr_fun)[1] == 0L))
+
+  # These inits hold the fitted (or, in profile(), the grid) value, so fit_mod() must not
+  # put a linkage-fixed intercept back to its init.
+  if (is.list(inits)) attr(inits, "rceattle_refit") <- TRUE
 
   fit_mod(
     data_list    = dl,
