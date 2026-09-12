@@ -56,8 +56,9 @@ testthat::test_that("lognormal prior on slp_asc re-targets the LOG-scale log_sel
     slp_asc = Rceattle::linkage_spec(~1, fleet = 1L,
                                      priors = list(`(Intercept)` = lognormal(MU, SD))))))
   lslp <- fit$estimated_params$log_sel_slp[1, 1, 1]
+  # Mean-centred under the default bias_adjust_proc = TRUE.
   testthat::expect_equal(sum(fit$quantities$jnll_comp["Linkage-table priors", ]),
-                         -dnorm(lslp, MU, SD, log = TRUE), tolerance = 1e-8)
+                         -dnorm(lslp, MU - SD^2 / 2, SD, log = TRUE), tolerance = 1e-8)
 })
 
 # --- Guards on sel-prior re-targeting (density-review follow-ups) ------------

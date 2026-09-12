@@ -12,6 +12,326 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.33.0
+
+## Breaking changes
+
+None of the refused configurations below fitted the model it described, so this
+release stays a minor version. Stored fits with them no longer refit.
+
+* **`data_check()` refuses an `R0` linkage under a stock-recruit curve fitted
+  in the hindcast.** Beverton-Holt and Ricker recruitment read only alpha, beta
+  and SSB, so in a single-species model `R0` is derived from them and the
+  linkage did not change recruitment. In a multispecies model `R0` sets only
+  the initial recruitment level (`R_init`), so an intercept-only linkage
+  (`~ 1`, a prior or fixed value) is accepted and a covariate or random effect
+  is refused. Put an environmental effect on productivity through an `alpha`
+  linkage, or use `srr_fun = "mean"` with the `R0` linkage.
+* **A stored fit with `srr_est_mode = "BetaPrior"` on a Ricker curve does not
+  refit**; `build_srr()` has refused the pair since 5.30.0. The prior is on
+  Beverton-Holt steepness and never applied to a Ricker curve. Rebuild with
+  `srr_est_mode = "Estimated"`, the model it fitted.
+* **`srr_est_mode = "Fixed"` together with an alpha linkage fixed at its init
+  (`est_phase = 0`) is refused.** Each fixed alpha at a different value. Keep
+  the linkage alone.
+* **A stored fit with stock-recruit penalty years outside the hindcast no
+  longer refits** (see Bug fixes). Rebuild with the model's full `build_srr()`
+  call, with the penalty years inside `styr` to `endyr`:
+  `build_srr(srr_hat_endyr = )` on its own resets the curve and its priors to
+  the defaults (mean recruitment, `srr_pred_fun = 0`), which drops the penalty.
+  `retrospective()` still runs when only `srr_hat_endyr` is past `endyr`,
+  truncating it to each peel.
+* **A stored fit with a Ricker `srr_est_mode = "LognormalPrior"` and an alpha
+  linkage intercept prior no longer refits** (see Bug fixes): one density
+  counted twice. Keep one.
+* **`Catchability = "Estimated-with-prior"` with a prior on that fleet's q
+  linkage intercept is refused**: both are priors on the same q. Set
+  `Catchability = "Estimated"`, or drop the intercept prior.
+* **`M1_use_prior = TRUE` with a prior on that species' M1 linkage intercept is
+  refused** unless `M2_use_prior = TRUE`, which puts the M prior on total M.
+  Both are priors on the same M1. Set `M1_use_prior = FALSE`, or drop the
+  intercept prior.
+* **`minage = 0` with a Beverton-Holt or Ricker curve is refused.** The curve
+  read that year's spawning biomass before the model computed it, so it gave
+  zero recruitment in the hindcast (`srr_fun`) or in `SB0`, the reference points
+  and a `proj_mean_rec = FALSE` projection (`srr_pred_fun`, the Ianelli form
+  included). Use mean recruitment.
+
+## Deprecated
+
+* **Alpha priors, fixed values and starting values outside a linkage.** Each
+  still works and warns once from `build_srr()`; refits are silent.
+  - `srr_est_mode = "Fixed"`: use ``linkages = list(alpha = linkage_spec(~ 1,
+    est_phase = 0, init = list(`(Intercept)` = <alpha>)))``.
+  - `srr_est_mode = "LognormalPrior"` on a Ricker curve: use an alpha linkage
+    prior, which gives the same objective, with `init` at the prior mean for the
+    same start.
+  - `srr_prior` as alpha's starting value (supplied, not the default 4): use
+    `srr_alpha_init` or `init` on an alpha linkage.
+
+  `srr_prior` stays for the Beverton-Holt steepness prior. `Bmsy_lim` is
+  unchanged.
+
+## Results change
+
+* **Lognormal priors and the Ianelli stock-recruit penalty are mean-centred
+  under `bias_adjust_proc`.** With `fit_control(bias_adjust_proc = TRUE)`, the
+  default, each is centred at `-sd^2/2` on the log scale, so the value given is
+  the prior mean of the natural-scale quantity. The Beverton-Holt steepness
+  prior and the recruitment deviations already worked this way. With `FALSE`
+  the value is the median, as before, but the recruitment deviations lose their
+  centring too, so a fit with both a lognormal prior and recruitment deviations
+  cannot be reproduced as it was by this flag. Reproduce an old prior with the
+  flag on by shifting its input: `prior_lognormal(p1 + s^2/2, s)`,
+  `Catchability_init * exp(s^2/2)`, a Ricker `srr_prior * exp(s^2/2)`, or
+  `M_prior * exp(s^2)` for the old M centre (`inst/dev/TRAPS.md`). The
+  Ianelli penalty with centred deviations has no input to shift. A value
+  between 0 and 1 gives priors a centre that is neither the mean nor the
+  median. This applies to
+  `prior_lognormal()` in every linkage (intercepts, slopes and random-effect
+  SDs), the Ricker alpha prior (`srr_est_mode = "LognormalPrior"`) and the
+  catchability prior (`Catchability = "Estimated-with-prior"`). The penalty's
+  curve term now treats the curve as the mean of recruitment, as in Ianelli's
+  EBS pollock model (`pm.tpl`, Dorn 2002); `pm.tpl` penalizes its recruitment
+  deviations without a sigma, which no setting reproduces.
+  `bias_adjust_proc = FALSE` gives the AMAK form, where the curve is the
+  median. Every fit that uses these features with the flag on changes. With
+  the flag off, only fits with an M prior (below) and penalty-form projections
+  (next item) change. Wide priors change most: for `prior_lognormal(0, 2)` the
+  mean falls from 7.39 to 1 and the median from 1 to 0.14.
+
+  In the penalty years the Ianelli form penalizes recruitment twice, as a
+  deviation from `R0` and as a departure from the curve. With the flag on,
+  centring the penalty lowers the recruitment the two favour by
+  `exp(-sigma_R^2/4)`: 8.6% at `sigma_R = 0.6`. Their mean was the geometric
+  mean of `R0` and the curve; it and the median fall alike. Recruitment the
+  data inform moves less.
+
+  Measured changes:
+  - **Pacific hake MSEs.** Their Dirichlet-multinomial weights have
+    `prior_lognormal(0, 2)` priors, and they use an M prior. Objectives rise
+    by 3.0 to 6.8, and hake terminal SSB changes by at most 0.86%. The survey
+    DM weight falls from 43-49 to 31-35 (`MSE_yr2024.R`) and from 32-35 to
+    23-25 (`04-mse.R`), and the Ianelli Beverton-Holt alpha, fitted then with
+    no alpha prior, rises from 18.8 to 41.0. Every fit still has a
+    positive-definite Hessian.
+  - **GOA2018SS**, which has a q prior (SD 0.1). The golden objectives change
+    by -0.015 (single-species) and -0.003 (multispecies).
+  - **BSAI northern rock sole bridging** (a q prior; M priors and a Ricker
+    penalty in the later models). At the 5.32.1 estimates, the first model's
+    objective changes by 5.7, all from the q prior. None of the refits
+    converges (maximum gradient 1.6 to 11.5), and they end at different
+    parameter values, with objectives from 95 lower to 1,779 higher. Compare
+    them only once they converge.
+  - **Unchanged:** the Bering Sea golden models (to 3e-11), and any
+    mean-recruitment fit run with `bias_adjust_proc = FALSE` and no M prior,
+    such as the GOA pollock 2025 assessment (not refit).
+
+* `sample_rec(sample_rec = FALSE)` and `retrospective()` now set the projected
+  recruitment deviation for the Ianelli penalty form (`srr_fun = 0` with a
+  curve in `srr_pred_fun`) to `log(mean(R / R_hat))` over the penalty years
+  (`srr_hat_styr` to `srr_hat_endyr`), the mean ratio of recruitment to the
+  curve. They used the mean log ratio over every hindcast year, which projects
+  the median recruitment around the curve. This applies whatever
+  `bias_adjust_proc` is. The deviation sets recruitment in a retrospective's
+  peeled years and, under `run_mse(sample_rec = FALSE)`, in the operating
+  model's added years. In the model `sample_rec()` returns, the dynamic
+  reference points (`DynamicB0`, `DynamicSB0`, `DynamicSBF`) always change;
+  projected recruitment changes only with `proj_mean_rec = FALSE`; and
+  projected F changes only under HCRs 5, 6 and 7, through projected SSB with
+  `proj_mean_rec = FALSE` and through the dynamic reference points with
+  `DynamicHCR = TRUE`. `sample_rec()` stops if no penalty years fall in the
+  hindcast; a retrospective peel that ends before the penalty years uses its
+  own years instead, with a warning.
+
+## Bug fixes
+
+* **The M prior is centred on `M_prior`.** It was centred at
+  `log(M_prior) + sd^2/2` for either flag setting, so `M_prior` was neither its
+  mean nor its median. It is now the mean under `bias_adjust_proc = TRUE` and
+  the median under `FALSE`. Every fit with `M1_use_prior` or `M2_use_prior`
+  changes, including fits with the flag off.
+
+* **Dynamic B0 uses the hindcast's realized recruitment for cohorts spawned
+  before the first model year** (`minage > 1`). Under a stock-recruit curve,
+  including the Ianelli form, those years used the curve at the first year's
+  spawning biomass. Under mean recruitment with `proj_mean_rec = FALSE` they
+  used that year's R0, which differs only with a year-varying R0 linkage.
+  Neither is the recruitment the hindcast used. `DynamicB0`, `DynamicSB0` and
+  `DynamicSBF` change. With `DynamicHCR = TRUE` so do the projections, the
+  HCR 3 target, and `biomass_depletion` and `ssb_depletion`. Equilibrium `SB0`
+  and `SBF` do not change. Models with `minage = 1`, including every bundled
+  dataset, are unchanged.
+
+* **A linkage intercept fixed at its `init` (`est_phase = 0`) holds that value
+  when `fit_mod()` is given `inits`.** The init was applied only to freshly
+  built parameters, so a warm start kept the `inits` value and mapped it off:
+  a refit at alpha = 500 warm-started from a fit at 1170 stayed at 1170. It
+  also wins over `srr_alpha_init`. This applies to every process with an
+  intercept linkage (recruitment, M, q, selectivity, growth). Refits through
+  `retrospective()`, `profile()` and the other diagnostics keep their fitted,
+  or profiled, value, and skip the `srr_prior`, `srr_alpha_init` and
+  `srr_beta_init` starting values too; `profile()` over alpha or beta on a fit
+  with those was flat. A hand-written profile loop through
+  `fit_mod(inits = , map = )` over a linkage-fixed parameter is now held at the
+  init: use `profile()`, or give the loop's linkage `est_phase = 1`. On a fit
+  with `srr_alpha_init` or `srr_beta_init`, `jitter()` and `self_test()` now
+  perturb alpha and beta (they were reset after jittering), and retrospective
+  peels start from the fitted alpha.
+
+* **Stock-recruit penalty years must lie in the hindcast.** `data_check()`
+  refuses `srr_hat_styr < styr` and `srr_hat_endyr > endyr` under the Ianelli
+  penalty. Past `endyr` the penalty applied to projected recruitment (BS2017SS,
+  `endyr + 5`: objective +1,215), and `sample_rec()` averaged over different
+  years than the template. A stored `srr_hat_endyr` is kept when `endyr` is
+  lowered; Breaking changes gives the rebuild.
+
+* **A Ricker `srr_est_mode = "LognormalPrior"` together with an alpha linkage
+  intercept prior is refused.** They are the same density, which the objective
+  counted twice.
+
+* **The warning that a supplied `map` fixes both stock-recruit parameters no
+  longer fires on a refit's own map**: not for a debug or projection map, nor
+  for a species whose alpha or beta linkage estimates a covariate or random
+  effect. An intercept-only linkage still counts as fixed.
+
+* `data_check()` resolves a string `msmMode` (e.g. `"SingleSpecies"`) before
+  its multispecies stock-recruit checks; `"SingleSpecies" > 0` is TRUE in R.
+
+## Documentation
+
+* `?build_srr`: a linkage on `R0` acts under mean recruitment only. Under a
+  curve fitted in the hindcast a single-species `R0` linkage is refused; in a
+  multispecies model only an intercept-only one is accepted, as the initial
+  recruitment level. The "Starting values" section gave alpha's default
+  start as `e^3`; it is `srr_prior` (default 4) wherever that is an alpha.
+* `?linkage_spec`: an intercept's `init` is on the parameter's natural scale,
+  a slope's on the link scale.
+
+# Rceattle 5.32.1
+
+## Documentation
+
+* **`?build_srr` now leads with `linkages` for priors, fixed values and
+  covariates on `R0`, alpha and beta.** An intercept-only `linkage_spec()` acts
+  on the parameter itself: a prior (`prior_lognormal()`, `prior_normal()`), a
+  fixed value (`init` with `est_phase = 0`), or one species (`species =`). For a
+  Ricker curve the lognormal linkage prior on alpha gives the same objective as
+  `srr_est_mode = "LognormalPrior"`. `srr_est_mode` and `srr_prior` remain for a
+  Beverton-Holt steepness prior, the one a linkage cannot express. The old
+  example labelled "with a prior on steepness" set `srr_est_mode =
+  "Estimated"`, which applies no prior and turns `srr_prior = 0.8` into alpha's
+  starting value; it is replaced. The linkages vignette's Recruitment section
+  gains the same recipes.
+
+* `?linkage_spec`: `init` is a named list, not a numeric vector. The old
+  example, `c(...)`, is refused by the function.
+
+# Rceattle 5.32.0
+
+## Breaking changes
+
+* **`srr_fun` / `srr_pred_fun` codes 1, 3 and 5, and `srr_indices`, are now
+  errors.** These were the environment-driven stock-recruit forms. 4.4.0
+  removed their environmental term from the template, but `build_srr()` kept
+  accepting them with only a soft-deprecation warning. A model built with them
+  was fitted without its covariate and reported nothing wrong: its objective and
+  parameter count were identical to the non-environmental model's. The 4.4.0
+  entry below, which says they "continue to work", was wrong.
+
+  `build_srr()` now stops and names the linkage that replaces them:
+  `srr_fun = 0` with `linkages = list(R0 = linkage_spec(~ <covariate>))` for
+  code 1, and `srr_fun` 2 or 4 with an `alpha` linkage for 3 or 5.
+  `srr_indices = k` meant the k-th `env_data` column after `Year`. A fit made
+  with code 1, 3 or 5 still refits, through `retrospective()`, `run_mse()` and
+  the other refitting diagnostics, as code 0, 2 or 4; that is the model it
+  actually fitted. `run_mse()` shows the warning, but `retrospective()`,
+  `jitter()`, `profile()` and `self_test()` suppress it. The one exception is
+  `srr_fun = 0` with `srr_pred_fun = 1`, which scored the penalty around mean
+  recruitment: it refits without that penalty, so its objective changes. A code
+  stored in a data object's `model_config` is not checked and fits as 0, 2 or 4
+  without a warning, and a stored `srr_indices` is ignored. Results produced with
+  these codes from 4.4.0 through 5.31.0 have no environmental effect and should
+  be refit with a linkage. No fit without them changes.
+
+# Rceattle 5.31.0
+
+## New features
+
+* **A multispecies model can fit a stock-recruit curve in the hindcast.**
+  Spawning biomass per recruit is undefined under predation, so the curve's
+  initial recruitment level (`R0`), which seeds the first year and the initial
+  age structure, is estimated rather than derived as `(alpha - 1/SPR)/beta`;
+  every year with modelled spawners follows the curve. Any `initMode` is
+  accepted; under the fished modes (3, 4) `R0` trades off against the initial
+  F. The initial state matters: on the Pacific hake four-species model,
+  `"FreeParams"` changed terminal SSB by -35% and `"NonEquilibrium"` by -25%
+  against the mean-recruitment fit, while the hindcast curve itself came out
+  flat (see `inst/dev/TODO-srr-multispecies.md`). Steepness is reported as 0,
+  the Ricker positivity penalty on `alpha * SPR0 - 1` (which added to the
+  objective at every evaluation) is skipped, and `sample_rec(sample_rec =
+  FALSE)` and `retrospective()` scale the projection by the mean ratio of
+  recruitment to the curve, since there is no unfished recruitment to scale
+  against. Single-species fits
+  are unchanged.
+
+# Rceattle 5.30.0
+
+## New features
+
+* **A multispecies model can have a stock-recruit curve as a recruitment
+  penalty.** `data_check()` refused every Beverton-Holt or Ricker curve under
+  `msmMode > 0` (5.12.0), including the Ianelli configuration
+  (`build_srr(srr_fun = "mean", srr_pred_fun = "BevertonHolt")`). That
+  configuration never needed spawning biomass per recruit: the penalty, the
+  dynamic reference points and -- with `proj_mean_rec = FALSE` -- the
+  projection read alpha, beta and SSB only. It is now allowed, and so are
+  estimating alpha and beta, fixing alpha (`srr_est_mode = "Fixed"`) and a
+  Ricker prior on alpha. Under the default `proj_mean_rec = TRUE` the
+  projection, and so the multispecies `MSSB0` derived from it, runs on mean
+  recruitment while dynamic B0 follows the curve.
+
+  Two uses still read spawning biomass per recruit, which is undefined under
+  predation, and are still refused: a curve fitted in the hindcast
+  (`srr_fun` Beverton-Holt or Ricker), whose initial recruitment derives from
+  `SPRFinit`, and a prior on Beverton-Holt steepness (`srr_est_mode =
+  "LognormalPrior"` or `"BetaPrior"`).
+
+  Under predation the penalty curve's first-year `R_hat` is `R_init`, where it
+  was `-Inf`; `sim_mod()` and `retrospective()` take `log(R_hat)` over that
+  year. `steepness` is reported as 0, and `convergence_diagnostics()` records a
+  NOTE rather than testing the curve against the replacement line. No earlier
+  fit changes.
+
+* **A species with input numbers-at-age (`estDynamics > 0`) has no
+  stock-recruit prior, Bmsy penalty or curve penalty.** Its recruitment is a
+  placeholder, so those terms scored nothing real, and with an estimated
+  population scalar (`estDynamics` 2 or 3) the curve penalty pulled on that
+  scalar. Only a model combining a stock-recruit curve with such a species
+  changes. In a single-species model the population scalar is never estimated,
+  so no estimate changes; only the objective changes, by a constant.
+
+* `fit_mod()` warns when a supplied `map` fixes both stock-recruit parameters
+  while the curve still shapes recruitment, as a map reused from a
+  mean-recruitment fit does. `build_srr()` stops on `srr_est_mode =
+  "BetaPrior"` with a Ricker curve, which has no Ricker form and was estimated
+  with no prior, and warns when `Bmsy_lim` is given for a non-Ricker curve,
+  where it is ignored.
+
+## Bug fixes
+
+* **Dynamic B0 holds a species with input numbers-at-age (`estDynamics > 0`)
+  at those numbers.** The dynamic reference runs (`DynamicB0`, `DynamicSB0`,
+  `DynamicSBF`) projected such a species from its first-year numbers on its
+  placeholder recruitment, so a fixed predator collapsed in the unfished run
+  and took its prey's predation mortality there with it. In the Pacific hake
+  four-species model, with arrowtooth, sablefish and California sea lion fixed,
+  arrowtooth dynamic SSB was 38.6 mt in 2023 against an input 43,490 mt. Hake
+  dynamic SB0 in 2023 falls from 2.73e6 to 1.95e6 mt, and its depletion
+  against it rises from 0.516 to 0.723. Only multispecies models with a
+  fixed-dynamics species change: their dynamic reference quantities, and the
+  objective when `DynamicHCR = TRUE` fits the projection against them.
+
 # Rceattle 5.29.0
 
 ## Bug fixes

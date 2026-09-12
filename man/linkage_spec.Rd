@@ -94,9 +94,10 @@ contributions are multiplicative on the natural-scale parameter. With \code{link
 natural scale. The linkage targets are estimated on the log scale,
 so \code{"log"} is the default.}
 
-\item{init}{optional named numeric vector of initial values keyed by
-the design-matrix column name (e.g.
-\verb{c(}(Intercept)\verb{ = 4, temp = 0)}). Missing entries default to \code{0}.}
+\item{init}{optional named list of initial values keyed by the
+design-matrix column name (e.g. \code{list(`(Intercept)` = 4, temp = 0)}),
+an intercept on the parameter's natural scale and a slope on the link
+scale; missing entries default to \code{0}.}
 
 \item{bounds}{optional named list of \code{c(lower, upper)} keyed the same
 way as \code{init}.}
@@ -111,7 +112,9 @@ design-matrix column name. Inside this argument you may write \code{normal()},
 for these coefficients. \code{NA} (default) means fixed.}
 
 \item{est_phase}{optional integer estimation phase. Default \code{1L}; \code{0} fixes
-the coefficient at its \code{init}. Applies to \strong{fixed-effect} rows only -- the
+the coefficient at its \code{init}, which then holds over any \code{inits} given to
+\code{\link[=fit_mod]{fit_mod()}} (an estimated intercept's \code{init} is only a starting value, and
+\code{inits} win). Applies to \strong{fixed-effect} rows only -- the
 coefficients in \code{beta_linkage}. A random-effect term's deviations are held
 in a separate vector that \code{est_phase} does not reach, so \code{est_phase < 1} on
 a formula containing one is an error rather than a silent no-op; drop the

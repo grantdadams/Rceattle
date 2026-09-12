@@ -7,7 +7,7 @@
 prior_lognormal(meanlog, sdlog)
 }
 \arguments{
-\item{meanlog}{prior mean of the log of the coefficient.}
+\item{meanlog}{log of the prior mean (of the median when \code{bias_adjust_proc = FALSE}).}
 
 \item{sdlog}{prior standard deviation of the log (must be positive).}
 }
@@ -15,6 +15,8 @@ prior_lognormal(meanlog, sdlog)
 An \code{Rceattle_prior} of family \code{"lognormal"}.
 }
 \description{
-Parameterized on the log scale (mean and sd of the log of the
-coefficient), matching \code{\link[stats:dlnorm]{stats::dlnorm()}}.
+A normal density on the log of the coefficient. Under
+\code{fit_control(bias_adjust_proc = TRUE)}, the default, it is centred at
+\code{meanlog - sdlog^2/2}, so \code{exp(meanlog)} is the prior mean; with \code{FALSE} it
+matches \code{\link[stats:dlnorm]{stats::dlnorm()}} and \code{exp(meanlog)} is the prior median.
 }

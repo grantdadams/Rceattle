@@ -38,13 +38,14 @@ model. Either an integer code or the equivalent string alias:
 \item{updateM1}{If using initial parameters, use M1 fixed effects
 from data (\code{M1_base}) instead. Default \code{FALSE}.}
 
-\item{M1_use_prior}{Vector or scalar; if \code{TRUE}, apply the
-lognormal \code{M_prior} / \code{M_prior_sd} to \code{M1} directly.}
+\item{M1_use_prior}{Vector or scalar; if \code{TRUE} and \code{M2_use_prior} is \code{FALSE}, apply the
+lognormal \code{M_prior} / \code{M_prior_sd} to \code{M1} directly, which is refused alongside a prior
+on that species' \code{M1} linkage intercept.}
 
 \item{M2_use_prior}{Vector or scalar; if \code{TRUE}, apply the
 lognormal prior to \code{M1 + M2} in multi-species models.}
 
-\item{M_prior}{Mean (natural-scale) of the lognormal prior on M.}
+\item{M_prior}{Natural-scale mean of the lognormal prior on M (its median when \code{bias_adjust_proc = FALSE}).}
 
 \item{M_prior_sd}{SD (log-scale) of the lognormal prior on M.}
 

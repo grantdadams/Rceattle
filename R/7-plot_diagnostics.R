@@ -153,7 +153,7 @@ plot_index <- function(Rceattle,
                        right_adj = 0,
                        top_adj = 0.05,
                        single.plots = FALSE) {
-  Rceattle <- .as_model_list(Rceattle)
+  Rceattle <- .as_plot_models(Rceattle)
   df <- .fleet_fit_df(Rceattle, kind = "index", species = species,
                       incl_proj = incl_proj, model_names = model_names)
   ylab <- "Index"
@@ -284,7 +284,7 @@ plot_catchability <- function(Rceattle,
                               right_adj = 0,
                               top_adj = 0.05,
                               single.plots = FALSE) {
-  Rceattle <- .as_model_list(Rceattle, mse = mse, OM = TRUE)
+  Rceattle <- .as_plot_models(Rceattle, mse = mse, OM = TRUE)
   df <- .catchability_df(Rceattle, species = species, spnames = spnames,
                          model_names = model_names)
   df <- .rce_year_filter(df, minyr = minyr, maxyr = maxyr)
@@ -352,10 +352,10 @@ plot_catch <- function(Rceattle,
                        lwd = 2,
                        ymax = NULL) {
   if (mse) {
-    Rceattle <- .as_model_list(Rceattle, mse = TRUE, OM = TRUE)
+    Rceattle <- .as_plot_models(Rceattle, mse = TRUE, OM = TRUE)
     incl_proj <- TRUE
   } else {
-    Rceattle <- .as_model_list(Rceattle)
+    Rceattle <- .as_plot_models(Rceattle)
   }
 
   df <- .fleet_fit_df(Rceattle, kind = "catch", incl_proj = incl_proj,
@@ -441,7 +441,7 @@ plot_indexresidual <- function(Rceattle,
     return(plot(osa))
   }
 
-  Rceattle <- .as_model_list(Rceattle)
+  Rceattle <- .as_plot_models(Rceattle)
   model_names_use <- .model_labels(Rceattle, model_names)
   fc <- Rceattle[[1]]$data_list$fleet_control
   if (is.null(species)) species <- seq_len(Rceattle[[1]]$data_list$nspp)

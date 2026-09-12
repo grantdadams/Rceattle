@@ -80,6 +80,7 @@ Wrap everything in one `export PATH=/usr/bin:$PATH && NOT_CRAN=true Rscript -e '
    likelihood ridge — its `par`/`ssb` are ridge-sensitive across *different* code, though
    deterministic on same-code re-runs; judge it primarily on `obj` (and `jnll`). The
    reference values (this branch): ss=10241.0304272585, ms=10267.2478324443,
-   goa_ss=12868.0052289274, goa_ms=12932.7931701136.
+   goa_ss=12867.9902664788, goa_ms=12932.7902167145 (5.33.0; the GOA values changed when the
+   q prior on GOA2018SS fleet 2 became mean-centred under `bias_adjust_proc`).
 
 Report a clear PASS/FAIL summary, per model. Don't change source to force a pass.

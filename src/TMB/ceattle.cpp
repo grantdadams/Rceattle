@@ -1613,7 +1613,12 @@ Type objective_function<Type>::operator() () {
     penalty = 0.0;
     zero_N_pen.setZero();
     for( sp = 0; sp < nspp ; sp++) {
-      switch(srr_fun){
+      // Under predation SPR is undefined: a hindcast curve takes R_init from the
+      // free level R0(sp, 0) and reports steepness 0, skipping the cases below.
+      if((msmMode > 0) & (srr_fun > 1)){
+        for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0; }
+        R_init(sp) = R0(sp, 0);
+      } else switch(srr_fun){
       case 0: // Random about mean (e.g. Alaska)
         // No compensation, so steepness is constant across years.
         for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0.99; }
@@ -1727,7 +1732,7 @@ Type objective_function<Type>::operator() () {
       //
       // R0 is deliberately NOT re-derived here: recruitment in this
       // configuration is R0 * exp(rec_dev), so R0 keeps its estimated value.
-      if((srr_fun < 2) & (srr_pred_fun > 1)){
+      if((srr_fun < 2) & (srr_pred_fun > 1) & (msmMode == 0)){
         for(yr = 0; yr < nyrs; yr++){
           if((srr_pred_fun == 2) | (srr_pred_fun == 3)){
             steepness(sp, yr) = alpha(sp, yr) * SPR0(sp)/(4.0 + alpha(sp, yr) * SPR0(sp));
@@ -1736,6 +1741,11 @@ Type objective_function<Type>::operator() () {
             steepness(sp, yr) = 0.2 * exp(0.8*log(alpha(sp, yr) * SPR0(sp)));
           }
         }
+      }
+      // SPR0 is undefined under predation, so steepness is reported as 0;
+      // data_check() refuses a steepness prior there.
+      if((srr_fun < 2) & (srr_pred_fun > 1) & (msmMode > 0)){
+        for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0; }
       }
     }
 
@@ -1893,9 +1903,8 @@ Type objective_function<Type>::operator() () {
         int spawn_yr = yr - minage(sp);
         int srr_use = (spawn_yr < 0) ? 0 : srr_switch;
         Type ssb_tmp = (spawn_yr < 0) ? Type(0.0) : ssb(sp, spawn_yr);
-        // Not R0(sp, yr): under a stock-recruit hindcast build_map() maps the
-        // mean-recruit parameter out and only R0(sp, 0) is overwritten with the
-        // derived (alpha - 1/SPR0)/Beta, leaving R0(sp, yr) at its starting value.
+        // Pre-styr years take R_init, not R0(sp, yr): under a hindcast curve R0 is
+        // set only at year 0 (derived, or the free level under predation).
         Type rec_mean = (spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
 
         R(sp, yr) = calculate_recruitment(srr_use, rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
@@ -2026,13 +2035,8 @@ Type objective_function<Type>::operator() () {
           if((proj_mean_rec == 0) | (srr_pred_fun >= 2)){
 
             // - Equilibrium reference points (No recruitment deviation: pass Type(0.0))
-            // Reference-point spawning biomass exists for every year, so unlike
-            // the hindcast there is always something for the curve to read and
-            // the minage lag only has to stay in bounds: yr < minage takes the
-            // first year's value. Year 0 is the F = Finit equilibrium the
-            // hindcast is seeded from, so under initMode 1-5 these years come
-            // back at R_init anyway. This block runs from yr = 1, so the lag
-            // cannot go negative at minage = 1.
+            // Equilibrium spawning biomass exists every year; yr < minage reads the
+            // first year's value so the lag stays in bounds.
             int rp_yr = yr - minage(sp);
             if(rp_yr < 0){ rp_yr = 0; }
 
@@ -2040,9 +2044,17 @@ Type objective_function<Type>::operator() () {
             NByageF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
 
             // -  Dynamic reference points (Includes annual recruitment deviation: pass rdev)
+            // Cohorts spawned before the first year take the hindcast's realized R
+            // (R_init with its deviation), so both runs start from the same cohorts.
             Type rdev = rec_dev(sp, yr);
-            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
-            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            if(yr < minage(sp)){
+              Type R_early = (yr < nyrs_hind) ? R(sp, yr) : R_init(sp) * exp(rdev);
+              N_at_age_dB0(sp, 0, 0, yr) = R_early;
+              N_at_age_dBF(sp, 0, 0, yr) = R_early;
+            } else {
+              N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+              N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            }
 
           } // End recruitment switch
 
@@ -2071,6 +2083,8 @@ Type objective_function<Type>::operator() () {
 
               NByageF(sp, sex, age, yr) =  NByageF(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr-1) - Ftarget_at_age(sp, sex, age-1, yr-1)); // F = target
 
+              // TODO: the hindcast floors N-at-age at 0.001 (6.5, posfun) and the dynamic runs
+              // do not, so a stock on the floor has dynamic B0 below its no-fishing hindcast.
               N_at_age_dB0(sp, sex, age, yr) =  N_at_age_dB0(sp, sex, age-1, yr-1) * exp(-M_at_age_dB0(sp, sex, age-1, yr - 1)); // F = 0
 
               N_at_age_dBF(sp, sex, age, yr) =  N_at_age_dBF(sp, sex, age-1, yr-1) * exp(-M_at_age_dBF(sp, sex, age-1, yr - 1) - Ftarget_at_age(sp, sex, age-1, yr-1)); // F = Ftarget
@@ -2088,22 +2102,26 @@ Type objective_function<Type>::operator() () {
           }
         }
 
+        // A species with input numbers-at-age (estDynamics > 0) keeps them in the
+        // dynamic runs; projection years are read directly, as 6.8 fills N later.
+        if(estDynamics(sp) > 0){
+          for(sex = 0; sex < nsex(sp); sex ++){
+            for(age = 0; age < nages(sp); age++){
+              Type n_fixed = (yr < nyrs_hind) ? N_at_age(sp, sex, age, yr) :
+                ((estDynamics(sp) == 3) ? pop_scalar(sp, age) : pop_scalar(sp, 0)) * NByageFixed(sp, sex, age, yr);
+              N_at_age_dB0(sp, sex, age, yr) = n_fixed;
+              N_at_age_dBF(sp, sex, age, yr) = n_fixed;
+            }
+          }
+        }
+
 
         // Calculate Dynamic SB0 and SB at F target
         for(age = 0; age < nages(sp); age++) {
 
           wt_idx_ssb = 2 * sp + 1;
-          // KNOWN LIMITATION (multispecies only): NByage0 and NByageF are
-          // equilibrium numbers at F = 0 and F = Ftarget, but the survival to
-          // spawning below applies M_at_age, whose M2 is the REALIZED predation
-          // field under the projection's own F -- not the M2 that would obtain
-          // at either equilibrium. SB0 escapes this, being overwritten with the
-          // MSSB0 input a few lines down, but SBF does not, and HCR 5 (NPFMC
-          // Tier 3) reads SBF and SB0 together, so the two legs of that rule sit
-          // on different mortality bases. A correct version solves an
-          // equilibrium M2 from NByage0 / NByageF. Under msmMode = 0 there is no
-          // M2 and M_at_age is M1, so nothing here is affected. DynamicSB0 /
-          // DynamicSBF are internally consistent; DynamicHCR = TRUE uses them.
+          // Multispecies: M_at_age carries the projection's realized M2. The one rule
+          // that reads SBF, NPFMC (HCR 5), is refused there; SB0 is replaced by MSSB0 below.
           SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
           SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
           DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-M_at_age_dB0(sp, 0, age, yr) * spawn_month(sp)/12.0);
@@ -2316,32 +2334,38 @@ Type objective_function<Type>::operator() () {
     for(sp = 0; sp < nspp; sp++) {
 
       // Year 1 (arent fit in likelihood)
-      switch(srr_pred_fun){
-      case 0: // Random about mean (e.g. Alaska)
-        R_hat(sp, first_yr) = R0(sp, first_yr);
-        break;
+      // Under predation there is no SPRFinit (6.2) to place the first year on
+      // the curve, so it takes R_init, the anchor its realised recruitment uses.
+      if((msmMode > 0) & (srr_pred_fun > 1)){
+        R_hat(sp, first_yr) = R_init(sp);
+      } else {
+        switch(srr_pred_fun){
+        case 0: // Random about mean (e.g. Alaska)
+          R_hat(sp, first_yr) = R0(sp, first_yr);
+          break;
 
-      case 1: // Random about mean with environmental effects
-        R_hat(sp, first_yr) = R0(sp, first_yr);
-        break;
+        case 1: // Random about mean with environmental effects
+          R_hat(sp, first_yr) = R0(sp, first_yr);
+          break;
 
-      case 2: // Beverton-Holt
-        R_hat(sp, first_yr) = (alpha(sp, first_yr) - 1/SPRFinit(sp)) / Beta(sp, first_yr); // (Alpha-1/SPR0)/beta
-        break;
+        case 2: // Beverton-Holt
+          R_hat(sp, first_yr) = (alpha(sp, first_yr) - 1/SPRFinit(sp)) / Beta(sp, first_yr); // (Alpha-1/SPR0)/beta
+          break;
 
-      case 3: // Beverton-Holt with environmental impacts on alpha
-        R_hat(sp, first_yr) = (alpha(sp, first_yr) - 1/SPRFinit(sp)) / Beta(sp, first_yr); // (Alpha-1/SPR0)/beta
-        break;
+        case 3: // Beverton-Holt with environmental impacts on alpha
+          R_hat(sp, first_yr) = (alpha(sp, first_yr) - 1/SPRFinit(sp)) / Beta(sp, first_yr); // (Alpha-1/SPR0)/beta
+          break;
 
-      case 4: // Ricker
-        R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
-        break;
+        case 4: // Ricker
+          R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
+          break;
 
-      case 5: // Ricker with environmental impacts on alpha
-        R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
-        break;
-      default:
-        error("Invalid 'srr_pred_fun'");
+        case 5: // Ricker with environmental impacts on alpha
+          R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
+          break;
+        default:
+          error("Invalid 'srr_pred_fun'");
+        }
       }
 
       // Year 1+
@@ -4319,9 +4343,10 @@ Type objective_function<Type>::operator() () {
   for(flt = 0; flt < n_flt; flt++){
    if(flt_q_lead(flt) == 1){
 
-    // Prior on catchability
+    // Lognormal prior on catchability: Catchability_init is the mean of q when
+    // bias_adjust_proc = 1, the median when 0.
     if( est_index_q(flt) == 2){
-      jnll_comp(JNLL_Q_PRIOR, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt), index_q_sd(flt), true);
+      jnll_comp(JNLL_Q_PRIOR, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt) - bias_adjust_proc*square(index_q_sd(flt))/2.0, index_q_sd(flt), true);
     }
 
     // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
@@ -4373,28 +4398,33 @@ Type objective_function<Type>::operator() () {
   // Slots 8-11 -- Recruitment
   for(sp = 0; sp < nspp; sp++) {
     penalty = 0.0;
+    // Input numbers-at-age (estDynamics > 0) leave R a placeholder, so no SRR
+    // prior, Bmsy penalty or curve penalty.
+    int srr_terms_on = (estDynamics(sp) == 0);
+
     // Slot 9 -- stock-recruit prior for Beverton
-    // -- Lognormal. Bias correction centered at -sigma^2/2 so E[steepness] =
-    //    srr_prior (mean-unbiased), matching the rec/init-dev convention.
-    if((srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
+    // -- Lognormal on steepness. srr_prior is its mean when bias_adjust_proc = 1
+    //    (centred at -sigma^2/2, as rec_dev), its median when 0.
+    if(srr_terms_on && (srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
       jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // -- Beta
-    if((srr_est_mode == 3) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
+    if(srr_terms_on && (srr_est_mode == 3) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
       // Convert mean and SD to beta params
       Type beta_alpha = ((1 - srr_prior(sp))/ square(srr_prior_sd(sp)) - 1/srr_prior(sp)) * square(srr_prior(sp));
       Type beta_beta = beta_alpha * (1/srr_prior(sp) - 1);
       jnll_comp(JNLL_SRR_PRIOR, sp) -= dbeta(steepness(sp, 0), beta_alpha, beta_beta, true);
     }
 
-    // Slot 9 -- stock-recruit prior for Ricker
-    if((srr_est_mode == 2) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){
-      jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior(sp)), srr_prior_sd(sp), true);
+    // Slot 9 -- stock-recruit prior for Ricker, lognormal on alpha. srr_prior is alpha's
+    //    mean when bias_adjust_proc = 1, its median when 0.
+    if(srr_terms_on && (srr_est_mode == 2) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){
+      jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm(rec_pars(sp, 1), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim for Ricker
-    if((!isNA(Bmsy_lim(sp))) && ((srr_pred_fun == 4) || (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
+    if(srr_terms_on && (!isNA(Bmsy_lim(sp))) && ((srr_pred_fun == 4) || (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
       Type bmsy = 1.0/exp(rec_pars(sp, 2));
       bmsy =  posfun(Bmsy_lim(sp)/Type(1000000.0) - bmsy, Type(0.001), penalty);
       jnll_comp(JNLL_SRR_PRIOR, sp) += 100 * penalty;
@@ -4417,10 +4447,11 @@ Type objective_function<Type>::operator() () {
       jnll_comp(JNLL_REC_DEV, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
-    // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)
-    if((srr_fun == 0) & (srr_pred_fun  > 0)){
+    // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli). R_hat is the mean of R
+    //    when bias_adjust_proc = 1 (Ianelli's pm.tpl, Dorn 2002), the median (AMAK) when 0.
+    if(srr_terms_on && (srr_fun == 0) & (srr_pred_fun  > 0)){
       for(yr = srr_hat_styr; yr <= srr_hat_endyr; yr++) {
-        jnll_comp(JNLL_SRR_PENALTY, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), R_sd(sp), true);
+        jnll_comp(JNLL_SRR_PENALTY, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)) - bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
   }
@@ -4473,7 +4504,7 @@ Type objective_function<Type>::operator() () {
 
       // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
       if(HCR == 3){
-        // Using ssb rather than SBF because of multi-species interactions arent in SBF
+        // Depletion target: realized SSB in the final projection year against SB0.
         jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Ftarget_percent(sp));
       }
 
@@ -4547,8 +4578,9 @@ Type objective_function<Type>::operator() () {
     // 2 = sex-specific (two-sex model), age-invariant M1_at_age
     // 3 = estimate sex- and age-specific M1_at_age.
 
-    // PRE-CALCULATE PRIOR MEAN (Huge performance save for the AD tape)
-    Type M_prior_mean = log(M_prior(sp)) + square(M_prior_sd(sp)) / 2.0;
+    // Lognormal prior on M: M_prior is its mean when bias_adjust_proc = 1, its median
+    // when 0. The log-scale centre is computed once per species, outside the age loop.
+    Type M_prior_mean = log(M_prior(sp)) - bias_adjust_proc*square(M_prior_sd(sp)) / 2.0;
 
     // Prior on M1_at_age only
     if( (M1_use_prior(sp) == 1) && (M2_use_prior(sp) == 0) ) {
@@ -4656,7 +4688,7 @@ Type objective_function<Type>::operator() () {
   // Families:
   //   0 = none    -- no contribution
   //   1 = normal  -- dnorm(b_nat, p1, p2)    prior on natural-scale value
-  //   2 = lognormal -- dnorm(log(b_nat), p1, p2)  prior on log of natural scale
+  //   2 = lognormal -- dnorm(log(b_nat), p1 - bias_adjust_proc*p2^2/2, p2); exp(p1) = mean if bias_adjust_proc = 1, median if 0
   //   3 = gamma   -- dgamma(b_nat, p1, 1/p2)  prior on natural-scale value
   //   4 = beta    -- dbeta(b_nat, p1, p2)     prior on natural-scale value
   //
@@ -4758,12 +4790,13 @@ Type objective_function<Type>::operator() () {
     if (fam == 1) {                         // normal(p1, p2) on natural scale
       jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(b_nat, p1, p2, true);
       unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(b_nat, p1, p2, true);
-    } else if (fam == 2) {                  // lognormal: normal on log of natural scale
+    } else if (fam == 2) {                  // lognormal on log(b_nat); exp(p1) = mean when bias_adjust_proc = 1, median when 0
       // For a log-scale intercept base: log(b_nat) = b (efficient form avoids
       // log(exp(b))). A natural-scale intercept base (sel_inf) takes log(b_nat).
       Type log_b_nat = (linkage_is_intercept(i) == 1 && base_is_log) ? b : log(b_nat);
-      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(log_b_nat, p1, p2, true);
-      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(log_b_nat, p1, p2, true);
+      Type mu_log    = p1 - bias_adjust_proc * square(p2) / 2.0;
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(log_b_nat, mu_log, p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(log_b_nat, mu_log, p2, true);
     } else if (fam == 3) {                  // gamma(p1=shape, p2=rate) on natural scale
       jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dgamma(b_nat, p1, Type(1.0)/p2, true);
       unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dgamma(b_nat, p1, Type(1.0)/p2, true);
@@ -5256,9 +5289,10 @@ Type objective_function<Type>::operator() () {
       if (fam == 1) {                         // normal(p1, p2) on the SD
         jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(sd, p1, p2, true);
         unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(sd, p1, p2, true);
-      } else if (fam == 2) {                  // lognormal: normal on log(SD)
-        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(log(sd), p1, p2, true);
-        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(log(sd), p1, p2, true);
+      } else if (fam == 2) {                  // lognormal on the SD; exp(p1) = mean when bias_adjust_proc = 1, median when 0
+        Type mu_log = p1 - bias_adjust_proc * square(p2) / 2.0;
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(log(sd), mu_log, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(log(sd), mu_log, p2, true);
       } else if (fam == 3) {                  // gamma(shape, rate)
         jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dgamma(sd, p1, Type(1.0)/p2, true);
         unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dgamma(sd, p1, Type(1.0)/p2, true);

@@ -1108,7 +1108,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 #' @param object CEATTLE model object exported from \code{Rceattle}
 #' @param Rceattle deprecated name for `object`, still accepted so existing
 #'   scripts keep working. Supplying both is an error.
-#' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation.
+#' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses one deviation (plus the log of the `rec_trend` multiplier) for every projection year: `log(mean(R)) - log(R0)` under mean recruitment or a single-species hindcast curve, and `log(mean(R / R_hat))` for a multispecies hindcast curve (all hindcast years) or the penalty form (the penalty years).
 #' @param update_model Update model dynamics. Default = TRUE
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #'
@@ -1143,6 +1143,12 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
     if(object$data_list$srr_fun == object$data_list$srr_pred_fun){
       if(sample_rec){ # Sample devs from hindcast
         rec_dev <- sample(x = object$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
+      } else if (isTRUE(.map_switch(object$data_list$msmMode, msmMode_map, "msmMode") > 0) &&
+                 object$data_list$srr_fun > 1) {
+        # No unfished R0 under predation: scale by the mean ratio to the curve
+        # (arithmetic, so mean- not median-unbiased, as the branch below).
+        rec_dev <- log(mean((object$quantities$R / object$quantities$R_hat)[sp, 1:hind_nyrs])) +
+          log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))
       } else{ # Set to mean rec otherwise
         rec_dev <- log(mean(object$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - log(object$quantities$R0[sp]) # - Scale mean rec for rec trend
       }
@@ -1154,11 +1160,15 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
         rec_dev <- sample(x = (log(object$quantities$R) - log(object$quantities$R_hat))[sp, 1:hind_nyrs],
                           size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
-        # `log(R) - log(R_hat)` is already a log-scale deviation centred near
-        # zero, so its mean is routinely negative and must not be logged again.
-        # Take the mean deviation directly and add the log trend, mirroring the
-        # sampling branch above.
-        rec_dev <- mean((log(object$quantities$R) - log(object$quantities$R_hat))[sp, 1:hind_nyrs]) +
+        # Log of the mean of R / R_hat over the stock-recruit penalty years, so projected
+        # recruitment is the mean around the curve, not the median.
+        hat_yrs <- .srr_hat_cols(object$data_list, hind_nyrs)
+        if (!length(hat_yrs)) {
+          stop("No stock-recruit penalty years (srr_hat_styr to srr_hat_endyr) fall in ",
+               "the hindcast, so there is no fitted curve to scale the projection by.",
+               call. = FALSE)
+        }
+        rec_dev <- log(mean((object$quantities$R / object$quantities$R_hat)[sp, hat_yrs])) +
           log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       }
     }
@@ -1483,3 +1493,15 @@ get_weight_at_age_r <- function(nsex_sp, nages_sp, nlengths_sp, nyrs,
 }
 
 
+
+# Hindcast columns of the penalty years (srr_hat_styr..srr_hat_endyr) within the
+# first `nyrs` years, empty if none; styr is never a penalty year.
+.srr_hat_cols <- function(dl, nyrs) {
+  from <- max(dl$srr_hat_styr, dl$styr + 1) - dl$styr + 1
+  to   <- min(dl$srr_hat_endyr - dl$styr + 1, nyrs)
+  if (anyNA(c(from, to))) {
+    stop("`srr_hat_styr` and `srr_hat_endyr` must be set.", call. = FALSE)
+  }
+  if (from > to) return(integer(0))
+  from:to
+}

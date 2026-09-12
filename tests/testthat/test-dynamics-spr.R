@@ -199,35 +199,35 @@ testthat::test_that("NbyageSPR is zero where it is never filled", {
   testthat::expect_true(all(ms$quantities$SPR0 == 0))
 })
 
-testthat::test_that("a stock-recruit curve that needs SPR is refused under predation", {
+testthat::test_that("a stock-recruit curve under predation reads no SPR", {
   testthat::skip_if_not_installed("TMB")
 
-  # Section 6.2 does not compute SPR under predation, on purpose: total
-  # mortality carries M2, so per-recruit spawning output is not a property of
-  # the prey stock alone. Section 6.3 read it anyway.
-  #
-  #   srr_fun >= 2                        SPR0 = 0, so R0 = (alpha - 1/0)/beta
-  #                                       is -Inf and the objective is NaN.
-  #   srr_fun < 2, srr_pred_fun >= 2      the Ianelli configuration, and the
-  #                                       dangerous one: the fit RUNS, with
-  #                                       steepness 0, R_hat -Inf and a finite
-  #                                       objective.
+  # SPR is not computed under predation, so a hindcast curve takes a free R_init
+  # (exp(rec_pars[, "R0"])) instead of the -Inf (alpha - 1/SPRFinit)/beta.
   data("BS2017MS")
 
-  for (cfg in list(list(f = "BevertonHolt", p = "BevertonHolt"),
-                   list(f = "Ricker",       p = "Ricker"),
-                   list(f = "mean",         p = "BevertonHolt"))) {
-    srr <- suppressWarnings(Rceattle::build_srr(
-      srr_fun = cfg$f, srr_pred_fun = cfg$p, proj_mean_rec = TRUE,
-      srr_est_mode = "Fixed", srr_prior = 0.8))
-    testthat::expect_error(
-      suppressMessages(suppressWarnings(
-        Rceattle::fit_mod(data_list = BS2017MS, estimateMode = 3, msmMode = 1,
-                          recFun = srr,
-                          fit_control = Rceattle::fit_control(verbose = 0)))),
-      "spawning biomass per recruit",
-      info = paste(cfg$f, cfg$p))
+  for (f in c("BevertonHolt", "Ricker")) {
+    hc <- suppressMessages(suppressWarnings(
+      Rceattle::fit_mod(data_list = BS2017MS, estimateMode = 3, msmMode = 1,
+                        recFun = Rceattle::build_srr(srr_fun = f),
+                        fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))))
+    testthat::expect_true(is.finite(hc$obj$fn()), info = f)
+    testthat::expect_true(all(is.finite(hc$quantities$R)), info = f)
+    testthat::expect_equal(as.numeric(hc$quantities$R_init),
+                           as.numeric(exp(hc$estimated_params$rec_pars[, 1])),
+                           tolerance = 1e-12, info = f)
   }
+
+  # The Ianelli configuration (srr_fun mean, srr_pred_fun a curve) reads alpha,
+  # beta and SSB only, so it builds; its first-year R_hat is R_init.
+  srr_ian <- suppressWarnings(Rceattle::build_srr(
+    srr_fun = "mean", srr_pred_fun = "BevertonHolt", srr_est_mode = "Estimated"))
+  ian <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017MS, estimateMode = 3, msmMode = 1,
+                      recFun = srr_ian,
+                      fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))))
+  testthat::expect_true(all(is.finite(ian$quantities$R_hat)))
+  testthat::expect_true(is.finite(ian$obj$fn()))
 
   # Mean recruitment is unaffected, and so is the same curve single-species.
   data("BS2017SS")
@@ -249,10 +249,10 @@ testthat::test_that("a stock-recruit curve that needs SPR is refused under preda
   d_str$srr_fun <- d_str$srr_pred_fun <- "mean"
   testthat::expect_no_error(suppressMessages(suppressWarnings(data_check(d_str))))
 
+  # A hindcast curve is allowed under predation: its R_init is free.
   d_bh <- d_str
   d_bh$srr_fun <- d_bh$srr_pred_fun <- "BevertonHolt"
-  testthat::expect_error(suppressMessages(suppressWarnings(data_check(d_bh))),
-                         "spawning biomass per recruit")
+  testthat::expect_no_error(suppressMessages(suppressWarnings(data_check(d_bh))))
   srr_bh <- suppressWarnings(Rceattle::build_srr(
     srr_fun = "BevertonHolt", srr_pred_fun = "BevertonHolt", proj_mean_rec = TRUE,
     srr_est_mode = "Fixed", srr_prior = 0.8))

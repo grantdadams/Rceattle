@@ -15,7 +15,7 @@ sample_rec(
 \arguments{
 \item{object}{CEATTLE model object exported from \code{Rceattle}}
 
-\item{sample_rec}{Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation.}
+\item{sample_rec}{Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses one deviation (plus the log of the \code{rec_trend} multiplier) for every projection year: \code{log(mean(R)) - log(R0)} under mean recruitment or a single-species hindcast curve, and \code{log(mean(R / R_hat))} for a multispecies hindcast curve (all hindcast years) or the penalty form (the penalty years).}
 
 \item{update_model}{Update model dynamics. Default = TRUE}
 

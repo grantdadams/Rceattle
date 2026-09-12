@@ -34,48 +34,33 @@ build_srr(
 
 \item{srr_hat_endyr}{Integer. Last year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}). Defaults to \code{endyr} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship does not span the full time series but projections are still wanted.}
 
-\item{srr_est_mode}{Switch to determine estimation mode. Accepts integer codes or the equivalent readable strings: 0 / "Fixed" = fix alpha to prior mean; 1 / "Estimated" = freely estimate R0, alpha, and/or beta (default); 2 / "LognormalPrior" = lognormally distributed prior for alpha (Ricker) or steepness (Beverton); 3 / "BetaPrior" = beta distributed prior for steepness (Beverton) given mean and sd.}
+\item{srr_est_mode}{The curve's built-in prior, as a code or string: 1 / \code{"Estimated"} (default, no prior), or 2 / \code{"LognormalPrior"} or 3 / \code{"BetaPrior"} on Beverton-Holt steepness (single-species only); 0 / \code{"Fixed"} (alpha held at \code{srr_prior}) and \code{"LognormalPrior"} on a Ricker curve (a prior on alpha) are deprecated in favour of an \code{alpha} linkage.}
 
-\item{srr_prior}{mean for normally distributed prior for stock-recruit parameter.
-Note this is not the same quantity for every curve: for Ricker
-(\code{srr_pred_fun} 4 / 5) it is a prior on \eqn{\alpha} itself, while for
-Beverton-Holt (2 / 3) it is a prior on \strong{steepness} and so must lie in
-(0, 1). See \code{srr_est_mode}.}
+\item{srr_prior}{Natural-scale prior mean (the median of a lognormal prior when \code{bias_adjust_proc = FALSE}) of Beverton-Holt steepness under modes 2 and 3; its other uses, as a Ricker alpha prior, a fixed alpha or alpha's starting value, are deprecated (see \strong{Starting values}).}
 
-\item{srr_prior_sd}{Prior standard deviation for stock-recruit parameter}
+\item{srr_prior_sd}{Prior standard deviation: log scale for the lognormal prior (mode 2), natural scale for the beta prior (mode 3).}
 
-\item{srr_alpha_init, srr_beta_init}{Optional starting values for the
-stock-recruit \eqn{\alpha} and \eqn{\beta} parameters, on the natural
-(not log) scale, one value per species. Only used when the curve actually
-estimates them (\code{srr_fun} or \code{srr_pred_fun} above 1); ignored for
-mean recruitment, where both are mapped out.
+\item{srr_alpha_init, srr_beta_init}{Optional starting values for alpha and beta, natural scale, one per species, used only when the curve estimates them (see \strong{Starting values}).}
 
-The package defaults (\eqn{\alpha = e^3}, \eqn{\beta = 3}) are placeholders
-with no knowledge of the stock's scale. \eqn{\beta} in particular sets the
-density dependence in \eqn{R = \alpha S / (1 + \beta S)}, so it must be on
-the order of \eqn{(\alpha - 1/\phi_0) / R_0} -- typically \eqn{10^{-3}} or
-smaller for a stock measured in tonnes. Starting three orders of magnitude
-away drives predicted recruitment to near zero and the optimizer returns
-\code{NA/NaN gradient evaluation}. For a Beverton-Holt seeded from a
-steepness \eqn{h} and unfished spawning biomass per recruit \eqn{\phi_0}:
-\deqn{\alpha = \frac{4h}{\phi_0 (1 - h)}, \qquad
-        \beta  = \frac{\alpha - 1/\phi_0}{R_0}.}}
-
-\item{srr_indices}{Soft-deprecated. Use the \code{linkages} argument instead. See \code{vignette("environmental-linkages-and-priors")}.}
+\item{srr_indices}{Defunct: supplying it is an error; express an environmental effect through \code{linkages}.}
 
 \item{Bmsy_lim}{Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default \code{NA} is not used.}
 
-\item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects keyed by recruitment parameter name (must be one of \code{"R0"}, \code{"alpha"}, \code{"beta"}). Each spec describes how that parameter depends on environmental covariates and on stratifying factors (species, sex). The offset enters additively (on the log scale) inside the recruitment compute. See \code{vignette("environmental-linkages-and-priors")} for details.}
+\item{linkages}{Named list of \code{\link[=linkage_spec]{linkage_spec()}} objects keyed by \code{"R0"}, \code{"alpha"} or \code{"beta"}: the recommended way to put a prior on, fix, or add an environmental effect to those parameters (see \strong{Priors, fixed values and covariates}).}
 }
 \value{
 A \code{list} containing the stock recruitment relationship settings
 }
 \description{
+Sets the stock-recruit curve and how recruitment is estimated. Priors, fixed
+values and environmental effects on \code{R0}, alpha and beta go through
+\code{linkages}; see \strong{Priors, fixed values and covariates} below.
+
 \strong{Stock recruitment relationships currently implemented in Rceattle:}
 \itemize{
 \item \code{srr_fun = 0} or \code{"mean"}: No stock recruit relationship. Recruitment is a function of \eqn{R0} (on the log scale) and annual deviates (i.e. steepness = 0.99).
 \deqn{R_y = exp(R0 + R_{dev,y})}
-\item \code{srr_fun = 2} or \code{"BevertonHolt"}: Beverton-holt stock-recruitment relationship
+\item \code{srr_fun = 2} or \code{"BevertonHolt"}: Beverton-Holt stock-recruitment relationship
 \deqn{R_y = \frac{\alpha_{srr} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
 \item \code{srr_fun = 4} or \code{"Ricker"}: Ricker stock-recruitment relationship
 \deqn{R_y = \alpha_{srr} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
@@ -89,13 +74,89 @@ coefficient in the equation above; \code{Bmsy_lim} (\eqn{\approx 1/\beta_{srr}})
 the same scaling.
 
 When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_endyr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
-}
-\examples{
-# Beverton-Holt fitted to the hindcast, with a prior on steepness.
-build_srr(srr_fun = "BevertonHolt", srr_pred_fun = "BevertonHolt",
-          srr_est_mode = "Estimated",
-          srr_prior = 0.8, srr_prior_sd = 0.15)
 
+\strong{Multispecies models.} Spawning biomass per recruit is undefined when
+mortality includes predation, so under \code{msmMode > 0} a curve fitted in
+the hindcast estimates its initial recruitment level (\code{R0}) rather than
+deriving it; under the fished initModes (3, 4) that level trades off against
+the initial F. The curve can also enter as the penalty above. A steepness
+prior is refused and \code{steepness} is reported as 0; priors on alpha or
+beta go through \code{linkages}.
+}
+\section{Priors, fixed values and covariates}{
+
+Use \code{linkages} for \code{R0}, alpha and beta. Each entry is a
+\code{\link[=linkage_spec]{linkage_spec()}}, and an intercept-only formula (\code{~ 1}) acts on the
+parameter itself:
+\itemize{
+\item \strong{Prior:} \code{priors = list(`(Intercept)` = prior_lognormal(log(m), s))}
+is lognormal with mean \code{m} (median \code{m} when
+\code{bias_adjust_proc = FALSE}) and log-scale SD \code{s};
+\code{\link[=prior_normal]{prior_normal()}} is normal on the natural scale.
+\item \strong{Fixed value:} \code{init = list(`(Intercept)` = v), est_phase = 0}
+holds the parameter at \code{v}, over supplied \code{inits} too.
+\item \strong{One species:} add \code{species = 1}; the default applies to every
+species.
+\item \strong{Environmental effect:} a covariate formula such as \code{~ temp} adds a
+log-scale effect by year; see
+\code{vignette("environmental-linkages-and-priors")}.
+}
+
+A linkage on \code{R0} acts under mean recruitment, penalty form included.
+Under a curve fitted in the hindcast a single-species \code{R0} is derived
+from alpha and beta, so an \code{R0} linkage is refused; in a multispecies
+model \code{R0} is the initial recruitment level, and only an intercept-only
+linkage is accepted.
+
+For a Ricker curve the lognormal linkage prior on alpha gives the same
+objective as \code{srr_est_mode = "LognormalPrior"}, which is deprecated;
+using both is refused. \code{srr_est_mode} and \code{srr_prior} remain for the
+one prior a linkage cannot express, on Beverton-Holt steepness, which needs
+spawning biomass per recruit and so exists only in single-species models.
+}
+
+\section{Starting values}{
+
+Alpha starts at \code{srr_prior} (default 4) wherever that is an alpha, and at
+\eqn{e^3} otherwise; beta starts at 3. Neither knows the stock's scale. Set them
+with \code{srr_alpha_init} / \code{srr_beta_init} or a linkage \code{init};
+supplying \code{srr_prior} as alpha's starting value is deprecated. \eqn{\beta} sets the density dependence in
+\eqn{R = \alpha S / (1 + \beta S)}, so it must be on the order of
+\eqn{(\alpha - 1/\phi_0) / R_0} -- typically \eqn{10^{-3}} or smaller for a
+stock measured in tonnes; starting three orders of magnitude away drives
+predicted recruitment to near zero and the optimizer returns
+\code{NA/NaN gradient evaluation}. From a steepness \eqn{h} and unfished
+spawning biomass per recruit \eqn{\phi_0}:
+\deqn{\alpha = \frac{4h}{\phi_0 (1 - h)}, \qquad
+      \beta  = \frac{\alpha - 1/\phi_0}{R_0}.}
+Under predation, where \eqn{\phi_0} is undefined, seed them from a curve
+fitted to an earlier fit's SSB-recruitment pairs.
+}
+
+\examples{
 # Mean recruitment: no stock-recruit relationship fitted.
 build_srr(srr_fun = "mean")
+
+# Beverton-Holt with a lognormal prior on alpha (mean 5, log-scale SD 0.5),
+# species 1 only.
+build_srr(srr_fun = "BevertonHolt",
+          linkages = list(alpha = linkage_spec(~ 1, species = 1,
+            priors = list(`(Intercept)` = prior_lognormal(log(5), 0.5)))))
+
+# Beverton-Holt with alpha fixed at 20.
+build_srr(srr_fun = "BevertonHolt",
+          linkages = list(alpha = linkage_spec(~ 1, est_phase = 0,
+            init = list(`(Intercept)` = 20))))
+
+# A temperature effect on alpha (log scale; BTempC is a column of env_data).
+build_srr(srr_fun = "BevertonHolt",
+          linkages = list(alpha = linkage_spec(~ BTempC)))
+
+# Mean recruitment with the curve as a penalty (Ianelli form).
+build_srr(srr_fun = "mean", srr_pred_fun = "BevertonHolt")
+
+# A prior on Beverton-Holt steepness, the one prior linkages cannot express
+# (single-species only).
+build_srr(srr_fun = "BevertonHolt", srr_est_mode = "LognormalPrior",
+          srr_prior = 0.8, srr_prior_sd = 0.2)
 }

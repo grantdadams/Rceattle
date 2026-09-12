@@ -11,11 +11,13 @@ Three tiers: a **known defect** is a wrong answer waiting for the right input an
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
 marking a judgement call for Grant, and is never resolved by an agent.
 
-64 remain after Tier 0 and Tier 2. Counts by area: `src/TMB/ceattle.cpp` 25 ·
-`src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 · `R/9-retro_and_jitter.R` 4 ·
-`R/10-run_mse.R` 4 · `src/TMB/growth.hpp` 3 · `R/3-build_map.R` 3 · `R/0-rceattle_class.R` 3 ·
-rest 1–2. Re-derive with `grep -rn 'TODO|FIXME' R/ src/TMB/`, excluding the `todo <-`
-variable in `R/6-process_residuals.R`.
+62 remain as of 5.29.0. Counts by area: `src/TMB/ceattle.cpp` 24 ·
+`src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 · `R/10-run_mse.R` 4 ·
+`src/TMB/growth.hpp` 3 · `R/3-build_map.R` 3 · `R/9-retro_and_jitter.R` 3 ·
+`R/0-rceattle_class.R` 3 · rest 1–2. Re-derive with
+`grep -rnE 'TODO|FIXME' R/ src/TMB/ | grep -v 'todo <-' | grep -v 'TODO-'` -- the `-E` is
+needed for the alternation, the first filter drops a variable in `R/6-process_residuals.R`, and
+the second drops pointers to `inst/dev/TODO-*.md` notes, which are not markers.
 
 ---
 
@@ -27,8 +29,18 @@ Three further defects of the same class were found reviewing the fixes below, an
 in 5.13.0 alongside them. None carried a marker, which is why none appeared in this file: they
 are what the markers pointed *near*, not what they said.
 
+Rows marked **Open** were found reviewing PR #143 (2026-09-12) and have not been reproduced with
+a fit. None carries a source marker.
+
 | Where | Condition | Consequence |
 |---|---|---|
+| `R/3-build_map.R` (`# Age-independent scalar`) | **Open.** `estDynamics = 3` in a multispecies model (`msmMode > 0`) | Gated on `estDynamics[sp] == 2 \| msmMode != 0`, so under `msmMode > 0` columns 2..`nages` of `log_pop_scalar` are mapped out for every species, and the age-specific scalar of `estDynamics = 3` is never estimated (it stays `exp(init)`, 1 without `inits`). Gating on `estDynamics[sp] == 2` alone is safe for codes 0-2. Check the Hessian before freeing them: they are informed only through predation and that species' index. The `# Age-dependent scalar` branch has the same `\|` but maps only padding beyond `nages`, which is harmless. |
+| `R/3-build_map.R` (`# Don't estimate the scalar`) | **Open, question for Grant.** `msmMode = 0` | Every column is mapped out, so `estDynamics` 2 and 3 behave as 1 in single-species models. The 5.30.0 NEWS says so; the schema and `?BS2017SS` do not. |
+| ~~`JNLL_Q_PRIOR` against a q linkage intercept prior~~ | ~~`Catchability = "Estimated-with-prior"` plus a q linkage `(Intercept)` prior on the same fleet~~ | **Resolved in 5.33.0**: both penalized that fleet's log q, so the prior counted twice. `.check_q_linkage_support()` now refuses the pair, taking fleet 1 for a row with no fleet, as the template does. `test-linkage-double-prior-guards.R`. |
+| ~~`JNLL_M_PRIOR` against an M1 linkage intercept prior~~ | ~~`M1_use_prior = TRUE` with `M2_use_prior = FALSE`, plus an M1 linkage `(Intercept)` prior~~ | **Resolved in 5.33.0**: both penalized that species' log M1. `.check_M_linkage_prior()`, run from `fit_mod()`, now refuses the pair, taking species 1 for a row with no species. `test-linkage-double-prior-guards.R`. |
+| `srr_terms_on` | **Open, low.** A recruitment linkage intercept prior on an `estDynamics > 0` species | The gate covers the stock-recruit prior and the curve penalty, not the linkage-prior loop. `rec_pars` is mapped out for such a species, so the prior only adds a constant: it moves the objective and `JNLL_LINKAGE_PRIOR` (likelihood tables, AIC), but no estimate. Not yet checked: slope rows on such a species, which `build_map_fixed_natage()` does not map out. |
+| `// Input SB0 (if running in multi-species mode)` | **Open.** `msmMode = 0` with `estDynamics > 0` | Equilibrium `SB0`/`SBF` are still built on placeholder recruitment; from 5.30.0 only the dynamic runs keep the input numbers. HCRs 5, 6 and 7 read `SB0` when `DynamicHCR = FALSE` (5 also reads `SBF`), and with `DynamicHCR = FALSE` `ssb_depletion` and `biomass_depletion` divide by `SB0` and `B0` under every HCR. Projected numbers come from `NByageFixed` and are right; the reported depletion, and F and catch advice under those HCRs, are not. |
+| ~~`int spawn_yr = yr - minage(sp);`, `int rp_yr = yr - minage(sp);`~~ | ~~`minage = 0` with a stock-recruit curve~~ | **Resolved in 5.33.0** by refusal: each lag read the same year's `ssb`/`SB0`/`DynamicSB0` before it was accumulated, so the curve gave R = 0 in the hindcast (`srr_fun >= 2`), the reference points (`srr_pred_fun >= 2`) and a curve-based projection. `data_check()` now refuses `minage = 0` with any curve; computing SSB before recruitment would allow it, but the GOA and AI cod `minage = 0` models fit no curve. `test-data-check-srr-guards.R`. |
 | ~~`src/TMB/ceattle.cpp` (male slot writes)~~ | ~~every species one-sex (`max_sex == 1`)~~ | **Resolved in 5.13.0**: ten lines wrote sex index 1 unconditionally, but arrays are dimensioned `max_sex`, so that index does not exist when no species has two sexes. Value written is 0 (`sex_ratio` is set to 1 for a one-sex species first), but the write is out of range and lands on `(sp, 0, age + 1, yr)` — the next age — surviving only because the age loop overwrites it. Fires on BS2017SS and BS2017MS every evaluation. Reproduced with `TMB::compile(safebounds = TRUE)`, which raises Eigen's range assertion; guarded, the fit is clean at an unchanged 1537036.287629372. `test-dynamics-sex-index-bounds.R`. |
 | ~~`R/1-data_check.R` (no `comp_data$Sex` check)~~ | ~~`Sex` 2 or 3 on a one-sex species~~ | **Resolved in 5.13.0**: `M1_base`, `weight` and `ration_data` are all checked against `nsex`; composition was not. Two registries disagree on what "joint" means — `check_composition_data()` uses `nsex == 2 & Sex == 3`, the template uses `flt_sex == 3` alone — so a joint row on a one-sex species was sized at `nages` and written to `nages * 2`, corrupting the NEXT observation's predicted composition and its likelihood. Refused at the boundary rather than reconciled in the template. `test-data-check-comp-sex.R`. |
 | ~~`src/TMB/ceattle.cpp` (reference-point recruitment arms)~~ | ~~a stock-recruit curve with `proj_mean_rec = TRUE` (the default)~~ | **Resolved in 5.13.0**: the mean-rec arm required `proj_mean_rec == 1 & srr_pred_fun < 2` and the curve arm required `proj_mean_rec == 0`, so that combination matched neither and reference-point recruitment stayed 0 after year 1. `SB0` became the initial cohort decaying (3.344 → 1.230 over six years), and `SB0` in the terminal year is what HCR 5 and 6 read as the depletion reference — so perceived depletion and the resulting catch advice were both wrong. The curve arm now fires whenever a curve exists; the projection switch is read separately and is unchanged. `build_srr(proj_mean_rec =)` was also documented backwards. `test-dynamics-refpoint-mean-rec.R`. |
@@ -57,13 +69,22 @@ Not bugs, but they bound what the model can be asked. Worth documenting in a vig
 than fixing.
 
 - **Forecast growth is ignored** by the retrospective and MSE projection paths
-  (`R/9-retro_and_jitter.R:235,249`, `R/10-run_mse.R:436`) — the terminal-year growth is carried
-  forward.
-- **Projection quantities are held at the terminal hindcast year** (`R/10-run_mse.R:460`).
-- **`ration_data` is sized for the hindcast only** (`R/5-rearrange_data.R:683`).
-- **SPR reference points**: `sex_ratio` is fixed rather than estimated for two-sex models
-  (`src/TMB/ceattle.cpp:1542`), and the M used is the terminal-year value
-  (`src/TMB/ceattle.cpp:1514`, `:1522`).
+  (`ignores forecasted growth`, twice in `R/9-retro_and_jitter.R`, once in `R/10-run_mse.R`) —
+  the terminal-year growth is carried forward.
+- **Projection quantities are held at the terminal hindcast year** (`R/10-run_mse.R`,
+  `assuming same as terminal year of hindcast`).
+- **`ration_data` is sized for the hindcast only** (`R/5-rearrange_data.R`,
+  `Change for forecast`).
+- **SPR reference points**: `sex_ratio` is an input rather than estimated for two-sex models,
+  and the M used is the terminal-year value (`src/TMB/ceattle.cpp`, `rates for a reference point
+  are the terminal hindcast year's`). The `sex_ratio` marker went in 5.24.1, when SPR was
+  corrected to apply only the recruitment split `sex_ratio(sp, 0)` to a two-sex species
+  (`female_split`); the ratio itself is still read from data.
+- **Linkage random-effect priors are penalties, not proper densities** (`src/TMB/ceattle.cpp`,
+  `FIXME(jacobian)`, twice). The sigma and rho priors sit on the natural scale without the
+  Jacobian of the `log` / `rho_trans` transform. Fine as a penalty under maximum likelihood;
+  under a Bayesian (`tmbstan`) run the stated density is not the prior actually applied. A
+  `lognormal` sigma prior is exempt; rho has only normal and beta families.
 
 ## Tier 2 — design notes and refactor wishes
 
@@ -156,21 +177,55 @@ Still open. No user-visible consequence; do them opportunistically.
 - The `logH_*` / `H_4` / `log_gam_*` markers belong to the stubbed Kinzey-Punt predation forms
   (`msmMode` 3–9) and the gamma predator selectivity. They are pinned as stubbed in
   `tests/testthat/test-schema-registries.R`; leave them until that work is picked up.
+- `src/TMB/ceattle.cpp` (`penalize every selectivity deviation rather than a sub-range`) —
+  would pin the unidentified directions and drop the year/bin indexing of the deviation penalty.
+  It would **not** retire the four columns the marker names: `Sel_cap_bin` holds the
+  NonParametricRPM curve flat past a bin, `Sel_start_year` builds the curve from the base
+  coefficients through that year and pins the random walk's level in `build_map()`, and
+  `Sel_pen_first_bin` / `Sel_pen_last_bin` bound the shape penalty, not the deviation penalty.
+  Moves every fit with penalized deviations, so it needs `/golden-check`.
+- `R/0-osa_data.R` (`switch_check() does not run`) — the comment above it says `comp_offset` is
+  filled by `switch_check()`; on the exported `rearrange_data()` path it and the
+  `bias_adjust_*` scalars are filled in `build_osa_data()`. Reword only; no behaviour.
+
+- **Single-species hindcast-curve projection double-counts the SSB drop.** `sample_rec()` and
+  `retrospective()` set the deviation to `log(mean(...R...)) - log(...R0...)`. Under a curve R0
+  is unfished recruitment, so the curve applies the SSB drop again: 8.6% below its mean at
+  h = 0.8 and 40% SB0, 27% at h = 0.5. It hits `run_mse(sample_rec = FALSE)` OM years and the
+  dynamic reference points. The multispecies branch's `log(mean(R / R_hat))` is the model.
+- **Dynamic B0 under the penalty form** ("Dynamic reference points (Includes annual recruitment
+  deviation: pass rdev)") applies `exp(rec_dev)` = R/R0, not R/R_hat, to the curve.
+- **`.map_switch()` passes a factor through**, so a factor `srr_est_mode` skips `build_srr()`'s
+  checks and fits as its level code.
+- **The refit warning for retired srr codes is hidden** by the `suppressWarnings()` wrapped
+  around `.refit_like()` in `retrospective()`, `jitter()`, `profile()` and `self_test()`.
+- **A one-year retrospective peel** averages over that year, though its warning says "after the
+  first".
 
 ## `TODO(review)` — Grant's calls, not an agent's
 
 Six, each a judgement about what the right behaviour *is*:
 
-- `R/0-rceattle_class.R:268` — whether `residuals(source = "all")` should include diet, given
-  `osa_residuals("all")` does.
-- `R/0-rceattle_class.R:420`, `:452` — how held-out rows (`Year <= 0`) carrying a positive
-  observation should be treated.
-- `R/6-fit_mod.R:780` — what a user-supplied `NA` bias-adjustment should mean.
-- `R/7-plot_osa.R:58` — how process-residual objects should be plotted.
-- `src/TMB/growth.hpp` — carries one; see the file.
+- `R/0-rceattle_class.R` (`osa_residuals("all") includes diet`) — whether
+  `residuals(source = "all")` should include diet too.
+- `R/0-rceattle_class.R` (`held-out rows (Year <= 0) with a positive observation`, twice) — how
+  those rows should be treated.
+- `R/6-fit_mod.R` (`a user-supplied NA`) — what an `NA` bias-adjustment should mean.
+- `R/7-plot_osa.R` (`process-residual objects`) — how `process_residuals()` output should be
+  plotted.
+- `src/TMB/growth.hpp` (`this branch (and its Richards mirror below) tests`) — see the file.
+
+A seventh, on multispecies SBF, was restated as a known limitation in `5d423172`; it is settled
+under "Deliberately not changed".
 
 ## Deliberately not changed
 
+- **Multispecies SBF sits on the projection's realized M2** (`src/TMB/ceattle.cpp`, `Multispecies:
+  M_at_age carries the projection's realized M2`). Under `msmMode > 0` it is reported but nothing
+  live reads it. The one rule that does, NPFMC (5), is refused there along with 4 and 7;
+  ConstantFSSB tunes realized SSB against SB0, CMSY reads depletion, and `mse_summary()` reads SBF
+  only when `msmMode == 0`. Allowing HCR 5 in multispecies mode would make this a defect;
+  `test-switches-hcr-multispecies.R` pins the refusal.
 - **Non-parametric growth** is declared and calls `error("not yet implemented")`.
 - **The `msmMode` 3–9 Kinzey-Punt branches are not declared at all** -- the whole block in
   `predation.hpp` is inside a `/* ... */`, so there is no dispatch, live or erroring. The live

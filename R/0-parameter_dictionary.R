@@ -174,7 +174,7 @@
 #'   when the parameter is not in the dictionary.
 #' @keywords internal
 #' @noRd
-.par_label <- function(internal) {
+.par_description <- function(internal) {
   info <- .par_info(internal)
   if (nrow(info) != 1L || is.na(info$meaning)) return(internal)
   sprintf("%s (%s): %s", info$internal, info$natural, info$meaning)

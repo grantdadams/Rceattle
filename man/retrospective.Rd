@@ -62,10 +62,12 @@ and the function warns.
 Each peel reports its own terminal year as \code{data_list$endyr}, so plots
 draw it only as far as it was fit and the peels fan out.
 
-A peel still estimates the years it dropped: they are its retrospective
-forecast, fit to the observed catch with recruitment held at the peel's mean
-and the survey and composition data withheld. Three years therefore matter,
-and each peel carries all three:
+A peel still estimates the years it dropped. They are its retrospective
+forecast, fit to the observed catch with the survey and composition data
+withheld. Their recruitment deviation is the one \code{\link[=sample_rec]{sample_rec()}} sets with
+\code{sample_rec = FALSE}, computed from the peel's own fit; a penalty-form peel
+with no penalty years averages over its own years after the first, with a
+warning. Three years therefore matter, and each peel has all three:
 \describe{
 \item{\code{endyr}, \code{endyr_peel}}{the peel's terminal year -- what it
 was fit through. Equal to each other.}

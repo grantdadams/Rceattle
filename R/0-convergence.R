@@ -655,6 +655,15 @@
   curve   <- if (ianelli) srr_pred_fun else srr_fun
   if (is.na(curve) || curve < 2) return(list())
 
+  # Steepness needs spawning biomass per recruit, which is undefined under
+  # predation, so the curve cannot be tested against the replacement line.
+  if (isTRUE(as.integer(dl[["msmMode"]] %||% 0L)[1] > 0L)) {
+    return(list(stock_recruit = .conv_record(
+      "stock_recruit", "fit", "NOTE",
+      "Stock-recruit curve not checked: steepness needs spawning biomass per recruit, which is undefined under msmMode > 0.",
+      list(steepness = NA_real_, R0 = numeric(0)))))
+  }
+
   # Both are [nspp, nyrs]; the stock-recruit curve is summarised by its first
   # year, so read column 1.
   col1 <- function(x) {

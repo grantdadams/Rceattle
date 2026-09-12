@@ -42,10 +42,12 @@
 #'   Each peel reports its own terminal year as \code{data_list$endyr}, so plots
 #'   draw it only as far as it was fit and the peels fan out.
 #'
-#'   A peel still estimates the years it dropped: they are its retrospective
-#'   forecast, fit to the observed catch with recruitment held at the peel's mean
-#'   and the survey and composition data withheld. Three years therefore matter,
-#'   and each peel carries all three:
+#'   A peel still estimates the years it dropped. They are its retrospective
+#'   forecast, fit to the observed catch with the survey and composition data
+#'   withheld. Their recruitment deviation is the one [sample_rec()] sets with
+#'   `sample_rec = FALSE`, computed from the peel's own fit; a penalty-form peel
+#'   with no penalty years averages over its own years after the first, with a
+#'   warning. Three years therefore matter, and each peel has all three:
 #'   \describe{
 #'     \item{\code{endyr}, \code{endyr_peel}}{the peel's terminal year -- what it
 #'       was fit through. Equal to each other.}
@@ -328,17 +330,30 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     map$mapFactor$log_F <-  factor(map$mapList$log_F)
 
     # Adjust forecased rec_dev in new mod for bias and refit
+    # Penalty years to average R/R_hat over. A peel that ends before them uses its
+    # own years instead; retrospective() warns about this before the peels run.
+    hat_yrs <- integer(0)
+    if (newmod$data_list$srr_fun != newmod$data_list$srr_pred_fun) {
+      hat_yrs <- .srr_hat_cols(newmod$data_list, nyrs_peel)
+      if (!length(hat_yrs)) hat_yrs <- seq(min(2, nyrs_peel), nyrs_peel)
+    }
     for(sp in 1:newmod$data_list$nspp){
 
       # -- where SR curve is estimated directly
       if(newmod$data_list$srr_fun == newmod$data_list$srr_pred_fun){
         rec_dev <- log(mean(newmod$quantities$R[sp,1:nyrs_peel]))  - log(newmod$quantities$R0[sp])
+        # No unfished R0 under predation: scale by the mean ratio to the curve.
+        if (isTRUE(.map_switch(newmod$data_list$msmMode, msmMode_map, "msmMode") > 0) &&
+            newmod$data_list$srr_fun > 1) {
+          rec_dev <- log(mean((newmod$quantities$R / newmod$quantities$R_hat)[sp, 1:nyrs_peel]))
+        }
       }
 
       # -- OMs where SR curve is estimated as penalty (sensu Ianelli)
       if(newmod$data_list$srr_fun != newmod$data_list$srr_pred_fun){
-        # Already a log-scale deviation, so take the mean directly.
-        rec_dev <- mean((log(newmod$quantities$R) - log(newmod$quantities$R_hat))[sp, 1:nyrs_peel])
+        # Log of the mean of R / R_hat over the penalty years, so projected
+        # recruitment is the mean around the curve, not the median.
+        rec_dev <- log(mean((newmod$quantities$R / newmod$quantities$R_hat)[sp, hat_yrs]))
 
       }
 
@@ -441,6 +456,28 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     return(NULL)
   } # End run_one_peel closure
 
+
+  # A penalty-form peel with no penalty years has no curve fitted to recruitment.
+  # Warned here, before the peels run: warnings from peels run in parallel are lost.
+  penalty_form <- isTRUE(suppressWarnings(
+    .srr_fun_structural(data_list$srr_fun) != .srr_fun_structural(data_list$srr_pred_fun)))
+  if (penalty_form) {
+    hat_s <- data_list$srr_hat_styr %||% (styr + 1)
+    hat_e <- data_list$srr_hat_endyr %||% endyr
+    no_curve <- vapply(seq_len(peels), function(i) {
+      e <- endyr - i
+      !length(.srr_hat_cols(list(styr = styr, srr_hat_styr = hat_s,
+                                 srr_hat_endyr = min(hat_e, e)), e - styr + 1))
+    }, logical(1))
+    if (any(no_curve)) {
+      warning("Peel(s) ending ", paste(endyr - which(no_curve), collapse = ", "),
+              " contain no stock-recruit penalty years, so their curve stays at the ",
+              "unpeeled fit's estimates (fitted to years the peel withholds) unless a ",
+              "prior or a reference-point penalty changes it; their projected recruitment deviation averages over the ",
+              "peel's own years after the first. With getsd = TRUE such a peel is usually dropped for a ",
+              "non-positive-definite Hessian.", call. = FALSE)
+    }
+  }
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch peels (parallel via PSOCK or sequential) ----
