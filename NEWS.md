@@ -64,9 +64,9 @@ twice and kept only one of the two values. This release stays a minor version.
   flag on by shifting its input: `prior_lognormal(p1 + s^2/2, s)`,
   `Catchability_init * exp(s^2/2)`, a Ricker `srr_prior * exp(s^2/2)`, or
   `M_prior * exp(s^2)` for the old M centre (`inst/dev/TRAPS.md`). The
-  Ianelli penalty with centred deviations has no input to shift; the GOA
-  northern rockfish ADMB bridge is that case. A value between 0 and 1 gives
-  priors a centre that is neither the mean nor the median. This applies to
+  Ianelli penalty with centred deviations has no input to shift. A value
+  between 0 and 1 gives priors a centre that is neither the mean nor the
+  median. This applies to
   `prior_lognormal()` in every linkage (intercepts, slopes and random-effect
   SDs), the Ricker alpha prior (`srr_est_mode = "LognormalPrior"`) and the
   catchability prior (`Catchability = "Estimated-with-prior"`). The penalty's

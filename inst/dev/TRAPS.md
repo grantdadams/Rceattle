@@ -586,6 +586,7 @@ flag on, shift the inputs instead:
 | M prior (old centre `log M + s^2/2`) | `M_prior = v * exp(s^2)` |
 
 The one case no input reproduces is the Ianelli penalty with centred deviations: the penalty has
-no input of its own and shares `R_sd` with them. The GOA northern rockfish ADMB bridge is this
-case. A `bias_adjust_proc` between 0 and 1 gives priors (DM weights included) a centre that is
+no input of its own and shares `R_sd` with them. The GOA northern rockfish bridges are not this
+case: they fit no stock-recruit curve, and urm's median-centred q and M priors return with
+`Catchability_init = 1.107` (1.0 * exp(0.45^2/2)) and `M_prior = 0.06008` (0.06 * exp(0.05^2/2)). A `bias_adjust_proc` between 0 and 1 gives priors (DM weights included) a centre that is
 neither mean nor median.
