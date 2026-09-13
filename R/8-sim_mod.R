@@ -1108,7 +1108,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 #' @param object CEATTLE model object exported from \code{Rceattle}
 #' @param Rceattle deprecated name for `object`, still accepted so existing
 #'   scripts keep working. Supplying both is an error.
-#' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses one deviation (plus the log of the `rec_trend` multiplier) for every projection year: `log(mean(R)) - log(R0)` under mean recruitment or a single-species hindcast curve, and `log(mean(R / R_hat))` for a multispecies hindcast curve (all hindcast years) or the penalty form (the penalty years).
+#' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses one deviation (plus the log of the `rec_trend` multiplier) for every projection year: `log(mean(R)) - log(R0)` under mean recruitment, and `log(mean(R / R_hat))` under a curve, over every hindcast year when the curve is fitted in the hindcast and over the penalty years for the penalty form.
 #' @param update_model Update model dynamics. Default = TRUE
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #'
@@ -1136,18 +1136,16 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
   }
 
   # Replace future rec devs ----
-  #FIXME - update non-sample rec for stock recruit relationship
   for(sp in 1:object$data_list$nspp){
 
     # -- where SR curve is estimated directly
     if(object$data_list$srr_fun == object$data_list$srr_pred_fun){
       if(sample_rec){ # Sample devs from hindcast
         rec_dev <- sample(x = object$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
-      } else if (isTRUE(.map_switch(object$data_list$msmMode, msmMode_map, "msmMode") > 0) &&
-                 object$data_list$srr_fun > 1) {
-        # No unfished R0 under predation: scale by the mean ratio to the curve
-        # (arithmetic, so mean- not median-unbiased, as the branch below).
-        rec_dev <- log(mean((object$quantities$R / object$quantities$R_hat)[sp, 1:hind_nyrs])) +
+      } else if (object$data_list$srr_fun > 1) {
+        # A curve fitted in the hindcast takes its mean deviation from the curve, the
+        # log-expectation of the resampled multiplier above (R / R_hat = exp(rec_dev)).
+        rec_dev <- log(mean(exp(object$estimated_params$rec_dev[sp, 1:hind_nyrs]))) +
           log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))
       } else{ # Set to mean rec otherwise
         rec_dev <- log(mean(object$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - log(object$quantities$R0[sp]) # - Scale mean rec for rec trend

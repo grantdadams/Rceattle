@@ -5,7 +5,7 @@
 # log R - log(curve at the hindcast SSB) instead. With fishing near zero the
 # dynamic SSB equals the hindcast's, so dynamic B0 equals hindcast biomass in
 # every year, while numbers-at-age stay above the hindcast's 0.001 floor (the
-# dynamic runs have none). Taking rec_dev directly (up to 5.33.0) put the curve over a
+# dynamic runs have none). Taking rec_dev directly (before 5.33.0) put the curve over a
 # mean-based deviation, which on the Pacific hake operating model ran dynamic
 # recruitment about 1.5 times too high in every year before the switch.
 
@@ -69,4 +69,37 @@ test_that("the same holds under predation, with the fitted suitability", {
   expect_lt(max(abs(rel[clear])), 1e-8)
 
   expect_gt(max(abs(r$R_hat[1, pre] / exp(m$obj$env$parList(pars)$rec_pars[1, 1]) - 1)), 1e-3)
+})
+
+test_that("with F near zero, dynamic SB0 equals hindcast SSB for every recruitment form", {
+  # Fast, and run on CRAN: the bundled Bering Sea data, built but not optimized, with
+  # mean recruitment and a curve fitted in the hindcast as controls.
+  d   <- Rceattle::BS2017SS
+  nh  <- d$endyr - d$styr + 1
+  bld <- function(rf, inits = NULL) suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, inits = inits, estimateMode = 3, msmMode = 0, recFun = rf,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))))
+  forms <- list(
+    ianelli = build_srr(srr_fun = "mean", srr_pred_fun = "BevertonHolt"),
+    curve   = build_srr(srr_fun = "BevertonHolt"),
+    mean    = build_srr(srr_fun = "mean"))
+  for (nm in names(forms)) {
+    p <- bld(forms[[nm]])$estimated_params
+    p$log_F[] <- -30
+    set.seed(1)
+    p$rec_dev[, 1:nh] <- stats::rnorm(length(p$rec_dev[, 1:nh]), 0, 0.3)
+    q <- bld(forms[[nm]], p)$quantities
+    expect_true(all(is.finite(q$ssb[, 1:nh])) && all(q$ssb[, 1:nh] > 0), info = nm)
+    # Not vacuous: at these starting values the Ianelli curve is far from mean recruitment.
+    if (nm == "ianelli") expect_gt(max(abs(q$R_hat[, 2:nh] / q$R0[, 1] - 1)), 1e-3)
+    # Compare only species-years whose every real age (N_at_age is padded to the oldest
+    # species) has stayed at 10x the hindcast's 0.001 floor, which the dynamic runs lack.
+    min_n <- t(vapply(seq_len(d$nspp), function(sp) apply(
+      q$N_at_age[sp, seq_len(d$nsex[sp]), seq_len(d$nages[sp]), 1:nh, drop = FALSE], 4, min),
+      numeric(nh)))
+    clear <- t(apply(min_n > 0.01, 1, cumprod)) == 1
+    expect_true(any(rowSums(clear) == nh), label = nm)   # at least one whole species compared
+    rel <- q$DynamicSB0[, 1:nh] / q$ssb[, 1:nh] - 1
+    expect_lt(max(abs(rel[clear])), 1e-8, label = nm)
+  }
 })

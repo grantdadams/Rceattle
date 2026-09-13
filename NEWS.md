@@ -127,6 +127,20 @@ release stays a minor version. Stored fits with them no longer refit.
     mean-recruitment fit run with `bias_adjust_proc = FALSE` and no M prior,
     such as the GOA pollock 2025 assessment (not refit).
 
+* For a single-species curve fitted in the hindcast, `sample_rec(sample_rec =
+  FALSE)` and `retrospective()` now set the projected recruitment deviation to
+  the hindcast's mean deviation from the curve, `log(mean(exp(rec_dev)))`,
+  which equals the multispecies form's `log(mean(R / R_hat))`. They used
+  `log(mean R) - log(R0)`, which applied the curve's SSB effect twice: projected
+  recruitment was off by the hindcast-average R/R0 the curve implies, 8.6% low
+  for a Beverton-Holt curve at steepness 0.8 and a hindcast averaging 40% of
+  SB0 (27% at steepness 0.5), and often high for a Ricker curve. This changes
+  an operating model under `run_mse(sample_rec = FALSE)`, retrospective
+  forecasts, and dynamic reference points in projection years (and projected F
+  under `DynamicHCR = TRUE`). In the model `sample_rec()` returns, projected
+  recruitment changes only with `proj_mean_rec = FALSE`. `run_mse()`'s
+  default, `sample_rec = TRUE`, is unchanged.
+
 * `sample_rec(sample_rec = FALSE)` and `retrospective()` now set the projected
   recruitment deviation for the Ianelli penalty form (`srr_fun = 0` with a
   curve in `srr_pred_fun`) to `log(mean(R / R_hat))` over the penalty years
@@ -177,7 +191,7 @@ release stays a minor version. Stored fits with them no longer refit.
   dynamic depletion for a single-species penalty-form operating model. With
   `DynamicHCR = TRUE` so do the projections, the HCR 3 target, and
   `biomass_depletion` and `ssb_depletion`. Models with a curve fitted in the
-  hindcast, or on mean recruitment, are unchanged.
+  hindcast, or on mean recruitment, keep their hindcast dynamic B0.
 
 * **A linkage intercept fixed at its `init` (`est_phase = 0`) holds that value
   when `fit_mod()` is given `inits`.** The init was applied only to freshly

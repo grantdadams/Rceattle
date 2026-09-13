@@ -93,9 +93,10 @@ penalty, so these objectives cannot be compared with 5.33.0 fits.
 5. **Projected-deviation conventions: done in 5.33.0.** The Ianelli branch now
    projects `log(mean(R / R_hat))` over the penalty years, and its
    penalty is mean-centred under `bias_adjust_proc`. The median form ran hake
-   projections at about 45% of the curve's mean. Single-species keeps
-   `log(mean R) - log R0`. Still open: a test that expected projected R agrees
-   with and without resampling.
+   projections at about 45% of the curve's mean. A single-species curve fitted
+   in the hindcast now takes `log(mean(exp(rec_dev)))`, as the multispecies one
+   does (`test-functions-sample-rec-curve.R`). Still open: a test that expected
+   projected R agrees with and without resampling.
 6. **Done in 5.33.0: the Ianelli dynamic B0 uses the realized deviation from
    the curve.** Before `srr_mse_switchyr` it takes `log R - log R_hat` rather
    than `rec_dev`, which is measured from R0 there. On the hake operating model

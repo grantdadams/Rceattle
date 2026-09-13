@@ -40,6 +40,7 @@ a fit. None carries a source marker.
 | ~~`JNLL_M_PRIOR` against an M1 linkage intercept prior~~ | ~~`M1_use_prior = TRUE` with `M2_use_prior = FALSE`, plus an M1 linkage `(Intercept)` prior~~ | **Resolved in 5.33.0**: both penalized that species' log M1. `.check_M_linkage_prior()`, run from `fit_mod()`, now refuses the pair, taking species 1 for a row with no species. `test-linkage-double-prior-guards.R`. |
 | `srr_terms_on` | **Open, low.** A recruitment linkage intercept prior on an `estDynamics > 0` species | The gate covers the stock-recruit prior and the curve penalty, not the linkage-prior loop. `rec_pars` is mapped out for such a species, so the prior only adds a constant: it moves the objective and `JNLL_LINKAGE_PRIOR` (likelihood tables, AIC), but no estimate. Not yet checked: slope rows on such a species, which `build_map_fixed_natage()` does not map out. |
 | `// Input SB0 (if running in multi-species mode)` | **Open.** `msmMode = 0` with `estDynamics > 0` | Equilibrium `SB0`/`SBF` are still built on placeholder recruitment; from 5.30.0 only the dynamic runs keep the input numbers. HCRs 5, 6 and 7 read `SB0` when `DynamicHCR = FALSE` (5 also reads `SBF`), and with `DynamicHCR = FALSE` `ssb_depletion` and `biomass_depletion` divide by `SB0` and `B0` under every HCR. Projected numbers come from `NByageFixed` and are right; the reported depletion, and F and catch advice under those HCRs, are not. |
+| `ceattle.cpp` (`Type R_curve = calculate_recruitment(`) | **Open, low** (found in a later review, 2026-09-13). Ianelli form with an identity-link linkage offset on alpha or beta that drives the curve to zero or below in a year before `srr_mse_switchyr` | The dynamic-B0 deviation `log R - log R_curve` is then NaN, and the recursion carries it into `DynamicSB0` for every later year; under `DynamicHCR = TRUE` it reaches depletion, the HCR and the objective. In penalty years the stock-recruit penalty is already NaN, so this is new only outside `srr_hat_styr`..`srr_hat_endyr`. Guard the curve with `posfun()`, or refuse identity-link offsets that can make it non-positive. |
 | ~~`int spawn_yr = yr - minage(sp);`, `int rp_yr = yr - minage(sp);`~~ | ~~`minage = 0` with a stock-recruit curve~~ | **Resolved in 5.33.0** by refusal: each lag read the same year's `ssb`/`SB0`/`DynamicSB0` before it was accumulated, so the curve gave R = 0 in the hindcast (`srr_fun >= 2`), the reference points (`srr_pred_fun >= 2`) and a curve-based projection. `data_check()` now refuses `minage = 0` with any curve; computing SSB before recruitment would allow it, but the GOA and AI cod `minage = 0` models fit no curve. `test-data-check-srr-guards.R`. |
 | ~~`src/TMB/ceattle.cpp` (male slot writes)~~ | ~~every species one-sex (`max_sex == 1`)~~ | **Resolved in 5.13.0**: ten lines wrote sex index 1 unconditionally, but arrays are dimensioned `max_sex`, so that index does not exist when no species has two sexes. Value written is 0 (`sex_ratio` is set to 1 for a one-sex species first), but the write is out of range and lands on `(sp, 0, age + 1, yr)` — the next age — surviving only because the age loop overwrites it. Fires on BS2017SS and BS2017MS every evaluation. Reproduced with `TMB::compile(safebounds = TRUE)`, which raises Eigen's range assertion; guarded, the fit is clean at an unchanged 1537036.287629372. `test-dynamics-sex-index-bounds.R`. |
 | ~~`R/1-data_check.R` (no `comp_data$Sex` check)~~ | ~~`Sex` 2 or 3 on a one-sex species~~ | **Resolved in 5.13.0**: `M1_base`, `weight` and `ration_data` are all checked against `nsex`; composition was not. Two registries disagree on what "joint" means — `check_composition_data()` uses `nsex == 2 & Sex == 3`, the template uses `flt_sex == 3` alone — so a joint row on a one-sex species was sized at `nages` and written to `nages * 2`, corrupting the NEXT observation's predicted composition and its likelihood. Refused at the boundary rather than reconciled in the template. `test-data-check-comp-sex.R`. |
@@ -188,13 +189,18 @@ Still open. No user-visible consequence; do them opportunistically.
   filled by `switch_check()`; on the exported `rearrange_data()` path it and the
   `bias_adjust_*` scalars are filled in `build_osa_data()`. Reword only; no behaviour.
 
-- **Single-species hindcast-curve projection double-counts the SSB drop.** `sample_rec()` and
-  `retrospective()` set the deviation to `log(mean(...R...)) - log(...R0...)`. Under a curve R0
-  is unfished recruitment, so the curve applies the SSB drop again: 8.6% below its mean at
-  h = 0.8 and 40% SB0, 27% at h = 0.5. It hits `run_mse(sample_rec = FALSE)` OM years and the
-  dynamic reference points. The multispecies branch's `log(mean(R / R_hat))` is the model.
-- **Dynamic B0 under the penalty form** ("Dynamic reference points (Includes annual recruitment
-  deviation: pass rdev)") applies `exp(rec_dev)` = R/R0, not R/R_hat, to the curve.
+- ~~**Single-species hindcast-curve projection double-counts the SSB drop.**~~ **Resolved in
+  5.33.0**: `sample_rec(sample_rec = FALSE)` and `retrospective()` take the hindcast's mean
+  deviation from the curve, `log(mean(exp(rec_dev)))`, for every curve fitted in the hindcast.
+  The old `log(mean R) - log(R0)` was off by the hindcast-average R/R0 the curve implies: 8.6%
+  low for Beverton-Holt at h = 0.8 and 40% of SB0, often high for Ricker.
+  `test-functions-sample-rec-curve.R`; `test-functions-retrospective.R` covers `retrospective()`
+  only for a multispecies curve, and there is no single-species peel test.
+- ~~**Dynamic B0 under the penalty form**~~ **Resolved in 5.33.0** (fed8cff8, from a18331b1):
+  before `srr_mse_switchyr` the unfished run takes `log R - log R_hat`, not `rec_dev` (R/R0). On
+  the hake operating model the curve sat at about 1.5 × R0 there, so no-fishing recruitment ran
+  about 1.5 times too high; hake dynamic SB0 falls to 0.60-0.83 of its old value.
+  `test-dynamics-dynamic-b0-ianelli.R` checks dynamic B0 equals the hindcast with F near zero.
 - **`.map_switch()` passes a factor through**, so a factor `srr_est_mode` skips `build_srr()`'s
   checks and fits as its level code.
 - **The refit warning for retired srr codes is hidden** by the `suppressWarnings()` wrapped
