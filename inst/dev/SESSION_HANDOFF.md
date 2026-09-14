@@ -5,6 +5,26 @@ session. Maintained by `/handoff`.
 
 ## Now
 
+**PR #144 is OPEN into `dev`** — https://github.com/grantdadams/Rceattle/pull/144
+(`fix/mse-dynamic-sb0`, **5.34.0**). Reviewed 2026-09-14 against CLAUDE.md, with an
+adversarial review of each fix. The fixes are on the branch, uncommitted. `remove_F()` reads
+which predators have empirical suitability from `fit$quantities$suitability` instead of
+mirroring `organize_diet_obs()`'s row filter in R; a model stored by `run_mse()` carries no
+`suitability`, so there every predator with a diet record counts. An `Ftarget` of 0 under
+`ConstantF` is stored as log F = -999, and the single-species projection starts an estimated
+`log_Ftarget` at 0 when inits carry that value (its gradient at -999 is exactly 0). The
+`goa_ss` second-minimum finding is in `TRAPS.md`; the `zero_N_pen` over-count and the dead
+average-F refit in `run_mse()` are in `TODO-5.34-followups.md`.
+
+Grant's decision: a species with input numbers-at-age is projected at F = 0 under every
+rule, `ConstantF` included.
+
+Verified on the fixed branch (2026-09-14): the hake `MSE_yr2024.R` ran end to end in 14.7
+min. All seven objectives match the 5.33.0 baseline in `SIBLING-REPOS.md` to 1e-8 or
+better; `OM_no_F` is present in both simulations, its hindcast SSB equals the OM's through
+2023 and its projected F is 0; hake terminal dynamic depletion is 0.7835 and the three fixed
+species report 1.0.
+
 **PR #139 is OPEN into `main`** — https://github.com/grantdadams/Rceattle/pull/139
 (`dev` -> `main`, releasing **5.26.0 + 5.27.0**; `main` is at 5.25.1). Reviewed 2026-09-02
 against CLAUDE.md for accuracy, ease of use, concise language and sibling breakage. Two P0

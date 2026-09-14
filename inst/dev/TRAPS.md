@@ -169,6 +169,18 @@ than switch on `estimateMode`.
 
 ## Silent-wrong-number traps
 
+**A single-species PFMC fit's `Flimit` depends on the `log_Ftarget` start value, a parameter
+PFMC never estimates.** Measured 2026-09-14 on `make_test_data()`, `HCR = "PFMC"`,
+`estimateMode = 2`: fitted `Flimit` is 0.4812 from the `build_params()` start of 0, 0.5853 from
+3, and 0.7379 from -999 (the value a `ConstantF, Ftarget = 0` fit stores). The cause is in
+`ceattle.cpp` section 5.12: `Ftarget(sp) = Flimit(sp) + QnormHCR(sp)` is assigned inside the
+fleet/sex/age/year loop at the first projection year, so for the first fishery, first sex and
+age `minage` the hindcast years of `Ftarget_at_age` still carry `exp(log_Ftarget)`. `SPRtarget`
+reads a hindcast year, and the single-species reference-point penalty pulls `Flimit` toward
+whatever that start implies. Every single-species PFMC fit, the hake EM included, carries the
+start-0 version. Fix: assign `Ftarget` from `Flimit` before the F loop; see
+`TODO-5.34-followups.md`.
+
 **A Pearson residual must divide by the effective sample size the likelihood used.** Fixed in
 5.29.0; the structure that caused it is still there, so a fourth composition-like source would
 repeat it.
@@ -570,6 +582,18 @@ across the boundary.
 **`goa_ms` (fixed-M GOA multispecies) sits on a flat likelihood ridge:** the same objective at
 different `par`/`ssb` across *different* code, though deterministic on same-code re-runs. Judge
 it on `obj`/`jnll`, not `par`/`ssb`.
+
+**`goa_ss` has a second local minimum of the negative log-likelihood 52.9 units higher, and a
+one-ULP change in one gradient element is enough to send `nlminb` there.** Recorded on the
+5.34.0 branch (PR #144, 2026-09-14): adding code the objective never evaluates left every
+objective bit-identical and bounds-checked builds clean, but changed one `log_F` gradient
+element by 3e-16 (presumably summation order), and from there `nlminb` reached the higher
+minimum with `newtonsteps = 3` in place. HEAD reproduces the reference (12867.9902664788). The
+52.9 that `golden-check.md` attributes to tolerance-stopping (commit `1a172677`) is the same
+gap; polishing did not remove it. A `goa_ss` delta of 52.9 with the other three models
+bit-identical is this, not a numeric regression. Diagnose it from the gradient at the reference
+`par`, not from the objective. A robustness fix (a warm start from the reference `par`, or a
+second start keeping the lower minimum) is open; see `TODO-5.34-followups.md`.
 
 ## Prior centring shares `bias_adjust_proc` with the recruitment deviations
 

@@ -484,11 +484,12 @@ plot_timeseries <- function(Rceattle,
     Species = factor(sp_sel$labels, levels = sp_sel$labels),
     target  = target[sp_sel$index],
     limit   = limit[sp_sel$index])
+  # No line where Ftarget or Flimit is NA.
   list(
-    ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
+    ggplot2::geom_hline(data = ref_df[!is.na(ref_df$target), , drop = FALSE], inherit.aes = FALSE,
                         ggplot2::aes(yintercept = .data$target),
                         colour = "blue", linetype = 2),
-    ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
+    ggplot2::geom_hline(data = ref_df[!is.na(ref_df$limit), , drop = FALSE], inherit.aes = FALSE,
                         ggplot2::aes(yintercept = .data$limit),
                         colour = "red", linetype = 2))
 }

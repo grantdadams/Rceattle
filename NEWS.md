@@ -12,6 +12,80 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.34.0
+
+## Results change
+
+* **Multispecies `ConstantF` projects at the input F.** The multispecies
+  projection loop in `fit_mod()` reset every species' `log_Ftarget` to 0, so a
+  `ConstantF` run under predation projected each species at F = 1 whatever
+  `Ftarget` was, including a `ConstantF` estimation model refit inside
+  `run_mse()`. Projected catch, SSB and depletion change for those runs; with
+  `HCRorder > 1`, so do later species' multispecies SB0. A single `Ftarget` now
+  recycles to every species, as `?build_hcr` documents (with more than one
+  species it stopped with a map-size error), and a missing or negative
+  `Ftarget` under `ConstantF` is an error. An `Ftarget` of 0 is stored as
+  log F = -999, the value `build_params()` gives a fleet with no catch, not as
+  -Inf; the projection was already unfished, only the stored parameter changes.
+  A single-species projection under a rule that estimates `Ftarget` starts it
+  at log F = 0 when `inits` carry that no-fishing value, as the multispecies
+  loop already did; before, inits from a `ConstantF` fit with `Ftarget = 0`
+  left the rule's `Ftarget` at 0, where its gradient is exactly 0.
+
+* **Projected `F_flt` and `F_flt_age` are indexed by fleet, fisheries only.**
+  The projection wrote `F_flt` by species index, so a fishery's row reported
+  another species' F, and survey rows took `NA` times F or a full share of F.
+  Both are reported quantities only, so no fit changes. Hindcast rows were
+  already correct.
+
+* **A species with input numbers-at-age (`estDynamics > 0`) is projected at
+  F = 0 and carries no harvest control rule.** `build_hcr_map()` already left
+  its `log_Ftarget` / `log_Flimit` unestimated and the reference-point
+  penalties already skipped it, but the projection still fished it at those
+  start values (F = 1 under most rules). Its projected catch is now 0. Its
+  numbers are input, but a fixed species with a fishery now has a higher
+  within-year mean abundance in the projection, which changes predation
+  mortality on and by it, and its own SSB changes when `spawn_month > 0`.
+
+  `Ftarget`, `Flimit`, `SPRtarget`, `SPRlimit`, `SBF` and `DynamicSBF`, all set
+  by that unestimated F, are `NA` in `fit$quantities`; `report_tables()` blanks
+  the five it reports with that reason, and `plot_f()` draws no `Ftarget` or
+  `Flimit` line for the species. `mse_summary()`
+  reports the species' `P(Fy > Flimit)` metrics, and the `P(SSB < SSBlimit)`
+  metrics that read `SBF`, as `NA`; a fixed species with a fishery reports
+  catch IAV and P(Closed) as `NA`, like an unfished one. Its depletion is still
+  reported.
+
+  In the four-species hake model this is arrowtooth, sablefish and California
+  sea lions; none has a fishery and `spawn_month` is 0, so its dynamics and
+  catches do not change, but its summary reports `NA` where it reported 0.
+
+* **`mse_summary()` takes multispecies dynamic depletion from the operating
+  model's `DynamicSB0`**, as it already did for single-species models.
+  `om_terminal_dynamic_sb0` and `om_terminal_depletion_dynamic` were read from
+  the no-fishing refit (`OM_no_F`). Dynamic SB0 is the OM's own history with no
+  fishing: the stock-recruit curve, the realized recruitment deviations and the
+  predation suitability fitted in the hindcast. On the Pacific hake MSE
+  (`MSE_yr2024.R`, Beverton-Holt operating model, two simulations) hake's
+  terminal dynamic depletion goes from 0.99 to 0.78.
+
+* **`remove_F()` sets F to 0 from the year after `endyr` by default**, not from
+  the year after the latest `suit_endyr`. When the suitability window ended
+  before `endyr` it removed fishing inside the hindcast: on the hake MSE,
+  2020–2023 of a 2023 hindcast. A new `start_yr` argument gives the first year
+  fished at F = 0; under predation it must fall after the empirical-suitability
+  window (the `suit_endyr` of every predator with `suitMode = 0` and non-zero
+  fitted suitability), since removing fishing inside it would change the
+  suitability the model was fit with. As before, the
+  projection is unfished whatever harvest control rule the model was fit under,
+  so `start_yr` can be no later than the year after `endyr`.
+  `run_mse()` now builds `OM_no_F` with no fishing
+  after the original operating model's terminal year, so it matches the OM
+  through that year. The `OM no F: SSB Collapse` and `OM: SSB Collapse from F`
+  metrics change for runs whose suitability window ended before `endyr`; an MSE
+  saved under 5.33.0 keeps its old `OM_no_F`, so rerun `run_mse()` to update
+  them.
+
 # Rceattle 5.33.0
 
 ## Breaking changes

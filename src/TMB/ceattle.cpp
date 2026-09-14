@@ -1308,8 +1308,8 @@ Type objective_function<Type>::operator() () {
                 break;
               }
 
-              // Set F to zero if not running forecast
-              if(forecast(sp) == 0){
+              // No projected F when the forecast is off or numbers-at-age are input (estDynamics > 0).
+              if((forecast(sp) == 0) | (estDynamics(sp) > 0)){
                 proj_F(sp, yr) = 0;
               }
               F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, yr) * proj_F_prop(flt) * proj_F(sp, yr);
@@ -2089,8 +2089,8 @@ Type objective_function<Type>::operator() () {
 
               NByageF(sp, sex, age, yr) =  NByageF(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr-1) - Ftarget_at_age(sp, sex, age-1, yr-1)); // F = target
 
-              // TODO: the hindcast floors N-at-age at 0.001 (6.5, posfun) and the dynamic runs
-              // do not, so a stock on the floor has dynamic B0 below its no-fishing hindcast.
+              // No 0.001 floor here: the hindcast's is a numerical guard, and dynamic B0 must not
+              // assume a stock that fell to it would not have crashed without fishing.
               N_at_age_dB0(sp, sex, age, yr) =  N_at_age_dB0(sp, sex, age-1, yr-1) * exp(-M_at_age_dB0(sp, sex, age-1, yr - 1)); // F = 0
 
               N_at_age_dBF(sp, sex, age, yr) =  N_at_age_dBF(sp, sex, age-1, yr-1) * exp(-M_at_age_dBF(sp, sex, age-1, yr - 1) - Ftarget_at_age(sp, sex, age-1, yr-1)); // F = Ftarget
@@ -2210,8 +2210,8 @@ Type objective_function<Type>::operator() () {
         }
 
 
-        // Set F to 0 if not forecast
-        if(forecast(sp) == 0){
+        // No projected F when the forecast is off or numbers-at-age are input (estDynamics > 0).
+        if((forecast(sp) == 0) | (estDynamics(sp) > 0)){
           proj_F(sp, yr) =  0.0;
         }
 
@@ -2226,8 +2226,8 @@ Type objective_function<Type>::operator() () {
         // -- Multiply F from HCR by selectivity and fleet proportion
         F_spp(sp, yr) = proj_F(sp, yr);
         for(flt = 0; flt < n_flt; flt++) {
-          if(sp == flt_spp(flt)){
-            F_flt(sp, yr) = proj_F_prop(flt) * proj_F(sp, yr);
+          if((sp == flt_spp(flt)) & (flt_type(flt) == 1)){ // Fisheries only, as in 5.12
+            F_flt(flt, yr) = proj_F_prop(flt) * proj_F(sp, yr);
             for(age = 0; age < nages(sp); age++) {
               for(sex = 0; sex < nsex(sp); sex ++){
                 F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity

@@ -290,6 +290,10 @@ fit_mod <-
       if (length(x) == data_list$nspp) x else rep(x, data_list$nspp)
     }
 
+    # Log-scale F for the projection parameters. An input F of 0 is stored at
+    # -999, the log F build_params() gives a fleet with no catch.
+    log_F_input <- function(f) ifelse(f > 0, log(f), -999)
+
     # Prefer function arg > existing data_list field > fallback year
     resolve_yr <- function(arg, data_val, fallback) {
       if (!is.null(arg)) arg else if (!is.null(data_val)) data_val else fallback
@@ -461,10 +465,11 @@ fit_mod <-
     # * HCR Switches ----
     data_list$HCR        <- HCR$HCR
     data_list$DynamicHCR <- HCR$DynamicHCR
-    if (!HCR$HCR %in% c(2, "ConstantF")) { # Ftarget is also used for fixed F (so may be of length nflts)
-      data_list$Ftarget <- extend_length(HCR$Ftarget)
-    } else {
-      data_list$Ftarget <- HCR$Ftarget
+    data_list$Ftarget  <- extend_length(HCR$Ftarget) # one per species; the input F under ConstantF
+    if (HCR$HCR %in% c(2, "ConstantF") &&
+        (is.null(data_list$Ftarget) || any(!is.finite(data_list$Ftarget) | data_list$Ftarget < 0))) {
+      stop("ConstantF needs a non-negative, finite Ftarget (one value, or one per species).",
+           call. = FALSE)
     }
     data_list$Flimit   <- extend_length(HCR$Flimit)
     data_list$Ptarget  <- extend_length(HCR$Ptarget)
@@ -1063,7 +1068,7 @@ fit_mod <-
     start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     # Fixed fishing mortality for projections for each species
     if (!is.null(HCR$Ftarget) & HCR$HCR %in% c(2, "ConstantF")) {
-      start_par$log_Ftarget <- log(HCR$Ftarget)
+      start_par$log_Ftarget <- log_F_input(data_list$Ftarget)
     }
 
     # Update M1 parameter object from data if initial parameter values input
@@ -1352,6 +1357,14 @@ fit_mod <-
           hcr_map <- Rceattle::build_hcr_map(data_list, map, debug = estimateMode > 3)
           if (sum(!is.na(unlist(hcr_map$mapFactor))) == 0) { stop("HCR map of length 0: all NAs") }
 
+          # An estimated log_Ftarget cannot start at the no-fishing value: exp(-999)
+          # has a gradient of exactly 0, so nlminb would leave it there. Inits from a
+          # ConstantF fit with Ftarget = 0 carry it; those start at log F = 0. A
+          # mapped-off log_Ftarget (PFMC, no fishery, input numbers-at-age) is left alone.
+          est <- !is.na(hcr_map$mapList$log_Ftarget)
+          lf  <- last_par$log_Ftarget
+          last_par$log_Ftarget[est & (!is.finite(lf) | lf <= -999)] <- 0
+
           obj <- TMB::MakeADFun(
             data_list_reorganized,
             parameters = last_par,
@@ -1408,7 +1421,8 @@ fit_mod <-
 
             # Adjust Ftarget inits
             params_off <- c(1:data_list$nspp)[which(data_list$HCRorder > HCRiter)]
-            last_par$log_Ftarget[params_on]  <- 0
+            # ConstantF keeps its input F; rules that estimate Ftarget start it at log F = 0.
+            last_par$log_Ftarget[params_on]  <- if (data_list$HCR == "ConstantF") log_F_input(data_list$Ftarget[params_on]) else 0
             last_par$log_Ftarget[params_off] <- -999
 
             obj <- TMB::MakeADFun(

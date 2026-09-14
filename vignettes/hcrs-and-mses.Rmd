@@ -159,7 +159,7 @@ plot_depletionSSB(lapply(mse1, function(x) x$OM))
 plot_depletionSSB(
   c(mse1$Sim_1$EM,           # EMs
     list(mse1$Sim_1$OM,      # OM
-         mse1$Sim_1$OM_no_F  # OM w/ no fishing
+         mse1$Sim_1$OM_no_F  # OM with no fishing after the original OM's endyr
     )),    
   line_col = c(
     paste0("grey", round(seq(80, 50, length.out = 15))),
