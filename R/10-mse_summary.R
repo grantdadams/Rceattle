@@ -107,14 +107,24 @@
 #'   disagree. The three `*_sims_collapsed` metrics are **counts of
 #'   simulations**, not probabilities.
 #'
-#'   `om_terminal_depletion` is `NA` for a multispecies run that derived no
-#'   unfished reference, which is any run without a harvest control rule
-#'   (`HCR = "NoFishing"`): under `msmMode > 0` the model reads spawning
-#'   biomass against the `MSSB0` input, and `fit_mod()` only fills that in by
-#'   projecting under no fishing when an HCR is present. Dividing by the
-#'   placeholder instead reported SSB/999 as a depletion -- on the Pacific hake
-#'   three-species model, 2.68e3. Use `om_terminal_depletion_dynamic`, which is
-#'   computed against the model's own `DynamicSB0` and is unaffected.
+#'   The three depletions divide by different references:
+#'   - `om_terminal_depletion_dynamic`: terminal SSB over the OM's own
+#'     `DynamicSB0`, its history with no fishing on the stock-recruit curve with
+#'     the realized recruitment deviations and, under predation, the suitability
+#'     fitted in the hindcast. Defined for single- and multispecies OMs. A
+#'     species with input numbers-at-age (`estDynamics > 0`) keeps those numbers
+#'     in the dynamic run, so its dynamic depletion is near 1 and says nothing
+#'     about fishing.
+#'   - `om_terminal_depletion`: terminal SSB over `SB0`, the equilibrium value
+#'     for a single-species OM. Under `msmMode > 0` it is `MSSB0`, SSB at the end
+#'     of a no-fishing projection, which `fit_mod()` derives only when a harvest
+#'     control rule is present; without one (`HCR = "NoFishing"`) this is `NA`.
+#'   - `om_avg_depletion`: the OM's own `ssb_depletion` averaged over the
+#'     projection. Under predation with no HCR that series divides by SSB in the
+#'     last projection year, not by an unfished reference.
+#'
+#'   The collapse metrics compare the OM with `OM_no_F`, the OM refit with no
+#'   fishing after the original operating model's `endyr` ([remove_F()]).
 #'
 #'   Each frame carries a `"labels"` attribute mapping those names to the long
 #'   display strings (e.g. `om_terminal_depletion_dynamic` ->
@@ -661,12 +671,15 @@ mse_summary <- function(mse, om_only = FALSE){
     terminal_b_om <- sapply(mse, function(x) x$OM$quantities$biomass[sp, (projyr - styr + 1)])
     terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$ssb[sp, (projyr - styr + 1)])
 
-    if(mse[[1]]$OM$data_list$msmMode == 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
+    # Dynamic SB0 is the OM's own history with no fishing: the stock-recruit curve,
+    # the realized deviations and, under predation, the suitability fitted in the hindcast.
+    terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM$quantities$DynamicSB0[sp, (projyr - styr + 1)])
+
+    if(mse[[1]]$OM$data_list$msmMode == 0){
       terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp, (projyr - styr + 1)])
-      terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM$quantities$DynamicSB0[sp, (projyr - styr + 1)])
     }
 
-    if(mse[[1]]$OM$data_list$msmMode > 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
+    if(mse[[1]]$OM$data_list$msmMode > 0){
       # Terminal year, as in the single-species arm above. The multispecies
       # SB0 is the same in every year -- the model overwrites its own
       # derivation with the `MSSB0` input -- so this reads the same number a
@@ -693,9 +706,6 @@ mse_summary <- function(mse, om_only = FALSE){
         !derived | is.na(derived)
       }
       terminal_sb0_om[undefined] <- NA_real_
-      terminal_dynamic_sb0_om <- if (length(mse_no_f)) {
-        sapply(mse_no_f, function(x) x$OM_no_F$quantities$ssb[sp, (projyr - styr + 1)])
-      } else NA_real_
     }
 
     mse_summary$`OM: Terminal B`[sp] <- mean(terminal_b_om)

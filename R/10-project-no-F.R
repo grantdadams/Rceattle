@@ -1,16 +1,18 @@
 #' Rerun with F = 0.
 #'
 #' @description
-#' Function to update hindcast and set F to 0.
-#' Useful for determining dynamic reference points for multi-species models under climate-change.
-#'
+#' Refits the model with fishing mortality set to 0 from `start_yr` on, keeping
+#' every other parameter. The projection after `endyr` is always unfished.
+#' `run_mse()` uses it for the no-fishing run (`OM_no_F`) behind the collapse
+#' metrics.
 #'
 #' @param object A fitted Rceattle model object
+#' @param start_yr First year with F = 0, from `styr` to the year after `endyr` (the default, which leaves the hindcast unchanged); under predation it must fall after the window of any predator with empirical suitability (`suitMode = 0`).
 #' @param Rceattle deprecated name for `object`, still accepted so existing
 #'   scripts keep working. Supplying both is an error.
 #' @export
 #'
-remove_F <- function(object = NULL, Rceattle = NULL){
+remove_F <- function(object = NULL, start_yr = NULL, Rceattle = NULL){
   # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
   if (!missing(Rceattle))
     object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "remove_F")
@@ -19,10 +21,31 @@ remove_F <- function(object = NULL, Rceattle = NULL){
     stop("`object` must be a fitted Rceattle model (from fit_mod()).", call. = FALSE)
   }
 
+  dl <- object$data_list
+  if (is.null(start_yr)) start_yr <- dl$endyr + 1
+  # The projection after endyr is always unfished, so the no-fishing period can
+  # start no later than endyr + 1.
+  if (!is.numeric(start_yr) || length(start_yr) != 1 || is.na(start_yr) ||
+      start_yr != round(start_yr) || start_yr < dl$styr || start_yr > dl$endyr + 1) {
+    stop("`start_yr` must be a single year from the first model year (", dl$styr,
+         ") to the year after endyr (", dl$endyr + 1, "); the projection is always unfished.",
+         call. = FALSE)
+  }
+
+  # Empirical suitability (suitMode 0) is computed from the fitted abundance up to suit_endyr, so
+  # removing fishing inside that window would change the suitability the model was fit with.
+  if (isTRUE(.map_switch(dl$msmMode, msmMode_map, "msmMode") > 0)) {
+    suit_mode <- rep_len(.map_switch(dl$suitMode, suitMode_map, "suitMode"), dl$nspp)
+    suit_end  <- rep_len(pmin(dl$suit_endyr, dl$endyr), dl$nspp)[suit_mode == 0]
+    if (length(suit_end) && start_yr <= max(suit_end)) {
+      stop("`start_yr` (", start_yr, ") must be after the empirical suitability window ",
+           "(suit_endyr ", max(suit_end), "): removing fishing inside it would re-derive ",
+           "the predation suitability the model was fit with.", call. = FALSE)
+    }
+  }
+
   # * Years for F = 0 ----
-  # - don't want hindcast or it will bias suitability in Multi-species models
-  # suit_endyr is per-predator; project F = 0 only after the latest suitability window.
-  proj_years <- (max(object$data_list$suit_endyr)+1):object$data_list$projyr - object$data_list$styr + 1
+  proj_years <- start_yr:dl$projyr - dl$styr + 1
   fdevs_cols <- 1:ncol(object$estimated_params$log_F)
   fdevs_change <- which(fdevs_cols %in% proj_years)
 
@@ -30,8 +53,8 @@ remove_F <- function(object = NULL, Rceattle = NULL){
   object$estimated_params$log_F[,fdevs_change] <- replace(object$estimated_params$log_F[,fdevs_change], values = -999)
 
   # * Update fit ----
-  # Rebuild with F = 0 in the projection, reusing the model's own configuration;
-  # clamp the SR-switch and suitability-end years to the hindcast terminal year.
+  # Build-only refit on the model's own configuration, which leaves the projection unfished;
+  # the SR-switch and suitability-end years clamp to the hindcast terminal year.
   estMode <- object$data_list$estimateMode
   object <- .refit_like(
     data_list        = object$data_list,

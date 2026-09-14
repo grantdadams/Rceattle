@@ -12,6 +12,35 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.34.0
+
+## Results change
+
+* **`mse_summary()` takes multispecies dynamic depletion from the operating
+  model's `DynamicSB0`**, as it already did for single-species models.
+  `om_terminal_dynamic_sb0` and `om_terminal_depletion_dynamic` were read from
+  the no-fishing refit (`OM_no_F`). Dynamic SB0 is the OM's own history with no
+  fishing: the stock-recruit curve, the realized recruitment deviations and the
+  predation suitability fitted in the hindcast. On the Pacific hake MSE
+  (`MSE_yr2024.R`, Beverton-Holt operating model, two simulations) hake's
+  terminal dynamic depletion goes from 0.99 to 0.78.
+
+* **`remove_F()` sets F to 0 from the year after `endyr` by default**, not from
+  the year after the latest `suit_endyr`. When the suitability window ended
+  before `endyr` it removed fishing inside the hindcast: on the hake MSE,
+  2020–2023 of a 2023 hindcast. A new `start_yr` argument gives the first year
+  fished at F = 0; under predation it must fall after the empirical-suitability
+  window (`suit_endyr` of predators with `suitMode = 0`), since removing fishing
+  inside it would change the suitability the model was fit with. As before, the
+  projection is unfished whatever harvest control rule the model was fit under,
+  so `start_yr` can be no later than the year after `endyr`.
+  `run_mse()` now builds `OM_no_F` with no fishing
+  after the original operating model's terminal year, so it matches the OM
+  through that year. The `OM no F: SSB Collapse` and `OM: SSB Collapse from F`
+  metrics change for runs whose suitability window ended before `endyr`; an MSE
+  saved under 5.33.0 keeps its old `OM_no_F`, so rerun `run_mse()` to update
+  them.
+
 # Rceattle 5.33.0
 
 ## Breaking changes

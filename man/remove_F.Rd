@@ -4,15 +4,19 @@
 \alias{remove_F}
 \title{Rerun with F = 0.}
 \usage{
-remove_F(object = NULL, Rceattle = NULL)
+remove_F(object = NULL, start_yr = NULL, Rceattle = NULL)
 }
 \arguments{
 \item{object}{A fitted Rceattle model object}
+
+\item{start_yr}{First year with F = 0, from \code{styr} to the year after \code{endyr} (the default, which leaves the hindcast unchanged); under predation it must fall after the window of any predator with empirical suitability (\code{suitMode = 0}).}
 
 \item{Rceattle}{deprecated name for \code{object}, still accepted so existing
 scripts keep working. Supplying both is an error.}
 }
 \description{
-Function to update hindcast and set F to 0.
-Useful for determining dynamic reference points for multi-species models under climate-change.
+Refits the model with fishing mortality set to 0 from \code{start_yr} on, keeping
+every other parameter. The projection after \code{endyr} is always unfished.
+\code{run_mse()} uses it for the no-fishing run (\code{OM_no_F}) behind the collapse
+metrics.
 }
