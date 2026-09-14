@@ -461,10 +461,11 @@ fit_mod <-
     # * HCR Switches ----
     data_list$HCR        <- HCR$HCR
     data_list$DynamicHCR <- HCR$DynamicHCR
-    if (!HCR$HCR %in% c(2, "ConstantF")) { # Ftarget is also used for fixed F (so may be of length nflts)
-      data_list$Ftarget <- extend_length(HCR$Ftarget)
-    } else {
-      data_list$Ftarget <- HCR$Ftarget
+    data_list$Ftarget  <- extend_length(HCR$Ftarget) # one per species; the input F under ConstantF
+    if (HCR$HCR %in% c(2, "ConstantF") &&
+        (is.null(data_list$Ftarget) || any(!is.finite(data_list$Ftarget) | data_list$Ftarget < 0))) {
+      stop("ConstantF needs a non-negative, finite Ftarget (one value, or one per species).",
+           call. = FALSE)
     }
     data_list$Flimit   <- extend_length(HCR$Flimit)
     data_list$Ptarget  <- extend_length(HCR$Ptarget)
@@ -1063,7 +1064,7 @@ fit_mod <-
     start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     # Fixed fishing mortality for projections for each species
     if (!is.null(HCR$Ftarget) & HCR$HCR %in% c(2, "ConstantF")) {
-      start_par$log_Ftarget <- log(HCR$Ftarget)
+      start_par$log_Ftarget <- log(data_list$Ftarget)
     }
 
     # Update M1 parameter object from data if initial parameter values input
@@ -1408,7 +1409,8 @@ fit_mod <-
 
             # Adjust Ftarget inits
             params_off <- c(1:data_list$nspp)[which(data_list$HCRorder > HCRiter)]
-            last_par$log_Ftarget[params_on]  <- 0
+            # ConstantF keeps its input F; rules that estimate Ftarget start it at log F = 0.
+            last_par$log_Ftarget[params_on]  <- if (data_list$HCR == "ConstantF") log(data_list$Ftarget[params_on]) else 0
             last_par$log_Ftarget[params_off] <- -999
 
             obj <- TMB::MakeADFun(

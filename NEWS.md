@@ -16,6 +16,16 @@ version throughout.
 
 ## Results change
 
+* **Multispecies `ConstantF` projects at the input F.** The multispecies
+  projection loop in `fit_mod()` reset every species' `log_Ftarget` to 0, so a
+  `ConstantF` run under predation projected each species at F = 1 whatever
+  `Ftarget` was, including a `ConstantF` estimation model refit inside
+  `run_mse()`. Projected catch, SSB and depletion change for those runs; with
+  `HCRorder > 1`, so do later species' multispecies SB0. A single `Ftarget` now
+  recycles to every species, as `?build_hcr` documents (with more than one
+  species it stopped with a map-size error), and a missing or negative
+  `Ftarget` under `ConstantF` is an error.
+
 * **A species with input numbers-at-age (`estDynamics > 0`) is projected at
   F = 0 and carries no harvest control rule.** `build_hcr_map()` already left
   its `log_Ftarget` / `log_Flimit` unestimated and the reference-point
