@@ -123,9 +123,11 @@ testthat::test_that("lognormal (Intercept) prior is evaluated on the log-scale b
     fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
   ))
 
-  # lognormal -> dnorm(log(b_nat), meanlog, sdlog) = dnorm(log_growth_pars, ...)
-  expected <- -(stats::dnorm(log(K1), K_meanlog, K_sdlog, log = TRUE) +
-                stats::dnorm(log(K2), K_meanlog, K_sdlog, log = TRUE))
+  # lognormal -> dnorm(log(b_nat), meanlog - sdlog^2/2, sdlog) on log_growth_pars,
+  # mean-centred under the default bias_adjust_proc = TRUE.
+  mu <- K_meanlog - K_sdlog^2 / 2
+  expected <- -(stats::dnorm(log(K1), mu, K_sdlog, log = TRUE) +
+                stats::dnorm(log(K2), mu, K_sdlog, log = TRUE))
   testthat::expect_equal(linkage_prior_nll(fit), expected, tolerance = 1e-6)
 })
 

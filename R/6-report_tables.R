@@ -20,7 +20,7 @@
 # Accept a single fit or a list of them, and give every model a name. Unnamed
 # models are numbered rather than left blank, so the `model` column is always a
 # usable key for a join or a facet.
-.rce_as_model_list <- function(object, model_names = NULL) {
+.rce_named_models <- function(object, model_names = NULL) {
   models <- if (inherits(object, "Rceattle")) list(object) else object
   if (!is.list(models) || !length(models)) {
     stop("`object` must be an Rceattle fit or a non-empty list of them.",
@@ -216,7 +216,7 @@ report_tables <- function(object,
                           quantities = c("biomass", "ssb", "R",
                                          "biomass_depletion", "ssb_depletion",
                                          "F_spp")) {
-  models <- .rce_as_model_list(object, model_names)
+  models <- .rce_named_models(object, model_names)
   retro  <- .rce_align_diag(retro,  models, "retro",  "Rceattle_retro")
   jitter <- .rce_align_diag(jitter, models, "jitter", "Rceattle_jitter")
   osa    <- .rce_align_diag(osa,    models, "osa",    "rceattle_osa")

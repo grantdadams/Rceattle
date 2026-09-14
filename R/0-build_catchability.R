@@ -144,5 +144,31 @@ build_catchability <- function(linkages = NULL) {
       paste(unique(as.character(fleet_control$Catchability[bad])),
             collapse = ", ")), call. = FALSE)
   }
+
+  # An intercept prior and a Catchability_index group's own q prior (on its lead fleet,
+  # as in the template) both penalize the shared log q. A row with no fleet targets fleet 1.
+  pri <- q[q$design_col == "(Intercept)" & !is.na(q$prior_family) &
+             q$prior_family != "none", , drop = FALSE]
+  if (nrow(pri) > 0L) {
+    tgt  <- unique(ifelse(is.na(pri$fleet), 1L, as.integer(pri$fleet)))
+    grp  <- fleet_control$Catchability_index
+    lead <- .group_lead(grp, fleet_control$Fleet_type %in% c("Off", 0, "0")) == 1L
+    tgt_lead <- vapply(tgt, function(f) {
+      if (is.na(grp[f])) return(as.integer(f))
+      which(lead & grp %in% grp[f])[1]
+    }, integer(1))
+    both <- tgt[as.character(fleet_control$Catchability[tgt_lead]) %in%
+                  c("2", "Estimated-with-prior")]
+    if (length(both) > 0L) {
+      stop(sprintf(paste0(
+        "fleet(s) %s carry a prior on the q linkage's intercept, and their q (led by %s) ",
+        "has Catchability = \"Estimated-with-prior\". Both are priors on the same q, so it ",
+        "would be counted twice. Keep one: set the lead's Catchability to \"Estimated\", or ",
+        "drop the intercept prior."),
+        paste(fleet_control$Fleet_name[both], collapse = ", "),
+        paste(unique(fleet_control$Fleet_name[tgt_lead[tgt %in% both]]), collapse = ", ")),
+        call. = FALSE)
+    }
+  }
   invisible()
 }

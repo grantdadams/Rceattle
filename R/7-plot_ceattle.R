@@ -749,7 +749,7 @@ plot_selectivity <-
 
     colour_by <- match.arg(colour_by)
     .rce_check_alpha(alpha)
-    models <- .as_model_list(Rceattle)
+    models <- .as_plot_models(Rceattle)
 
     # One model without the standard errors would draw a band on some panels and
     # not others, which reads as "this fleet is certain" rather than "this fit
@@ -1158,7 +1158,7 @@ plot_mortality <-
            title_cex = 10,
            M2 = TRUE) {
 
-    Rceattle <- .as_model_list(Rceattle)
+    Rceattle <- .as_plot_models(Rceattle)
     if (length(Rceattle) > 1) stop("Can only plot one model")
     dl <- Rceattle[[1]]$data_list
 
@@ -1279,7 +1279,7 @@ plot_maturity <-
            height = 5.5,
            lwd = 3) {
 
-    Rceattle <- .as_model_list(Rceattle)
+    Rceattle <- .as_plot_models(Rceattle)
     model_names_use <- .model_labels(Rceattle, model_names)
     nspp  <- Rceattle[[1]]$data_list$nspp
     nages <- Rceattle[[1]]$data_list$nages
@@ -1356,7 +1356,7 @@ plot_b_eaten <- function(Rceattle,
                          top_adj = 0.15) {
 
   .rce_check_alpha(alpha)
-  models <- .as_model_list(Rceattle, mse = mse, OM = OM)
+  models <- .as_plot_models(Rceattle, mse = mse, OM = OM)
   if (mse) incl_proj <- TRUE
   model_names_use <- .model_labels(models, model_names)
   sp_sel  <- .resolve_species(models, species, spnames)
@@ -1480,7 +1480,7 @@ plot_b_eaten_prop <-
            maxyr = NULL,
            lty = 1) {
 
-    models <- .as_model_list(Rceattle)
+    models <- .as_plot_models(Rceattle)
     model_names_use <- .model_labels(models, model_names)
     sp_sel  <- .resolve_species(models, species, spnames)
     species <- sp_sel$index
@@ -1577,7 +1577,7 @@ plot_m_at_age <-
            maxyr = NULL,
            top_adj = 0.15) {
 
-    Rceattle <- .as_model_list(Rceattle)
+    Rceattle <- .as_plot_models(Rceattle)
     model_names_use <- .model_labels(Rceattle, model_names)
     sp_sel  <- .resolve_species(Rceattle, species, spnames)
     species <- sp_sel$index
@@ -1685,7 +1685,7 @@ plot_m2_at_age_prop <-
            maxyr = NULL,
            lty = 1) {
 
-    Rceattle <- .as_model_list(Rceattle)
+    Rceattle <- .as_plot_models(Rceattle)
     model_names_use <- .model_labels(Rceattle, model_names)
     sp_sel  <- .resolve_species(Rceattle, species, spnames)
     species <- sp_sel$index
@@ -1841,7 +1841,7 @@ plot_ration <-
            maxyr = NULL,
            top_adj = 0.15) {
 
-    models <- .as_model_list(Rceattle)
+    models <- .as_plot_models(Rceattle)
     model_names_use <- .model_labels(models, model_names)
     sp_sel  <- .resolve_species(models, species, spnames)
     species <- sp_sel$index

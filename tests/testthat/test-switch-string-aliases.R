@@ -58,7 +58,7 @@ testthat::test_that("suitMode wires its (previously dead) string map", {
 
 testthat::test_that("build_srr resolves srr_est_mode strings", {
   testthat::skip_if_not_installed("Rceattle")
-  testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "Fixed")$srr_est_mode, 0L)
+  testthat::expect_equal(suppressWarnings(Rceattle::build_srr(srr_est_mode = "Fixed"))$srr_est_mode, 0L)
   testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "Estimated")$srr_est_mode, 1L)
   testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "LognormalPrior")$srr_est_mode, 2L)
   testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "BetaPrior")$srr_est_mode, 3L)

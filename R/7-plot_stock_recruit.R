@@ -36,7 +36,7 @@ plot_stock_recruit <-
            mod_cex = 1,
            add_ci = TRUE) {
 
-    models <- .as_model_list(Rceattle)
+    models <- .as_plot_models(Rceattle)
     model_names_use <- .model_labels(models, model_names)
     nspp <- models[[1]]$data_list$nspp
     if (is.null(spnames)) spnames <- models[[1]]$data_list$spnames

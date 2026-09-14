@@ -187,10 +187,9 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
     map_list$rec_pars[, 2:3] <- NA
   }
 
-  # Stock recruit models (Ricker & Beverton)
-  # - Turning off mean-R if the hindcast itself uses the SRR, where R0 is derived
-  #   from alpha and beta rather than estimated.
-  if (data_list$srr_fun > 1) {
+  # A hindcast curve derives R0 from alpha and beta, so mean-R is mapped off --
+  # except under predation, where there is no SPR and R0 is the free initial level.
+  if (data_list$srr_fun > 1 && data_list$msmMode == 0) {
     map_list$rec_pars[, 1] <- NA
   }
 

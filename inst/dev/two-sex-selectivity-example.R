@@ -175,8 +175,8 @@ m9 <- fit_mod(data_list = d9, msmMode = 0, estimateMode = "Hindcast",
 # the OTHER sex's parameter, which is the reference the offset is measured from.
 sel_off <- build_selectivity(linkages = list(
   inf_desc = linkage_spec(~ 1, by = ~ fleet + sex,
-                          fleet = FISHERY, sex = 2L,   # 2 = the male curve
-                          priors = list(`(Intercept)` = normal(8, 0.1)))))
+                          fleet = FISHERY, sex = "male",   # male/2 = the male curve
+                          priors = list(intercept = normal(8, 0.1)))))
 
 d10 <- d
 d10$fleet_control$Selectivity[FISHERY]        <- "DoubleLogistic"

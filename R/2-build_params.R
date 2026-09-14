@@ -426,6 +426,13 @@ build_params <- function(data_list) {
 
 
 
+  .push_linkage_intercept_inits(param_list, data_list)
+}
+
+
+# Push linkage (Intercept) inits onto the base parameters. `fixed_only = TRUE` pushes only
+# est_phase = 0 rows; fit_mod() re-applies those over supplied `inits`, so a fixed value wins.
+.push_linkage_intercept_inits <- function(param_list, data_list, fixed_only = FALSE) {
   # * Push (Intercept) inits to the base parameter ----
   # An intercept-bearing linkage formula (`~ 1`, `~ temp`, ...) emits an
   # "(Intercept)" row whose coefficient stays fixed at 0 (mapped out by
@@ -449,9 +456,9 @@ build_params <- function(data_list) {
   # it stays at its default.
   if (!is.null(data_list$linkage_table) &&
       nrow(data_list$linkage_table) > 0L) {
-    intercepts <- data_list$linkage_table[
-      data_list$linkage_table$design_col == "(Intercept)" &
-        data_list$linkage_table$init_supplied, , drop = FALSE]
+    lt <- data_list$linkage_table
+    intercepts <- lt[lt$design_col == "(Intercept)" & lt$init_supplied &
+                       (!fixed_only | as.integer(lt$est_phase) == 0L), , drop = FALSE]
     if (any(is.na(intercepts$init))) {
       stop("Initial value provided for '(Intercept)' is NA.", call. = FALSE)
     }

@@ -84,9 +84,10 @@ NULL
 #'   `param = X * beta` -- slope contributions are additive on the
 #'   natural scale. The linkage targets are estimated on the log scale,
 #'   so `"log"` is the default.
-#' @param init optional named numeric vector of initial values keyed by
-#'   the design-matrix column name (e.g.
-#'   `c(`(Intercept)` = 4, temp = 0)`). Missing entries default to `0`.
+#' @param init optional named list of initial values keyed by the
+#'   design-matrix column name (e.g. \code{list(`(Intercept)` = 4, temp = 0)}),
+#'   an intercept on the parameter's natural scale and a slope on the link
+#'   scale; missing entries default to `0`.
 #' @param bounds optional named list of `c(lower, upper)` keyed the same
 #'   way as `init`.
 #' @param priors optional named list of [Rceattle_priors] objects, keyed by
@@ -97,7 +98,9 @@ NULL
 #' @param re_group optional character: name of a random-effect grouping
 #'   for these coefficients. `NA` (default) means fixed.
 #' @param est_phase optional integer estimation phase. Default `1L`; `0` fixes
-#'   the coefficient at its `init`. Applies to **fixed-effect** rows only -- the
+#'   the coefficient at its `init`, which then holds over any `inits` given to
+#'   [fit_mod()] (an estimated intercept's `init` is only a starting value, and
+#'   `inits` win). Applies to **fixed-effect** rows only -- the
 #'   coefficients in `beta_linkage`. A random-effect term's deviations are held
 #'   in a separate vector that `est_phase` does not reach, so `est_phase < 1` on
 #'   a formula containing one is an error rather than a silent no-op; drop the

@@ -304,6 +304,27 @@ peels that survive, so **two runs of the same model can report different rho** d
 `getsd`. `test-functions-retrospective.R` compares the two runs peel by peel over the shared
 names for exactly this reason.
 
+**`fit_mod(d, config = cfg)` replaces `d$model_config` with `cfg$model_config`, linkages and
+all.** `R/6-fit_mod.R:318` attaches the config's structure to the data list unconditionally, so
+a config built from scratch discards every linkage `build_data()` put on `d`. Measured on 5.29.0,
+`GOAatf` with a survey `slp_asc ~ rw(1 | Year)` linkage:
+
+| call | random effects |
+|---|---|
+| `fit_mod(d)` | 57 (`beta_linkage_re`) |
+| `fit_mod(d, config = run_config(d, random_sel = FALSE))` | 57 |
+| `fit_mod(d, config = run_config(model_config(), random_sel = FALSE))` | **0** |
+
+No warning; the fit runs and returns a model without the time-varying survey selectivity. Build
+the config from the data (`run_config(d, ...)`) or from a fit. The same applies to every
+`model_config()` field, not only `selFun`.
+
+`random_sel` does not reach the linkage REs either way — it gates only the `fleet_control`
+`Time_varying_sel` deviations (`R/6-fit_mod.R:760`, `:818`); linkage REs are integrated whenever
+present, unless the spec sets `integrate = FALSE` (`:836`). Its config description ("Estimate time-varying selectivity as random effects",
+`R/0-save_config.R:306`) reads otherwise, and IPHC read it that way. `random_q` is the same: it
+gates only `index_q_dev` (`:757`).
+
 **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing.**
 The feature is then silently lossy through the standard xlsx format. This is how `index_cov` was
 lost.
@@ -549,3 +570,37 @@ across the boundary.
 **`goa_ms` (fixed-M GOA multispecies) sits on a flat likelihood ridge:** the same objective at
 different `par`/`ssb` across *different* code, though deterministic on same-code re-runs. Judge
 it on `obj`/`jnll`, not `par`/`ssb`.
+
+## Prior centring shares `bias_adjust_proc` with the recruitment deviations
+
+From 5.33.0 every lognormal prior and the Ianelli penalty are centred at `-sd^2/2` when
+`bias_adjust_proc = TRUE`, so a prior value is a mean; with `FALSE` it is a median, but the
+recruitment deviations lose their centring too. To reproduce a pre-5.33 fit's priors with the
+flag on, shift the inputs instead:
+
+| Prior | Pre-5.33 input `v` becomes |
+|---|---|
+| `prior_lognormal(p1, s)` | `prior_lognormal(p1 + s^2/2, s)` |
+| q prior | `Catchability_init = v * exp(s^2/2)` (also moves the starting value) |
+| Ricker alpha prior | `srr_prior = v * exp(s^2/2)` |
+| M prior (old centre `log M + s^2/2`) | `M_prior = v * exp(s^2)` |
+
+The one case no input reproduces is the Ianelli penalty with centred deviations: the penalty has
+no input of its own and shares `R_sd` with them. The GOA northern rockfish bridges are not this
+case: they fit no stock-recruit curve, and urm's median-centred q and M priors return with
+`Catchability_init = 1.107` (1.0 * exp(0.45^2/2)) and `M_prior = 0.06008` (0.06 * exp(0.05^2/2)). A `bias_adjust_proc` between 0 and 1 gives priors (DM weights included) a centre that is
+neither mean nor median.
+
+**In the penalty years the Ianelli form penalizes recruitment twice, and from 5.33.0
+`bias_adjust_proc` centres both.** `rec_dev` is penalized around `R0` (`JNLL_REC_DEV`) and log R
+around `R_hat` (`JNLL_SRR_PENALTY`). With flag value b, their product in log R is
+N((log R0 + log R_hat)/2 - b*sigma_R^2/2, sigma_R/sqrt(2)). Before 5.33.0 the penalty lacked its
+`-b*sigma_R^2/2`, so the recruitment the pair favours now falls by `exp(-b*sigma_R^2/4)`. At b = 1
+that is 8.6% at sigma_R = 0.6 and 22% at 1.0, for both the prior mean (from `sqrt(R0 * R_hat)`)
+and the median a penalized fit shrinks towards (from `sqrt(R0 * R_hat) * exp(-sigma_R^2/4)`).
+
+Only centring exactly one term gives a mean of `sqrt(R0 * R_hat)`; with the flag off the mean is
+`exp(+sigma_R^2/4)` high. The curve term alone still treats `R_hat` as the mean of R, which the
+reference points and a `proj_mean_rec = FALSE` projection read. The data dampen the shift on
+hindcast R. Accepted for 5.33.0 (2026-09-12); removing it would move the hake baselines again.
+`test-likelihood-prior-bias-adjust.R` pins the formula, not this property.

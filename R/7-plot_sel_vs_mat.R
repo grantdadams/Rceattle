@@ -26,7 +26,7 @@ plot_selectivity_vs_maturity <-
            species = NULL,
            lwd = 3) {
 
-    Rceattle <- .as_model_list(Rceattle)
+    Rceattle <- .as_plot_models(Rceattle)
     fc      <- Rceattle[[1]]$data_list$fleet_control
     nages   <- Rceattle[[1]]$data_list$nages
     minage  <- Rceattle[[1]]$data_list$minage

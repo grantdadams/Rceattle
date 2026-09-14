@@ -313,7 +313,7 @@ parameter_index <- function(object) {
   out <- .rce_collapse_mirrored(out, AX)
   out <- out[order(out$par_index), , drop = FALSE]
   rownames(out) <- NULL
-  out$label <- .rce_par_label(out, .rce_varying_axes(out, AX))
+  out$label <- .rce_par_coord_label(out, .rce_varying_axes(out, AX))
   out
 }
 
@@ -481,7 +481,7 @@ parameter_index <- function(object) {
 # "GOA_pollock_fishery, female, age 3, 1985" -- the axes that apply, in reading
 # order, so a diagnostic can print one string.
 #' @noRd
-.rce_par_label <- function(df, AX) {
+.rce_par_coord_label <- function(df, AX) {
   pre <- c(species = "", fleet = "", sex = "", age = "age ", bin = "bin ",
            year = "", slot = "")
   vapply(seq_len(nrow(df)), function(i) {

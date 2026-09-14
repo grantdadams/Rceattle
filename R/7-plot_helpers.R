@@ -2,7 +2,7 @@
 # Shared helpers for the Rceattle ggplot2 plotting functions
 # -----------------------------------------------------------------------------
 # The exported plot_*() functions follow one standardized contract:
-#   1. coerce the `Rceattle` argument to a list of fits      (.as_model_list)
+#   1. coerce the `Rceattle` argument to a list of fits      (.as_plot_models)
 #   2. assemble a tidy data frame of exactly what is plotted (per function)
 #   3. render it with the shared theme + colourblind palette  (.rceattle_theme,
 #      .rceattle_scale)
@@ -32,8 +32,8 @@
 #' @param mse,OM When `mse = TRUE`, pull the operating model (`OM = TRUE`) or
 #'   the terminal estimation model from each MSE element.
 #' @return A list of `Rceattle` fits.
-#' @keywords internal
-.as_model_list <- function(Rceattle, mse = FALSE, OM = TRUE) {
+#' @noRd
+.as_plot_models <- function(Rceattle, mse = FALSE, OM = TRUE) {
   if (mse) {
     if (OM) {
       return(lapply(Rceattle, function(x) x$OM))
@@ -338,7 +338,7 @@
 #' The returned `index` preserves the order the caller asked for, so
 #' `species = c(3, 1)` yields facets in that order rather than model order.
 #'
-#' @param models A list of `Rceattle` fits (from [.as_model_list()]).
+#' @param models A list of `Rceattle` fits (from `.as_plot_models()`).
 #' @param species Species selection; see above.
 #' @param spnames Species labels, length `nspp`. `NULL` takes the model's own.
 #' @return `list(index = <integer>, spnames = <character, nspp>,

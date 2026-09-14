@@ -58,9 +58,10 @@ Does not apply to diet (stomach-content) compositions.}
 apply a bias adjustment (mean-sd^2/2) to lognormal data
 likelihoods}
 
-\item{bias_adjust_proc}{logical with default TRUE. Whether to
-apply a bias adjustment (mean-sd^2/2) to lognormal process
-likelihoods}
+\item{bias_adjust_proc}{logical with default TRUE. Whether lognormal process
+likelihoods, lognormal priors and the Ianelli stock-recruit penalty are
+shifted by \code{-sd^2/2} on the log scale, making each prior value or curve a mean rather than a
+median; a value between 0 and 1 scales the shift.}
 
 \item{use_gradient}{logical. Use the analytic gradient during
 phasing. Default \code{TRUE}.}
