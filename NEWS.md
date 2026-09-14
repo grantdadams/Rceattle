@@ -26,6 +26,12 @@ version throughout.
   species it stopped with a map-size error), and a missing or negative
   `Ftarget` under `ConstantF` is an error.
 
+* **Projected `F_flt` and `F_flt_age` are indexed by fleet, fisheries only.**
+  The projection wrote `F_flt` by species index, so a fishery's row reported
+  another species' F, and survey rows took `NA` times F or a full share of F.
+  Both are reported quantities only, so no fit changes. Hindcast rows were
+  already correct.
+
 * **A species with input numbers-at-age (`estDynamics > 0`) is projected at
   F = 0 and carries no harvest control rule.** `build_hcr_map()` already left
   its `log_Ftarget` / `log_Flimit` unestimated and the reference-point
