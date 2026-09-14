@@ -7,7 +7,7 @@
 #' metrics.
 #'
 #' @param object A fitted Rceattle model object
-#' @param start_yr First year with F = 0, from `styr` to the year after `endyr` (the default, which leaves the hindcast unchanged); under predation it must fall after the window of any predator with empirical suitability (`suitMode = 0`).
+#' @param start_yr First year with F = 0, from `styr` to the year after `endyr` (the default, which leaves the hindcast unchanged); under predation it must fall after the window of any predator with diet data and empirical suitability (`suitMode = 0`).
 #' @param Rceattle deprecated name for `object`, still accepted so existing
 #'   scripts keep working. Supplying both is an error.
 #' @export
@@ -34,7 +34,22 @@ remove_F <- function(object = NULL, start_yr = NULL, Rceattle = NULL){
   # Empirical suitability (suitMode 0) reads abundance to suit_endyr; removing F there changes it.
   if (isTRUE(.map_switch(dl$msmMode, msmMode_map, "msmMode") > 0)) {
     suit_mode <- rep_len(.map_switch(dl$suitMode, suitMode_map, "suitMode"), dl$nspp)
-    suit_end  <- rep_len(pmin(dl$suit_endyr, dl$endyr), dl$nspp)[suit_mode == 0]
+    # Only prey-at-age diet in a predator's own window (or Year 0) builds empirical suitability.
+    dd    <- dl$diet_data
+    preds <- integer(0)
+    if (!is.null(dd) && NROW(dd)) {
+      pr    <- as.integer(dd$Pred)
+      py    <- as.integer(dd$Prey)
+      mna   <- rep_len(dl$minage %||% 1, dl$nspp)
+      s_sty <- rep_len(dl$suit_styr %||% dl$styr, dl$nspp)
+      s_end <- rep_len(pmin(dl$suit_endyr %||% dl$endyr, dl$endyr), dl$nspp)
+      used  <- is.finite(dd$Stomach_proportion_by_weight) & dd$Stomach_proportion_by_weight > 0 &
+        dd$Pred_age >= mna[pr] & dd$Prey_age >= mna[py] &
+        (dd$Year == 0 | (dd$Year >= s_sty[pr] & dd$Year <= s_end[pr]))
+      preds <- unique(pr[used])
+    }
+    emp       <- suit_mode == 0 & seq_len(dl$nspp) %in% preds
+    suit_end  <- rep_len(pmin(dl$suit_endyr, dl$endyr), dl$nspp)[emp]
     if (length(suit_end) && start_yr <= max(suit_end)) {
       stop("`start_yr` (", start_yr, ") must be after the empirical suitability window ",
            "(suit_endyr ", max(suit_end), "): removing fishing inside it would re-derive ",

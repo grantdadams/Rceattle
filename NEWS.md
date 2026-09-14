@@ -64,7 +64,8 @@ version throughout.
   before `endyr` it removed fishing inside the hindcast: on the hake MSE,
   2020–2023 of a 2023 hindcast. A new `start_yr` argument gives the first year
   fished at F = 0; under predation it must fall after the empirical-suitability
-  window (`suit_endyr` of predators with `suitMode = 0`), since removing fishing
+  window (`suit_endyr` of predators with `suitMode = 0` and prey-at-age diet
+  data; a species that eats nothing no longer counts), since removing fishing
   inside it would change the suitability the model was fit with. As before, the
   projection is unfished whatever harvest control rule the model was fit under,
   so `start_yr` can be no later than the year after `endyr`.

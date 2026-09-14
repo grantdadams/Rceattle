@@ -9,7 +9,7 @@ remove_F(object = NULL, start_yr = NULL, Rceattle = NULL)
 \arguments{
 \item{object}{A fitted Rceattle model object}
 
-\item{start_yr}{First year with F = 0, from \code{styr} to the year after \code{endyr} (the default, which leaves the hindcast unchanged); under predation it must fall after the window of any predator with empirical suitability (\code{suitMode = 0}).}
+\item{start_yr}{First year with F = 0, from \code{styr} to the year after \code{endyr} (the default, which leaves the hindcast unchanged); under predation it must fall after the window of any predator with diet data and empirical suitability (\code{suitMode = 0}).}
 
 \item{Rceattle}{deprecated name for \code{object}, still accepted so existing
 scripts keep working. Supplying both is an error.}
