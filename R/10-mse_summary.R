@@ -153,6 +153,9 @@ mse_summary <- function(mse, om_only = FALSE){
     else {return(rep(x, nspp))}
   }
 
+  # NA, not NaN, when every value is NA (e.g. no Flimit).
+  mean_or_na <- function(x) if (all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
+
   ## Drop simulations that did not run to completion ----
   # run_mse() returns only a failure marker for those (no OM, no EMs), so there
   # is nothing to summarise and averaging over them would mix a partial
@@ -272,6 +275,8 @@ mse_summary <- function(mse, om_only = FALSE){
   # - Average catch
   # - Catch IAV
   # - P(Closed)
+  # Species with input numbers-at-age are projected at F = 0: no catch to vary or close.
+  fixed_n <- (mse[[1]]$OM$data_list$estDynamics %||% rep(0, nspp)) > 0
   for(i in 1:nflts){
     flt = flts[i]
 
@@ -304,6 +309,9 @@ mse_summary <- function(mse, om_only = FALSE){
         length(which(x < 1)) # Using less than 1 here just in case super small catches and fishery is effectively close
         /length(x)))/nsim
 
+    if (isTRUE(fixed_n[flt_spp[flt]])) {
+      mse_summary$`Catch IAV`[i+nspp] <- mse_summary$`P(Closed)`[i+nspp] <- NA_real_
+    }
   }
 
 
@@ -355,8 +363,8 @@ mse_summary <- function(mse, om_only = FALSE){
         pull(Catch)
     )) # Sum catch across fleets within a year
 
-    if (!(sp %in% fished_spp) || sum(lengths(catch_by_sim)) == 0L) {
-      if (sp %in% fished_spp) {
+    if (!(sp %in% fished_spp) || fixed_n[sp] || sum(lengths(catch_by_sim)) == 0L) {
+      if (sp %in% fished_spp && !fixed_n[sp] && sum(lengths(catch_by_sim)) == 0L) {
         # Has a fishery, but nothing landed in the projection years: a data
         # problem rather than a modelling choice, so do not report it as zero.
         warning("Species ", sp, " has a fishery but no catch in the projection ",
@@ -435,6 +443,8 @@ mse_summary <- function(mse, om_only = FALSE){
   # - Produces vectors of Flimits given depletion and input Flimit (Fspr)
   # - Note, it doesnt have Plimit because thats for cod
   flimit_tier3_fun <- function(ssb_depletion, ssb, SBF, plimit, alpha, Flimit){
+    # No Flimit, no Tier 3 limit.
+    if (length(Flimit) != 1 || is.na(Flimit)) return(rep(NA_real_, length(ssb)))
     tier3_flimit <- c()
     for(i in 1:length(ssb)){
 
@@ -571,8 +581,8 @@ mse_summary <- function(mse, om_only = FALSE){
       }
 
       ## Perceived status (averages over all assess-year observations)
-      mse_summary$`EM: P(Fy > Flimit)`[sp]    <- mean(em_f_flimit,   na.rm = TRUE)
-      mse_summary$`EM: P(SSB < SSBlimit)`[sp] <- mean(em_sb_sblimit, na.rm = TRUE)
+      mse_summary$`EM: P(Fy > Flimit)`[sp]    <- mean_or_na(em_f_flimit)
+      mse_summary$`EM: P(SSB < SSBlimit)`[sp] <- mean_or_na(em_sb_sblimit)
     }
 
 
@@ -605,7 +615,7 @@ mse_summary <- function(mse, om_only = FALSE){
     }
 
     om_f_flimit <- unlist(om_f_flimit)
-    mse_summary$`OM: P(Fy > Flimit)`[sp] <- mean(om_f_flimit, na.rm = TRUE)
+    mse_summary$`OM: P(Fy > Flimit)`[sp] <- mean_or_na(om_f_flimit)
 
 
     # * OM: P(SSB < SSBlimit) ----
@@ -644,15 +654,18 @@ mse_summary <- function(mse, om_only = FALSE){
     }
 
     om_sb_sblimit <- unlist(om_sb_sblimit)
-    mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- mean(om_sb_sblimit, na.rm = TRUE)
+    mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- mean_or_na(om_sb_sblimit)
 
 
     ## * Perceived status relative to actual status (paired at assess years) ----
     if(!om_only){
-      mse_summary$`EM: P(Fy > Flimit) but OM: P(Fy < Flimit)`[sp]      <- mean(em_f_flimit   == 1 & om_f_flimit_assess   == 0, na.rm = TRUE)
-      mse_summary$`EM: P(Fy < Flimit) but OM: P(Fy > Flimit)`[sp]      <- mean(em_f_flimit   == 0 & om_f_flimit_assess   == 1, na.rm = TRUE)
-      mse_summary$`EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)`[sp] <- mean(em_sb_sblimit == 1 & om_sb_sblimit_assess == 0, na.rm = TRUE)
-      mse_summary$`EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)`[sp] <- mean(em_sb_sblimit == 0 & om_sb_sblimit_assess == 1, na.rm = TRUE)
+      # NA when either side is NA.
+      both_f <- !is.na(em_f_flimit) & !is.na(om_f_flimit_assess)
+      mse_summary$`EM: P(Fy > Flimit) but OM: P(Fy < Flimit)`[sp]      <- mean_or_na(ifelse(both_f, em_f_flimit == 1 & om_f_flimit_assess == 0, NA))
+      mse_summary$`EM: P(Fy < Flimit) but OM: P(Fy > Flimit)`[sp]      <- mean_or_na(ifelse(both_f, em_f_flimit == 0 & om_f_flimit_assess == 1, NA))
+      both_sb <- !is.na(em_sb_sblimit) & !is.na(om_sb_sblimit_assess)
+      mse_summary$`EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)`[sp] <- mean_or_na(ifelse(both_sb, em_sb_sblimit == 1 & om_sb_sblimit_assess == 0, NA))
+      mse_summary$`EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)`[sp] <- mean_or_na(ifelse(both_sb, em_sb_sblimit == 0 & om_sb_sblimit_assess == 1, NA))
     }
 
 
@@ -671,8 +684,7 @@ mse_summary <- function(mse, om_only = FALSE){
     terminal_b_om <- sapply(mse, function(x) x$OM$quantities$biomass[sp, (projyr - styr + 1)])
     terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$ssb[sp, (projyr - styr + 1)])
 
-    # Dynamic SB0 is the OM's own history with no fishing: the stock-recruit curve,
-    # the realized deviations and, under predation, the suitability fitted in the hindcast.
+    # Dynamic SB0: the OM's history with no fishing (fitted curve, realized deviations, suitability).
     terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM$quantities$DynamicSB0[sp, (projyr - styr + 1)])
 
     if(mse[[1]]$OM$data_list$msmMode == 0){

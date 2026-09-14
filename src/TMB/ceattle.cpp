@@ -1308,8 +1308,8 @@ Type objective_function<Type>::operator() () {
                 break;
               }
 
-              // Set F to zero if not running forecast
-              if(forecast(sp) == 0){
+              // No projected F when the forecast is off or numbers-at-age are input (estDynamics > 0).
+              if((forecast(sp) == 0) | (estDynamics(sp) > 0)){
                 proj_F(sp, yr) = 0;
               }
               F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, yr) * proj_F_prop(flt) * proj_F(sp, yr);
@@ -2210,8 +2210,8 @@ Type objective_function<Type>::operator() () {
         }
 
 
-        // Set F to 0 if not forecast
-        if(forecast(sp) == 0){
+        // No projected F when the forecast is off or numbers-at-age are input (estDynamics > 0).
+        if((forecast(sp) == 0) | (estDynamics(sp) > 0)){
           proj_F(sp, yr) =  0.0;
         }
 

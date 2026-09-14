@@ -23,8 +23,7 @@ remove_F <- function(object = NULL, start_yr = NULL, Rceattle = NULL){
 
   dl <- object$data_list
   if (is.null(start_yr)) start_yr <- dl$endyr + 1
-  # The projection after endyr is always unfished, so the no-fishing period can
-  # start no later than endyr + 1.
+  # The projection is always unfished, so the no-F period starts by endyr + 1.
   if (!is.numeric(start_yr) || length(start_yr) != 1 || is.na(start_yr) ||
       start_yr != round(start_yr) || start_yr < dl$styr || start_yr > dl$endyr + 1) {
     stop("`start_yr` must be a single year from the first model year (", dl$styr,
@@ -32,8 +31,7 @@ remove_F <- function(object = NULL, start_yr = NULL, Rceattle = NULL){
          call. = FALSE)
   }
 
-  # Empirical suitability (suitMode 0) is computed from the fitted abundance up to suit_endyr, so
-  # removing fishing inside that window would change the suitability the model was fit with.
+  # Empirical suitability (suitMode 0) reads abundance to suit_endyr; removing F there changes it.
   if (isTRUE(.map_switch(dl$msmMode, msmMode_map, "msmMode") > 0)) {
     suit_mode <- rep_len(.map_switch(dl$suitMode, suitMode_map, "suitMode"), dl$nspp)
     suit_end  <- rep_len(pmin(dl$suit_endyr, dl$endyr), dl$nspp)[suit_mode == 0]
@@ -53,8 +51,7 @@ remove_F <- function(object = NULL, start_yr = NULL, Rceattle = NULL){
   object$estimated_params$log_F[,fdevs_change] <- replace(object$estimated_params$log_F[,fdevs_change], values = -999)
 
   # * Update fit ----
-  # Build-only refit on the model's own configuration, which leaves the projection unfished;
-  # the SR-switch and suitability-end years clamp to the hindcast terminal year.
+  # Build-only refit (projection unfished); SR-switch and suitability years clamp to endyr.
   estMode <- object$data_list$estimateMode
   object <- .refit_like(
     data_list        = object$data_list,

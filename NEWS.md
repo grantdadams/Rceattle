@@ -16,6 +16,24 @@ version throughout.
 
 ## Results change
 
+* **A species with input numbers-at-age (`estDynamics > 0`) is projected at
+  F = 0 and carries no harvest control rule.** `build_hcr_map()` already left
+  its `log_Ftarget` / `log_Flimit` unestimated and the reference-point
+  penalties already skipped it, but the projection still fished it at those
+  start values (F = 1 under most rules). Its projected catch is now 0. Its
+  numbers are input, but a fixed species with a fishery now has higher average
+  abundance in the projection, which changes predation mortality on and by
+  it, and its own SSB changes when `spawn_month > 0`. `Ftarget`, `Flimit`, `SPRtarget`,
+  `SPRlimit`, `SBF` and `DynamicSBF`, all set by that unestimated F, are
+  reported as `NA` in `fit$quantities`, blanked in `report_tables()` with that
+  reason, and drawn as no line by `plot_f()`. `mse_summary()` reports the
+  species' `P(Fy > Flimit)` metrics, and the `P(SSB < SSBlimit)` metrics that
+  read `SBF`, as `NA`; a fixed species with a fishery reports catch IAV and
+  P(Closed) as `NA`, like an unfished one. Its depletion is still reported. In
+  the four-species hake model this is arrowtooth, sablefish and California sea
+  lions; none has a fishery and `spawn_month` is 0, so its dynamics and catches
+  do not change, but its summary reports `NA` where it reported 0.
+
 * **`mse_summary()` takes multispecies dynamic depletion from the operating
   model's `DynamicSB0`**, as it already did for single-species models.
   `om_terminal_dynamic_sb0` and `om_terminal_depletion_dynamic` were read from

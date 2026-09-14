@@ -43,6 +43,17 @@ rename_output <- function(data_list = NULL, quantities = NULL){
   names(quantities$SPRtarget) <- data_list$spnames
   names(quantities$steepness) <- data_list$spnames
 
+  # Input numbers-at-age (estDynamics > 0): no HCR and F = 0 in projection, so these are NA.
+  fixed_n <- (data_list$estDynamics %||% rep(0, data_list$nspp)) > 0
+  if (any(fixed_n)) {
+    for (nm in c("Ftarget", "Flimit", "SPRtarget", "SPRlimit", "SBF", "DynamicSBF")) {
+      x <- quantities[[nm]]
+      if (is.null(x)) next
+      if (is.matrix(x)) x[fixed_n, ] <- NA else x[fixed_n] <- NA
+      quantities[[nm]] <- x
+    }
+  }
+
   # * Fleets ----
   names(quantities$catch_sd) <- data_list$catch_data$Fleet_name
   names(quantities$index_sd) <- data_list$index_data$Fleet_name

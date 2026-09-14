@@ -566,6 +566,10 @@ report_tables <- function(object,
       blank("terminal_depletion",
             "unfished reference not derived (MSSB0 placeholder)")
     }
+    if (isTRUE((d$estDynamics[i] %||% 0) > 0)) {
+      blank(c("Ftarget", "Flimit", "SPRtarget", "SPRlimit", "SBF"),
+            "input numbers-at-age: no harvest control rule, projected at F = 0")
+    }
 
     # A quantity this fit does define can still come back non-finite from the
     # model. Saying "estimated" beside an empty cell would send the reader
