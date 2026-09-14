@@ -82,7 +82,8 @@ run_mse(
   Include resampled recruitment deviations from the hindcast in the OM
   projection. Resampled deviations are used rather than drawing from
   N(0, sigmaR) because the initial deviations bias R0 low. If FALSE,
-  uses the mean recruitment deviation.
+  uses the single deviation described in
+  [`sample_rec()`](https://grantdadams.github.io/Rceattle/reference/sample_rec.md).
 
 - rec_trend:
 

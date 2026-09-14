@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.33.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -104,8 +104,9 @@ from data (<code>M1_base</code>) instead. Default <code>FALSE</code>.</p></dd>
 
 
 <dt id="arg-m-use-prior">M1_use_prior<a class="anchor" aria-label="anchor" href="#arg-m-use-prior"></a></dt>
-<dd><p>Vector or scalar; if <code>TRUE</code>, apply the
-lognormal <code>M_prior</code> / <code>M_prior_sd</code> to <code>M1</code> directly.</p></dd>
+<dd><p>Vector or scalar; if <code>TRUE</code> and <code>M2_use_prior</code> is <code>FALSE</code>, apply the
+lognormal <code>M_prior</code> / <code>M_prior_sd</code> to <code>M1</code> directly, which is refused alongside a prior
+on that species' <code>M1</code> linkage intercept.</p></dd>
 
 
 <dt id="arg-m-use-prior">M2_use_prior<a class="anchor" aria-label="anchor" href="#arg-m-use-prior"></a></dt>
@@ -114,7 +115,7 @@ lognormal prior to <code>M1 + M2</code> in multi-species models.</p></dd>
 
 
 <dt id="arg-m-prior">M_prior<a class="anchor" aria-label="anchor" href="#arg-m-prior"></a></dt>
-<dd><p>Mean (natural-scale) of the lognormal prior on M.</p></dd>
+<dd><p>Natural-scale mean of the lognormal prior on M (its median when <code>bias_adjust_proc = FALSE</code>).</p></dd>
 
 
 <dt id="arg-m-prior-sd">M_prior_sd<a class="anchor" aria-label="anchor" href="#arg-m-prior-sd"></a></dt>

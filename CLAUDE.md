@@ -57,7 +57,12 @@ it — data prep, fitting, projection, MSE, diagnostics, plotting — is R.
     deprecation message and a
     [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
     guard dropping retired parameter blocks from `inits`, and shipped as
-    a minor.
+    a minor. **Exception:** refusing a configuration that never fitted
+    the model it described (e.g. inert, self-contradictory,
+    double-counted, reading values not yet computed, or penalizing years
+    outside the hindcast) is also minor, though stored fits with it stop
+    refitting. List each under `## Breaking changes` with the rebuild;
+    5.33.0 is the example.
 6.  **Never hand-edit `man/*.Rd` or `NAMESPACE`.** Run `/document`.
     Check `git diff DESCRIPTION` **first** — if the roxygen version key
     moved, the `man/` churn is the version, not your change.
@@ -350,6 +355,16 @@ One line each; the evidence and the measured numbers are in
 - **`unweighted_jnll_comp` is written for 5 of its 21 rows** —
   composition, CAAL, stomach and the two linkage rows. Everything else
   is structurally zero there, not small.
+- **`fit_mod(d, config = cfg)` replaces `d$model_config` with the
+  config’s** — a config from `run_config(model_config(), ...)` silently
+  drops every linkage on `d` (57 REs → 0). Build it with
+  `run_config(d, ...)`. `random_sel` never gates linkage REs.
+- **`bias_adjust_proc` centres the lognormal priors and the recruitment
+  deviations together** (5.33.0) — `FALSE` gives median priors *and*
+  uncentred deviations. Reproduce an old prior by shifting its input;
+  the Ianelli penalty with centred deviations cannot be reproduced. With
+  the flag on, in the penalty years the pair favours `exp(-sigma_R^2/4)`
+  times the pre-5.33.0 recruitment.
 - **A `data_list` element with no
   [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md)/[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
   support round-trips to nothing** — this is how `index_cov` was lost.

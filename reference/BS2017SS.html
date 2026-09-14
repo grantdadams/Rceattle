@@ -9,7 +9,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.33.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -318,7 +318,7 @@ NA.</p></dd>
 <dd><p>Starting value (or fixed value) for catchability. When Catchability = "Estimated-with-prior" this also centers the q prior.</p></dd>
 
 <dt>Catchability_prior_sd</dt>
-<dd><p>Standard deviation of the q prior: dnorm(log_q, log_q_prior, Catchability_prior_sd). Used only when Catchability = "Estimated-with-prior".</p></dd>
+<dd><p>Log-scale standard deviation of the q prior: dnorm(log_q, log(Catchability_init) - bias_adjust_proc * sd^2/2, sd). Used only when Catchability = "Estimated-with-prior".</p></dd>
 
 <dt>Time_varying_q</dt>
 <dd><p>Whether a time-varying q should be estimated. 0 = "Off"; 1 = "IID" penalized deviate or random effect; 2 = "AR1" REMOVED in 5.16.0 – it was scored as "IID", so <code><a href="data_check.html">data_check()</a></code> errors on it; use "IID" for the same fit, or <code>linkage_spec(~ ar1(1 | Year))</code> for a real one; 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" from the mean following Dorn 2018. Under <code>Catchability = "Environmental"</code> this column instead holds the <code>env_data</code> column index, not a mode.</p></dd>

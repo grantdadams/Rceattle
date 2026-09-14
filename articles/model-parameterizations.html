@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.33.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -698,8 +698,9 @@ linkage with <code>ar1(1 | Year)</code> and <code>observe =</code>.</li>
 <code>Catchability_init</code> Starting value or fixed value for
 catchability</li>
 <li>
-<code>Catchability_prior_sd</code> Variance of q prior: dnorm
-(log_q, log_q_prior, q_sd_prior)</li>
+<code>Catchability_prior_sd</code> Log-scale SD of the q prior:
+dnorm(log_q, log(Catchability_init) - bias_adjust_proc * sd^2/2,
+sd)</li>
 <li>
 <code>Time_varying_q</code> Whether a time-varying q should be
 estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time
@@ -729,7 +730,13 @@ parameter
 is estimated for survey/index fleet
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>f</mi><mi>i</mi></msub><annotation encoding="application/x-tex">f_i</annotation></semantics></math>
 assuming a lognormal prior</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>q</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><mo>∼</mo><mi>l</mi><mi>o</mi><mi>g</mi><mi>n</mi><mi>o</mi><mi>r</mi><mi>m</mi><mi>a</mi><mi>l</mi><mo stretchy="false" form="prefix">(</mo><mi>l</mi><mi>o</mi><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>Q</mi><mspace width="0.222em"></mspace><mi>p</mi><mi>r</mi><mi>i</mi><mi>o</mi><mi>r</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mi>Q</mi><mspace width="0.222em"></mspace><mi>s</mi><mi>d</mi><mspace width="0.222em"></mspace><mi>p</mi><mi>r</mi><mi>i</mi><mi>o</mi><mi>r</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex"> \hat{q}_{f_i} \sim lognormal(log(Q\ prior), Q\ sd\ prior) </annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>l</mi><mi>o</mi><mi>g</mi><mo stretchy="false" form="prefix">(</mo><msub><mover><mi>q</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="postfix">)</mo><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>l</mi><mi>o</mi><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>Q</mi><mspace width="0.222em"></mspace><mi>p</mi><mi>r</mi><mi>i</mi><mi>o</mi><mi>r</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>b</mi><mo>⋅</mo><mi>Q</mi><mspace width="0.222em"></mspace><mi>s</mi><mi>d</mi><mspace width="0.222em"></mspace><mi>p</mi><mi>r</mi><mi>i</mi><mi>o</mi><msup><mi>r</mi><mn>2</mn></msup><mi>/</mi><mn>2</mn><mo>,</mo><mspace width="0.222em"></mspace><mi>Q</mi><mspace width="0.222em"></mspace><mi>s</mi><mi>d</mi><mspace width="0.222em"></mspace><mi>p</mi><mi>r</mi><mi>i</mi><mi>o</mi><mi>r</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><mi>b</mi><mo>=</mo><mtext mathvariant="monospace">𝚋𝚒𝚊𝚜_𝚊𝚍𝚓𝚞𝚜𝚝_𝚙𝚛𝚘𝚌</mtext></mrow><annotation encoding="application/x-tex"> log(\hat{q}_{f_i}) \sim N\left(log(Q\ prior) - b \cdot Q\ sd\ prior^2/2,\ Q\ sd\ prior\right), \quad b = \texttt{bias\_adjust\_proc} </annotation></semantics></math></p>
+<p><code>Q prior</code> (<code>Catchability_init</code>) is the prior
+mean of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>q</mi><annotation encoding="application/x-tex">q</annotation></semantics></math>
+under <code>fit_control(bias_adjust_proc = TRUE)</code>, the default,
+and its median otherwise; <code>Q sd prior</code> is on the log
+scale.</p>
 <p><code>Catchability = 3</code> Catchability
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>q</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><annotation encoding="application/x-tex">\hat{q}_{f_i}</annotation></semantics></math>
 is analytically derived for survey/index fleet

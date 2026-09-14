@@ -52,8 +52,9 @@ build_M1(
 
 - M1_use_prior:
 
-  Vector or scalar; if `TRUE`, apply the lognormal `M_prior` /
-  `M_prior_sd` to `M1` directly.
+  Vector or scalar; if `TRUE` and `M2_use_prior` is `FALSE`, apply the
+  lognormal `M_prior` / `M_prior_sd` to `M1` directly, which is refused
+  alongside a prior on that species' `M1` linkage intercept.
 
 - M2_use_prior:
 
@@ -62,7 +63,8 @@ build_M1(
 
 - M_prior:
 
-  Mean (natural-scale) of the lognormal prior on M.
+  Natural-scale mean of the lognormal prior on M (its median when
+  `bias_adjust_proc = FALSE`).
 
 - M_prior_sd:
 

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.33.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -83,7 +83,7 @@
 <li>
 <strong>The column schema is the source of truth</strong> for switch values, defaults, and column order. Add a column with <code>/new-column</code>; consume it by its canonical name. Don’t hardcode a default, an allowed-value set, or a column order anywhere else.</li>
 <li>
-<strong>Behaviour, API, or doc change ⇒ <code>NEWS.md</code> + <code>DESCRIPTION</code> <code>Version:</code> + the affected vignette, in the same commit</strong> — plus <code>_pkgdown.yml</code> when a documented topic appears or disappears. <code>/doc-sync</code> checks this. Repo tooling (<code>.claude/</code>, <code>tools/</code>, <code>.github/</code>) and developer notes (<code>inst/dev/</code>) are exempt: they change no behaviour a user can observe. <strong>“Breaking” means no back-compat path</strong>: a removal that ships with a deprecation message and keeps old fits working is a <em>minor</em> bump, even when NEWS files it under <code>## Breaking changes</code>. <code>growth_re</code> is the worked example — removed with a <code><a href="reference/switch_check.html">switch_check()</a></code> deprecation message and a <code><a href="reference/fit_mod.html">fit_mod()</a></code> guard dropping retired parameter blocks from <code>inits</code>, and shipped as a minor.</li>
+<strong>Behaviour, API, or doc change ⇒ <code>NEWS.md</code> + <code>DESCRIPTION</code> <code>Version:</code> + the affected vignette, in the same commit</strong> — plus <code>_pkgdown.yml</code> when a documented topic appears or disappears. <code>/doc-sync</code> checks this. Repo tooling (<code>.claude/</code>, <code>tools/</code>, <code>.github/</code>) and developer notes (<code>inst/dev/</code>) are exempt: they change no behaviour a user can observe. <strong>“Breaking” means no back-compat path</strong>: a removal that ships with a deprecation message and keeps old fits working is a <em>minor</em> bump, even when NEWS files it under <code>## Breaking changes</code>. <code>growth_re</code> is the worked example — removed with a <code><a href="reference/switch_check.html">switch_check()</a></code> deprecation message and a <code><a href="reference/fit_mod.html">fit_mod()</a></code> guard dropping retired parameter blocks from <code>inits</code>, and shipped as a minor. <strong>Exception:</strong> refusing a configuration that never fitted the model it described (e.g. inert, self-contradictory, double-counted, reading values not yet computed, or penalizing years outside the hindcast) is also minor, though stored fits with it stop refitting. List each under <code>## Breaking changes</code> with the rebuild; 5.33.0 is the example.</li>
 <li>
 <strong>Never hand-edit <code>man/*.Rd</code> or <code>NAMESPACE</code>.</strong> Run <code>/document</code>. Check <code>git diff DESCRIPTION</code> <strong>first</strong> — if the roxygen version key moved, the <code>man/</code> churn is the version, not your change.</li>
 <li>
@@ -221,6 +221,10 @@
 <strong><code>retrospective(getsd = TRUE)</code> can drop peels <code>getsd = FALSE</code> keeps</strong> — the non-PD Hessian check only runs when an <code>sdreport</code> exists — so Mohn’s rho can differ between the two.</li>
 <li>
 <strong><code>unweighted_jnll_comp</code> is written for 5 of its 21 rows</strong> — composition, CAAL, stomach and the two linkage rows. Everything else is structurally zero there, not small.</li>
+<li>
+<strong><code>fit_mod(d, config = cfg)</code> replaces <code>d$model_config</code> with the config’s</strong> — a config from <code>run_config(model_config(), ...)</code> silently drops every linkage on <code>d</code> (57 REs → 0). Build it with <code>run_config(d, ...)</code>. <code>random_sel</code> never gates linkage REs.</li>
+<li>
+<strong><code>bias_adjust_proc</code> centres the lognormal priors and the recruitment deviations together</strong> (5.33.0) — <code>FALSE</code> gives median priors <em>and</em> uncentred deviations. Reproduce an old prior by shifting its input; the Ianelli penalty with centred deviations cannot be reproduced. With the flag on, in the penalty years the pair favours <code>exp(-sigma_R^2/4)</code> times the pre-5.33.0 recruitment.</li>
 <li>
 <strong>A <code>data_list</code> element with no <code><a href="reference/write_data.html">write_data()</a></code>/<code><a href="reference/read_data.html">read_data()</a></code> support round-trips to nothing</strong> — this is how <code>index_cov</code> was lost.</li>
 <li>

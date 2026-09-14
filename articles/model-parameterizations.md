@@ -583,8 +583,8 @@ Catchability is controlled by the following parameters in the
   was constant); express the Rogers et al. form as a q linkage with
   `ar1(1 | Year)` and `observe =`.
 - `Catchability_init` Starting value or fixed value for catchability
-- `Catchability_prior_sd` Variance of q prior: dnorm (log_q,
-  log_q_prior, q_sd_prior)
+- `Catchability_prior_sd` Log-scale SD of the q prior: dnorm(log_q,
+  log(Catchability_init) - bias_adjust_proc \* sd^2/2, sd)
 - `Time_varying_q` Whether a time-varying q should be estimated. 0 = no,
   1 = penalized deviate, 2 = random effect, 3 = time blocks with no
   penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y -
@@ -612,8 +612,12 @@ $`\hat{q}_{f_i}`$ is estimated for survey/index fleet $`f_i`$ assuming a
 lognormal prior
 
 ``` math
- \hat{q}_{f_i} \sim lognormal(log(Q\ prior), Q\ sd\ prior) 
+ log(\hat{q}_{f_i}) \sim N\left(log(Q\ prior) - b \cdot Q\ sd\ prior^2/2,\ Q\ sd\ prior\right), \quad b = \texttt{bias\_adjust\_proc} 
 ```
+
+`Q prior` (`Catchability_init`) is the prior mean of $`q`$ under
+`fit_control(bias_adjust_proc = TRUE)`, the default, and its median
+otherwise; `Q sd prior` is on the log scale.
 
 `Catchability = 3` Catchability $`\hat{q}_{f_i}`$ is analytically
 derived for survey/index fleet $`f_i`$ following Walters and Ludwig

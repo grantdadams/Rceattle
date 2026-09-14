@@ -17,7 +17,7 @@ to fit_mod() can stay focused on the model spec:'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.29.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.33.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -151,9 +151,10 @@ likelihoods</p></dd>
 
 
 <dt id="arg-bias-adjust-proc">bias_adjust_proc<a class="anchor" aria-label="anchor" href="#arg-bias-adjust-proc"></a></dt>
-<dd><p>logical with default TRUE. Whether to
-apply a bias adjustment (mean-sd^2/2) to lognormal process
-likelihoods</p></dd>
+<dd><p>logical with default TRUE. Whether lognormal process
+likelihoods, lognormal priors and the Ianelli stock-recruit penalty are
+shifted by <code>-sd^2/2</code> on the log scale, making each prior value or curve a mean rather than a
+median; a value between 0 and 1 scales the shift.</p></dd>
 
 
 <dt id="arg-use-gradient">use_gradient<a class="anchor" aria-label="anchor" href="#arg-use-gradient"></a></dt>

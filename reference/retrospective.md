@@ -107,10 +107,14 @@ warns.
 Each peel reports its own terminal year as `data_list$endyr`, so plots
 draw it only as far as it was fit and the peels fan out.
 
-A peel still estimates the years it dropped: they are its retrospective
-forecast, fit to the observed catch with recruitment held at the peel's
-mean and the survey and composition data withheld. Three years therefore
-matter, and each peel carries all three:
+A peel still estimates the years it dropped. They are its retrospective
+forecast, fit to the observed catch with the survey and composition data
+withheld. Their recruitment deviation is the one
+[`sample_rec()`](https://grantdadams.github.io/Rceattle/reference/sample_rec.md)
+sets with `sample_rec = FALSE`, computed from the peel's own fit; a
+penalty-form peel with no penalty years averages over its own years
+after the first, with a warning. Three years therefore matter, and each
+peel has all three:
 
 - `endyr`, `endyr_peel`:
 

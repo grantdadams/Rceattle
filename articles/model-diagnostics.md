@@ -493,10 +493,11 @@ first plot draws every peel only as far as it was fit and the peels fan
 out.
 
 A peel still estimates the years it dropped: they are its retrospective
-forecast, fit to the observed catch with recruitment held at the peel’s
-mean and the survey and composition data withheld. Fishing mortality is
-estimated through the unpeeled terminal year and the harvest control
-rule takes over after it, so each peel carries three years:
+forecast, fit to the observed catch with recruitment projected at the
+single deviation `sample_rec(sample_rec = FALSE)` uses, computed over
+the peel, and the survey and composition data withheld. Fishing
+mortality is estimated through the unpeeled terminal year and the
+harvest control rule takes over after it, so each peel has three years:
 
 | Field | Meaning |
 |----|----|

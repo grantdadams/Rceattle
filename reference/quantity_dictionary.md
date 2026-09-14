@@ -164,8 +164,8 @@ quantity_dictionary(process = "reference_points")
 #> 3                                                          Total biomass at F = 0, carrying the estimated stock-recruit relationship.
 #> 4                                                      Female spawning biomass at F = 0; the B100% the Tier 3 proxies are taken from.
 #> 5                                                                                             Female spawning biomass at F = Ftarget.
-#> 6                                                            Total biomass under the realized recruitment history with F set to zero.
-#> 7                                                  Female spawning biomass under the realized recruitment history with F set to zero.
+#> 6            Total biomass under the realized recruitment history with F set to zero. A species with input numbers-at-age keeps them.
+#> 7  Female spawning biomass under the realized recruitment history with F set to zero. A species with input numbers-at-age keeps them.
 #> 8                                               Female spawning biomass under the realized recruitment history with F set to Ftarget.
 #> 9                                                                      Spawning biomass per recruit at F = 0. Zero under msmMode > 0.
 #> 10                                                                Spawning biomass per recruit at F = Flimit. Zero under msmMode > 0.

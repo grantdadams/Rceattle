@@ -365,7 +365,7 @@ Set the `Catchability` column of `fleet_control`:
 |:--:|----|----|
 | `0` | `"Fixed"` | q supplied directly |
 | `1` | `"Estimated"` | q estimated as a free parameter |
-| `2` | `"Estimated-with-prior"` | Estimated with a Normal prior |
+| `2` | `"Estimated-with-prior"` | Estimated with a lognormal prior on q: mean `Catchability_init` (median when `bias_adjust_proc = FALSE`), log-scale SD `Catchability_prior_sd` |
 | `3` | `"Analytical"` | Closed-form analytical q (concentrated likelihood) |
 | `4` | `"PowerEquation"` | Power-function catchability (q · B^(α)). **Not implemented** – [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md) rejects it. |
 | `5` | `"Environmental"` | q linked to an environmental index. **Deprecated in 4.9.0** (recorded in the 5.8.1 notes) – express it as a covariate linkage instead: `build_catchability(linkages = list(q = linkage_spec(~ temp, by = ~ fleet)))`. The series is named by `Time_varying_q`, not `Catchability_index`. |
@@ -588,6 +588,14 @@ for options and
 [`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)
 for details.
 
+Under multispecies mode (`msmMode > 0`) spawning biomass per recruit is
+undefined, because mortality includes predation. A curve fitted in the
+hindcast then estimates its initial recruitment level instead of
+deriving it, and the choice of `initMode` can move the fitted stock
+substantially; the curve can also enter as a recruitment penalty
+(`srr_fun = "mean"` with the curve as `srr_pred_fun`). A prior on
+Beverton-Holt steepness is refused.
+
 ## 7. Natural mortality (`M1Fun = build_M1()`)
 
 ### `M1_model` — fixed-effects structure of M1
@@ -625,8 +633,8 @@ deviation — the marginal is `sigma / sqrt(1 - rho^2)`, as in WHAM. (The
 linkage grammar uses the opposite convention:
 `linkage_spec(~ ar1(1 | Year), init = ...)` takes `sigma` as the
 marginal SD.) `M2_use_prior = TRUE` adds a log-normal prior with mean
-`M_prior` and SD `M_prior_sd` on total M (M1 + M2) in multi-species
-mode.
+`M_prior` (the median when `bias_adjust_proc = FALSE`) and log-scale SD
+`M_prior_sd` on total M (M1 + M2) in multi-species mode.
 
 Modes `3` and `6` estimate a full age × year deviation field. Before
 5.9.0 a map defect gave them one deviation per *year* laid on a stride

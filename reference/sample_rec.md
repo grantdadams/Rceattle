@@ -25,7 +25,11 @@ sample_rec(
   Include resampled recruitment deviations from the hindcast in the OM
   projection. Resampled deviations are used rather than drawing from
   N(0, sigmaR) because the initial deviations bias R0 low. If FALSE,
-  uses the mean recruitment deviation.
+  uses one deviation (plus the log of the `rec_trend` multiplier) for
+  every projection year: `log(mean(R)) - log(R0)` under mean
+  recruitment, and `log(mean(R / R_hat))` under a curve, over every
+  hindcast year when the curve is fitted in the hindcast and over the
+  penalty years for the penalty form.
 
 - update_model:
 
