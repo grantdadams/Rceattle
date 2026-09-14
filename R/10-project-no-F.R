@@ -6,8 +6,15 @@
 #' `run_mse()` uses it for the no-fishing run (`OM_no_F`) behind the collapse
 #' metrics.
 #'
+#' @details
+#' `start_yr` runs from `styr` to `endyr + 1`; the projection is unfished
+#' whatever harvest control rule the model was fit under. Under predation,
+#' empirical suitability (`suitMode = 0`) is derived from the fitted abundance
+#' over each predator's `suit_styr:suit_endyr`, so `start_yr` must fall after
+#' that window for every predator with `suitMode = 0` and diet data in it.
+#'
 #' @param object A fitted Rceattle model object
-#' @param start_yr First year with F = 0, from `styr` to the year after `endyr` (the default, which leaves the hindcast unchanged); under predation it must fall after the window of any predator with diet data and empirical suitability (`suitMode = 0`).
+#' @param start_yr First year with F = 0; default `endyr + 1`, which leaves the hindcast unchanged.
 #' @param Rceattle deprecated name for `object`, still accepted so existing
 #'   scripts keep working. Supplying both is an error.
 #' @export
@@ -31,24 +38,24 @@ remove_F <- function(object = NULL, start_yr = NULL, Rceattle = NULL){
          call. = FALSE)
   }
 
-  # Empirical suitability (suitMode 0) reads abundance to suit_endyr; removing F there changes it.
+  # Empirical suitability (suitMode 0) is derived from the fitted abundance over each
+  # predator's suit_styr:suit_endyr, so removing F inside that window re-derives it. A
+  # predator with no diet data in its window has an all-zero suitability slice; a
+  # parametric form does not read abundance.
   if (isTRUE(.map_switch(dl$msmMode, msmMode_map, "msmMode") > 0)) {
     suit_mode <- rep_len(.map_switch(dl$suitMode, suitMode_map, "suitMode"), dl$nspp)
-    # Only prey-at-age diet in a predator's own window (or Year 0) builds empirical suitability.
-    dd    <- dl$diet_data
-    preds <- integer(0)
-    if (!is.null(dd) && NROW(dd)) {
-      pr    <- as.integer(dd$Pred)
-      py    <- as.integer(dd$Prey)
-      mna   <- rep_len(dl$minage %||% 1, dl$nspp)
-      s_sty <- rep_len(dl$suit_styr %||% dl$styr, dl$nspp)
-      s_end <- rep_len(pmin(dl$suit_endyr %||% dl$endyr, dl$endyr), dl$nspp)
-      used  <- is.finite(dd$Stomach_proportion_by_weight) & dd$Stomach_proportion_by_weight > 0 &
-        dd$Pred_age >= mna[pr] & dd$Prey_age >= mna[py] &
-        (dd$Year == 0 | (dd$Year >= s_sty[pr] & dd$Year <= s_end[pr]))
-      preds <- unique(pr[used])
+    suit <- object$quantities$suitability
+    if (!is.null(suit)) {
+      # A predator's rows are pred + nspp * (sex - 1), the r_idx of predation.hpp.
+      has_suit <- vapply(seq_len(dl$nspp), function(p) {
+        !isTRUE(all(suit[seq(p, dim(suit)[1], by = dl$nspp), , , , ] == 0))
+      }, logical(1))
+    } else {
+      # A model stored by run_mse() keeps only the MSE quantities. Without the
+      # suitability array, every predator with a diet record counts.
+      has_suit <- seq_len(dl$nspp) %in% unique(as.integer(dl$diet_data$Pred))
     }
-    emp       <- suit_mode == 0 & seq_len(dl$nspp) %in% preds
+    emp       <- suit_mode == 0 & has_suit
     suit_end  <- rep_len(pmin(dl$suit_endyr, dl$endyr), dl$nspp)[emp]
     if (length(suit_end) && start_yr <= max(suit_end)) {
       stop("`start_yr` (", start_yr, ") must be after the empirical suitability window ",

@@ -9,7 +9,7 @@ remove_F(object = NULL, start_yr = NULL, Rceattle = NULL)
 \arguments{
 \item{object}{A fitted Rceattle model object}
 
-\item{start_yr}{First year with F = 0, from \code{styr} to the year after \code{endyr} (the default, which leaves the hindcast unchanged); under predation it must fall after the window of any predator with diet data and empirical suitability (\code{suitMode = 0}).}
+\item{start_yr}{First year with F = 0; default \code{endyr + 1}, which leaves the hindcast unchanged.}
 
 \item{Rceattle}{deprecated name for \code{object}, still accepted so existing
 scripts keep working. Supplying both is an error.}
@@ -19,4 +19,11 @@ Refits the model with fishing mortality set to 0 from \code{start_yr} on, keepin
 every other parameter. The projection after \code{endyr} is always unfished.
 \code{run_mse()} uses it for the no-fishing run (\code{OM_no_F}) behind the collapse
 metrics.
+}
+\details{
+\code{start_yr} runs from \code{styr} to \code{endyr + 1}; the projection is unfished
+whatever harvest control rule the model was fit under. Under predation,
+empirical suitability (\code{suitMode = 0}) is derived from the fitted abundance
+over each predator's \code{suit_styr:suit_endyr}, so \code{start_yr} must fall after
+that window for every predator with \code{suitMode = 0} and diet data in it.
 }
