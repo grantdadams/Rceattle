@@ -339,7 +339,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
       if (!length(hat_yrs)) hat_yrs <- seq(min(2, nyrs_peel), nyrs_peel)
     }
     for(sp in 1:newmod$data_list$nspp){
-      # A species with input numbers-at-age has no rec_dev to set (its reported R is NA).
+      # A species with input numbers-at-age has no rec_dev to set (its R is the input recruits).
       if (isTRUE((newmod$data_list$estDynamics %||% 0)[sp] > 0)) next
 
       # -- where SR curve is estimated directly

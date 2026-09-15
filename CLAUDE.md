@@ -249,6 +249,6 @@ section holds every entry below in full).
 - **The guards are not themselves guarded**: golden runs only in `deep-checks`; keep `NOT_CRAN=false` a step-level `env:`.
 - **An access violation is memory corruption**: build `RCEATTLE_SAFEBOUNDS=true` and run `verify-safebounds.R`.
 - **A slow fit is the model**: `BS2017SS` takes ~500–700 `nlminb` iterations.
-- **A fixed-numbers species (`estDynamics > 0`) reports `NA` recruitment**, and in single-species mode `NA` SB0/B0/depletion; `estDynamics = 2` fits as 1 under `msmMode = 0`.
+- **A fixed-numbers species (`estDynamics > 0`) reports its input recruits as `R`** but `NA` R0/steepness/SPR0, and in single-species mode `NA` SB0/B0/depletion; `estDynamics = 2` fits as 1 under `msmMode = 0`.
 - **An identity-link recruitment linkage turns on `rec_floor_on`**, changing the AD tape; its floors miss projection, SB0 and dynamic-B0 recruitment (`TODO-srr-multispecies.md` item 14).
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are gitignored.

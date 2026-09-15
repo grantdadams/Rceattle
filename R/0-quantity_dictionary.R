@@ -72,7 +72,7 @@
 
     # -- recruitment -------------------------------------------------------
     r("R", "recruitment",
-      "Recruitment: numbers entering at the youngest age bin.",
+      "Recruitment: numbers entering at the youngest age bin. For a species with input numbers-at-age (estDynamics > 0), the input recruits, with no standard error.",
       "thousands of fish", "[nspp, nyrs]", TRUE, "recruitment"),
     r("log_R", "recruitment",
       "Recruitment on the log scale; its standard error is the CV of recruitment.",

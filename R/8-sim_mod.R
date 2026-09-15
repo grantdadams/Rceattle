@@ -1138,7 +1138,7 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
   # Replace future rec devs ----
   for(sp in 1:object$data_list$nspp){
     # A species with input numbers-at-age has no recruitment of its own: its
-    # rec_dev is mapped out and its reported R is NA, so there is nothing to set.
+    # rec_dev is mapped out and its R is the input recruits, so there is nothing to set.
     if (isTRUE((object$data_list$estDynamics %||% 0)[sp] > 0)) next
 
     # -- where SR curve is estimated directly

@@ -103,14 +103,16 @@ release stays a minor version.
   `inits` was a silent no-op.** The columns are read on a fresh build only;
   `fit_mod()` now warns, as it does for `Comp_weights`, unless `random_sel` /
   `random_q` estimates the sd.
-* **The recruitment quantities of a species with input numbers-at-age are
-  `NA`.** Its `rec_pars` are fixed, so `R`, `R0`, `R_init`, `avg_R`,
-  `steepness` and `SPR0` held the `build_params()` placeholder (`R0 = exp(9)`,
-  a flat 8103 that neither the model nor the user set); in single-species mode
-  the equilibrium `SB0` and `B0` were built on it, and with
-  `DynamicHCR = FALSE` the depletions divided by it. All are `NA` now, and
-  `sample_rec()` and `retrospective()` skip such a species (its `rec_dev` is
-  mapped out). Under `DynamicHCR = TRUE` the depletions are the input numbers
+* **A species with input numbers-at-age reports its input recruits as `R`,
+  and `NA` for its stock-recruit quantities.** Its `rec_pars` are fixed, so
+  `R`, `R0`, `R_init`, `avg_R`, `steepness` and `SPR0` held the
+  `build_params()` placeholder (`R0 = exp(9)`, a flat 8103 that neither the
+  model nor the user set); in single-species mode the equilibrium `SB0` and
+  `B0` were built on it, and with `DynamicHCR = FALSE` the depletions divided
+  by it. `R` is now the first-age input numbers (`NByageFixed` times
+  `pop_scalar`, sexes summed), with no confidence band; the rest are `NA`, and
+  `plot_stock_recruit()` draws no curve for it. `sample_rec()` and
+  `retrospective()` skip such a species (its `rec_dev` is mapped out). Under `DynamicHCR = TRUE` the depletions are the input numbers
   relative to themselves and stay reported; under predation `MSSB0` replaces
   `SB0`.
 * **`data_check()` says when `Sel_norm_scope` is not read.** On a two-sex

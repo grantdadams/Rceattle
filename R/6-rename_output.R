@@ -46,10 +46,16 @@ rename_output <- function(data_list = NULL, quantities = NULL){
   # Input numbers-at-age (estDynamics > 0): no HCR and F = 0 in projection, so these are NA.
   fixed_n <- (data_list$estDynamics %||% rep(0, data_list$nspp)) > 0
   if (any(fixed_n)) {
-    # Its rec_pars are fixed, so every recruitment quantity is the build_params()
+    # Its rec_pars are fixed, so the stock-recruit quantities are the build_params()
     # placeholder (R0 = exp(9)), not something the model or the user set.
     mask <- c("Ftarget", "Flimit", "SPRtarget", "SPRlimit", "SBF", "DynamicSBF",
-              "R", "R0", "R_init", "avg_R", "steepness", "SPR0")
+              "R0", "R_init", "avg_R", "steepness", "SPR0")
+    # R is its input recruits (thousands of fish): first-age N-at-age, which is
+    # NByageFixed times pop_scalar, summed over sexes.
+    for (sp in which(fixed_n)) {
+      quantities$R[sp, ] <- apply(
+        quantities$N_at_age[sp, seq_len(data_list$nsex[sp]), 1, , drop = FALSE], 4, sum)
+    }
     # In single-species mode the equilibrium SB0 and B0 are built on that placeholder,
     # and with DynamicHCR = FALSE the depletions divide by them. Under predation MSSB0
     # replaces SB0; with DynamicHCR = TRUE the depletions are the input numbers
