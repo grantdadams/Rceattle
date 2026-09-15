@@ -124,7 +124,8 @@ stop the fit). \code{FALSE} (default) for an ordinary fit. The diagnostic refits
 \code{\link[=remove_F]{remove_F()}}, \code{\link[=sample_rec]{sample_rec()}}, \code{\link[=reweight_comps]{reweight_comps()}} -- set it, since they
 re-validate a \code{data_list} the caller has already fitted once and would
 otherwise repeat the same warnings per peel, jitter, or MSE iteration.
-Convergence and TMB warnings are unaffected.}
+Also drops a linkage filter's "has no effect" warning; a filter that
+drops its whole spec still warns. Convergence and TMB warnings are unaffected.}
 
 \item{...}{Deprecated optimizer / sdreport / phasing arguments
 (e.g. \code{phase}, \code{getsd}, \code{bias.correct}, \code{use_gradient}, \code{rel_tol},

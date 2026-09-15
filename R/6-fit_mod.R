@@ -66,7 +66,8 @@
 #'   [remove_F()], [sample_rec()], [reweight_comps()] -- set it, since they
 #'   re-validate a `data_list` the caller has already fitted once and would
 #'   otherwise repeat the same warnings per peel, jitter, or MSE iteration.
-#'   Convergence and TMB warnings are unaffected.
+#'   Also drops a linkage filter's "has no effect" warning; a filter that
+#'   drops its whole spec still warns. Convergence and TMB warnings are unaffected.
 #' @param ... Deprecated optimizer / sdreport / phasing arguments
 #'   (e.g. `phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
 #'   `control`, `getJointPrecision`, `getReportCovariance`, `loopnum`,
@@ -336,7 +337,6 @@ fit_mod <-
               identical(mc_new[[nm]], mc_def[[nm]]), logical(1))]
           }
           for (nm in set) {
-            if (is.null(mc_new[[nm]])) next
             # A build_*() field is compared as save_config() writes it, so a spec
             # reloaded from YAML (same spec, new formula environment) is not a change.
             same <- if (nm %in% names(.RCE_CONFIG_BUILDERS)) {
@@ -347,7 +347,7 @@ fit_mod <-
               warning("`", nm, "` differs between the data's model_config and `config`; ",
                       "using `config`'s.", call. = FALSE)
             }
-            mc_old[[nm]] <- mc_new[[nm]]
+            mc_old[nm] <- list(mc_new[[nm]])   # keeps an explicit NULL as the value
           }
           attr(mc_old, "set") <- union(attr(mc_old, "set"), set)
           data_list$model_config <- mc_old
@@ -564,9 +564,10 @@ fit_mod <-
     }
     .message_auto_fleet_linkages(list(q   = data_list$q_linkages,
                                       sel = data_list$sel_linkages))
-    # A refit (quiet_data_check) already raised the linkage-filter warnings on its first fit.
-    .pool_fn <- if (isTRUE(quiet_data_check)) function(...) suppressWarnings(pool_linkages(...)) else pool_linkages
-    .linkage_pool <- .pool_fn(
+    # A refit (quiet_data_check) already raised the filter no-effect warnings on
+    # its first fit; a spec dropped by its filter is still said every time.
+    .linkage_pool <- pool_linkages(
+      quiet       = isTRUE(quiet_data_check),
       spec_groups = list(growth      = data_list$growth_linkages,
                          M           = data_list$M1_linkages,
                          recruitment = data_list$srr_linkages,

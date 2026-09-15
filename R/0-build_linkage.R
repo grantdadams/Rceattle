@@ -851,7 +851,7 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 #'
 #' @return An `Rceattle_linkage_table` with one row per coefficient.
 #' @keywords internal
-materialize_linkage <- function(spec, process, env_data, strata = list()) {
+materialize_linkage <- function(spec, process, env_data, strata = list(), quiet = FALSE) {
   if (!inherits(spec, "Rceattle_linkage_spec")) {
     stop("`spec` must be an Rceattle_linkage_spec")
   }
@@ -1076,9 +1076,14 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
       }
       level_grid <- level_grid[keep, , drop = FALSE]
     } else {
-      eg <- c(species = "~ species", sex = "~ species + sex", fleet = "~ fleet")[[term]]
-      warning("`", term, " =` on ", what, " has no effect: `by` does not include `",
-              term, "` (e.g. `by = ", eg, "`).", call. = FALSE)
+      # The hint keeps the process's own base stratum (fleet for q / sel / comp,
+      # species otherwise); on a fleet-keyed process a species is named by its fleets.
+      base <- all.vars(.default_stratum(process, spec$param))
+      hint <- if (term == "species" && "fleet" %in% base)
+        "; this linkage is keyed by fleet, so name the species' fleets with `fleet =`"
+      else paste0(" (e.g. `by = ~ ", paste(union(base, term), collapse = " + "), "`)")
+      if (!quiet) warning("`", term, " =` on ", what, " has no effect: `by` does not include `",
+                          term, "`", hint, ".", call. = FALSE)
     }
   }
   if (nrow(level_grid) == 0L) {
@@ -1495,7 +1500,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #'     convenience).}
 #' }
 #' @keywords internal
-pool_linkages <- function(spec_groups, env_data, strata = list()) {
+pool_linkages <- function(spec_groups, env_data, strata = list(), quiet = FALSE) {
   has_specs <- !is.null(spec_groups) && length(spec_groups) > 0L &&
     any(vapply(spec_groups, length, integer(1)) > 0L)
   if (!has_specs) return(.empty_pool(env_data))
@@ -1532,7 +1537,8 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
         tbl <- materialize_linkage(.set_linkage_param(one, param),
                                    process = proc,
                                    env_data = env_data,
-                                   strata   = strata)
+                                   strata   = strata,
+                                   quiet    = quiet)
         per_spec[[length(per_spec) + 1L]] <- tbl
       }
     }

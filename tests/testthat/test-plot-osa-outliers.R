@@ -34,7 +34,7 @@ testthat::test_that("the Pearson panel keeps the fixed 3, and NA residuals do no
   p <- Rceattle:::.osa_bubble_plot(osa, outlier = "fixed")
   testthat::expect_equal(p$data$shape[1], "outlier")
   p2 <- Rceattle:::.osa_bubble_plot(osa)                      # n = 1501 finite
-  testthat::expect_equal(p2$data$shape[1], "normal")           # cut 4.16
+  testthat::expect_equal(p2$data$shape[1], "normal")           # cut 4.15
   # A residual beyond the bubble scale is flagged on its untruncated value.
   osa$residual[1] <- 8
   p3 <- suppressWarnings(Rceattle:::.osa_bubble_plot(osa))   # warns that 8 is truncated

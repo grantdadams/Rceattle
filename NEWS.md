@@ -21,7 +21,8 @@ version throughout.
   `load_config()` silently dropped every linkage attached with
   `build_data(model_config = )` (57 random effects to 0 on a GOAatf survey
   `rw(1 | Year)` fit). Now only the fields the config set, defaults included,
-  replace the data's, with a warning where they differ. A config saved from a
+  replace the data's, with a warning where they differ (a `build_*()` field
+  compared as `save_config()` writes it). A config saved from a
   fit sets every field, so it still reproduces that fit. A script that relied
   on the wholesale reset must name every field it means to set.
 

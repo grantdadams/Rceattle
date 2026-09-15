@@ -211,7 +211,7 @@ print.Rceattle_run_config <- function(x, ...) {
       b <- .rce_build_to_list(mc[[nm]], unname(.RCE_CONFIG_BUILDERS[nm]))
       if (length(b) > 0 || nm %in% set) model[[nm]] <- b
     } else if (nm %in% set || !identical(mc[[nm]], mc_def[[nm]])) {
-      model[[nm]] <- mc[[nm]]
+      model[nm] <- list(mc[[nm]])   # a set field at NULL is written as null
     }
   }
 
@@ -237,10 +237,10 @@ print.Rceattle_run_config <- function(x, ...) {
   model <- l$model %||% list()
   mc_args <- list()
   for (nm in .RCE_MODEL_CONFIG_FIELDS) {
-    if (is.null(model[[nm]])) next
-    mc_args[[nm]] <- if (nm %in% names(.RCE_CONFIG_BUILDERS))
-      .rce_build_from_list(model[[nm]], unname(.RCE_CONFIG_BUILDERS[nm]))
-    else model[[nm]]
+    if (!nm %in% names(model)) next
+    mc_args[nm] <- list(if (nm %in% names(.RCE_CONFIG_BUILDERS))
+      .rce_build_from_list(model[[nm]] %||% list(), unname(.RCE_CONFIG_BUILDERS[nm]))
+    else model[[nm]])
   }
   mc <- do.call(model_config, mc_args)
 
