@@ -465,8 +465,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.4. Survey catchability parameters
   PARAMETER_VECTOR( index_log_q );                 // Survey catchability; n = [n_index]
-  PARAMETER_VECTOR( index_q_rho );                // Correlation parameter for AR1 on natural scale; n = [n_index]
-  PARAMETER_MATRIX( index_q_beta );               // Survey catchability regression coefficient and rho parameters
+  PARAMETER_MATRIX( index_q_beta );               // Survey catchability regression coefficients on env_data columns
   // PARAMETER_VECTOR( index_q_pow );             // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_index]
   PARAMETER_MATRIX( index_q_dev );                // Annual survey catchability deviates; n = [n_index, nyrs_hind]
   PARAMETER_VECTOR( index_q_log_sd );              // Log standard deviation of prior on survey catchability; n = [1, n_index]
@@ -928,11 +927,6 @@ Type objective_function<Type>::operator() () {
         env_q_tmp = env_index.row(yr) ;
         index_q_mult =  env_q_tmp * beta_q_tmp;
         index_q(flt, yr) = exp(index_log_q(flt) + (index_q_mult).sum());
-      }
-
-      // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
-      if(est_index_q(flt) == 6){
-        index_q(flt, yr) = exp(index_log_q(flt) + index_q_beta(flt, 0) * index_q_dev(flt, yr));
       }
     }
   }
@@ -4378,30 +4372,6 @@ Type objective_function<Type>::operator() () {
     // bias_adjust_proc = 1, the median when 0.
     if( est_index_q(flt) == 2){
       jnll_comp(JNLL_Q_PRIOR, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt) - bias_adjust_proc*square(index_q_sd(flt))/2.0, index_q_sd(flt), true);
-    }
-
-    // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
-    // Unreachable from the supported API: data_check() refuses Catchability = 6
-    // ("AR1"), and est_index_q is read only from that column. The live QAR1 form
-    // is a q linkage, ar1(1 | Year) with `observe`, which scores under
-    // JNLL_LINKAGE_RE. Kept so an object built before the removal still runs.
-    if(est_index_q(flt) == 6){
-
-      // AR1 process error on the catchability deviates. A deviate density, so
-      // it belongs in the deviate row -- reporting it under "Catchability
-      // prior" would name it as a prior on log q, which it is not. Accumulates
-      // rather than assigns: every other likelihood write here does, and an
-      // assignment would erase anything already scored into the cell.
-      Type rho=rho_trans(index_q_rho(flt));
-      vector<Type> index_q_dev_tmp = index_q_dev.row(flt);
-      jnll_comp(JNLL_Q_DEV, flt) += SCALE(AR1(rho), index_q_dev_sd(flt))(index_q_dev_tmp);
-
-      // Observation error
-      // - Fit to environmental index
-      int q_index = index_varying_q(flt) - 1;
-      for(yr = 0; yr < nyrs_hind; yr++){
-        jnll_comp(JNLL_Q_DEV, flt) -= dnorm(env_index(yr, q_index), index_q_dev(flt, yr), index_q_sd(flt), true); //FIXME: index by env-year
-      }
     }
 
     // Penalized/random deviate likelihood

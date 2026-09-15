@@ -1202,7 +1202,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 #'
 #' @description Maps catchability base parameters (\code{index_log_q}),
 #'   time-varying deviations (\code{index_q_dev}), and environmental linkages
-#'   (\code{index_q_beta}, \code{index_q_rho}) for every fleet that carries
+#'   (\code{index_q_beta}) for every fleet that carries
 #'   fitted \code{index_data} -- a fishery with a CPUE series as much as a
 #'   survey. A fleet with no index rows gets none of them, whatever its
 #'   \code{Catchability} says, since a q with no index to inform it is a flat
@@ -1224,7 +1224,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind, random_q = FA
   yrs_hind <- 1:nyrs_hind
 
 
-  catchability_params <- c("index_log_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_log_sd", "index_q_dev_log_sd", "index_log_sd") # "index_q_pow"
+  catchability_params <- c("index_log_q", "index_q_beta", "index_q_dev", "index_q_log_sd", "index_q_dev_log_sd", "index_log_sd") # "index_q_pow"
   map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
   # Fleets whose catchability block is estimable: those carrying fitted index
@@ -1459,7 +1459,6 @@ adjust_map_shared_params <- function(map_list, data_list) {
       if(!is.na(q_duplicate)){
         map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
         # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
-        map_list$index_q_rho[flt] <- map_list$index_q_rho[q_duplicate]
         map_list$index_q_beta[flt,] <- map_list$index_q_beta[q_duplicate,]
         map_list$index_q_dev[flt,] <- map_list$index_q_dev[q_duplicate,]
         map_list$index_q_log_sd[flt] <- map_list$index_q_log_sd[q_duplicate]

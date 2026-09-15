@@ -88,8 +88,8 @@ data_check <- function(data_list) {
   # Note this is a DIFFERENT switch from `Time_varying_q = "AR1"`, which is also
   # removed (5.16.0) but by its own check above, with its own message. That one
   # was not an AR1 either: the model gives value 2 the same independent
-  # normal penalty as value 1 (`index_varying_q == 1 || == 2`), and index_q_rho
-  # is read only on the QAR1 path this block removes. Both redirect to the same
+  # normal penalty as value 1 (`index_varying_q == 1 || == 2`), and the QAR1
+  # correlation parameter went with that path (5.37.0). Both redirect to the same
   # place -- a q linkage, `linkage_spec(~ ar1(1 | Year))` -- but they name
   # different columns, so only this block says "QAR1".
   if(!is.null(data_list$fleet_control$Catchability) &&
@@ -180,11 +180,10 @@ data_check <- function(data_list) {
   # Time_varying_sel / Time_varying_q = "AR1" (2) are REMOVED. Neither was ever
   # an AR1. The model scores value 2 with the same independent normal penalty
   # as value 1 -- `flt_varying_sel == 1 || == 2` and `index_varying_q == 1 || ==
-  # 2` -- and neither deviation block has a correlation parameter to read:
-  # index_q_rho is used only on the QAR1 catchability path this release also
-  # removes, and there is no selectivity equivalent at all. So the name promised
-  # an autocorrelation the model does not fit, on a value the schema's own column
-  # descriptions never listed.
+  # 2` -- and neither deviation block has a correlation parameter to read (the
+  # QAR1 catchability path's went with it in 5.37.0; selectivity never had one).
+  # So the name promised an autocorrelation the model does not fit, on a value
+  # the schema's own column descriptions never listed.
   #
   # An error rather than a silent alias, and for the reason the QAR1 removal
   # above gives: a warned fit returns a summary() that looks ordinary, and
@@ -243,9 +242,8 @@ data_check <- function(data_list) {
             # Catchability = 'AR1' refusal above, and the two errors have to
             # stay distinguishable by their text -- they name different columns
             # and different fixes.
-            paste0("index_q_rho is not that correlation either: it belongs to ",
-                   "the removed Catchability = 'AR1' form, not to this ",
-                   "switch.\n"),
+            paste0("No correlation parameter exists for this switch; the one ",
+                   "that did belonged to the removed Catchability = 'AR1' form.\n"),
             exempt = .canon_switch(fc$Catchability, q_map) %in%
                      c("Environmental", "AR1")),
     .tv_ar1(fc$Time_varying_sel, "Time_varying_sel", tv_sel_map,
