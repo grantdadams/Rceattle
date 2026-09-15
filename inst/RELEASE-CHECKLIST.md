@@ -10,7 +10,15 @@ and clear release notes — not speed.
       (`git status`).
 - [ ] `DESCRIPTION` `Version:` field bumped (semver: bump patch for
       bug fixes / docs, minor for new features, major for breaking
-      API changes).
+      API changes). "Breaking" means no back-compat path. A removal with a
+      deprecation message that keeps old fits working is a minor bump:
+      `growth_re` was removed with a `switch_check()` message and a
+      `fit_mod()` guard dropping retired blocks from `inits`, and shipped as
+      a minor. Refusing a configuration that never fitted the model it
+      described (inert, self-contradictory, double-counted, reading values
+      not yet computed, penalizing years outside the hindcast) is also minor,
+      though stored fits with it stop refitting; list each under
+      `## Breaking changes` with the rebuild (5.33.0, 5.35.0).
 - [ ] `NEWS.md` top section heading matches the new version. Convert any
       "Unreleased" placeholder to the version number. Headings carry the
       version alone, with no date, so that one entry can cite another as
