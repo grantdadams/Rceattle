@@ -59,8 +59,8 @@ NULL
 #'   character strings (`"Females"`/`"Males"`, case-insensitive;
 #'   `"female"`, `"male"`, `"f"`, `"m"` are also accepted). `NULL`
 #'   (default) means every sex in `strata$sex` at materialization
-#'   time. Only meaningful when `by` includes `sex`; otherwise the
-#'   filter is a no-op. Use this to register separate specs per sex
+#'   time. `by` must include `sex` for it to apply; otherwise it warns
+#'   and has no effect. Use this to register separate specs per sex
 #'   (e.g. one prior on females, another on males) against the same
 #'   parameter.
 #' @param fleet optional vector of fleets this spec applies to, given
@@ -73,8 +73,8 @@ NULL
 #'   attaches the linkage to a different fleet and still fits, whereas a
 #'   misspelled name cannot. Give ids or names, not a mix -- R coerces
 #'   `c(7, "Pollock")` to `c("7", "Pollock")`. `NULL` (default) means every fleet in
-#'   `strata$fleet` at materialization time. Only meaningful when `by`
-#'   includes `fleet`; otherwise the filter is a no-op. Used by
+#'   `strata$fleet` at materialization time. `by` must include `fleet`
+#'   for it to apply; otherwise it warns and has no effect. Used by
 #'   catchability and selectivity linkages to give different fleets
 #'   different formulas.
 #' @param link link function relating the linear predictor to the
@@ -851,7 +851,7 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 #'
 #' @return An `Rceattle_linkage_table` with one row per coefficient.
 #' @keywords internal
-materialize_linkage <- function(spec, process, env_data, strata = list()) {
+materialize_linkage <- function(spec, process, env_data, strata = list(), quiet = FALSE) {
   if (!inherits(spec, "Rceattle_linkage_spec")) {
     stop("`spec` must be an Rceattle_linkage_spec")
   }
@@ -1058,21 +1058,33 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 
   level_grid <- expand_linkage_strata(strata, by_vars)
 
-  # Honor an optional species filter set on the spec. When `species`
-  # is supplied, only rows for those species ids are emitted; species
-  # not represented in `by` are unaffected (the filter is a no-op
-  # against a spec that doesn't stratify by species).
-  if (!is.null(spec$species) && "species" %in% names(level_grid)) {
-    level_grid <- level_grid[level_grid$species %in% spec$species, ,
-                             drop = FALSE]
-  }
-  if (!is.null(spec$sex) && "sex" %in% names(level_grid)) {
-    level_grid <- level_grid[level_grid$sex %in% spec$sex, ,
-                             drop = FALSE]
-  }
-  if (!is.null(spec$fleet) && "fleet" %in% names(level_grid)) {
-    level_grid <- level_grid[level_grid$fleet %in% spec$fleet, ,
-                             drop = FALSE]
+  # A species / sex / fleet filter keeps only those levels of a term `by`
+  # stratifies on; on a spec that does not stratify by it there is nothing to
+  # filter, which is said rather than done silently.
+  lab  <- if (process %in% names(.LINKAGE_PROCESS_LABELS)) .LINKAGE_PROCESS_LABELS[[process]] else process
+  what <- paste0("the ", lab, " linkage",
+                 if (!is.null(spec$param)) paste0(" for `", spec$param, "`") else "")
+  for (term in c("species", "sex", "fleet")) {
+    if (is.null(spec[[term]])) next
+    if (term %in% names(level_grid)) {
+      keep <- level_grid[[term]] %in% spec[[term]]
+      if (!any(keep)) {
+        warning("`", term, " = ", paste(spec[[term]], collapse = ", "), "` on ", what,
+                " matches none of the model's ", term, " levels (",
+                paste(unique(level_grid[[term]]), collapse = ", "),
+                "), so the spec is dropped.", call. = FALSE)
+      }
+      level_grid <- level_grid[keep, , drop = FALSE]
+    } else {
+      # The hint keeps the process's own base stratum (fleet for q / sel / comp,
+      # species otherwise); on a fleet-keyed process a species is named by its fleets.
+      base <- all.vars(.default_stratum(process, spec$param))
+      hint <- if (term == "species" && "fleet" %in% base)
+        "; this linkage is keyed by fleet, so name the species' fleets with `fleet =`"
+      else paste0(" (e.g. `by = ~ ", paste(union(base, term), collapse = " + "), "`)")
+      if (!quiet) warning("`", term, " =` on ", what, " has no effect: `by` does not include `",
+                          term, "`", hint, ".", call. = FALSE)
+    }
   }
   if (nrow(level_grid) == 0L) {
     return(.empty_materialized(X, X_names))
@@ -1488,7 +1500,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #'     convenience).}
 #' }
 #' @keywords internal
-pool_linkages <- function(spec_groups, env_data, strata = list()) {
+pool_linkages <- function(spec_groups, env_data, strata = list(), quiet = FALSE) {
   has_specs <- !is.null(spec_groups) && length(spec_groups) > 0L &&
     any(vapply(spec_groups, length, integer(1)) > 0L)
   if (!has_specs) return(.empty_pool(env_data))
@@ -1525,7 +1537,8 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
         tbl <- materialize_linkage(.set_linkage_param(one, param),
                                    process = proc,
                                    env_data = env_data,
-                                   strata   = strata)
+                                   strata   = strata,
+                                   quiet    = quiet)
         per_spec[[length(per_spec) + 1L]] <- tbl
       }
     }

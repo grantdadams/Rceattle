@@ -4,7 +4,7 @@
 \alias{materialize_linkage}
 \title{Materialize a linkage spec into linkage-table rows}
 \usage{
-materialize_linkage(spec, process, env_data, strata = list())
+materialize_linkage(spec, process, env_data, strata = list(), quiet = FALSE)
 }
 \arguments{
 \item{spec}{an \code{Rceattle_linkage_spec}.}

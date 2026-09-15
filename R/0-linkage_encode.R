@@ -29,6 +29,12 @@ LINKAGE_PROCESS_CODES <- c(
   comp        = 5L
 )
 
+# Process names as a message reads them.
+.LINKAGE_PROCESS_LABELS <- c(
+  recruitment = "recruitment", M = "natural mortality", growth = "growth",
+  q = "catchability", sel = "selectivity", comp = "composition-weight"
+)
+
 
 #' Integer codes for the `link` column
 #' @keywords internal

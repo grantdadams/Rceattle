@@ -491,7 +491,9 @@ M1_spec <- build_M1(
 )
 ```
 
-The `sex` filter is a no-op when `by` does not include `sex`. If you
+The `sex` filter applies only when `by` includes `sex`; otherwise `fit_mod()`
+warns that it has no effect, and a filter that matches none of the model's
+levels warns that the spec is dropped. If you
 want different *formulas* per sex (rather than just different priors
 or inits), use the multi-spec form -- one spec with `sex = 1L` and
 its own RHS, another with `sex = 2L` and a different RHS. 

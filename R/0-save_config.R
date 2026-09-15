@@ -202,13 +202,16 @@ print.Rceattle_run_config <- function(x, ...) {
 .rce_run_config_to_list <- function(rc) {
   mc <- rc$model_config
   mc_def <- model_config()
+  # A field the config set is written even at its default, so a saved run
+  # imposes it on reload; an unset default field is left out.
+  set <- attr(mc, "set") %||% character(0)
   model <- list()
   for (nm in .RCE_MODEL_CONFIG_FIELDS) {
     if (nm %in% names(.RCE_CONFIG_BUILDERS)) {
       b <- .rce_build_to_list(mc[[nm]], unname(.RCE_CONFIG_BUILDERS[nm]))
-      if (length(b) > 0) model[[nm]] <- b
-    } else if (!identical(mc[[nm]], mc_def[[nm]])) {
-      model[[nm]] <- mc[[nm]]
+      if (length(b) > 0 || nm %in% set) model[[nm]] <- b
+    } else if (nm %in% set || !identical(mc[[nm]], mc_def[[nm]])) {
+      model[nm] <- list(mc[[nm]])   # a set field at NULL is written as null
     }
   }
 
@@ -234,10 +237,10 @@ print.Rceattle_run_config <- function(x, ...) {
   model <- l$model %||% list()
   mc_args <- list()
   for (nm in .RCE_MODEL_CONFIG_FIELDS) {
-    if (is.null(model[[nm]])) next
-    mc_args[[nm]] <- if (nm %in% names(.RCE_CONFIG_BUILDERS))
-      .rce_build_from_list(model[[nm]], unname(.RCE_CONFIG_BUILDERS[nm]))
-    else model[[nm]]
+    if (!nm %in% names(model)) next
+    mc_args[nm] <- list(if (nm %in% names(.RCE_CONFIG_BUILDERS))
+      .rce_build_from_list(model[[nm]] %||% list(), unname(.RCE_CONFIG_BUILDERS[nm]))
+    else model[[nm]])
   }
   mc <- do.call(model_config, mc_args)
 
@@ -302,8 +305,8 @@ print.Rceattle_run_config <- function(x, ...) {
     # estimation controls
     estimateMode = .from_switch_table("estimateMode"),
     random_rec = d("Estimate recruitment deviations as random effects"),
-    random_q   = d("Estimate time-varying catchability as random effects"),
-    random_sel = d("Estimate time-varying selectivity as random effects"),
+    random_q   = d("Integrate the Time_varying_q deviations and estimate their sd (linkages integrate either way)"),
+    random_sel = d("Integrate the Time_varying_sel deviations and estimate their sd (linkages integrate either way)"),
     suit_styr  = d("First year of the diet/suitability averaging window"),
     suit_endyr = d("Last year of the diet/suitability averaging window"),
     # fit_control knobs (the commonly-tuned ones)

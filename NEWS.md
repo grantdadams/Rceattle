@@ -12,6 +12,40 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.36.0
+
+## Results change
+
+* **`fit_mod(config =)` overlays only the fields the config set.** It replaced
+  `data_list$model_config` wholesale, so a config from `model_config()` or
+  `load_config()` silently dropped every linkage attached with
+  `build_data(model_config = )` (57 random effects to 0 on a GOAatf survey
+  `rw(1 | Year)` fit). Now only the fields the config set, defaults included,
+  replace the data's, with a warning where they differ (a `build_*()` field
+  compared as `save_config()` writes it). A config saved from a
+  fit sets every field, so it still reproduces that fit. A script that relied
+  on the wholesale reset must name every field it means to set.
+
+## Bug fixes
+
+* **A `species =`, `sex =` or `fleet =` filter on a linkage spec now warns
+  when it does nothing**: when `by` does not include the term, and when it
+  matches none of the model's levels (the whole spec was dropped, so a male M
+  prior on a one-sex species vanished silently). Refits stay quiet.
+* **OSA outlier symbols no longer scale with the panel's size.** A fixed
+  `|resid| > 3` expected 13.5 flags in a 5,000-residual panel and 0.3 in a
+  100-residual one. The OSA panel now flags above `qnorm(1 - 0.05 / (2 n))`
+  (Bonferroni per panel), so under the model a panel expects 0.05 flags
+  whatever its size. The Pearson panel keeps 3: those residuals are not N(0, 1).
+
+## Documentation
+
+* `fit_mod()` and `run_config()` say what `random_sel` and `random_q` gate: the
+  `Time_varying_*` deviations only, with one estimated sd per
+  `Selectivity_index` group; linkage random effects integrate regardless.
+* `build_srr()`'s starting values name the `exp(9)` mean recruitment start.
+* `build_osa_data()`'s note on `comp_offset` names its three fill sites.
+
 # Rceattle 5.35.0
 
 ## Results change

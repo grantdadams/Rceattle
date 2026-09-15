@@ -22,8 +22,8 @@
 #'   (4) = optimize with all parameters mapped out, so the objective is a
 #'   placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_q_sd`. The default is FALSE.
-#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_sel_sd`. The default is FALSE.
+#' @param random_q logical (default FALSE); if TRUE the `Time_varying_q` deviations are integrated as random effects with one estimated sd per `Catchability_index` group, not fixed at `Time_varying_q_sd` (linkage random effects are integrated either way).
+#' @param random_sel logical (default FALSE); if TRUE the `Time_varying_sel` deviations are integrated as random effects with one estimated sd per `Selectivity_index` group, not fixed at `Time_varying_sel_sd` (linkage random effects are integrated either way).
 #' @param HCR HCR list object from \code{\link{build_hcr}}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
@@ -66,7 +66,8 @@
 #'   [remove_F()], [sample_rec()], [reweight_comps()] -- set it, since they
 #'   re-validate a `data_list` the caller has already fitted once and would
 #'   otherwise repeat the same warnings per peel, jitter, or MSE iteration.
-#'   Convergence and TMB warnings are unaffected.
+#'   Also drops a linkage filter's "has no effect" warning; a filter that
+#'   drops its whole spec still warns. Convergence and TMB warnings are unaffected.
 #' @param ... Deprecated optimizer / sdreport / phasing arguments
 #'   (e.g. `phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
 #'   `control`, `getJointPrecision`, `getReportCovariance`, `loopnum`,
@@ -319,7 +320,39 @@ fit_mod <-
       if (!inherits(config, "Rceattle_run_config"))
         stop("`config` must be an Rceattle_run_config (from load_config() / run_config()).",
              call. = FALSE)
-      if (!is.null(config$model_config)) data_list$model_config <- config$model_config
+      # Only the fields the config set (its "set" attribute, defaults included)
+      # overlay the data object's own model_config; the rest keep the data's,
+      # so a config built from model_config() does not drop the data's linkages.
+      # A config from before the attribute existed sets its non-default fields.
+      if (!is.null(config$model_config)) {
+        mc_new <- config$model_config
+        mc_old <- data_list$model_config
+        if (is.null(mc_old)) {
+          data_list$model_config <- mc_new
+        } else {
+          set <- attr(mc_new, "set")
+          if (is.null(set)) {
+            mc_def <- model_config()
+            set <- .RCE_MODEL_CONFIG_FIELDS[!vapply(.RCE_MODEL_CONFIG_FIELDS, function(nm)
+              identical(mc_new[[nm]], mc_def[[nm]]), logical(1))]
+          }
+          for (nm in set) {
+            # A build_*() field is compared as save_config() writes it, so a spec
+            # reloaded from YAML (same spec, new formula environment) is not a change.
+            same <- if (nm %in% names(.RCE_CONFIG_BUILDERS)) {
+              b <- .RCE_CONFIG_BUILDERS[[nm]]
+              identical(.rce_build_to_list(mc_old[[nm]], b), .rce_build_to_list(mc_new[[nm]], b))
+            } else identical(mc_old[[nm]], mc_new[[nm]])
+            if (!is.null(mc_old[[nm]]) && !same) {
+              warning("`", nm, "` differs between the data's model_config and `config`; ",
+                      "using `config`'s.", call. = FALSE)
+            }
+            mc_old[nm] <- list(mc_new[[nm]])   # keeps an explicit NULL as the value
+          }
+          attr(mc_old, "set") <- union(attr(mc_old, "set"), set)
+          data_list$model_config <- mc_old
+        }
+      }
       if (missing(estimateMode) && !is.null(config$estimateMode)) estimateMode <- config$estimateMode
       if (missing(random_rec)   && !is.null(config$random_rec))   random_rec   <- config$random_rec
       if (missing(random_q)     && !is.null(config$random_q))     random_q     <- config$random_q
@@ -531,7 +564,10 @@ fit_mod <-
     }
     .message_auto_fleet_linkages(list(q   = data_list$q_linkages,
                                       sel = data_list$sel_linkages))
+    # A refit (quiet_data_check) already raised the filter no-effect warnings on
+    # its first fit; a spec dropped by its filter is still said every time.
     .linkage_pool <- pool_linkages(
+      quiet       = isTRUE(quiet_data_check),
       spec_groups = list(growth      = data_list$growth_linkages,
                          M           = data_list$M1_linkages,
                          recruitment = data_list$srr_linkages,

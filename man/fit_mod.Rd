@@ -62,9 +62,9 @@ placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.}
 
-\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at \code{Time_varying_q_sd}. The default is FALSE.}
+\item{random_q}{logical (default FALSE); if TRUE the \code{Time_varying_q} deviations are integrated as random effects with one estimated sd per \code{Catchability_index} group, not fixed at \code{Time_varying_q_sd} (linkage random effects are integrated either way).}
 
-\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at \code{Time_varying_sel_sd}. The default is FALSE.}
+\item{random_sel}{logical (default FALSE); if TRUE the \code{Time_varying_sel} deviations are integrated as random effects with one estimated sd per \code{Selectivity_index} group, not fixed at \code{Time_varying_sel_sd} (linkage random effects are integrated either way).}
 
 \item{HCR}{HCR list object from \code{\link{build_hcr}}}
 
@@ -124,7 +124,8 @@ stop the fit). \code{FALSE} (default) for an ordinary fit. The diagnostic refits
 \code{\link[=remove_F]{remove_F()}}, \code{\link[=sample_rec]{sample_rec()}}, \code{\link[=reweight_comps]{reweight_comps()}} -- set it, since they
 re-validate a \code{data_list} the caller has already fitted once and would
 otherwise repeat the same warnings per peel, jitter, or MSE iteration.
-Convergence and TMB warnings are unaffected.}
+Also drops a linkage filter's "has no effect" warning; a filter that
+drops its whole spec still warns. Convergence and TMB warnings are unaffected.}
 
 \item{...}{Deprecated optimizer / sdreport / phasing arguments
 (e.g. \code{phase}, \code{getsd}, \code{bias.correct}, \code{use_gradient}, \code{rel_tol},

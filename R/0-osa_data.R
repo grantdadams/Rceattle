@@ -76,15 +76,10 @@
 #' @keywords internal
 build_osa_data <- function(data_list, build_osa = FALSE) {
 
-  # Proportion offset added to comp/caal bins before the likelihood. It lives on
-  # data_list (filled by switch_check(), overridable via fit_control(comp_offset=))
-  # FIXME: on the exported rearrange_data() path switch_check() does not run --
-  # comp_offset (and the bias_adjust_* scalars below) are actually filled here in
-  # build_osa_data(), not by switch_check() as the line above implies. Left as-is
-  # for now: reword the "filled by switch_check()" note to say so.
-  # so fitting and the OSA obsvec use the same value and internal re-fits inherit
-  # it. Read it from data_list, defaulting to 1e-5, and keep it as a plain double
-  # for the TMB DATA_SCALAR.
+  # Proportion offset added to comp/CAAL bins before the likelihood, so the fit
+  # and the OSA obsvec use one value. Filled by switch_check() and by
+  # fit_control(comp_offset =) on the fit path, and here (default 1e-5) on the
+  # exported rearrange_data() path, which runs neither.
   comp_offset <- data_list$comp_offset
   if (is.null(comp_offset)) comp_offset <- 1e-5
   comp_offset <- as.numeric(comp_offset)[1]

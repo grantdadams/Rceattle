@@ -4,7 +4,7 @@
 \alias{pool_linkages}
 \title{Pool a collection of linkage specs into a global table + design matrix}
 \usage{
-pool_linkages(spec_groups, env_data, strata = list())
+pool_linkages(spec_groups, env_data, strata = list(), quiet = FALSE)
 }
 \arguments{
 \item{spec_groups}{named list whose names are process labels
