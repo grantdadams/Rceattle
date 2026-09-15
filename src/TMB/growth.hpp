@@ -26,10 +26,11 @@
  *
  * @section logic Biological Logic:
  * - **Temporal Resolution**: Jan-1 (month = 0).
- * - **Plus-Age Group**: Oldest age class is corrected via a static
- *   $\exp(-0.2 \cdot a)$-weighted mean of $[current\_size, ..., L_{\infty}]$
- *   over $a = 0..nages$. This is the WHAM static analogue of SS3's
- *   N-at-age-weighted recruitment correction at the season transition.
+ * - **Plus-Age Group**: Oldest age class is corrected via a survival-weighted
+ *   mean of $[current\_size, ..., L_{\infty}]$ over $a = 0..nages$, with
+ *   weights $\exp(-M_1 a)$ at the species' base natural mortality at the oldest
+ *   age (`log_M1`). This is the static analogue of SS3's N-at-age-weighted
+ *   recruitment correction at the season transition.
  * - **SD-at-Age**: For current_age <= age_L1, SD = $e^{sd_0}$. Otherwise
  *   linear interpolation in length between SD($l_1$) = $e^{sd_0}$ and
  *   SD($L_{\infty}$) = $e^{sd_1}$, with the plus group pinned to the upper
@@ -72,6 +73,7 @@ void estimate_growth(
     array<Type>& growth_parameters,
     array<Type>& growth_log_sd,
     matrix<Type>& weight_length_pars,
+    array<Type>& log_M1,         // Base natural mortality at age [nspp, nsex, nages], log scale
     array<Type> &length_hat,     // Modified by reference
     array<Type> &growth_matrix,  // Modified by reference
     array<Type> &weight_hat      // Modified by reference
@@ -194,14 +196,17 @@ void estimate_growth(
 
 
         // 2. Plus-Group Correction (Oldest Age Only) ---
+        // Ages pooled in the plus group, weighted by survival at the oldest-age base
+        // M1 (not Z: F and predation are excluded), lengths interpolated to L-infinity.
         if(growth_model(sp) < 3 && age == (nages(sp) - 1)) {
           Type current_size = length_hat(wtind,  sex, age, yr);
           Type temp_n = 0, temp_sum = 0, weight_a = 1.0;
           Type diff = linf - current_size;
+          Type surv = exp(-exp(log_M1(sp, sex, nages(sp) - 1)));
           for(int a = 0; a <= nages(sp); a++) {
             temp_sum += weight_a * (current_size + (Type(a) / Type(nages(sp))) * diff);
             temp_n += weight_a;
-            weight_a *= exp(-0.2); //FIXME: update mortality?
+            weight_a *= surv;
           }
           length_hat(wtind,  sex, age, yr) = temp_sum / temp_n;
         }
@@ -563,7 +568,8 @@ void calculate_weight(
     matrix<Type>& lengths,
     array<Type>& growth_parameters,
     array<Type>& growth_log_sd,
-    matrix<Type> weight_length_pars
+    matrix<Type> weight_length_pars,
+    array<Type>& log_M1
 ) {
   int yr_ind;
   int wt_idx_pop;
@@ -614,6 +620,7 @@ void calculate_weight(
         growth_parameters,
         growth_log_sd,
         weight_length_pars,
+        log_M1,
         length_hat,     // Pass by reference
         growth_matrix,  // Pass by reference
         weight_hat      // Pass by reference

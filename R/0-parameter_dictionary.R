@@ -30,7 +30,7 @@
     r("dummy", "dummy", "internal",
       "Placeholder parameter; the only free parameter under estimateMode = 4.", "[1]"),
     r("log_pop_scalar", "pop_scalar", "internal",
-      "Multiplier on user-supplied numbers-at-age when estDynamics > 0.", "[nspp, nages]"),
+      "Multiplier on user-supplied numbers-at-age; estimated for estDynamics = 2 under predation, 1 otherwise.", "[nspp]"),
 
     # -- recruitment -------------------------------------------------------
     r("rec_pars", "R0 / alpha / beta", "recruitment",

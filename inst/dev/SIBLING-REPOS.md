@@ -1,7 +1,7 @@
 # The sibling assessment repos
 
-`../Rceattle-models` and `../GOA-ATF-ESP` are live consumers of this package's API. A breaking
-change here breaks scripts that produce federal catch advice.
+The repos below are live consumers of this package's API, and this is the one list of them. A
+breaking change here breaks scripts that produce federal catch advice.
 
 - **`../Rceattle-models`** — EBS/GOA pollock, sablefish, arrowtooth, plaice, POP, hake.
 - **`../GOA-ATF-ESP`** — GOA arrowtooth and its multispecies (cannibalism) run: **the only live
@@ -9,6 +9,8 @@ change here breaks scripts that produce federal catch advice.
 - **`../Climate_MSE`** — GOA climate-linked multispecies MSE: pollock, arrowtooth and cod, with
   SSP126/245/585 operating models. Brought to the current API on 2026-09-11 but **not yet refit**;
   see its section below.
+- **`../GOA-multispecies-assessment`** — the GOA multispecies assessment; `run_all.R` and
+  `R/02_fit_models.R` call `Rceattle::` directly.
 - **Ignore `EBS_CEATTLE_TMB`** — a vendored fork, not a consumer.
 
 Fitted `*.rds` are ~50 MB each. Keep them out of git.
@@ -16,7 +18,7 @@ Fitted `*.rds` are ~50 MB each. Keep them out of git.
 ## Sweeping
 
 ```
-grep -rn "<symbol>" --include=*.R "../Rceattle-models" "../GOA-ATF-ESP" "../Climate_MSE"
+grep -rn "<symbol>" --include=*.R "../Rceattle-models" "../GOA-ATF-ESP" "../Climate_MSE" "../GOA-multispecies-assessment"
 ```
 
 ### `Climate_MSE`

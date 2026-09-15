@@ -873,7 +873,15 @@
   if (is.null(sdrep) || is.null(sdrep$value)) return(NULL)
   rows <- which(names(sdrep$value) == name)
   if (length(rows) != n_total || n_need > n_total) return(NULL)
-  sdrep$sd[rows][seq_len(n_need)]
+  out <- sdrep$sd[rows]
+  # A species with input numbers-at-age reports its input recruits as R
+  # (rename_output()), but the sdreport's R is the placeholder curve's: no SE to show.
+  nspp  <- model$data_list$nspp
+  fixed <- which((model$data_list$estDynamics %||% 0) > 0)
+  if (name %in% c("R", "log_R") && length(fixed) && length(out) %% nspp == 0) {
+    out[((seq_along(out) - 1) %% nspp + 1) %in% fixed] <- NA
+  }
+  out[seq_len(n_need)]
 }
 
 

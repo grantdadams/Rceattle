@@ -704,6 +704,14 @@ data_check <- function(data_list) {
     }
   }
 
+  # The multiplier on input numbers-at-age is estimated only under predation.
+  .ed2 <- which(data_list$estDynamics %in% 2)
+  if(length(.ed2) && isTRUE(as.integer(data_list$msmMode %||% 0L)[1] == 0L)){
+    message("estDynamics = 2 for ", paste(data_list$spnames[.ed2], collapse = ", "),
+            ": the multiplier on input numbers-at-age is estimated only under ",
+            "predation (msmMode > 0); in single-species mode it is fixed at 1, so ",
+            "this fits as estDynamics = 1.")
+  }
   # NByageFixed: presence required when estDynamics > 0 (declarative requirement
   # table); the column-count adequacy check stays imperative below.
   errors <- c(errors, .rce_check_presence(data_list, "NByageFixed"))
@@ -968,6 +976,16 @@ data_check <- function(data_list) {
       if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "Hake" &&
          !fc$Time_varying_sel[flt] %in% c("Off", "IID")){
         errors <- c(errors, "For 'Hake' selectivity, 'Time_varying_sel' must be 'Off' or 'IID'")
+      }
+      # Sel_norm_scope is read only by the shared normalizer. Hake normalizes each
+      # sex by its own maximum and LogisticPM reads Sel_norm_bin as a penalty
+      # range, so on a two-sex fleet of either form the column changes nothing.
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] %in% c("Hake", "LogisticPM") &&
+         isTRUE(data_list$nsex[fc$Species[flt]] == 2) &&
+         isTRUE(fc$Sel_norm_scope[flt] %in% c("AcrossSexes", sel_norm_scope_map[["AcrossSexes"]]))){
+        message("Fleet '", flt_name, "': Selectivity = '", fc$Selectivity[flt],
+                "' normalizes each sex to its own maximum, so 'Sel_norm_scope' is not ",
+                "read and the sexes cannot differ in selectivity level with this form.")
       }
       #  - LogisticPM (ADMB AMAK "pm" BTS, type 11): random-walk deviates on
       #    slope/inflection/age-1 -> allow only "Off"/"RandomWalk".

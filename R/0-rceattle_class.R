@@ -1260,6 +1260,13 @@ as.data.frame.Rceattle <- function(x,
           dim(mat)[1] != nspp || dim(mat)[2] != nyrs) next
       sd_mat  <- if (spec$adreport) sd_lookup(qn, dim(mat)) else NULL
       lsd_mat <- if (spec$adreport) sd_lookup(paste0("log_", qn), dim(mat)) else NULL
+      # A species with input numbers-at-age reports its input recruits as R
+      # (rename_output()); the sdreport's R is the placeholder curve's, so no SE.
+      fixed_sp <- which((x$data_list$estDynamics %||% 0) > 0)
+      if (qn == "R" && length(fixed_sp)) {
+        if (!is.null(sd_mat))  sd_mat[fixed_sp, ]  <- NA
+        if (!is.null(lsd_mat)) lsd_mat[fixed_sp, ] <- NA
+      }
       grid <- expand.grid(species_idx = seq_len(nspp),
                           year_idx    = seq_len(nyrs),
                           KEEP.OUT.ATTRS = FALSE,

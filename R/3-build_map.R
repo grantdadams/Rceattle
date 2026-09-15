@@ -616,16 +616,14 @@ build_map_predation <- function(map_list, data_list) {
 #' coefficients -- those directions are improper, not merely weakly identified,
 #' and the deviation sd collapses (2.7e-8 on Atka2022).
 #'
-#' `IID` is scored on the deviates themselves and is proper, but the AMAK shape
-#' penalty beside it is one-sided (`max(d, 0)^2`), whose second derivative is a
-#' step. The Laplace correction is a log-determinant of that second derivative,
-#' so the marginal objective is only piecewise smooth and the optimizer halts at
-#' a kink: on Atka2022 it stops with a maximum gradient of 6.8 and reports an sd
-#' 27% away from the value the same model reaches with `Sel_curve_pen1 = 0`
-#' (maximum gradient 4e-4). A fleet that turns that penalty off is integrable.
-#' The kink is half the `IID` story. The shape penalty holds no `sel_dev_sd`
-#' either, so the sd absorbs a normalizing constant even where the objective is
-#' smooth. `inst/dev/TODO-nonparametric-iid-integrable.md` has the fix.
+#' `IID` (`NonParametric` only; `NonParametricPM` cannot take it) is scored on
+#' the deviates themselves and is proper, but the AMAK shape penalties
+#' (`Sel_curve_pen1`, one-sided, so the Laplace objective is only piecewise
+#' smooth; `Sel_curve_pen2`) and the always-on average-selectivity penalty are
+#' charged on each year's realized curve and hold no `sel_dev_sd`, so the
+#' reported sd is biased low whatever the penalty weights are. Refused at every
+#' setting; charging the penalties once on the base curve is the fix
+#' (`inst/dev/TODO-nonparametric-iid-integrable.md`).
 #'
 #' @param fleet_control The `fleet_control` table, with canonical switch strings.
 #' @return A data frame of the `Fleet_code`s affected and the reason for each.
@@ -633,15 +631,17 @@ build_map_predation <- function(map_list, data_list) {
 .rce_np_unintegrable_fleets <- function(fleet_control) {
   sel  <- fleet_control$Selectivity
   tv   <- fleet_control$Time_varying_sel
-  pen1 <- suppressWarnings(as.numeric(fleet_control$Sel_curve_pen1))
   np   <- fleet_control$Fleet_type != "Off" &
     !is.na(sel) & sel %in% c("NonParametric", "NonParametricPM")
 
   walk <- np & !is.na(tv) & tv == "RandomWalk"
-  kink <- np & !is.na(tv) & tv == "IID" & !is.na(pen1) & pen1 != 0
+  # NonParametric + IID is refused at every Sel_curve_pen setting: the always-on
+  # average-selectivity penalty tilts the integrated density (NonParametricPM
+  # cannot take IID at all; data_check() refuses it).
+  iid  <- np & sel == "NonParametric" & !is.na(tv) & tv == "IID"
   data.frame(
-    fleet  = c(fleet_control$Fleet_code[walk], fleet_control$Fleet_code[kink]),
-    reason = c(rep("RandomWalk", sum(walk)), rep("IID", sum(kink))),
+    fleet  = c(fleet_control$Fleet_code[walk], fleet_control$Fleet_code[iid]),
+    reason = c(rep("RandomWalk", sum(walk)), rep("IID", sum(iid))),
     stringsAsFactors = FALSE)
 }
 
@@ -1615,21 +1615,10 @@ build_map_fixed_natage <- function(map_list, data_list) {
       map_list$caal_weights[flts] <- NA
     }
 
-    # Don't estimate the scalar
-    if(data_list$estDynamics[sp] < 2 | data_list$msmMode == 0){
-      map_list$log_pop_scalar[sp,] <- NA
-    }
-
-    # Age-independent scalar
-    if(data_list$estDynamics[sp] == 2 | data_list$msmMode != 0){
-      map_list$log_pop_scalar[sp,2:ncol(map_list$log_pop_scalar)] <- NA # Only estimate first parameter
-    }
-
-    # Age-dependent scalar
-    if(data_list$estDynamics[sp] == 3 | data_list$msmMode != 0){
-      if(data_list$nages[sp] < ncol(map_list$log_pop_scalar)){ # Map out ages beyond maxage of the species
-        map_list$log_pop_scalar[sp,(data_list$nages[sp]+1):ncol(map_list$log_pop_scalar)] <- NA # Only estimate parameters for each age of species
-      }
+    # The multiplier on input numbers-at-age is estimated for estDynamics = 2 under
+    # predation only; in single-species mode it is fixed at 1 (data_check() says so).
+    if(data_list$estDynamics[sp] != 2 | data_list$msmMode == 0){
+      map_list$log_pop_scalar[sp] <- NA
     }
   }
   return(map_list)

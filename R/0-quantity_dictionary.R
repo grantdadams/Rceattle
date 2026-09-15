@@ -58,7 +58,7 @@
       "Total biomass relative to unfished biomass, biomass / B0.",
       "proportion", "[nspp, nyrs]", TRUE, NA_character_),
     r("ssb_depletion", "population",
-      "Female spawning biomass relative to unfished, ssb / SB0; the quantity a Tier 3 harvest control rule compares against B40%.",
+      "Female spawning biomass relative to unfished, ssb / SB0; the quantity a Tier 3 harvest control rule compares against B40%. NA for a species with input numbers-at-age in single-species mode unless DynamicHCR = TRUE, where it is those numbers relative to themselves (1 at spawn_month = 0).",
       "proportion", "[nspp, nyrs]", TRUE, "relative_spawning_biomass"),
     r("N_at_age", "population",
       "Numbers at age at the start of the year.",
@@ -72,7 +72,7 @@
 
     # -- recruitment -------------------------------------------------------
     r("R", "recruitment",
-      "Recruitment: numbers entering at the youngest age bin.",
+      "Recruitment: numbers entering at the youngest age bin. For a species with input numbers-at-age (estDynamics > 0), the input recruits, with no standard error.",
       "thousands of fish", "[nspp, nyrs]", TRUE, "recruitment"),
     r("log_R", "recruitment",
       "Recruitment on the log scale; its standard error is the CV of recruitment.",
@@ -377,8 +377,8 @@
 
     # -- internal ----------------------------------------------------------
     r("pop_scalar", "internal",
-      "Multiplier on user-supplied numbers-at-age when estDynamics > 0.",
-      "multiplier", "[nspp, nages]", TRUE, NA_character_),
+      "Multiplier on user-supplied numbers-at-age; estimated for estDynamics = 2 under predation, 1 otherwise.",
+      "multiplier", "[nspp]", TRUE, NA_character_),
     r("rec_srr_single_density", "internal",
       "Flag recording whether the stock-recruit prior was evaluated as a single density.",
       "unitless", "[1]", FALSE, NA_character_)

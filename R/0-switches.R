@@ -327,14 +327,14 @@ hcr_map <- c(
 
 # Numbers-at-age estimation mode, per species (data_list$estDynamics).
 # 0 = estimate the population dynamics; 1 = use fixed input numbers-at-age from
-# NByageFixed; 2 = scale the fixed input by one estimated coefficient; 3 = scale
-# it by an age-specific estimated coefficient. Named per the Fixed/Estimated
-# convention so "0 = not estimated" reads plainly.
+# NByageFixed; 2 = scale the fixed input by one estimated coefficient, under
+# predation only. Named per the Fixed/Estimated convention so "0 = not
+# estimated" reads plainly. Code 3 (an age-specific scalar) was retired in
+# 5.35.0; it always fitted as 2.
 estDynamics_map <- c(
-  "Estimated"        = 0,
-  "Fixed"            = 1,
-  "FixedScaled"      = 2,
-  "FixedScaledByAge" = 3
+  "Estimated"   = 0,
+  "Fixed"       = 1,
+  "FixedScaled" = 2
 )
 
 # Validate a switch value against its map WITHOUT converting it, so a typo is
@@ -370,15 +370,24 @@ estDynamics_map <- c(
 # (e.g. estDynamics is read numerically by build_map()), so the string must be
 # resolved early, in switch_check().
 .map_switch <- function(x, map, name) {
-  if (is.null(x) || !is.character(x)) return(x)
-  bad <- setdiff(x[!is.na(x)], names(map))
+  if (is.null(x)) return(x)
+  # A factor (read.csv with stringsAsFactors = TRUE) would otherwise pass through
+  # and be read as its level index; a numeric-looking string is the code it names.
+  if (is.factor(x)) x <- as.character(x)
+  if (!is.character(x)) return(x)
+  num    <- suppressWarnings(as.numeric(x))
+  is_num <- !is.na(num)
+  bad <- c(setdiff(x[!is.na(x) & !is_num], names(map)),
+           x[is_num & !num %in% unname(map)])
   if (length(bad) > 0) {
     stop(sprintf("Invalid '%s' value(s): %s. Options: %s (or the integer codes %s).",
                  name, paste(unique(bad), collapse = ", "),
                  paste(names(map), collapse = ", "),
                  paste(unname(map), collapse = ", ")), call. = FALSE)
   }
-  unname(map[x])   # map[NA] is NA, so off-fleet NAs pass through
+  out <- unname(map[x])   # map[NA] is NA, so off-fleet NAs pass through
+  out[is_num] <- num[is_num]
+  out
 }
 
 # `est_M1` was renamed to `M1_model`. Fold the deprecated name into `M1_model`
@@ -647,10 +656,25 @@ switch_check <- function(data_list){
 
   # Model and multi-species switches
   data_list$estDynamics <- set_default(data_list$estDynamics, rep(0, data_list$nspp), "'estDynamics' are not included in data, assuming 0")
+  # Code 3 was retired in 5.35.0: it never estimated an age-specific multiplier
+  # and fitted as 2, so a stored fit is rebuilt with 2 and is unchanged.
+  if (any(data_list$estDynamics %in% c(3, "3", "FixedScaledByAge"))) {
+    stop("estDynamics = 3 ('FixedScaledByAge') was retired in 5.35.0: it never ",
+         "estimated an age-specific multiplier and fitted as 2 ('FixedScaled'). ",
+         "Set estDynamics = 2; the fit is unchanged.", call. = FALSE)
+  }
   # Resolve readable strings ("Fixed"/"Estimated"/...) to integer codes now --
   # build_map()/build_params() read estDynamics numerically, before
   # convert_switches() runs.
   data_list$estDynamics <- .map_switch(data_list$estDynamics, estDynamics_map, "estDynamics")
+  .bad_ed <- setdiff(stats::na.omit(suppressWarnings(as.numeric(data_list$estDynamics))),
+                     estDynamics_map)
+  if (length(.bad_ed)) {
+    stop(sprintf("Invalid 'estDynamics' value(s): %s. Options: %s (or the integer codes %s).",
+                 paste(.bad_ed, collapse = ", "),
+                 paste(names(estDynamics_map), collapse = ", "),
+                 paste(unname(estDynamics_map), collapse = ", ")), call. = FALSE)
+  }
   data_list$suitMode <- .map_switch(data_list$suitMode, suitMode_map, "suitMode")
   if (!is.null(data_list$fleet_control$Estimate_index_sd)) {
     data_list$fleet_control$Estimate_index_sd <-

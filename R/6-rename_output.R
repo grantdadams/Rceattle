@@ -46,7 +46,29 @@ rename_output <- function(data_list = NULL, quantities = NULL){
   # Input numbers-at-age (estDynamics > 0): no HCR and F = 0 in projection, so these are NA.
   fixed_n <- (data_list$estDynamics %||% rep(0, data_list$nspp)) > 0
   if (any(fixed_n)) {
-    for (nm in c("Ftarget", "Flimit", "SPRtarget", "SPRlimit", "SBF", "DynamicSBF")) {
+    # Its rec_pars are fixed, so the stock-recruit quantities are the build_params()
+    # placeholder (R0 = exp(9)), not something the model or the user set.
+    mask <- c("Ftarget", "Flimit", "SPRtarget", "SPRlimit", "SBF", "DynamicSBF",
+              "R0", "R_init", "avg_R", "steepness", "SPR0")
+    # R is its input recruits (thousands of fish): first-age N-at-age, which is
+    # NByageFixed times pop_scalar, summed over sexes.
+    for (sp in which(fixed_n)) {
+      quantities$R[sp, ] <- apply(
+        quantities$N_at_age[sp, seq_len(data_list$nsex[sp]), 1, , drop = FALSE], 4, sum)
+      # A year with no NByageFixed row holds zeros, not recruits.
+      yrs_in <- data_list$NByageFixed$Year[data_list$NByageFixed$Species == sp]
+      quantities$R[sp, !yrs_proj %in% yrs_in] <- NA
+    }
+    # In single-species mode the equilibrium SB0 and B0 are built on that placeholder,
+    # and with DynamicHCR = FALSE the depletions divide by them. Under predation MSSB0
+    # replaces SB0; with DynamicHCR = TRUE the depletions are the input numbers
+    # relative to themselves.
+    if (isTRUE(as.integer(data_list$msmMode %||% 0L)[1] == 0L)) {
+      mask <- c(mask, "SB0", "B0")
+      if (!isTRUE(as.logical(data_list$DynamicHCR %||% FALSE)))
+        mask <- c(mask, "ssb_depletion", "biomass_depletion")
+    }
+    for (nm in mask) {
       x <- quantities[[nm]]
       if (is.null(x)) next
       if (is.matrix(x)) x[fixed_n, ] <- NA else x[fixed_n] <- NA
@@ -91,7 +113,7 @@ rename_output <- function(data_list = NULL, quantities = NULL){
 
   dimnames(quantities$fT) <- list(data_list$spnames, yrs_proj) # Temperature function of consumption
 
-  dimnames(quantities$pop_scalar) <- list(data_list$spnames, paste0("Age", 1:max_age))
+  names(quantities$pop_scalar) <- data_list$spnames
 
 
   # - Fleet quantities

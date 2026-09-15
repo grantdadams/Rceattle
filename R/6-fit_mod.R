@@ -503,7 +503,7 @@ fit_mod <-
     # data_list the caller already fitted once, so every warning it raises has
     # been seen, and a retrospective or an MSE would otherwise repeat it once per
     # peel or per iteration.
-    if (isTRUE(quiet_data_check)) suppressWarnings(data_check(data_list))
+    if (isTRUE(quiet_data_check)) suppressMessages(suppressWarnings(data_check(data_list)))
     else data_check(data_list)
 
     # * Pool process linkages into a global table + design matrix ----
@@ -582,6 +582,9 @@ fit_mod <-
     .check_q_linkage_support(data_list$linkage_table, data_list$fleet_control)
     .check_M_linkage_prior(data_list$linkage_table, data_list$M1_use_prior,
                            data_list$M2_use_prior, data_list$spnames)
+    .check_srr_linkage_fixed_species(data_list$linkage_table, data_list$estDynamics,
+                                     data_list$spnames)
+    if (!isTRUE(quiet_data_check)) .warn_srr_identity_link(data_list$linkage_table)
     .check_comp_linkage_support(data_list$linkage_table, data_list)
 
     # Random-effect linkage rows (IID `~ (1 | group)`) are now consumed by the
@@ -596,6 +599,13 @@ fit_mod <-
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
     } else {
       start_par <- inits
+
+      # Before 5.35.0 log_pop_scalar was [nspp, nages]; only its first column was
+      # ever estimated, so an older fit's block collapses to that column.
+      if (is.matrix(start_par$log_pop_scalar)) {
+        start_par$log_pop_scalar <- stats::setNames(start_par$log_pop_scalar[, 1],
+                                                    data_list$spnames)
+      }
 
       # Guard: catch `inits` that would make TMB::MakeADFun() segfault in
       # getParameterOrder() instead of raising an R error, by comparing the
@@ -816,16 +826,13 @@ fit_mod <-
              "See vignette(\"model-options-and-functionality\").",
              call. = FALSE)
       }
-      .kink <- .np$fleet[.np$reason == "IID"]
-      if (length(.kink)) {
-        stop("Fleet ", .flts(.kink), ": with `random_sel = TRUE` and ",
-             "`Time_varying_sel = \"IID\"`, either set `Sel_curve_pen1 = 0` to ",
-             "keep the deviates integrated, or set `random_sel = FALSE` to keep ",
-             "the shape penalty.",
-             "\n  The two cannot be combined: that penalty is one-sided, so the ",
-             "Laplace objective is only piecewise smooth and the optimizer stops ",
-             "at a kink rather than an optimum, reporting a deviation standard ",
-             "deviation that depends on where it stopped. ",
+      .iid <- .np$fleet[.np$reason == "IID"]
+      if (length(.iid)) {
+        stop("Fleet ", .flts(.iid), ": set `random_sel = FALSE` to fit ",
+             "non-parametric selectivity with `Time_varying_sel = \"IID\"`.",
+             "\n  The shape and average-selectivity penalties do not scale with the ",
+             "deviation sd, so an integrated sd would be biased low whatever ",
+             "`Sel_curve_pen1` / `Sel_curve_pen2` are. ",
              "See vignette(\"model-options-and-functionality\").",
              call. = FALSE)
       }
@@ -1026,7 +1033,14 @@ fit_mod <-
                                  label = "fleet_control$CAAL_weights"),
         diet_comp_weights = list(col = data_list$Diet_comp_weights,
                                  dist = data_list$Diet_distribution,
-                                 label = "Diet_comp_weights"))
+                                 label = "Diet_comp_weights"),
+        # The deviation sds are read from their columns on a fresh build only
+        # (build_params() stores their log), and fixed unless random_sel /
+        # random_q estimates them -- the same silent no-op as a comp weight.
+        sel_dev_log_sd     = list(col = data_list$fleet_control$Time_varying_sel_sd,
+                                  trans = log, label = "fleet_control$Time_varying_sel_sd"),
+        index_q_dev_log_sd = list(col = data_list$fleet_control$Time_varying_q_sd,
+                                  trans = log, label = "fleet_control$Time_varying_q_sd"))
       for (.nm in names(.weight_blocks)) {
         .b   <- .weight_blocks[[.nm]]
         .par <- start_par[[.nm]]
@@ -1044,22 +1058,26 @@ fit_mod <-
         if (is.factor(.col) || is.character(.col)) {
           .col <- suppressWarnings(as.numeric(as.character(.col)))
         }
+        # Compare on the parameter's own scale (a deviation sd is stored as its log).
+        if (!is.null(.b$trans)) .col <- suppressWarnings(.b$trans(.col))
         .differs <- !is.na(.col) & !is.na(.par) & .col != as.numeric(.par)
         # A Dirichlet-multinomial weight is exempt. The likelihood estimates it,
         # so a fit's parameter having moved away from its column is the normal
         # state -- and under the debug map run_mse() / retrospective() supply,
         # every weight reads as fixed, so without this the warning would fire
         # once per fleet per assessment year of every simulation.
-        .stuck <- .differs & is.na(.fix) &
-          !as.character(.b$dist) %in% c("1", "DirichletMultinomial")
+        .dm <- if (is.null(.b$dist)) FALSE else
+          as.character(.b$dist) %in% c("1", "DirichletMultinomial")
+        .stuck <- .differs & is.na(.fix) & !.dm
         if (isTRUE(any(.stuck, na.rm = TRUE))) {
           warning("`", .b$label, "` differs from the supplied `inits$", .nm,
                   "` at ", if (identical(.nm, "diet_comp_weights")) "species " else "fleet ",
                   paste(which(.stuck), collapse = ", "),
                   ", and the fit reads `inits`. The column is only read when a ",
                   "model is built from scratch (`inits = NULL`), so this edit ",
-                  "has no effect. Set `inits$", .nm, "` instead, or see ",
-                  "?reweight_comps.", call. = FALSE)
+                  "has no effect. Set `inits$", .nm, "` instead",
+                  if (grepl("weights$", .nm)) ", or see ?reweight_comps." else ".",
+                  call. = FALSE)
         }
       }
       rm(.weight_blocks)

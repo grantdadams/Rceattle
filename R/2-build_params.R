@@ -34,8 +34,8 @@ build_params <- function(data_list) {
   param_list$dummy = 0  # Variable to test derived quantities given input parameters; n = [1]
 
   # * 1.0. Population scalar ----
-  param_list$log_pop_scalar = matrix(0, nrow = data_list$nspp, ncol = max_age,
-                                    dimnames = list(data_list$spnames, paste0("Age", 1:max_age)))
+  # Log multiplier on input numbers-at-age (estDynamics = 2); 0 is a multiplier of 1.
+  param_list$log_pop_scalar = stats::setNames(rep(0, data_list$nspp), data_list$spnames)
 
   # * 1.1. Recruitment parameters ----
   # - Stock recruit parameters
