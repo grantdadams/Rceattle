@@ -46,7 +46,20 @@ rename_output <- function(data_list = NULL, quantities = NULL){
   # Input numbers-at-age (estDynamics > 0): no HCR and F = 0 in projection, so these are NA.
   fixed_n <- (data_list$estDynamics %||% rep(0, data_list$nspp)) > 0
   if (any(fixed_n)) {
-    for (nm in c("Ftarget", "Flimit", "SPRtarget", "SPRlimit", "SBF", "DynamicSBF")) {
+    # Its rec_pars are fixed, so every recruitment quantity is the build_params()
+    # placeholder (R0 = exp(9)), not something the model or the user set.
+    mask <- c("Ftarget", "Flimit", "SPRtarget", "SPRlimit", "SBF", "DynamicSBF",
+              "R", "R0", "R_init", "avg_R", "steepness", "SPR0")
+    # In single-species mode the equilibrium SB0 and B0 are built on that placeholder,
+    # and with DynamicHCR = FALSE the depletions divide by them. Under predation MSSB0
+    # replaces SB0; with DynamicHCR = TRUE the depletions are the input numbers
+    # relative to themselves.
+    if (isTRUE(as.integer(data_list$msmMode %||% 0L)[1] == 0L)) {
+      mask <- c(mask, "SB0", "B0")
+      if (!isTRUE(as.logical(data_list$DynamicHCR %||% FALSE)))
+        mask <- c(mask, "ssb_depletion", "biomass_depletion")
+    }
+    for (nm in mask) {
       x <- quantities[[nm]]
       if (is.null(x)) next
       if (is.matrix(x)) x[fixed_n, ] <- NA else x[fixed_n] <- NA
@@ -91,7 +104,7 @@ rename_output <- function(data_list = NULL, quantities = NULL){
 
   dimnames(quantities$fT) <- list(data_list$spnames, yrs_proj) # Temperature function of consumption
 
-  dimnames(quantities$pop_scalar) <- list(data_list$spnames, paste0("Age", 1:max_age))
+  names(quantities$pop_scalar) <- data_list$spnames
 
 
   # - Fleet quantities

@@ -46,8 +46,9 @@
 #'   forecast, fit to the observed catch with the survey and composition data
 #'   withheld. Their recruitment deviation is the one [sample_rec()] sets with
 #'   `sample_rec = FALSE`, computed from the peel's own fit; a penalty-form peel
-#'   with no penalty years averages over its own years after the first, with a
-#'   warning. Three years therefore matter, and each peel has all three:
+#'   with no penalty years averages over its own years after the first (or over
+#'   its one year, for a peel that keeps a single year), with a warning. Three
+#'   years therefore matter, and each peel has all three:
 #'   \describe{
 #'     \item{\code{endyr}, \code{endyr_peel}}{the peel's terminal year -- what it
 #'       was fit through. Equal to each other.}
@@ -338,6 +339,8 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
       if (!length(hat_yrs)) hat_yrs <- seq(min(2, nyrs_peel), nyrs_peel)
     }
     for(sp in 1:newmod$data_list$nspp){
+      # A species with input numbers-at-age has no rec_dev to set (its reported R is NA).
+      if (isTRUE((newmod$data_list$estDynamics %||% 0)[sp] > 0)) next
 
       # -- where SR curve is estimated directly
       if(newmod$data_list$srr_fun == newmod$data_list$srr_pred_fun){
@@ -473,7 +476,8 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
               " contain no stock-recruit penalty years, so their curve stays at the ",
               "unpeeled fit's estimates (fitted to years the peel withholds) unless a ",
               "prior or a reference-point penalty changes it; their projected recruitment deviation averages over the ",
-              "peel's own years after the first. With getsd = TRUE such a peel is usually dropped for a ",
+              "peel's own years after the first (or over its one year, for a peel that keeps a single year). ",
+              "With getsd = TRUE such a peel is usually dropped for a ",
               "non-positive-definite Hessian.", call. = FALSE)
     }
   }

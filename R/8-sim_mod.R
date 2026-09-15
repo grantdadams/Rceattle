@@ -1137,6 +1137,9 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
 
   # Replace future rec devs ----
   for(sp in 1:object$data_list$nspp){
+    # A species with input numbers-at-age has no recruitment of its own: its
+    # rec_dev is mapped out and its reported R is NA, so there is nothing to set.
+    if (isTRUE((object$data_list$estDynamics %||% 0)[sp] > 0)) next
 
     # -- where SR curve is estimated directly
     if(object$data_list$srr_fun == object$data_list$srr_pred_fun){
@@ -1316,11 +1319,13 @@ compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
 #' @param growth_log_sd_sp Array. Dimensions (sex, 2).
 #'   Log-SD of length: 1st param is SD at minage, 2nd param is SD at maxage.
 #' @param growth_model_sp Integer. 1 = Von Bertalanffy, 2 = Richards.
+#' @param M_plus_sp Numeric. Natural mortality at the oldest age (one value, or one per sex), which weights the ages pooled in the plus group by survival, as the template does.
 #'
 #' @return A 4D array of probabilities with dimensions (sex, age, length, year).
 get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
                                 lengths_sp, minage_sp, maxage_sp,
-                                growth_params_sp, growth_log_sd_sp, growth_model_sp) {
+                                growth_params_sp, growth_log_sd_sp, growth_model_sp,
+                                M_plus_sp) {
 
   # Define names for the dimensions
   dim_names <- list(
@@ -1396,10 +1401,11 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
         }
 
         # --- 2. Plus Group Correction (SS Style) ---
+        # Ages pooled in the plus group, weighted by survival at the oldest-age M.
         if(a == nages_sp) {
           diff <- growth_params_sp[s, y, 3] - length_at_age[s, a, y] # Linf - current size
           ages <- 0:(nages_sp)
-          weight_a <- exp(-0.2 * ages)
+          weight_a <- exp(-M_plus_sp[min(s, length(M_plus_sp))] * ages)
           vals <- length_at_age[s, a, y] + (ages / nages_sp) * diff
           length_at_age[s, a, y] <- sum(vals * weight_a) / sum(weight_a)
         }

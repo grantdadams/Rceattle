@@ -501,3 +501,46 @@ RECRUITMENT_LINKAGE_PARAMS <- c("R0", "alpha", "beta")
   }
   linkages
 }
+
+
+# A recruitment linkage on a species with input numbers-at-age (estDynamics > 0)
+# fits nothing: its recruitment is read from NByageFixed and rec_pars is fixed.
+# pool_linkages() expands a spec with no `species =` to one row per species.
+.check_srr_linkage_fixed_species <- function(linkage_table, estDynamics, spnames) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
+  rec <- linkage_table[linkage_table$process == "recruitment", , drop = FALSE]
+  if (nrow(rec) == 0L) return(invisible())
+  fixed_sp <- which((estDynamics %||% rep(0, length(spnames))) > 0)
+  if (!length(fixed_sp)) return(invisible())
+  sp <- if (is.character(rec$species)) match(rec$species, spnames) else
+    as.integer(as.character(rec$species))
+  if (anyNA(sp)) stop("internal error: a recruitment linkage row names no species.", call. = FALSE)
+  bad <- sp %in% fixed_sp
+  if (any(bad)) {
+    est <- setdiff(seq_along(spnames), fixed_sp)
+    stop(sprintf(paste0(
+      "species %s: a recruitment linkage on a species with input numbers-at-age ",
+      "(estDynamics > 0) fits nothing, because its recruitment is read from ",
+      "NByageFixed. Name the estimated species in the spec: `species = c(%s)` (%s)."),
+      paste(unique(spnames[sp[bad]]), collapse = ", "),
+      paste(est, collapse = ", "), paste(spnames[est], collapse = ", ")), call. = FALSE)
+  }
+  invisible()
+}
+
+
+# An identity-link offset on alpha, beta or R0 can drive the curve to or below zero;
+# the template then floors recruitment at one fish with a penalty (jnll row "Zero
+# n-at-age penalty"), and check_convergence() reports that row.
+.warn_srr_identity_link <- function(linkage_table) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
+  idn <- linkage_table$process == "recruitment" & !is.na(linkage_table$link) &
+    linkage_table$link == "identity" & linkage_table$design_col != "(Intercept)"
+  if (any(idn)) {
+    warning("identity-link recruitment linkage on ", paste(unique(linkage_table$param[idn]),
+            collapse = ", "), ": an offset that makes the curve non-positive is floored ",
+            "at one fish with a penalty (jnll row \"Zero n-at-age penalty\"). Check that ",
+            "row is 0 in the fit, or use the log link.", call. = FALSE)
+  }
+  invisible()
+}

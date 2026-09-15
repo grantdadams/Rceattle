@@ -160,6 +160,10 @@ The checks cover:
 - **`pdHess`** — whether the Hessian is positive definite (`FAIL` if not).
 - **`sdreport_failed`** — `FAIL` when an `sdreport` was requested but the
   Hessian could not be inverted.
+- **`zero_n_penalty`** — `FAIL` when the "Zero n-at-age penalty" likelihood row
+  is non-zero for a species: its numbers-at-age, Ricker intercept or (under an
+  identity-link recruitment linkage) recruitment sat on the 0.001 floor, so the
+  fit is of a floored model rather than the one specified.
 - **`hessian_conditioning`** — how much better the data pin down some parameter
   combinations than others. Inverting the Hessian gives the covariance of the
   estimates; standardising it by the standard errors gives their correlation,

@@ -170,21 +170,21 @@ scores each annual coefficient deviation about an estimated base curve;
 `"RandomWalk"` scores the year-to-year change in the *realized* selectivity,
 which is renormalized to mean 1 within each year.
 
-**Neither is integrated out by default, and `fit_mod()` refuses
-`random_sel = TRUE` on both** — fit them with `random_sel = FALSE`, the
-penalized formulation the AMAK model intends. The walk's density says nothing
-about the level of a year's coefficients, so those directions are improper and
-the deviation standard deviation collapses to zero. The IID density is proper,
-but the shape penalty beside it (`Sel_curve_pen1`) is one-sided, so the Laplace
-objective is only piecewise smooth and the optimizer stops at a kink rather than
-an optimum. Setting `Sel_curve_pen1 = 0` removes that penalty and makes the IID
-deviates integrable against the curvature penalty alone.
-
-One caveat if you do integrate them: the AMAK `avgsel` term is charged on the
-integrated deviates as well, so the prior actually integrated is the IID normal
-*times* that penalty. It does not scale with `Time_varying_sel_sd`, so it biases
-the estimated sd low — measured at about 5% of the precision at sd 0.35, more as
-the sd grows.
+**Neither is integrated out, and `fit_mod()` refuses `random_sel = TRUE` on
+both** — fit them with `random_sel = FALSE`, the penalized formulation the AMAK
+model intends. The walk's density says nothing about the level of a year's
+coefficients, so those directions are improper and the deviation standard
+deviation collapses to zero. The IID density is proper, but the AMAK shape
+penalties (`Sel_curve_pen1`, `Sel_curve_pen2`) and the always-on average-selectivity
+term are charged on each year's realized curve, so the prior actually integrated
+is the IID normal *times* those penalties. None of them scales with
+`Time_varying_sel_sd`, so the estimated sd is biased low whatever the penalty
+weights are — measured at about 5% of the precision at sd 0.35 from the
+average-selectivity term alone, more as the sd grows — and `Sel_curve_pen1` is
+also one-sided, which leaves the Laplace objective only piecewise smooth.
+Charging the shape penalties once on the base curve would make the mode
+integrable; that change moves every penalized fit and is designed in
+`inst/dev/TODO-nonparametric-iid-integrable.md`.
 
 The switch is **soft-deprecated as a whole**, and `data_check()` says so on use.
 The linkage grammar expresses the same IID, random-walk and AR(1) deviations —
@@ -302,7 +302,7 @@ different levels at all is a property of the **form**, not of these two columns:
 |---|---|
 | `Logistic`, `DescendingLogistic`, `LogisticPM` | **none** — the curve tends to 1 for either sex, whatever its parameters |
 | `NonParametric`, `NonParametricPM` | **none** — each sex is re-centred so its own mean selectivity-at-age is exactly 1, every year |
-| `Hake` | **none** — normalizes within sex by its own maximum, and ignores `Sel_norm_scope` |
+| `Hake` | **none** — normalizes within sex by its own maximum; `Sel_norm_scope` is not read (`LogisticPM` likewise: its `Sel_norm_bin` is a penalty range) |
 | `DoubleNormal` | **old-age plateau only** — the right-tail floor is sex-specific, but both sexes peak at exactly 1 |
 | `DoubleLogistic`, `2DAR1`, `3DAR1` | **free** — the height is a free function of that sex's own parameters |
 
@@ -325,8 +325,9 @@ Two things constrain what is actually estimable:
   summing to 1 independently — those carry **no** sex-ratio information, and
   `Sel_norm_bin` then makes no difference however it is set. There is no
   separate sex-ratio likelihood component.
-* **`Selectivity = "Hake"` always normalizes within sex**, regardless of
-  `Sel_norm_bin`, so relative sex selectivity is unavailable with that form.
+* **`Selectivity = "Hake"` and `"LogisticPM"` always normalize within sex**,
+  whatever `Sel_norm_bin` and `Sel_norm_scope` say; `data_check()` says so for a
+  two-sex fleet. Relative sex selectivity is unavailable with those forms.
 
 Related settings elsewhere: the sex ratio at recruitment is **fixed input**, not
 estimated — it comes from the `sex_ratio` sheet at the first modelled age.

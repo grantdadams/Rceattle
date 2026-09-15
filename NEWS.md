@@ -12,6 +12,112 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.35.0
+
+## Results change
+
+* **The plus group's mean length is weighted by the species' own natural
+  mortality.** Under parametric growth (`growth_model > 0`) the ages pooled in
+  the plus group were weighted by survival at a hard-coded M = 0.2 whatever the
+  species' M; they now use the base M1 at the oldest age (fixed or estimated,
+  without year-varying offsets). This is still survival at M, not at total
+  mortality: fishing and predation are excluded, so a heavily fished or preyed
+  plus group is still somewhat too long. With `M1_model > 0` the plus group's
+  length and weight now depend on the estimated M1. Length, weight and spawning biomass of the
+  plus group move for every parametric-growth fit whose M is not 0.2: on the
+  2024 GOA Pacific cod model at its starting values (M = 0.49) the plus-group
+  mean length goes from 99.89 to 98.80 cm, its weight from 12.28 to 11.48 kg,
+  and first-year female spawning biomass down 0.66%; refitted, its objective
+  goes from 6416.12 to 6415.82 and terminal female spawning biomass from
+  48,360 to 48,219 t (-0.29%). Empirical weight-at-age fits, and so the golden
+  references, are unchanged.
+
+## Breaking changes
+
+None of the refused configurations below fitted the model it described, so this
+release stays a minor version.
+
+* **`estDynamics = 3` (`"FixedScaledByAge"`) is retired.** It never estimated
+  an age-specific multiplier on the input numbers-at-age: `build_map()` freed
+  only the first age's scalar under predation and none in single-species mode,
+  so every such fit was the `estDynamics = 2` model. Measured on the
+  fixed-numbers fixture, codes 2 and 3 both gave objective 222899009.1243875
+  with one free scalar. `switch_check()` now refuses the code and names `2`;
+  rebuild a stored fit with `estDynamics = 2`, unchanged. `log_pop_scalar` and
+  the reported `pop_scalar` are one value per species: a script reading
+  `quantities$pop_scalar[sp, 1]` now reads `pop_scalar[sp]` (the GOA CEATTLE
+  figure scripts are updated), and `fit_mod()` collapses an older fit's matrix
+  in `inits` to its first column. The multiplier is estimated only under
+  predation (`msmMode > 0`); in single-species mode nothing informs it, so `2`
+  fits as `1`, which the schema, `?BS2017SS` and `data_check()` now say.
+* **A recruitment linkage on a species with input numbers-at-age
+  (`estDynamics > 0`) is refused.** Its recruitment is read from `NByageFixed`
+  and `rec_pars` is fixed, so the linkage fitted nothing: on the fixed-numbers
+  fixture an intercept prior added 486.98 nats to the objective (and so to
+  AIC) with no free parameter, and a covariate slope was a free parameter with
+  a zero gradient, which leaves the Hessian singular. A spec with no
+  `species =` expands to one row per species, so it is refused too; the message
+  names the estimated species to put in `species = c(...)`.
+* **`random_sel = TRUE` is refused for non-parametric selectivity with
+  `Time_varying_sel = "IID"` at every `Sel_curve_pen` setting.** Until now
+  `Sel_curve_pen1 = 0` lifted the refusal, but the average-selectivity penalty
+  is always charged on each year's realized curve and does not scale with the
+  deviation sd, so the sd that fit reported was the sd of a tilted density
+  (about 5% of the precision low at sd 0.35, more as the sd grows). Fit with
+  `random_sel = FALSE`, the penalized AMAK formulation.
+
+## Bug fixes
+
+* **A non-positive stock-recruit curve no longer gives a NaN fit.** An
+  identity-link offset on alpha, beta or R0 can drive the curve to or below
+  zero; on the single-species fixture an alpha offset of -100 per unit covariate
+  gave `R_hat` of -89 and a NaN objective, stock-recruit penalty and dynamic B0.
+  When the model carries an identity-link recruitment linkage, recruitment,
+  the curve and `R_hat` (first year included) are floored at one fish (1e-3
+  thousand) with the excursion charged to the "Zero n-at-age penalty" row, and
+  `fit_mod()` warns on the offset. Without such a linkage the template is
+  exactly as before, so no existing fit moves.
+* **The "Zero n-at-age penalty" row was a running total across cells and
+  species.** The accumulator behind the numbers-at-age floor (and the Ricker
+  intercept floor) was reset once per iteration, so each cell added every
+  earlier excursion in every species: with species 1's log R0 at -20 on
+  BS2017SS, species 2's row read 1.4e-3 from a parameter it does not share, and
+  species 1's own value was inflated by its cell count. Each floor now adds its
+  own excursion only. Zero for every fit that never touches a floor (the golden
+  fits are unchanged); a fit that does gets a smaller, per-species penalty.
+* **`check_convergence()` reports a non-zero "Zero n-at-age penalty" row**,
+  naming the species and the excursion below the floor in thousands of fish
+  (WARN under a thousand fish, FAIL above): a fit whose numbers-at-age or
+  recruitment sat on the 0.001 floor is not the model as specified, and
+  nothing else showed it.
+* **A factor switch fitted as its level index.** `.map_switch()` passed a
+  factor through (`read.csv(stringsAsFactors = TRUE)`), and every downstream
+  comparison against an integer code was FALSE rather than an error, so
+  `srr_est_mode = factor("LognormalPrior")` fitted as code 1 with the prior
+  dropped. Factors and numeric-looking strings now resolve to the code they
+  name, and a numeric-looking string outside the map (`"99"`) is an error, as
+  an unknown name is.
+* **Editing `Time_varying_sel_sd` or `Time_varying_q_sd` and refitting from
+  `inits` was a silent no-op.** The columns are read on a fresh build only;
+  `fit_mod()` now warns, as it does for `Comp_weights`, unless `random_sel` /
+  `random_q` estimates the sd.
+* **The recruitment quantities of a species with input numbers-at-age are
+  `NA`.** Its `rec_pars` are fixed, so `R`, `R0`, `R_init`, `avg_R`,
+  `steepness` and `SPR0` held the `build_params()` placeholder (`R0 = exp(9)`,
+  a flat 8103 that neither the model nor the user set); in single-species mode
+  the equilibrium `SB0` and `B0` were built on it, and with
+  `DynamicHCR = FALSE` the depletions divided by it. All are `NA` now, and
+  `sample_rec()` and `retrospective()` skip such a species (its `rec_dev` is
+  mapped out). Under `DynamicHCR = TRUE` the depletions are the input numbers
+  relative to themselves and stay reported; under predation `MSSB0` replaces
+  `SB0`.
+* **`data_check()` says when `Sel_norm_scope` is not read.** On a two-sex
+  `Hake` or `LogisticPM` fleet the column changed nothing (both normalize each
+  sex to its own maximum; measured identical to every digit on GOAatf fleet 3),
+  without saying so. The schema and the vignette now say it too.
+* `retrospective()`'s note on a penalty-form peel with no penalty years now
+  covers a peel that keeps a single year.
+
 # Rceattle 5.34.0
 
 ## Results change

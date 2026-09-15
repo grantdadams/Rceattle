@@ -66,8 +66,9 @@ A peel still estimates the years it dropped. They are its retrospective
 forecast, fit to the observed catch with the survey and composition data
 withheld. Their recruitment deviation is the one \code{\link[=sample_rec]{sample_rec()}} sets with
 \code{sample_rec = FALSE}, computed from the peel's own fit; a penalty-form peel
-with no penalty years averages over its own years after the first, with a
-warning. Three years therefore matter, and each peel has all three:
+with no penalty years averages over its own years after the first (or over
+its one year, for a peel that keeps a single year), with a warning. Three
+years therefore matter, and each peel has all three:
 \describe{
 \item{\code{endyr}, \code{endyr_peel}}{the peel's terminal year -- what it
 was fit through. Equal to each other.}

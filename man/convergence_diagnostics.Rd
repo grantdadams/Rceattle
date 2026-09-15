@@ -28,6 +28,6 @@ object. Each check yields a record with a common schema
 \code{fit$convergence}; call \code{convergence_diagnostics()} directly to
 re-run it on any fit. Checks cover the optimizer gradient, Hessian
 positive-definiteness and conditioning, parameters on bounds, a deviation
-variance estimated to zero, phasing, and
-parameter estimability.
+variance estimated to zero, phasing, parameter estimability, a numbers-at-age
+or recruitment floor that was reached, and the stock-recruit curve.
 }
