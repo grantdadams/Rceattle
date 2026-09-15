@@ -68,17 +68,21 @@ release stays a minor version.
 
 ## Bug fixes
 
-* **A non-positive stock-recruit curve no longer gives a NaN fit.** An
+* **A non-positive stock-recruit curve no longer gives a NaN objective.** An
   identity-link offset on alpha, beta or R0 can drive the curve to or below
   zero; on the single-species fixture an alpha offset of -100 per unit covariate
-  gave `R_hat` of -89 and a NaN objective, stock-recruit penalty and dynamic B0.
-  When the model carries an identity-link recruitment linkage, hindcast
-  recruitment, the penalty curve and `R_hat` (first year included) are floored
-  at one fish (1e-3 thousand) with the excursion charged to the "Zero n-at-age
-  penalty" row, and `fit_mod()` warns on the offset. Projected recruitment and
-  the recruitment behind SB0 and dynamic B0 are not yet floored, so check those
-  series are positive under such a linkage. Without one the template is
-  exactly as before, so no existing fit moves.
+  gave `R_hat` of -89 and a NaN objective, stock-recruit penalty and dynamic B0
+  under Beverton-Holt, and a NaN `log(alpha * SPR0)` in `R_hat` and steepness
+  under Ricker. When the model carries an identity-link recruitment linkage,
+  hindcast recruitment, R0, R_init, the penalty curve, `R_hat` (first year
+  included) and the Ricker log arguments are kept positive by `posfun()` (a
+  0.001 barrier: a badly negative curve returns a value well below 0.001, not
+  one fish) with the excursion charged to the "Zero n-at-age penalty" row, and
+  `fit_mod()` warns on the offset. Projected recruitment and the recruitment
+  behind SB0 and dynamic B0 are not yet floored and can still be negative under
+  such a linkage (`inst/dev/TODO-srr-multispecies.md` item 14); check those
+  series. Without such a linkage the template is exactly as before, so no
+  existing fit moves.
 * **The "Zero n-at-age penalty" row was a running total across cells and
   species.** The accumulator behind the numbers-at-age floor (and the Ricker
   intercept floor) was reset once per iteration, so each cell added every
@@ -87,11 +91,12 @@ release stays a minor version.
   species 1's own value was inflated by its cell count. Each floor now adds its
   own excursion only. Zero for every fit that never touches a floor (the golden
   fits are unchanged); a fit that does gets a smaller, per-species penalty.
-* **`check_convergence()` reports a non-zero "Zero n-at-age penalty" row**,
-  naming the species and the root-sum-square excursion below the floor
-  (WARN under 1, FAIL above; thousands of fish): a fit whose numbers-at-age or
-  recruitment sat on the 0.001 floor is not the model as specified, and
-  nothing else showed it.
+* **`check_convergence()` reports a non-zero or non-finite "Zero n-at-age
+  penalty" row**, naming the species and the root-sum-square excursion below
+  the floor (WARN under 1, FAIL above or when the row is not finite; thousands
+  of fish for numbers and recruitment, unitless for the Ricker intercept): a fit
+  whose numbers-at-age, Ricker intercept or recruitment sat on the 0.001 floor
+  is not the model as specified, and nothing else showed it.
 * **A factor switch fitted as its level index.** `.map_switch()` passed a
   factor through (`read.csv(stringsAsFactors = TRUE)`), and every downstream
   comparison against an integer code was FALSE rather than an error, so
@@ -110,8 +115,9 @@ release stays a minor version.
   model nor the user set); in single-species mode the equilibrium `SB0` and
   `B0` were built on it, and with `DynamicHCR = FALSE` the depletions divided
   by it. `R` is now the first-age input numbers (`NByageFixed` times
-  `pop_scalar`, sexes summed), with no confidence band; the rest are `NA`, and
-  `plot_stock_recruit()` draws no curve for it. `sample_rec()` and
+  `pop_scalar`, sexes summed) in the years `NByageFixed` covers and `NA` in
+  any other (a year with no row holds zeros), with no confidence band; the rest
+  are `NA`, and `plot_stock_recruit()` draws its points but no curve. `sample_rec()` and
   `retrospective()` skip such a species (its `rec_dev` is mapped out). Under `DynamicHCR = TRUE` the depletions are the input numbers
   relative to themselves and stay reported; under predation `MSSB0` replaces
   `SB0`.

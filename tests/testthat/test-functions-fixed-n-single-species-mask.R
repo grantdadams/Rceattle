@@ -22,6 +22,15 @@ testthat::test_that("placeholder SB0, B0 and depletion are NA in single-species 
   nb <- d$NByageFixed[order(d$NByageFixed$Year), ]
   testthat::expect_equal(unname(q$R[1, ]), nb[["Age 1"]])
   testthat::expect_true(all(is.finite(q$R[2, ])))
+  # The fixture's input recruits equal the exp(9) placeholder they replace, so
+  # scale them: R must follow the input, and a year with no row is NA, not 0.
+  d3 <- d
+  d3$NByageFixed[["Age 1"]] <- 3 * d3$NByageFixed[["Age 1"]]
+  d3$NByageFixed <- d3$NByageFixed[d3$NByageFixed$Year <= d3$endyr, ]
+  q3 <- fixed_natage_build(d3, msmMode = 0)$quantities
+  nh <- d$endyr - d$styr + 1
+  testthat::expect_equal(unname(q3$R[1, seq_len(nh)]), 3 * nb[["Age 1"]][seq_len(nh)])
+  testthat::expect_true(all(is.na(q3$R[1, -seq_len(nh)])))
 
   # Its R carries no standard error in the table either: give the fit a fake sdreport.
   n <- length(q$R)

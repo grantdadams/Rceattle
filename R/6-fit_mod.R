@@ -831,7 +831,8 @@ fit_mod <-
         stop("Fleet ", .flts(.iid), ": set `random_sel = FALSE` to fit ",
              "non-parametric selectivity with `Time_varying_sel = \"IID\"`.",
              "\n  The shape and average-selectivity penalties do not scale with the ",
-             "deviation sd, so an integrated sd would be biased low. ",
+             "deviation sd, so an integrated sd would be biased low whatever ",
+             "`Sel_curve_pen1` / `Sel_curve_pen2` are. ",
              "See vignette(\"model-options-and-functionality\").",
              call. = FALSE)
       }

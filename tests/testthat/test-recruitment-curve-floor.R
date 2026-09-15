@@ -35,6 +35,26 @@ testthat::test_that("a non-positive curve is floored with a penalty, and the off
   testthat::expect_true(all(is.finite(m$obj$gr())))
   testthat::expect_gt(m$quantities$jnll_comp["Zero n-at-age penalty", 1], 0)
   testthat::expect_true(all(is.finite(m$quantities$DynamicSB0)))
+  # Known gap (inst/dev/TODO-srr-multispecies.md item 14): the recruitment behind
+  # dynamic B0 is not floored, so it goes negative here. This records the gap and
+  # flips when it is closed.
+  testthat::expect_true(any(m$quantities$DynamicSB0 < 0))
+})
+
+testthat::test_that("the Ricker log arguments are kept positive too", {
+  d <- curve_floor_fixture()
+  rec <- build_srr(srr_fun = "mean", srr_pred_fun = "Ricker",
+                   linkages = list(alpha = linkage_spec(~ 1 + EnvData, link = "identity",
+                                                        init = list(EnvData = -100),
+                                                        data = d$env_data)))
+  m <- suppressWarnings(suppressMessages(curve_floor_build(d, rec)))
+  testthat::expect_true(is.finite(m$obj$fn()))
+  testthat::expect_true(all(is.finite(m$obj$gr())))
+  testthat::expect_true(all(is.finite(m$quantities$R_hat)))
+  testthat::expect_true(all(is.finite(m$quantities$steepness)))
+  # A non-finite penalty row is a FAIL, not silence.
+  fake <- m; fake$quantities$jnll_comp["Zero n-at-age penalty", 1] <- NaN
+  testthat::expect_equal(Rceattle:::.check_zero_n_penalty(fake)$zero_n_penalty$severity, "FAIL")
 })
 
 testthat::test_that("a curve fitted in the hindcast is floored too, and check_convergence() reports it", {

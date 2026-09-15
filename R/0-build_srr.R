@@ -530,17 +530,17 @@ RECRUITMENT_LINKAGE_PARAMS <- c("R0", "alpha", "beta")
 
 
 # An identity-link offset on alpha, beta or R0 can drive the curve to or below zero;
-# the template then floors recruitment at one fish with a penalty (jnll row "Zero
-# n-at-age penalty"), and check_convergence() reports that row.
+# the template then keeps recruitment positive (posfun, 0.001 barrier) with a penalty
+# (jnll row "Zero n-at-age penalty"), and check_convergence() reports that row.
 .warn_srr_identity_link <- function(linkage_table) {
   if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
   idn <- linkage_table$process == "recruitment" & !is.na(linkage_table$link) &
     linkage_table$link == "identity" & linkage_table$design_col != "(Intercept)"
   if (any(idn)) {
     warning("identity-link recruitment linkage on ", paste(unique(linkage_table$param[idn]),
-            collapse = ", "), ": an offset that makes the curve non-positive is floored ",
-            "at one fish with a penalty (jnll row \"Zero n-at-age penalty\"). Check that ",
-            "row is 0 in the fit, or use the log link.", call. = FALSE)
+            collapse = ", "), ": an offset that makes the curve non-positive is kept ",
+            "positive by posfun() with a penalty (jnll row \"Zero n-at-age penalty\"). ",
+            "Check that row is 0 in the fit, or use the log link.", call. = FALSE)
   }
   invisible()
 }

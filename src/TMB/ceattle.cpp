@@ -1688,7 +1688,9 @@ Type objective_function<Type>::operator() () {
           // Steepness for every year -- alpha may be time-varying through a
           // recruitment linkage.
           for(yr = 0; yr < nyrs; yr++){
-            steepness(sp, yr) = 0.2 * exp(0.8*log(alpha(sp, yr) * SPR0(sp)));
+            { Type aS = alpha(sp, yr) * SPR0(sp);   // kept positive under an identity-link alpha offset
+              if (rec_floor_on) { Type pen_d = 0; aS = posfun(aS, Type(1e-3), pen_d); }
+              steepness(sp, yr) = 0.2 * exp(0.8*log(aS)); }
           }
 
           // - R at F0
@@ -1713,7 +1715,9 @@ Type objective_function<Type>::operator() () {
           // Steepness for every year -- alpha may be time-varying through a
           // recruitment linkage.
           for(yr = 0; yr < nyrs; yr++){
-            steepness(sp, yr) = 0.2 * exp(0.8*log(alpha(sp, yr) * SPR0(sp)));
+            { Type aS = alpha(sp, yr) * SPR0(sp);   // kept positive under an identity-link alpha offset
+              if (rec_floor_on) { Type pen_d = 0; aS = posfun(aS, Type(1e-3), pen_d); }
+              steepness(sp, yr) = 0.2 * exp(0.8*log(aS)); }
           }
 
           // - R at F0
@@ -1753,7 +1757,9 @@ Type objective_function<Type>::operator() () {
             steepness(sp, yr) = alpha(sp, yr) * SPR0(sp)/(4.0 + alpha(sp, yr) * SPR0(sp));
           }
           if((srr_pred_fun == 4) | (srr_pred_fun == 5)){
-            steepness(sp, yr) = 0.2 * exp(0.8*log(alpha(sp, yr) * SPR0(sp)));
+            { Type aS = alpha(sp, yr) * SPR0(sp);   // kept positive under an identity-link alpha offset
+              if (rec_floor_on) { Type pen_d = 0; aS = posfun(aS, Type(1e-3), pen_d); }
+              steepness(sp, yr) = 0.2 * exp(0.8*log(aS)); }
           }
         }
       }
@@ -1919,8 +1925,8 @@ Type objective_function<Type>::operator() () {
         Type rec_mean = (spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
 
         R(sp, yr) = calculate_recruitment(srr_use, rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
-        // Under an identity-link recruitment offset the curve can go non-positive:
-        // floor R at one fish (1e-3 thousand), charging the excursion to the zero-N row.
+        // Under an identity-link recruitment offset the curve can go non-positive: keep R
+        // positive (posfun, 0.001 barrier), charging the excursion to the zero-N row.
         if (rec_floor_on) { Type pen_R = 0; R(sp, yr) = posfun(R(sp, yr), Type(1e-3), pen_R); zero_N_pen(sp) += pen_R; }
 
         N_at_age(sp, 0, 0, yr) = R(sp, yr) * sex_ratio(sp, 0);
@@ -2374,11 +2380,15 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 4: // Ricker
-          R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
+          { Type aS = alpha(sp, first_yr) * SPRFinit(sp);   // kept positive so the log is finite; R_hat itself is floored below
+            if (rec_floor_on) { Type pen_d = 0; aS = posfun(aS, Type(1e-3), pen_d); }
+            R_hat(sp, first_yr) = log(aS) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0); }
           break;
 
         case 5: // Ricker with environmental impacts on alpha
-          R_hat(sp, first_yr) = log(alpha(sp, first_yr) * SPRFinit(sp)) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0);
+          { Type aS = alpha(sp, first_yr) * SPRFinit(sp);   // kept positive so the log is finite; R_hat itself is floored below
+            if (rec_floor_on) { Type pen_d = 0; aS = posfun(aS, Type(1e-3), pen_d); }
+            R_hat(sp, first_yr) = log(aS) / (Beta(sp, first_yr) * SPRFinit(sp)/1000000.0); }
           break;
         default:
           error("Invalid 'srr_pred_fun'");

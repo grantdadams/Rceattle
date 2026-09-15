@@ -55,6 +55,9 @@ rename_output <- function(data_list = NULL, quantities = NULL){
     for (sp in which(fixed_n)) {
       quantities$R[sp, ] <- apply(
         quantities$N_at_age[sp, seq_len(data_list$nsex[sp]), 1, , drop = FALSE], 4, sum)
+      # A year with no NByageFixed row holds zeros, not recruits.
+      yrs_in <- data_list$NByageFixed$Year[data_list$NByageFixed$Species == sp]
+      quantities$R[sp, !yrs_proj %in% yrs_in] <- NA
     }
     # In single-species mode the equilibrium SB0 and B0 are built on that placeholder,
     # and with DynamicHCR = FALSE the depletions divide by them. Under predation MSSB0

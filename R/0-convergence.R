@@ -481,15 +481,16 @@
   # is the root-sum-square excursion (thousands of fish for N and R). Under 1e-3
   # is numerical.
   excursion <- sqrt(pmax(pen, 0) / 0.01)
-  hit <- which(excursion > 1e-3)
+  bad <- !is.finite(pen)
+  hit <- which(bad | excursion > 1e-3)
   if (!length(hit)) return(list())
   sp <- (object$data_list$spnames %||% seq_along(pen))[hit]
-  severity <- if (max(excursion) > 1) "FAIL" else "WARN"
+  severity <- if (any(bad) || max(excursion[is.finite(excursion)], 0) > 1) "FAIL" else "WARN"
   list(zero_n_penalty = .conv_record(
     "zero_n_penalty", "fit", severity,
-    sprintf("Numbers-at-age or recruitment sat on the 0.001 floor in species %s (root-sum-square excursion %s); the fit is of a floored model, not the one specified.",
+    sprintf("Numbers-at-age, the Ricker intercept or recruitment sat on the 0.001 floor in species %s (root-sum-square excursion %s); the fit is of a floored model, not the one specified.",
             paste(sp, collapse = ", "),
-            paste(signif(excursion[hit], 3), collapse = ", ")),
+            paste(ifelse(bad[hit], "not finite", signif(excursion[hit], 3)), collapse = ", ")),
     list(penalty = pen, excursion = excursion)))
 }
 
