@@ -2,7 +2,7 @@
 #'
 #' @description
 #' CEATTLE's TMB parameter vector uses transformed, abbreviated names
-#' (`log_sel_slp_dev`, `M1_beta`, `index_q_rho`, ...). This table is the single
+#' (`log_sel_slp_dev`, `M1_beta`, `M1_rho`, ...). This table is the single
 #' place mapping them to the quantity a user actually chose to estimate, so
 #' error messages, diagnostics and output summaries share one vocabulary.
 #'
@@ -95,8 +95,6 @@
       "Survey/index catchability.", "[n_flt]"),
     r("index_q_beta", "q covariate effect", "catchability",
       "LEGACY environmental regression coefficients on q; superseded by beta_linkage.", "[n_flt, n_env]"),
-    r("index_q_rho", "rho_q", "catchability",
-      "AR1 correlation of the annual catchability deviations.", "[n_flt]"),
     r("index_q_dev", "q deviations", "catchability",
       "Annual deviations on catchability when q is time-varying.", "[n_flt, nyrs_hind]"),
     r("index_q_log_sd", "sigma_q_prior", "catchability",

@@ -12,6 +12,23 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.37.0
+
+## Breaking changes
+
+* **The dead QAR1 catchability path is removed.** `Catchability = "AR1"` has
+  been refused since 5.12.0 and the live form is a q linkage
+  (`ar1(1 | Year)` with `observe`), but two template blocks keyed on the
+  retired code stayed: one that overwrote `index_q` (discarding the linkage
+  offsets) and its AR1 density, plus the `index_q_rho` parameter only they
+  read. Both blocks and the parameter are gone; `index_q_rho` drops out of
+  `parameter_dictionary()`, `set_phases()` and the map. An older fit's `inits`
+  and stored `map` carrying it are accepted (the block is dropped as retired),
+  and a stored `map` sizing `log_pop_scalar` by age (before 5.35.0) is
+  collapsed as `inits` already were, so `retrospective()`, `profile()` and
+  `run_mse()` on a saved fit still run. No reachable fit changes; the golden
+  fits are unchanged.
+
 # Rceattle 5.36.0
 
 ## Results change

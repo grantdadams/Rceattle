@@ -279,10 +279,6 @@ build_params <- function(data_list) {
   param_list$index_q_beta = matrix(0, nrow = nrow(data_list$fleet_control), ncol = ncol(data_list$env_data) - 1,
                                    dimnames = list(data_list$fleet_control$Fleet_name, colnames(data_list$env_data)[-1]))
 
-  # - Rho for environment-q linkage (sensu GOA Pollock)
-  param_list$index_q_rho = rep(0, nrow(data_list$fleet_control))
-  names(param_list$index_q_rho) <- data_list$fleet_control$Fleet_name
-
   # param_list$index_q_pow = rep(0, nrow(data_list$fleet_control))
 
   # - Annual index catchability deviations

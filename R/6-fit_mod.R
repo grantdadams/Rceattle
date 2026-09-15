@@ -1204,6 +1204,19 @@ fit_mod <-
       }
     }
 
+    # A stored map from an older fit can name a retired block (index_q_rho,
+    # 5.37.0) or size log_pop_scalar by age (before 5.35.0). Drop and collapse
+    # them as the inits guard does, so a retrospective, profile or MSE on a
+    # saved fit still runs.
+    for (slot in c("mapList", "mapFactor")) {
+      m <- map[[slot]]
+      if (!is.null(m$log_pop_scalar) &&
+          length(m$log_pop_scalar) > length(start_par$log_pop_scalar)) {
+        m$log_pop_scalar <- m$log_pop_scalar[seq_along(start_par$log_pop_scalar)]
+      }
+      map[[slot]] <- m[names(m) %in% names(start_par)]
+    }
+
     # Dimension check
     start_par <- start_par[names(map$mapFactor), drop = FALSE]
     dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))

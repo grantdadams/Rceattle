@@ -555,7 +555,7 @@
 #' already trips `parameters_on_bounds` because `build_bounds()` bounds those,
 #' and it governs no time-varying process. `growth_log_sd` is excluded because it
 #' is a length-at-age sd in CENTIMETRES, where 1e-3 means nothing. Correlations
-#' and penalty weights (`sel_curve_pen`, `index_q_rho`, `M1_rho`,
+#' and penalty weights (`sel_curve_pen`, `M1_rho`,
 #' `trans_rho_linkage`) are not sds at all, and the catchability PRIOR sd
 #' (`index_q_log_sd`) is a deliberate choice.
 #'
