@@ -14,18 +14,18 @@ testthat::test_that("the OSA flag is per panel and does not grow with the panel'
   p <- Rceattle:::.osa_bubble_plot(osa)
   shape <- p$data$shape
   testthat::expect_equal(shape[p$data$source == "small"][1], "outlier")   # 3.5 > 3.14
-  testthat::expect_equal(shape[p$data$source == "large"][1], "normal")    # 3.5 < 4.32
-  # Expected flags under the null are 0.05 per panel at any n: over 400
-  # simulated N(0, 1) panels of 100 and of 5,000, the mean count is about 0.05
-  # for both (the fixed 3 would give 0.27 and 13.5).
-  set.seed(1)
-  flags <- function(n) replicate(400, {
-    f <- data.frame(source = "p", year = seq_len(n), age_length_bin = 1L,
-                    residual = stats::rnorm(n))
-    sum(suppressWarnings(Rceattle:::.osa_bubble_plot(f))$data$shape == "outlier")
-  })
-  testthat::expect_lt(mean(flags(100)), 0.12)
-  testthat::expect_lt(mean(flags(5000)), 0.12)
+  testthat::expect_equal(shape[p$data$source == "large"][1], "normal")    # 3.5 < 4.31
+  # The cut is two-sided: 3.0 at n = 30 sits below 3.144 (a one-sided cut, 2.935, flags it).
+  p30 <- Rceattle:::.osa_bubble_plot(bubble_frame(30, "small", 3.0))
+  testthat::expect_equal(p30$data$shape[1], "normal")
+  # Exactly at the Bonferroni cut for n = 100 and 5,000: just above flags, just below does not.
+  for (n in c(100, 5000)) {
+    cut <- stats::qnorm(1 - 0.05 / (2 * n))
+    above <- Rceattle:::.osa_bubble_plot(bubble_frame(n, "p", cut + 1e-6))
+    below <- Rceattle:::.osa_bubble_plot(bubble_frame(n, "p", cut - 1e-6))
+    testthat::expect_equal(above$data$shape[1], "outlier", info = n)
+    testthat::expect_equal(below$data$shape[1], "normal", info = n)
+  }
 })
 
 testthat::test_that("the Pearson panel keeps the fixed 3, and NA residuals do not count", {

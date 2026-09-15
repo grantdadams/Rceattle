@@ -23,4 +23,3 @@ whether behaviour changes.
 | `R/0-osa_data.R:79-85` | five-line comment plus a FIXME for a one-line fact (`comp_offset` has three fill sites) | one line (PR 2) | doc |
 | `CONTRIBUTOR-EXPERIENCE.md` item F | proposes work the code already does (`revert_switches()`) | delete (PR 6) | doc |
 | `R/10-run_mse.R:900` | every deviation array but `log_M1_dev` is carried into the operating-model projection | carry the terminal year, as `index_q_dev` is | yes, `M1_re` operating models only |
-| `materialize_linkage()` | the filter warnings (5.36.0) fire on every build, so a retrospective, jitter or MSE repeats them once per refit | hoist the check into the `build_*()` validators, or message once per fit | internal |

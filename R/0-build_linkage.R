@@ -1076,8 +1076,9 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
       }
       level_grid <- level_grid[keep, , drop = FALSE]
     } else {
+      eg <- c(species = "~ species", sex = "~ species + sex", fleet = "~ fleet")[[term]]
       warning("`", term, " =` on ", what, " has no effect: `by` does not include `",
-              term, "`.", call. = FALSE)
+              term, "` (e.g. `by = ", eg, "`).", call. = FALSE)
     }
   }
   if (nrow(level_grid) == 0L) {

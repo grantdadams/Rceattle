@@ -305,8 +305,8 @@ print.Rceattle_run_config <- function(x, ...) {
     # estimation controls
     estimateMode = .from_switch_table("estimateMode"),
     random_rec = d("Estimate recruitment deviations as random effects"),
-    random_q   = d("Integrate the Time_varying_q deviations as random effects and estimate their sd (linkage random effects are integrated regardless)"),
-    random_sel = d("Integrate the Time_varying_sel deviations as random effects and estimate their sd, one per Selectivity_index group (linkage random effects are integrated regardless)"),
+    random_q   = d("Integrate the Time_varying_q deviations and estimate their sd (linkages integrate either way)"),
+    random_sel = d("Integrate the Time_varying_sel deviations and estimate their sd (linkages integrate either way)"),
     suit_styr  = d("First year of the diet/suitability averaging window"),
     suit_endyr = d("Last year of the diet/suitability averaging window"),
     # fit_control knobs (the commonly-tuned ones)

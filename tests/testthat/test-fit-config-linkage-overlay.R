@@ -46,7 +46,7 @@ testthat::test_that("a field the config set wins, defaults included; an unset on
     m2 <- suppressMessages(fit_mod(data_list = d, inits = NULL, estimateMode = 3, msmMode = 0,
                                    random_rec = FALSE, config = cfg,
                                    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))),
-    "`initMode` in the data's model_config is different than in `config`")
+    "`initMode` differs between the data's model_config and `config`")
   testthat::expect_equal(m2$run_config$model_config$initMode, "NonEquilibrium")
   # A config saved from a fit sets every field, so it reproduces that fit on
   # a data object carrying a different structure.
@@ -56,6 +56,18 @@ testthat::test_that("a field the config set wins, defaults included; an unset on
   suppressMessages(save_config(f0, tf))
   m3 <- suppressWarnings(build(d, config = load_config(tf)))
   testthat::expect_equal(m3$run_config$model_config$initMode, "NonEquilibrium")
+})
+
+testthat::test_that("a config saved from a fit and reloaded onto the same data does not warn", {
+  # The reloaded linkage is the same spec with a new formula environment.
+  d <- config_fixture()
+  tf <- tempfile(fileext = ".yaml")
+  suppressMessages(save_config(build(d), tf))
+  testthat::expect_no_warning(
+    suppressMessages(fit_mod(data_list = d, inits = NULL, estimateMode = 3, msmMode = 0,
+                             random_rec = FALSE, config = load_config(tf),
+                             fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))),
+    message = "differs between")
 })
 
 testthat::test_that("a field both set differently is taken from the config with a warning", {
@@ -69,7 +81,7 @@ testthat::test_that("a field both set differently is taken from the config with 
     m <- suppressMessages(fit_mod(data_list = d, inits = NULL, estimateMode = 3, msmMode = 0,
                                   random_rec = FALSE, config = cfg,
                                   fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))),
-    "`qFun` in the data's model_config is different than in `config`")
+    "`qFun` differs between the data's model_config and `config`")
   testthat::expect_true(all(is.na(m$data_list$linkage_table$re_index)))
   testthat::expect_equal(sum(names(m$obj$env$par) == "beta_linkage_re"), 0L)
 })

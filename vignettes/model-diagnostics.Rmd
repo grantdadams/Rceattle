@@ -317,14 +317,10 @@ plot_comp(model_1, residual_type = "osa")              # Q-Q + signed bubbles
 residuals(model_1, type = "osa", source = "comp")
 ```
 
-In the bubble panels a triangle marks an outlier. On the OSA panel the
-threshold is `qnorm(1 - 0.05 / (2 n))` for the `n` residuals in the panel:
-under the model OSA residuals are i.i.d. N(0, 1), so the expected number of
-triangles is 0.05 per panel whatever its size (the family is the panel, so a
-figure of eight fleets expects 0.4), and a long length panel no longer looks
-worse than a short age panel by construction. The Pearson panel keeps a
-fixed `|resid| > 3`, since composition Pearson residuals are sum-constrained and
-overdispersed rather than N(0, 1).
+A triangle marks an outlier. On the OSA panel the cut is `qnorm(1 - 0.05 / (2 n))`
+for the panel's `n` residuals, so under the model a panel shows 0.05 triangles on
+average whatever its size. The Pearson panel keeps `|resid| > 3`: those residuals
+are sum-constrained and overdispersed, not N(0, 1).
 
 ### Fleets with tail accumulation
 

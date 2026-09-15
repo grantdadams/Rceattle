@@ -22,8 +22,8 @@
 #'   (4) = optimize with all parameters mapped out, so the objective is a
 #'   placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_q logical. If TRUE, integrates the `Time_varying_q` deviations as random effects and estimates their standard deviation, one per `Catchability_index` group, instead of fixing it at `Time_varying_q_sd`. The default is FALSE. A linkage's random effects are integrated whatever this is.
-#' @param random_sel logical. If TRUE, integrates the `Time_varying_sel` deviations as random effects and estimates their standard deviation, one per `Selectivity_index` group, instead of fixing it at `Time_varying_sel_sd`. The default is FALSE. A linkage's random effects are integrated whatever this is.
+#' @param random_q logical (default FALSE); if TRUE the `Time_varying_q` deviations are integrated as random effects with one estimated sd per `Catchability_index` group, not fixed at `Time_varying_q_sd` (linkage random effects are integrated either way).
+#' @param random_sel logical (default FALSE); if TRUE the `Time_varying_sel` deviations are integrated as random effects with one estimated sd per `Selectivity_index` group, not fixed at `Time_varying_sel_sd` (linkage random effects are integrated either way).
 #' @param HCR HCR list object from \code{\link{build_hcr}}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
@@ -337,8 +337,14 @@ fit_mod <-
           }
           for (nm in set) {
             if (is.null(mc_new[[nm]])) next
-            if (!is.null(mc_old[[nm]]) && !identical(mc_old[[nm]], mc_new[[nm]])) {
-              warning("`", nm, "` in the data's model_config is different than in `config`, ",
+            # A build_*() field is compared as save_config() writes it, so a spec
+            # reloaded from YAML (same spec, new formula environment) is not a change.
+            same <- if (nm %in% names(.RCE_CONFIG_BUILDERS)) {
+              b <- .RCE_CONFIG_BUILDERS[[nm]]
+              identical(.rce_build_to_list(mc_old[[nm]], b), .rce_build_to_list(mc_new[[nm]], b))
+            } else identical(mc_old[[nm]], mc_new[[nm]])
+            if (!is.null(mc_old[[nm]]) && !same) {
+              warning("`", nm, "` differs between the data's model_config and `config`; ",
                       "using `config`'s.", call. = FALSE)
             }
             mc_old[[nm]] <- mc_new[[nm]]
@@ -558,7 +564,9 @@ fit_mod <-
     }
     .message_auto_fleet_linkages(list(q   = data_list$q_linkages,
                                       sel = data_list$sel_linkages))
-    .linkage_pool <- pool_linkages(
+    # A refit (quiet_data_check) already raised the linkage-filter warnings on its first fit.
+    .pool_fn <- if (isTRUE(quiet_data_check)) function(...) suppressWarnings(pool_linkages(...)) else pool_linkages
+    .linkage_pool <- .pool_fn(
       spec_groups = list(growth      = data_list$growth_linkages,
                          M           = data_list$M1_linkages,
                          recruitment = data_list$srr_linkages,
