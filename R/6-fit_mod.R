@@ -830,14 +830,9 @@ fit_mod <-
       if (length(.iid)) {
         stop("Fleet ", .flts(.iid), ": set `random_sel = FALSE` to fit ",
              "non-parametric selectivity with `Time_varying_sel = \"IID\"`.",
-             "\n  The deviates cannot be integrated out yet: the shape penalties ",
-             "and the always-on average-selectivity penalty are charged on each ",
-             "year's realized curve, so the density integrated is the IID normal ",
-             "times terms that do not scale with the deviation sd, and the ",
-             "reported sd is biased low whatever `Sel_curve_pen1`/`Sel_curve_pen2` ",
-             "are (about 5% of the precision at sd 0.35 from the average-selectivity ",
-             "term alone). `random_sel = FALSE` is the penalized AMAK formulation ",
-             "these fleets are set up for. See vignette(\"model-options-and-functionality\").",
+             "\n  The shape and average-selectivity penalties do not scale with the ",
+             "deviation sd, so an integrated sd would be biased low. ",
+             "See vignette(\"model-options-and-functionality\").",
              call. = FALSE)
       }
 

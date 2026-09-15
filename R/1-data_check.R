@@ -982,7 +982,7 @@ data_check <- function(data_list) {
       # range, so on a two-sex fleet of either form the column changes nothing.
       if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] %in% c("Hake", "LogisticPM") &&
          isTRUE(data_list$nsex[fc$Species[flt]] == 2) &&
-         isTRUE(fc$Sel_norm_scope[flt] %in% c("AcrossSexes", 1))){
+         isTRUE(fc$Sel_norm_scope[flt] %in% c("AcrossSexes", sel_norm_scope_map[["AcrossSexes"]]))){
         message("Fleet '", flt_name, "': Selectivity = '", fc$Selectivity[flt],
                 "' normalizes each sex to its own maximum, so 'Sel_norm_scope' is not ",
                 "read and the sexes cannot differ in selectivity level with this form.")

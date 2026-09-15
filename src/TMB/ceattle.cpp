@@ -1101,6 +1101,7 @@ Type objective_function<Type>::operator() () {
   // Linkage offsets combine log-link (multiplicative) and identity-link
   // (natural-scale additive) contributions:
   //   R0(yr) = exp(rec_pars(sp,0) + log_offset) + nat_offset.
+  // TODO: a negative nat_offset can make R0, alpha or Beta non-positive; only hindcast R, R_hat and the penalty curve are floored (inst/dev/TODO-srr-multispecies.md, item 14).
   for(sp = 0; sp < nspp; sp++){
     for(yr = 0; yr < nyrs; yr++){
       R0(sp, yr)    = exp(rec_pars(sp, 0) + recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr))
@@ -2049,6 +2050,7 @@ Type objective_function<Type>::operator() () {
             int rp_yr = yr - minage(sp);
             if(rp_yr < 0){ rp_yr = 0; }
 
+            // TODO: not floored under an identity-link recruitment offset, so SB0, SBF and B0 can go negative (inst/dev/TODO-srr-multispecies.md, item 14).
             NByage0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
             NByageF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
 
@@ -2069,6 +2071,7 @@ Type objective_function<Type>::operator() () {
                 if (rec_floor_on) { Type pen_R = 0; R_curve = posfun(R_curve, Type(1e-3), pen_R); zero_N_pen(sp) += pen_R; }
                 rdev = log(R(sp, yr)) - log(R_curve);
               }
+              // TODO: dynamic-B0 recruitment is not floored under an identity-link offset (inst/dev/TODO-srr-multispecies.md, item 14).
               N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
               N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
             }
@@ -2277,6 +2280,7 @@ Type objective_function<Type>::operator() () {
           int proj_srr_use = (proj_spawn_yr < 0) ? 0 : srr_pred_fun;
           Type ssb_tmp = (proj_spawn_yr < 0) ? Type(0.0) : ssb(sp, proj_spawn_yr);
           Type proj_rec_mean = (proj_spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
+          // TODO: projected recruitment is not floored under an identity-link offset (inst/dev/TODO-srr-multispecies.md, item 14).
           R(sp, yr) = calculate_recruitment(proj_srr_use, proj_rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
         }
 

@@ -160,3 +160,17 @@ penalty, so these objectives cannot be compared with 5.33.0 fits.
 
     Document what the Ianelli penalty fits: recruitment centred halfway between
     the mean and the curve, at half the variance.
+14. **Recruitment floor under an identity-link offset (5.35.0) is incomplete.**
+    An identity-link offset adds to R0, alpha and Beta on the natural scale
+    (`ceattle.cpp` 5.6), so it can make them non-positive. 5.35.0 floors hindcast
+    R, R_hat, the penalty curve and the derived year-0 R0/R_init (under
+    `rec_floor_on`), but not:
+    - the equilibrium recursion `NByage0`/`NByageF` (6.6), so SB0, SBF and B0,
+      and the depletion reference HCRs 5 and 6 read, can go negative;
+    - dynamic-B0 recruitment `N_at_age_dB0`/`dBF` (6.6);
+    - projected recruitment (6.8).
+
+    Each spot carries a `TODO` in the template. Flooring dynamic-B0 recruitment
+    has moved fits before, so run `/golden-check` and the hake MSE after the change.
+    `test-recruitment-curve-floor.R` asserts only `is.finite(DynamicSB0)`, which
+    a negative value passes; assert `> 0` on R0, SB0 and DynamicSB0 with the fix.

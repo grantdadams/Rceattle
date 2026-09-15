@@ -72,10 +72,12 @@ release stays a minor version.
   identity-link offset on alpha, beta or R0 can drive the curve to or below
   zero; on the single-species fixture an alpha offset of -100 per unit covariate
   gave `R_hat` of -89 and a NaN objective, stock-recruit penalty and dynamic B0.
-  When the model carries an identity-link recruitment linkage, recruitment,
-  the curve and `R_hat` (first year included) are floored at one fish (1e-3
-  thousand) with the excursion charged to the "Zero n-at-age penalty" row, and
-  `fit_mod()` warns on the offset. Without such a linkage the template is
+  When the model carries an identity-link recruitment linkage, hindcast
+  recruitment, the penalty curve and `R_hat` (first year included) are floored
+  at one fish (1e-3 thousand) with the excursion charged to the "Zero n-at-age
+  penalty" row, and `fit_mod()` warns on the offset. Projected recruitment and
+  the recruitment behind SB0 and dynamic B0 are not yet floored, so check those
+  series are positive under such a linkage. Without one the template is
   exactly as before, so no existing fit moves.
 * **The "Zero n-at-age penalty" row was a running total across cells and
   species.** The accumulator behind the numbers-at-age floor (and the Ricker
@@ -86,8 +88,8 @@ release stays a minor version.
   own excursion only. Zero for every fit that never touches a floor (the golden
   fits are unchanged); a fit that does gets a smaller, per-species penalty.
 * **`check_convergence()` reports a non-zero "Zero n-at-age penalty" row**,
-  naming the species and the excursion below the floor in thousands of fish
-  (WARN under a thousand fish, FAIL above): a fit whose numbers-at-age or
+  naming the species and the root-sum-square excursion below the floor
+  (WARN under 1, FAIL above; thousands of fish): a fit whose numbers-at-age or
   recruitment sat on the 0.001 floor is not the model as specified, and
   nothing else showed it.
 * **A factor switch fitted as its level index.** `.map_switch()` passed a

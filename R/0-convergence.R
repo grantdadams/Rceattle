@@ -470,8 +470,6 @@
   out
 }
 
-# sdreport failed: requested but did not return (Hessian not invertible). A
-# strong non-convergence signal even when no gradient is available.
 # The template floors numbers-at-age, the Ricker intercept and (under an
 # identity-link recruitment linkage) recruitment at 0.001 with a penalty, so a
 # non-zero row means the fit is of a floored model, not the one specified.
@@ -479,8 +477,9 @@
   jc <- object$quantities$jnll_comp
   if (is.null(jc) || !"Zero n-at-age penalty" %in% rownames(jc)) return(list())
   pen <- jc["Zero n-at-age penalty", ]
-  # posfun() charges 0.01 * (x - 0.001)^2, so sqrt(pen / 0.01) is the summed
-  # excursion below the floor in thousands of fish. Under 1 fish is numerical.
+  # posfun() charges 0.01 * (x - 0.001)^2 per floored value, so sqrt(pen / 0.01)
+  # is the root-sum-square excursion (thousands of fish for N and R). Under 1e-3
+  # is numerical.
   excursion <- sqrt(pmax(pen, 0) / 0.01)
   hit <- which(excursion > 1e-3)
   if (!length(hit)) return(list())
@@ -488,12 +487,14 @@
   severity <- if (max(excursion) > 1) "FAIL" else "WARN"
   list(zero_n_penalty = .conv_record(
     "zero_n_penalty", "fit", severity,
-    sprintf("Numbers-at-age or recruitment sat on the 0.001 floor in species %s, by %s thousand fish in total; the fit is of a floored model, not the one specified.",
+    sprintf("Numbers-at-age or recruitment sat on the 0.001 floor in species %s (root-sum-square excursion %s); the fit is of a floored model, not the one specified.",
             paste(sp, collapse = ", "),
             paste(signif(excursion[hit], 3), collapse = ", ")),
     list(penalty = pen, excursion = excursion)))
 }
 
+# sdreport failed: requested but did not return (Hessian not invertible). A
+# strong non-convergence signal even when no gradient is available.
 .check_sdreport_failed <- function(object) {
   ch <- object$.conv_hindcast
   if (is.null(ch) || !isTRUE(ch$sd_requested) || isTRUE(ch$sd_present)) {
