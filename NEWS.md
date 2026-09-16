@@ -25,9 +25,13 @@ version throughout.
   `parameter_dictionary()`, `set_phases()` and the map. An older fit's `inits`
   and stored `map` carrying it are accepted (the block is dropped as retired),
   and a stored `map` sizing `log_pop_scalar` by age (before 5.35.0) is
-  collapsed as `inits` already were, so `retrospective()`, `profile()` and
-  `run_mse()` on a saved fit still run. No reachable fit changes; the golden
-  fits are unchanged.
+  collapsed as `inits` already were -- levels included, so a map that estimated
+  an age-specific scalar collapses to one per species rather than stopping in
+  TMB -- so `retrospective()`, `profile()` and `run_mse()` on a saved fit still
+  run. A `map` name the model has no parameter for is dropped with a warning,
+  so a misspelling no longer fixes nothing silently. A script that sets
+  `inits$index_q_rho` keeps running, with that assignment now inert. No
+  reachable fit changes; the golden fits are unchanged.
 
 # Rceattle 5.36.0
 

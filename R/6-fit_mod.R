@@ -1181,6 +1181,31 @@ fit_mod <-
     if (verbose > 0) { message("Step 4: Data rearrange complete") }
 
 
+    # A stored map from an older fit can name a retired block (index_q_rho,
+    # 5.37.0) or size log_pop_scalar by age (before 5.35.0). Drop and collapse
+    # them as the inits guard does, so a retrospective, profile or MSE on a
+    # saved fit still runs. Before the bounds below, which take one bound per
+    # map level: built from a stale map they would not align with obj$par.
+    for (slot in c("mapList", "mapFactor")) {
+      m <- map[[slot]]
+      if (!is.null(m$log_pop_scalar) &&
+          length(m$log_pop_scalar) > length(start_par$log_pop_scalar)) {
+        m$log_pop_scalar <- m$log_pop_scalar[seq_along(start_par$log_pop_scalar)]
+        # A factor keeps every level when subset, and TMB reads the levels as the
+        # estimated blocks, so an age-specific scalar's level goes with its cells.
+        if (is.factor(m$log_pop_scalar)) m$log_pop_scalar <- droplevels(m$log_pop_scalar)
+      }
+      # A name the model has no parameter for is dropped: a retired block by
+      # design, anything else (a misspelling) would otherwise fix nothing silently.
+      .gone <- setdiff(names(m), names(start_par))
+      if (length(.gone) && identical(slot, "mapFactor") && !isTRUE(quiet_data_check)) {
+        warning("Dropping `map` entry ", paste0("`", .gone, "`", collapse = ", "),
+                ": the model has no parameter of that name. Retired blocks are ",
+                "dropped by design; check the spelling otherwise.", call. = FALSE)
+      }
+      map[[slot]] <- m[names(m) %in% names(start_par)]
+    }
+
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 7: Set up parameter bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -1202,19 +1227,6 @@ fit_mod <-
         U <- c(U, unlist(bounds$upper[[nm]])[keep])
         L_block <- c(L_block, rep(nm, length(keep)))
       }
-    }
-
-    # A stored map from an older fit can name a retired block (index_q_rho,
-    # 5.37.0) or size log_pop_scalar by age (before 5.35.0). Drop and collapse
-    # them as the inits guard does, so a retrospective, profile or MSE on a
-    # saved fit still runs.
-    for (slot in c("mapList", "mapFactor")) {
-      m <- map[[slot]]
-      if (!is.null(m$log_pop_scalar) &&
-          length(m$log_pop_scalar) > length(start_par$log_pop_scalar)) {
-        m$log_pop_scalar <- m$log_pop_scalar[seq_along(start_par$log_pop_scalar)]
-      }
-      map[[slot]] <- m[names(m) %in% names(start_par)]
     }
 
     # Dimension check
