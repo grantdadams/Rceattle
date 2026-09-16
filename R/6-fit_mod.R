@@ -1,3 +1,8 @@
+# Parameter blocks the template no longer declares. A stored `map` naming one
+# is from an older fit and is dropped without comment; any other unknown name warns.
+.RCE_RETIRED_PARAMS <- c("log_growth_par_devs",  # 5.9.0, growth linkages
+                         "index_q_rho")          # 5.37.0, QAR1 catchability
+
 #' Fit the CEATTLE assessment model
 #' @description Estimate CEATTLE population parameters by maximum likelihood, and
 #'   optionally project the stock and apply a harvest control rule.
@@ -1188,23 +1193,37 @@ fit_mod <-
     # map level: built from a stale map they would not align with obj$par.
     for (slot in c("mapList", "mapFactor")) {
       m <- map[[slot]]
-      if (!is.null(m$log_pop_scalar) &&
-          length(m$log_pop_scalar) > length(start_par$log_pop_scalar)) {
-        m$log_pop_scalar <- m$log_pop_scalar[seq_along(start_par$log_pop_scalar)]
-        # A factor keeps every level when subset, and TMB reads the levels as the
-        # estimated blocks, so an age-specific scalar's level goes with its cells.
-        if (is.factor(m$log_pop_scalar)) m$log_pop_scalar <- droplevels(m$log_pop_scalar)
+      n_scalar <- length(start_par$log_pop_scalar)
+      if (!is.null(m$log_pop_scalar) && length(m$log_pop_scalar) > n_scalar) {
+        # The first age's column is kept, as for inits. build_map() only ever
+        # estimated that column, so a later estimated cell is a hand-built map.
+        if (identical(slot, "mapFactor") && any(!is.na(m$log_pop_scalar[-seq_len(n_scalar)]))) {
+          warning("The `map` estimated an age-specific `log_pop_scalar`; only the ",
+                  "first age's entry is kept, so this fit differs from the one the ",
+                  "map came from.", call. = FALSE)
+        }
+        m$log_pop_scalar <- m$log_pop_scalar[seq_len(n_scalar)]
       }
-      # A name the model has no parameter for is dropped: a retired block by
-      # design, anything else (a misspelling) would otherwise fix nothing silently.
-      .gone <- setdiff(names(m), names(start_par))
+      # A retired name is dropped silently; any other name the model has no
+      # parameter for is a misspelling that would otherwise fix nothing.
+      .gone <- setdiff(names(m), c(names(start_par), .RCE_RETIRED_PARAMS))
       if (length(.gone) && identical(slot, "mapFactor") && !isTRUE(quiet_data_check)) {
         warning("Dropping `map` entry ", paste0("`", .gone, "`", collapse = ", "),
-                ": the model has no parameter of that name. Retired blocks are ",
-                "dropped by design; check the spelling otherwise.", call. = FALSE)
+                ": the model has no parameter of that name.", call. = FALSE)
       }
       map[[slot]] <- m[names(m) %in% names(start_par)]
     }
+    # A map that predates a parameter would drop it from the model, and TMB
+    # would stop on the template's PARAMETER read with no hint of the cause.
+    .missing <- setdiff(names(start_par), names(map$mapFactor))
+    if (length(.missing)) {
+      stop("`map` has no entry for ", paste0("`", .missing, "`", collapse = ", "),
+           ": it predates the parameter. Pass `map = NULL` to rebuild the map ",
+           "for this model.", call. = FALSE)
+    }
+    # TMB reads a factor's levels as its estimated blocks, so a level no cell
+    # carries (a subset stored map) would become a parameter with no start value.
+    map$mapFactor <- lapply(map$mapFactor, function(f) if (is.factor(f)) droplevels(f) else f)
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 7: Set up parameter bounds ----

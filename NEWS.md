@@ -28,10 +28,15 @@ version throughout.
   collapsed as `inits` already were -- levels included, so a map that estimated
   an age-specific scalar collapses to one per species rather than stopping in
   TMB -- so `retrospective()`, `profile()` and `run_mse()` on a saved fit still
-  run. A `map` name the model has no parameter for is dropped with a warning,
-  so a misspelling no longer fixes nothing silently. A script that sets
-  `inits$index_q_rho` keeps running, with that assignment now inert. No
-  reachable fit changes; the golden fits are unchanged.
+  run. A `map` name the model has no parameter for is dropped with a warning
+  (a retired block is dropped silently), so a misspelling no longer fixes
+  nothing; a `map` missing a parameter the model has stops with a message
+  naming it, where TMB used to fail on the template read; a map level no cell
+  carries is dropped rather than becoming a parameter without a start value;
+  and a `map` that estimated an age-specific `log_pop_scalar` warns that only
+  the first age is kept. A script that sets `inits$index_q_rho` keeps running,
+  with that assignment now inert. No reachable fit changes; the golden fits
+  are unchanged.
 
 # Rceattle 5.36.0
 
