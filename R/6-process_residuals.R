@@ -200,19 +200,16 @@ process_residuals <- function(object = NULL,
     flt  <- ai[, 1]
     # The (mean 0, marginal SD) standardization below is exact only for the iid
     # catchability deviate prior (Time_varying_q = 1 or 2). Warn when an involved
-    # fleet uses a correlated prior -- random walk (index_varying_q == 4) or AR1
-    # (est_index_q == 6) -- because ignoring the prior correlation makes those
-    # residuals approximate.
+    # fleet uses a random walk (index_varying_q == 4), because ignoring the prior
+    # correlation makes those residuals approximate.
     ivq  <- obj$env$data$index_varying_q
-    eqd  <- obj$env$data$est_index_q
     uflt <- unique(flt)
     corr <- rep(FALSE, length(uflt))
     if (!is.null(ivq)) corr <- corr | (ivq[uflt] %in% 4L)
-    if (!is.null(eqd)) corr <- corr | (eqd[uflt] %in% 6L)
     if (any(corr, na.rm = TRUE)) {
       warning("process = 'catchability': index fleet(s) ",
               paste(uflt[which(corr)], collapse = ", "),
-              " use a correlated catchability deviate prior (random walk or AR1); ",
+              " use a random-walk catchability deviate prior; ",
               "their residuals standardize by the marginal SD and are therefore ",
               "approximate. They are exact only for the iid prior ",
               "(Time_varying_q = 1 or 2).", call. = FALSE)

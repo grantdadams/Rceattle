@@ -88,18 +88,11 @@ testthat::test_that("each row's declared axis matches the column the template wr
 })
 
 
-testthat::test_that("the QAR1 process error scores as a deviate, not as a prior", {
-  # The AR1 density on index_q_dev is a deviate density. Reported under
-  # "Catchability prior" it reads as a prior on log q, which it is not, and a
-  # component profile would name the wrong term as the one in conflict.
-  # Unreachable today -- data_check() refuses Catchability = 6 and the live QAR1
-  # form is a q linkage -- so no fit can assert this; the source is the only net.
+testthat::test_that("the QAR1 catchability block is gone from the template", {
+  # Catchability = "AR1" (QAR1) was refused in 5.12.0 and its template block,
+  # unreachable since then, deleted in 5.37.0 along with index_q_rho. The live
+  # form is a q linkage, ar1(1 | Year) with `observe`.
   src <- cpp_source()
-  ar1 <- grep("SCALE\\(AR1\\(rho\\), index_q_dev_sd", src, value = TRUE)
-  testthat::expect_length(ar1, 1)
-  testthat::expect_match(ar1, "JNLL_Q_DEV", fixed = TRUE)
-  testthat::expect_false(grepl("JNLL_Q_PRIOR", ar1, fixed = TRUE))
-  # Accumulates rather than assigns, so it cannot erase anything already scored
-  # into the cell.
-  testthat::expect_match(ar1, "+=", fixed = TRUE)
+  testthat::expect_length(grep("est_index_q(flt) == 6", src, fixed = TRUE), 0)
+  testthat::expect_length(grep("index_q_rho", src, fixed = TRUE), 0)
 })

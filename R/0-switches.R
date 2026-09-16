@@ -122,8 +122,8 @@ q_map <- c(
 # "AR1" (2) is REMOVED and refused by data_check(), for the same reason and on
 # the same terms as tv_sel_map's -- the model gives value 2 the identical
 # independent normal penalty as value 1 (`index_varying_q == 1 || == 2`), and
-# index_q_rho is read only on the QAR1 catchability path that this release also
-# removes. An AR1 on catchability is a q linkage -- ar1(1 | Year).
+# the QAR1 catchability path that held a correlation parameter is gone (5.37.0).
+# An AR1 on catchability is a q linkage -- ar1(1 | Year).
 tv_q_map <- c(
   "Off" = 0,
   "IID" = 1,
