@@ -64,9 +64,10 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' turn `Sel_norm_bin` off. The contrast is informed only by joint composition
 #' (`comp_data$Sex = 3`); with single-sex compositions it rests on its prior,
 #' and `fit_mod()` warns when a fleet has neither. Read the fitted multiplier
-#' with `exp(fit$estimated_params$log_sel_apical[fleet, sex])`, or `sex_max(fit)`
-#' for the realized ratio of the sexes' maxima. Naming `fleet` and `sex` is
-#' enough: `by` defaults to `~ fleet + sex` for this parameter.
+#' with `exp(fit$estimated_params$log_sel_apical[fleet, sex])`, and the
+#' realized ratio of the sexes' maxima from `fit$quantities$sel_at_age`.
+#' Naming `fleet` and `sex` is enough: `by` defaults to `~ fleet + sex` for
+#' this parameter.
 #' An intercept prior is on the multiplier's natural scale (`lognormal()`
 #' centred on 1 means no offset). Like every selectivity linkage, a covariate
 #' on it acts in the hindcast years; projection years carry the last hindcast
