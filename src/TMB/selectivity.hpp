@@ -3,7 +3,8 @@
 
 /**
  * @brief Performs final normalization and projection of fishery selectivity (age/length) across all fleets.
- * * @details This function iterates through all fleets to process selectivity data.
+ *
+ * @details This function iterates through all fleets to process selectivity data.
  * It handles:
  * 1. Zeroing out selectivity for ages below bin_first_selected.
  * 2. Normalizing selectivity values based on a single age (sel_norm_bin1 >= 0),
@@ -27,7 +28,7 @@
  *   reference, so both reach 1), 1 = AcrossSexes (one reference pooled over the
  *   sexes, so the less-selected sex stays below 1). Orthogonal to
  *   sel_norm_bin1/2, which say WHERE the reference is taken.
- * @param sel_at_age 4D container (fleet, sex, age, year) modified in-place.
+ * @param selectivity 4D container (fleet, sex, age or length bin, year) modified in-place.
  */
 template<class Type>
 void normalize_and_project_selectivity(

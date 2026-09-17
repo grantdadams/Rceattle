@@ -38,6 +38,24 @@ version throughout.
   with that assignment now inert. No reachable fit changes; the golden fits
   are unchanged.
 
+## Documentation
+
+* **A contributor path.** `CONTRIBUTING.md` (setup, tests, branches, what a
+  pull request carries) replaces the branch table and commit convention in the
+  developer guide. A new article, *Adding a selectivity form*, traces
+  `Selectivity = "DoubleNormal"` through every file, fits it on `GOApollock`,
+  and shows what the drift guards report on a half-finished form;
+  `test-docs-anchors.R` checks every path, function and code it quotes. The
+  C++ template is now published as a Doxygen reference from the site's
+  Contributing menu (`Doxyfile`, built by `pkgdown.yaml`); the growth header's
+  equations render, and stale `@param` names in the growth, selectivity and
+  predation headers are corrected. The forms table no longer calls the double
+  normal six-parameter: it estimates four (peak, two widths, right-tail floor).
+  Two defects the trace found are recorded in `inst/dev/CLEANUP_BACKLOG.md`,
+  not fixed here: a `DoubleNormal` fleet with `Time_varying_sel =
+  "RandomWalkAscending"` silently drops its deviates, and the form's default
+  starting values describe a flat curve the optimizer does not leave.
+
 # Rceattle 5.36.0
 
 ## Results change
