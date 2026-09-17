@@ -879,7 +879,9 @@ fit_mod <-
       .walk <- .np$fleet[.np$reason == "RandomWalk"]
       if (length(.walk)) {
         stop("Fleet ", .flts(.walk), ": set `random_sel = FALSE` to fit ",
-             "non-parametric selectivity with `Time_varying_sel = \"RandomWalk\"`.",
+             "non-parametric selectivity with `Time_varying_sel = \"RandomWalk\"`, ",
+             "or use `Selectivity = \"NonParametricRW\"`, whose increments carry a ",
+             "proper density.",
              "\n  The deviates cannot be integrated out: the walk is scored on ",
              "the renormalized curve, which leaves the level of each year's ",
              "coefficients unidentified, so the estimated deviation standard ",
@@ -891,7 +893,9 @@ fit_mod <-
       .iid <- .np$fleet[.np$reason == "IID"]
       if (length(.iid)) {
         stop("Fleet ", .flts(.iid), ": set `random_sel = FALSE` to fit ",
-             "non-parametric selectivity with `Time_varying_sel = \"IID\"`.",
+             "non-parametric selectivity with `Time_varying_sel = \"IID\"`, or use ",
+             "`Selectivity = \"NonParametricIID\"`, which charges the shape penalties ",
+             "on the base curve and integrates.",
              "\n  The shape and average-selectivity penalties do not scale with the ",
              "deviation sd, so an integrated sd would be biased low whatever ",
              "`Sel_curve_pen1` / `Sel_curve_pen2` are. ",

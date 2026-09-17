@@ -1,6 +1,21 @@
 # Making `NonParametric` + `Time_varying_sel = "IID"` integrable
 
-Status: **proposed, not implemented.** 5.25.0 refuses `random_sel = TRUE` on this
+Status: **superseded in 5.40.0.** Rather than moving `NonParametric`'s penalties (which would
+change every penalized AMAK fit), two new forms carry the fix: `NonParametricIID` (13) and
+`NonParametricRW` (14), the same base curve with the shape penalties charged once on
+`sel_coff` and the deviates scored by `dnorm(0, sel_dev_sd)` alone, so `random_sel = TRUE`
+integrates a complete density. `NonParametric` and `NonParametricPM` are unchanged and still
+refuse `random_sel = TRUE`; the refusal names the new forms. The analysis below stands.
+
+Measured with `tools/verify/verify-sim-recovery-np-integrable.R` on `Atka2022`'s fishery
+(multinomial comps, input sample sizes 2-236): the integrated SD estimate is biased LOW, about
+30% at a true 0.35, 13% at 0.70, 9% at 0.35 with sample sizes x10, and unchanged by the start.
+The scored set equals the estimated set cell for cell and the normalizing constant is complete,
+so this is the Laplace marginal likelihood's downward bias for a variance component on small
+multinomial samples (Breslow & Lin 1995), not (b) above. Left open: whether a bias-corrected
+Laplace or `tmbstan` should be the recommended route for reporting the SD.
+
+5.25.0 refuses `random_sel = TRUE` on the original
 combination. The inline markers in `src/TMB/ceattle.cpp` (`flt_sel_type == 2`
 penalty block, search "PROPOSED") say where each piece goes.
 
