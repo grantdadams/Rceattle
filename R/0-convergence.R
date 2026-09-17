@@ -825,7 +825,10 @@
     if (length(why)) msg <- c(msg, sprintf("%s: %s.", spp[sp], paste(why, collapse = "; ")))
   }
   if (!length(dat)) {
-    if (!length(held)) return(list())
+    if (!length(held)) return(list(stock_recruit = .conv_record(
+      "stock_recruit", "fit", "NOTE",
+      "Stock-recruit curve not checked: no species carries an estimated curve with usable spawning biomass.",
+      list())))
     return(list(stock_recruit = .conv_record(
       "stock_recruit", "fit", "NOTE",
       sprintf("Stock-recruit curve held at its inputs for %s; nothing to check.",

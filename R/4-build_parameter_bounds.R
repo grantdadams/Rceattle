@@ -257,7 +257,16 @@ build_bounds <- function(param_list = NULL, data_list) {
 
     message("Non-zero value indicates error in initial value")
     print(param_check)
-    stop("Initial parameter values are not within bounds")
+    off <- param_check$Parameter[param_check$Lower > 0 | param_check$Upper > 0]
+    # rec_pars is the one block whose bounds arrived after fits were being
+    # saved (5.39.0), so a warm start from the old unbounded ridge lands here.
+    hint <- if ("rec_pars" %in% off) paste0(
+      " Stock-recruit alpha and beta are bounded at +/-30 on the log scale from",
+      " 5.39.0, so a fit saved on the old unbounded ridge cannot be refit as it",
+      " stands; restart it from values on the stock's scale with",
+      " build_srr(srr_alpha_init = , srr_beta_init = ).") else ""
+    stop("Initial parameter values are not within bounds: ",
+         paste(off, collapse = ", "), ".", hint, call. = FALSE)
   }
 
   return(bounds)

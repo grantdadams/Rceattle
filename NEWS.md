@@ -21,6 +21,13 @@ version throughout.
   log alpha has reached 702, next to the double-precision limit; +/-30 is 13
   orders of magnitude either side of any stock's scale, so it never binds a
   determined estimate. A linkage bound on alpha or beta overrides it.
+  **A fit saved on the old unbounded ridge, with log alpha or log beta beyond
+  +/-30, no longer refits**: `build_bounds()` stops because its starting values
+  are outside the bounds, which takes `retrospective()`, `profile()` and
+  `run_mse()` on that fit with it. The error names the block and says so.
+  Restart such a fit from values on the stock's scale
+  (`build_srr(srr_alpha_init =, srr_beta_init =)`); the curve it came from was
+  the degenerate one this release exists to report.
 * **The convergence battery now reads the curve under predation instead of
   skipping it.** Steepness needs spawning biomass per recruit, which is
   undefined under `msmMode > 0`, so `check_convergence()` returned a NOTE
