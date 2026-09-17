@@ -95,9 +95,12 @@ test_that("convergence_diagnostics() reads the curve against the data, not steep
   sr <- convergence_diagnostics(m)$checks$stock_recruit
   expect_true(!is.null(sr))
   # Steepness is never the test here; the curve is read over the SSB range
-  # (test-recruitment-srr-degenerate-check.R), so the outcome is OK or WARN.
-  expect_true(sr$severity %in% c("OK", "WARN"))
-  expect_false(grepl("steepness below", sr$message))
+  # (test-recruitment-srr-degenerate-check.R). At the default starts (alpha
+  # e^3, beta 3) both curves are flat over the fixture's SSB.
+  expect_identical(sr$severity, "WARN")
+  expect_match(sr$message, "Species1: flat over the observed SSB range")
+  expect_match(sr$message, "Species2: flat over the observed SSB range")
+  expect_false(grepl("steepness", sr$message))
 })
 
 test_that("the Ianelli penalty fits under predation from on-scale starts", {
@@ -122,9 +125,15 @@ test_that("the Ianelli penalty fits under predation from on-scale starts", {
   expect_lt(max(abs(fit$obj$gr())), 0.1)
   expect_true(all(is.finite(fit$estimated_params$rec_pars[, 2:3])))
   expect_true(all(abs(fit$estimated_params$rec_pars[, 2:3]) < 30))
+  # What this fit produces: species 1 bends inside the data (predicted /
+  # asymptote 0.73 at the lowest SSB, 0.90 at the highest), species 2 runs to
+  # the flat ridge (alpha 2.4e6, beta 1251, ratio 1.000 everywhere).
   sr <- convergence_diagnostics(fit)$checks$stock_recruit
-  expect_true(sr$severity %in% c("OK", "WARN"))
-  expect_true(all(c("Species1", "Species2") %in% names(sr$data)))
+  expect_identical(sr$severity, "WARN")
+  expect_match(sr$message, "Species2: flat over the observed SSB range")
+  expect_false(grepl("Species1:", sr$message))
+  expect_lt(sr$data$Species1$dd_at_smin, 0.9)
+  expect_gt(sr$data$Species2$dd_at_smin, 0.9)
 })
 
 test_that("a fixed-dynamics species carries no curve penalty", {
