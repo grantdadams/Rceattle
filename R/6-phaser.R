@@ -131,6 +131,7 @@ set_phases <- function(){
     sel_coff_dev = 4,  # Annual deviates for non-parametric selectivity coefficients
     log_sel_slp = 3,    # Slope parameters for logistic forms of selectivity
     sel_inf = 3,       # Asymptote parameters for logistic forms of selectivity
+    log_sel_apical = 3, # Per-sex apical height (log multiplier), via a selectivity linkage
     log_sel_slp_dev = 5,# Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
     sel_inf_dev = 5,   # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
     sel_dev_log_sd = 4, # SD for annual selectivity deviates (if time-varying)

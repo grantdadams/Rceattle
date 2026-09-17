@@ -199,7 +199,9 @@ build_selectivity(linkages = list(
 
 Name whichever parameter should vary: `slp_asc`, `inf_asc`, `slp_desc`,
 `inf_desc`, or a `DoubleNormal` alias. The GOA pollock 2025 assessment runs
-that way.
+that way. `apical` is the one linkage parameter every estimated form has: the
+height of one sex's curve relative to the other's, see
+[Environmental linkages and priors](environmental-linkages-and-priors.html#selectivity).
 
 Bin indexing: with non-parametric and AR(1) forms, selectivity is
 indexed over `N_sel_bins`.

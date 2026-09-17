@@ -367,6 +367,12 @@ build_params <- function(data_list) {
   param_list$sel_inf_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
                                  dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
+  # - Per-sex apical height, log scale: the whole curve of one sex times
+  #   exp(log_sel_apical), applied after the form and before normalization. 0 is
+  #   no offset; estimated only through a selectivity linkage on `apical`.
+  param_list$log_sel_apical = array(0, dim = c(n_selectivities, max_sex),
+                                    dimnames = list(data_list$fleet_control$Fleet_name, sex_labels))
+
   # - Log standard deviation for selectivity random walk - used for logistic
   param_list$sel_dev_log_sd <- log(data_list$fleet_control$Time_varying_sel_sd)
   names(param_list$sel_dev_log_sd) <- data_list$fleet_control$Fleet_name
@@ -537,6 +543,13 @@ build_params <- function(data_list) {
             for (s in idx$species) {
               param_list$sel_inf[slot$slot, idx$fleet,
                                  idx$per_sp[[as.character(s)]]$sex] <- init_val
+            }
+          } else if (identical(slot$arr, "log_sel_apical")) {
+            # The init is the multiplier itself (1 = no offset), stored logged.
+            .stop_unless_positive(init_val, row$param, "log_sel_apical")
+            for (s in idx$species) {
+              param_list$log_sel_apical[idx$fleet,
+                                        idx$per_sp[[as.character(s)]]$sex] <- log(init_val)
             }
           }
           # `coff` is a per-bin vector with no single level to set, so an

@@ -485,6 +485,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
   PARAMETER_ARRAY( log_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
   PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
+  PARAMETER_ARRAY( log_sel_apical );              // per-sex log multiplier on the whole curve, after the form and before normalization; n = [n_selectivities, nsex]
   PARAMETER_VECTOR( sel_dev_log_sd );              // Log standard deviation of selectivity; n = [1, n_selectivities]
   PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
 
@@ -1174,16 +1175,26 @@ Type objective_function<Type>::operator() () {
   array<Type> sel_inf_off_nat (2, n_flt, max_sex, nyrs);        sel_inf_off_nat.setZero();
   array<Type> sel_coff_off (n_flt, max_sex, max_bin, nyrs);     sel_coff_off.setZero();
   array<Type> sel_coff_off_nat (n_flt, max_sex, max_bin, nyrs); sel_coff_off_nat.setZero();
+  array<Type> sel_apical_off (n_flt, max_sex, nyrs);            sel_apical_off.setZero();
+  array<Type> sel_apical_off_nat (n_flt, max_sex, nyrs);        sel_apical_off_nat.setZero();
+
+  // The per-sex apical multiplier is compiled in only when a selectivity
+  // linkage names it (param 5); otherwise the curve is untouched and the AD
+  // tape of every existing model is unchanged.
+  int sel_apical_on = 0;
+  for (int i = 0; i < linkage_process.size(); i++) {
+    if (linkage_process(i) == RCEATTLE_PROC_SEL && linkage_param(i) == 5) sel_apical_on = 1;
+  }
 
   rceattle_apply_sel_linkages(
-    sel_slp_off, sel_inf_off, sel_coff_off,
+    sel_slp_off, sel_inf_off, sel_coff_off, sel_apical_off,
     /*link_code=*/ 1,   // log-link rows -> log-scale tensors
     linkage_process, linkage_param, linkage_species, linkage_sex,
     linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
     linkage_X, beta_linkage_eff, n_flt, max_sex, max_bin, nyrs);
 
   rceattle_apply_sel_linkages(
-    sel_slp_off_nat, sel_inf_off_nat, sel_coff_off_nat,
+    sel_slp_off_nat, sel_inf_off_nat, sel_coff_off_nat, sel_apical_off_nat,
     /*link_code=*/ 0,   // identity-link rows -> natural-scale tensors
     linkage_process, linkage_param, linkage_species, linkage_sex,
     linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
@@ -1227,7 +1238,9 @@ Type objective_function<Type>::operator() () {
     growth_matrix,        // Length to age transition matrix
     sel_slp_off, sel_slp_off_nat,   // selectivity linkage offsets (log / natural)
     sel_inf_off, sel_inf_off_nat,
-    sel_coff_off, sel_coff_off_nat
+    sel_coff_off, sel_coff_off_nat,
+    sel_apical_on, log_sel_apical,  // per-sex apical height, only when a linkage names it
+    sel_apical_off, sel_apical_off_nat
   );
 
 
@@ -4785,6 +4798,10 @@ Type objective_function<Type>::operator() () {
         } else if (param == 2 || param == 3) {
           b = sel_inf(slot, fl_idx, sx_idx);
           base_is_log = false;    // inflection is natural-scale, not log
+        } else if (param == 5) {
+          // apical: the per-sex multiplier, stored logged, so the prior reads
+          // on the multiplier itself (lognormal centred on 1 = no offset).
+          b = log_sel_apical(fl_idx, sx_idx);
         }
       }
     }

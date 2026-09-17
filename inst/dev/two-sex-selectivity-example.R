@@ -191,6 +191,26 @@ m10 <- fit_mod(data_list = d10, msmMode = 0, estimateMode = "Hindcast",
 # sdreport at all. Check the Hessian before believing a sex ratio.
 m10$convergence$checks$hessian_conditioning
 
+## 8d. Logistic with a per-sex apical height (5.38.0) ----
+# 8a cannot produce a sex level difference at all: both logistic curves
+# asymptote to 1. `apical` multiplies one sex's whole curve, after the form and
+# before the across-sex normalization, so the sex contrast becomes a parameter
+# with a standard error. Name the fleet and the sex that carries it; the other
+# sex is the reference. For two saturating logistic curves the multiplier is
+# also the ratio of maxima; for a dome with sex-specific shape it is not, and
+# sex_max() is the ratio to quote.
+sel_apical <- build_selectivity(linkages = list(
+  apical = linkage_spec(~ 1, by = ~ fleet + sex, fleet = FISHERY, sex = "male",
+                        priors = list(intercept = lognormal(0, 0.5)))))
+d11 <- d8
+d11$fleet_control$Selectivity_index[FISHERY] <- FISHERY   # the offset sits on the lead fleet
+m11 <- fit_mod(data_list = d11, msmMode = 0, estimateMode = "Hindcast",
+               selFun = sel_apical,
+               fit_control = fit_control(phase = TRUE))
+sex_max(m11)                                             # 5.38.0: ratio 2.15
+exp(m11$estimated_params$log_sel_apical[FISHERY, 2])     # the multiplier; equal here, logistic
+summary(m11$sdrep)["log_sel_apical", ]                   # log 0.77, SE 0.21
+
 ## Sex comparison ----
 ## The objective for 8c is not comparable to 8a/8b -- a prior adds its own term,
 ## so they are different objective functions rather than better and worse fits.

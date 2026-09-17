@@ -31,10 +31,45 @@ scale); for a double-normal the ascending / descending width, aliased
 (natural scale); for a double-normal the peak and the logit right-floor,
 aliased \code{peak} / \code{right_floor}.}
 \item{\code{coff}}{non-parametric selectivity-at-bin coefficients.}
+\item{\code{apical}}{a multiplier on one sex's whole curve (log scale),
+applied after the form and before normalization, so every estimated
+form takes it. Name the fleet and the sex that carries it
+(\code{by = ~ fleet + sex}, \code{fleet = 3}, \code{sex = "male"}), as Stock
+Synthesis's male-offset option does; the other sex is the reference.
+See Details.}
 }
 
-Every parameter accepts \code{link = "log"} (multiplicative on the natural
-parameter) or \code{link = "identity"} (additive), like the other processes.
+Every parameter but \code{apical} accepts \code{link = "log"} (multiplicative on the
+natural parameter) or \code{link = "identity"} (additive), like the other
+processes; \code{apical} is a multiplier already and takes \code{"log"} only.
+}
+\details{
+\strong{The \code{apical} offset.} Fishing mortality is one \code{log_F} per fleet and
+year shared by the sexes, so a sex difference in F can only come from
+selectivity, and no form has a height parameter: the logistic family and
+DoubleNormal peak at 1 for every sex, the non-parametric forms re-centre
+each sex, Hake normalizes each sex by its own maximum. \code{apical} multiplies
+one sex's curve by \code{exp(log_sel_apical)}, bin by bin. That equals the ratio
+of the sexes' peak heights only where their shapes peak equally (the
+logistic family on an age axis); for a dome with sex-specific shape, read
+it as the multiplier on that sex's curve and take the peak ratio from
+\code{fit$quantities$sel_at_age}. Only the contrast between the sexes is
+identified (the common level is \code{log_F}), so one sex carries it and the fit
+is refused if both do, if no fleet or no sex is named, if the species has
+one sex, or on a \code{Fixed}, AR1 or mirror fleet. It is also refused where
+\code{Sel_norm_scope = "WithinSex"} normalization would divide it straight back
+out; use \code{"AcrossSexes"}, under which the more-selected sex peaks at 1, or
+turn \code{Sel_norm_bin} off. The contrast is informed only by joint composition
+(\code{comp_data$Sex = 3}); with single-sex compositions it rests on its prior,
+and \code{fit_mod()} warns when a fleet has neither. Read the fitted multiplier
+with \code{exp(fit$estimated_params$log_sel_apical[fleet, sex])}, and the
+realized ratio of the sexes' maxima from \code{fit$quantities$sel_at_age}.
+Naming \code{fleet} and \code{sex} is enough: \code{by} defaults to \code{~ fleet + sex} for
+this parameter.
+An intercept prior is on the multiplier's natural scale (\code{lognormal()}
+centred on 1 means no offset). Like every selectivity linkage, a covariate
+on it acts in the hindcast years; projection years carry the last hindcast
+year's curve.
 
 \strong{Priors on a selectivity parameter.} An intercept-only formula (\code{~ 1}) with
 a \code{priors} entry places a prior on the selectivity parameter itself (no

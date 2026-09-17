@@ -3,6 +3,11 @@
 .RCE_RETIRED_PARAMS <- c("log_growth_par_devs",  # 5.9.0, growth linkages
                          "index_q_rho")          # 5.37.0, QAR1 catchability
 
+# Parameter blocks added after fits were already being saved. `inits` and a
+# stored `map` from an older fit lack them; both are filled from the fresh
+# build (all fixed at the build default), so the older fit still refits.
+.RCE_ADDED_PARAMS <- c(log_sel_apical = "5.38.0")
+
 #' Fit the CEATTLE assessment model
 #' @description Estimate CEATTLE population parameters by maximum likelihood, and
 #'   optionally project the stock and apply a harvest control rule.
@@ -619,7 +624,12 @@ fit_mod <-
     # is not yet wired, and the non-parametric `coff` param, so the effect is
     # never silently dropped. (Empirical and the RPM random walk cannot carry
     # a covariate offset at all.)
-    .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control)
+    # comp_data only when warnings are wanted: it drives the advisory about an
+    # apical offset no joint composition informs, and a refit has raised it once
+    # already. The refusals below it are unconditional.
+    .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control,
+                               data_list$nsex,
+                               if (!isTRUE(quiet_data_check)) data_list$comp_data)
     .check_q_linkage_support(data_list$linkage_table, data_list$fleet_control)
     .check_M_linkage_prior(data_list$linkage_table, data_list$M1_use_prior,
                            data_list$M2_use_prior, data_list$spnames)
@@ -661,6 +671,17 @@ fit_mod <-
       # build_composition without the matching *Fun re-supplied (e.g. an older
       # .refit_like()), or a warm start not extended to a later `endyr`.
       .skel    <- suppressWarnings(Rceattle::build_params(data_list = data_list))
+      # A block added since the fit was saved is filled with the build default
+      # (fixed there unless a linkage frees it), so an older fit still warm-starts.
+      .added <- setdiff(intersect(names(.skel), names(.RCE_ADDED_PARAMS)), names(start_par))
+      if (length(.added)) {
+        start_par[.added] <- .skel[.added]
+        if (!isTRUE(quiet_data_check)) {
+          message("`inits` predate ", paste0("`", .added, "`", collapse = ", "),
+                  " (added in ", paste(.RCE_ADDED_PARAMS[.added], collapse = ", "),
+                  "); filled with the build default.")
+        }
+      }
       .missing <- setdiff(names(.skel), names(start_par))
       .shared  <- intersect(names(.skel), names(start_par))
       .badlen  <- .shared[vapply(.shared, function(nm)
@@ -1213,8 +1234,15 @@ fit_mod <-
       }
       map[[slot]] <- m[names(m) %in% names(start_par)]
     }
-    # A map that predates a parameter would drop it from the model, and TMB
-    # would stop on the template's PARAMETER read with no hint of the cause.
+    # A block added since the map was stored is filled fixed at the build
+    # default, as `inits` are. Any other missing name would drop the parameter
+    # from the model, and TMB would stop on the template's PARAMETER read with
+    # no hint of the cause.
+    .missing <- setdiff(names(start_par), names(map$mapFactor))
+    for (nm in intersect(.missing, names(.RCE_ADDED_PARAMS))) {
+      map$mapList[[nm]]   <- replace(start_par[[nm]], values = NA)
+      map$mapFactor[[nm]] <- factor(rep(NA, length(start_par[[nm]])))
+    }
     .missing <- setdiff(names(start_par), names(map$mapFactor))
     if (length(.missing)) {
       stop("`map` has no entry for ", paste0("`", .missing, "`", collapse = ", "),
