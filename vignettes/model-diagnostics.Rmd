@@ -205,6 +205,14 @@ The checks cover:
   deviations. `WARN` rather than `FAIL` because a variance at the boundary is a
   well-posed optimum — a verdict about the model, not the optimizer — and it can
   occur with a perfectly clean gradient, which is the case nothing else catches.
+- **`stock_recruit`** — whether the fitted curve is one the data informed. In a
+  single-species model it is read against the replacement line through
+  steepness. Under predation steepness does not exist (it needs spawning biomass
+  per recruit), so the curve is read over the observed SSB range instead: `WARN`
+  when it is flat there (recruitment independent of SSB), linear (no density
+  dependence), when a Ricker peaks below the lowest observed SSB, when log alpha
+  or log beta sits at its +/-30 bound, or when a log-scale standard error exceeds
+  10. A curve held at its inputs is a `NOTE`.
 - **`phasing`** — phases that ended with a high gradient, localizing which
   parameter block is hard to fit.
 - **`estimability`** — surfaces `TMBhelper::check_estimability` when it ran.
