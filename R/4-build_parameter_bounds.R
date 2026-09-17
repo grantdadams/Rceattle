@@ -90,6 +90,14 @@ build_bounds <- function(param_list = NULL, data_list) {
   lower_bnd$log_M1 <- replace(lower_bnd$log_M1, values = rep(log(0.001), length(lower_bnd$log_M1)))
   upper_bnd$log_M1 <- replace(upper_bnd$log_M1, values = rep(log(2), length(upper_bnd$log_M1)))
 
+  # Stock-recruit alpha and beta (log scale) ----
+  # Overflow guard only: nothing anchors the curve under predation, and on a
+  # flat ridge log alpha has reached 702, next to the double-precision limit.
+  # +/-30 is 13 orders of magnitude either side of any stock's scale, so it
+  # never binds a determined estimate. A linkage bound overrides it below.
+  lower_bnd$rec_pars[, 2:3] <- -30
+  upper_bnd$rec_pars[, 2:3] <- 30
+
 
   # Linkage-table coefficients ----
   # Honor the per-row `lower`/`upper` from data_list$linkage_table.

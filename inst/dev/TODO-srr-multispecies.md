@@ -1,7 +1,29 @@
 # TODO: stock-recruit curves in multispecies models
 
 Status: **open**. Opened 2026-09-11 with 5.30.0 (`35fbc19b`) and 5.31.0, after
-two adversarial reviews of each.
+two adversarial reviews of each. **5.39.0 closed items 3 (bounds), 4, 9 (the
+harness) and the tests of 12**: `rec_pars[, 2:3]` are bounded at +/-30 (log);
+`.check_stock_recruit_msm()` reads the curve over the observed SSB range (flat /
+linear ridge, Ricker peak below the data, bound, standard error);
+`tools/verify/verify-sim-recovery-srr-msm.R` is the recovery harness. The Ricker
+criteria (density-dependence factor above 0.9 at the highest SSB = linear; peak
+`1e6 / beta` below the lowest SSB = every observation on the descending limb)
+were chosen without a reviewer; revisit if a real Ricker fit trips them wrongly.
+
+**Item 2 was attempted in 5.39.0 and reverted.** Decaying the initial ages with
+`M_at_age(..., 0)` (M1 + lagged M2) inside the predation iterations makes year-1
+N and year-1 M2 mutually dependent: M2 is consumption over prey numbers, so a
+smaller initial N raises M2, which shrinks the next iteration's initial N. On
+`BS2017MS` from default starts the year-1 numbers of pollock ages 2-3 fell from
+8020 / 5940 to 3e-25 / 3e-28 by `niter = 2` and the objective was `Inf` at
+`niter = 10`; the golden `ms` fit (warm-started, `niter = 5`) happened to
+converge, to 10231.72 against 10267.25. It also changes the initial structure of
+`Equilibrium` and `OffsetEquilibrium`, whose `init_dev` is mapped off, and breaks
+the equivalence tests against the R simulator and CEATTLE classic, both of which
+decay with M1 only. A stable form needs M2 for the pre-`styr` years that does
+not feed back through the initial numbers: an M2 taken from the M1-only initial
+structure and held (a one-shot correction), or a switch that reads a
+user-supplied pre-`styr` M2. Either is a design decision, not a patch.
 
 Spawning biomass per recruit (SPR) is undefined under predation: total mortality
 carries M2, which scales with predator abundance, so the template leaves `SPR0`
