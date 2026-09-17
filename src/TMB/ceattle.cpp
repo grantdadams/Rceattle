@@ -30,6 +30,13 @@
 #include "diet_data.hpp"
 #include "linkage.hpp"
 
+/**
+ * @file ceattle.cpp
+ * @brief The CEATTLE objective function: configuration, population dynamics,
+ *   predation, likelihood and report. The numbered section index is in the
+ *   banner below; the process equations live in the headers this file includes.
+ */
+
 // List-of-matrices data structure: reads an R list() of numeric matrices into a
 // vector<matrix<Type>>. Used for the per-fleet survey-index covariance matrices
 // (Sigma) supplied when Index_loglike == "MVN"/"MVNORM" (the AMAK/ebswp DoCovBTS
@@ -47,7 +54,7 @@ struct LOM_t : vector<matrix<Type> > {
   }
 };
 
-/** ------------------------------------------------------------------------ //
+/* ------------------------------------------------------------------------- //
  *                 CEATTLE version 4.4                                       //
  *                  Template Model Builder                                   //
  *               Multispecies Statistical Model                              //
@@ -55,7 +62,7 @@ struct LOM_t : vector<matrix<Type> > {
  *              Biomass Linkages To The Environment                          //
  * CITATIONS:                                                                //
  * 1. Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2015). A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134, 360–378. https://doi.org/10.1016/j.dsr2.2015.08.001
- * 2. Adams, G. D., Holsman, K. K., Barbeaux, S_at_age. J., Dorn, M_at_age. W., Ianelli, J. N., Spies, I., ... & Punt, A. E. (2022). An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fisheries Research, 251, 106303.
+ * 2. Adams, G. D., Holsman, K. K., Barbeaux, S. J., Dorn, M. W., Ianelli, J. N., Spies, I., ... & Punt, A. E. (2022). An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fisheries Research, 251, 106303.
  * 3. Wassermann, S. N., Adams, G. D., Haltuch, M. A., Kaplan, I. C., Marshall, K. N., & Punt, A. E. (2025). Even low levels of cannibalism can bias population estimates for Pacific hake. ICES Journal of Marine Science, 82(1), fsae064.
  * ------------------------------------------------------------------------- //
  *

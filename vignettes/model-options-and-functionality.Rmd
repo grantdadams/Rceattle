@@ -125,7 +125,7 @@ below (integers or strings both work):
 | `5` | `"Hake"` | Non-parametric à la Taylor et al. (Pacific hake) |
 | `6` | `"2DAR1"` | 2D AR(1) bin × year (Cheng et al. 2024) |
 | `7` | `"3DAR1"` | 3D AR(1) bin × year × cohort |
-| `8` | `"DoubleNormal"` | Six-parameter double normal (Stock Synthesis pattern 24) |
+| `8` | `"DoubleNormal"` | Four-parameter double normal: peak, ascending and descending widths, and a right-tail floor (the Stock Synthesis pattern 24 shape without its initial-selectivity and plateau-width parameters) |
 | `9` | `"NonParametricPM"` | Ianelli non-parametric with the ADMB AMAK ("pm") penalty; see `Sel_avgsel_pen`, `Sel_cap_bin` |
 | `11` | `"LogisticPM"` | AMAK ("pm") logistic: multiplicative inflection/slope deviations plus a free age-1 log-selectivity |
 

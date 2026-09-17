@@ -289,6 +289,10 @@ place, `R/0-column_schema.R`:
 
 ### Add a new switch option (e.g. a selectivity form or `suitMode`)
 
+For a selectivity form, [Adding a selectivity form](adding-a-selectivity-form.html)
+traces one existing form through every file and names the tests that catch a
+half-finished addition. The general shape:
+
 1. Implement the case in the module `.hpp` (e.g. `selectivity.hpp` case *N*,
    `predation.hpp` `smode` *N*).
 2. Register the string ↔ integer mapping in the relevant map in
@@ -368,30 +372,12 @@ testing, since the tests load the compiled `.so`/`.dll`.
 
 ## Branches and releases
 
-`origin/HEAD` points at `main`. The general model, per the Onboarding wiki page,
-is: cut feature branches from `dev`, merge them back into `dev`, and merge `dev`
-into `main` once a project's developments are complete.
-
-| Branch | Role |
-|---|---|
-| `main` | Most stable / documented; CI and CRAN target. |
-| `dev` | Active development branch; base for feature branches. |
-| `dev-DSEM` | `dev` with DSEM-linked recruitment (experimental). |
-| `dev-ebs-pk` | EBS pollock application / bridge. |
-| `dev-RTMB` | RTMB port (remote). |
-| `testing-suite-overhaul` | Test-suite expansion. |
-| `depricated-ceattle_classic*` | Original Holsman et al. (2016) single-sex model (`ceattle_v01_02`/`_04`.cpp); historical reference only. |
-
-**Versioning (SemVer).** MAJOR for breaking changes, MINOR for new
-features/functionality, PATCH for bug fixes. Update `DESCRIPTION` and add a
-`NEWS.md` entry with each release.
-
-**Commit messages (Conventional Commits).** Prefix with one of `feat`, `fix`,
-`docs`, `style`, `refactor`, `perf`, `test`, `chore`, optionally scoped, e.g.
-`fix(selectivity): normalize Hake-type curve`.
-
-**CI.** `R-CMD-check.yaml` runs on macOS, Windows, and Ubuntu (R release) on
-push/PR to `main`/`master` and weekly; `pkgdown.yaml` rebuilds this site.
+Feature branches are cut from `dev` and merged back into `dev`; the maintainer
+merges `dev` into `main` as a release, following `inst/RELEASE-CHECKLIST.md`.
+Operational assessments pin a tagged release. What a pull request carries
+(`NEWS.md`, the `DESCRIPTION` version, the affected vignette), the commit-message
+convention and what CI runs where are stated once, in
+[`CONTRIBUTING.md`](https://github.com/grantdadams/Rceattle/blob/main/CONTRIBUTING.md).
 
 ## Debugging tips
 
