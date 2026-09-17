@@ -119,12 +119,22 @@
     tryCatch(.rce_par_index(obj, data_list), error = function(e) NULL)
   } else NULL
 
+  # Standard errors of the hindcast fixed effects, in obj$par order. Kept here
+  # because under any estimating HCR `fit$sdrep` is the projection's.
+  se_fixed <- NULL
+  if (!is.null(opt$SD) && !is.null(opt$SD$cov.fixed)) {
+    se_fixed <- tryCatch(
+      stats::setNames(sqrt(diag(opt$SD$cov.fixed)), names(opt$SD$par.fixed)),
+      error = function(e) NULL)
+  }
+
   list(
     par                = if (!is.null(bnd_par)) bnd_par else par_fixed,
     index              = index,
     gradient           = gg,
     lower              = bnd_lo,
     upper              = bnd_hi,
+    se_fixed           = se_fixed,
     sd_requested       = isTRUE(getsd),
     sd_present         = !is.null(opt$SD),
     max_gradient       = as.numeric(mg),
@@ -681,11 +691,9 @@
 
   # Steepness needs spawning biomass per recruit, which is undefined under
   # predation, so the curve cannot be tested against the replacement line.
+  # What can be tested without SPR is whether the data informed the curve.
   if (isTRUE(as.integer(dl[["msmMode"]] %||% 0L)[1] > 0L)) {
-    return(list(stock_recruit = .conv_record(
-      "stock_recruit", "fit", "NOTE",
-      "Stock-recruit curve not checked: steepness needs spawning biomass per recruit, which is undefined under msmMode > 0.",
-      list(steepness = NA_real_, R0 = numeric(0)))))
+    return(.check_stock_recruit_msm(object, curve))
   }
 
   # Both are [nspp, nyrs]; the stock-recruit curve is summarised by its first
@@ -730,6 +738,115 @@
   list(stock_recruit = .conv_record(
     "stock_recruit", "fit", "FAIL", paste(msg, collapse = " "),
     list(steepness = h, R0 = r0)))
+}
+
+
+# Under predation steepness does not exist and nothing anchors alpha and beta,
+# so an uninformed curve runs to a flat ridge (recruitment independent of SSB
+# over the data) or a linear one (beta at 0), each with a positive-definite
+# Hessian. Read the curve over the hindcast SSB range, the +/-30 bound and the
+# standard errors instead.
+.check_stock_recruit_msm <- function(object, curve) {
+  dl <- object[["data_list"]]
+  q  <- object[["quantities"]]
+  rp <- object[["estimated_params"]][["rec_pars"]]
+  ssb <- q[["ssb"]]
+  if (is.null(rp) || is.null(ssb)) return(list())
+  nyrs_hind <- dl[["endyr"]] - dl[["styr"]] + 1
+  spp  <- dl[["spnames"]] %||% paste0("Species", seq_len(nrow(rp)))
+  estd <- dl[["estDynamics"]] %||% rep(0, nrow(rp))
+  ch   <- object[[".conv_hindcast"]]
+
+  pos_of <- function(sp, slot) {
+    if (is.null(ch$index)) return(integer(0))
+    ch$index[ch$index$block == "rec_pars" & ch$index$slot == slot &
+               ch$index$species == spp[sp], "par_index"]
+  }
+  # NA without an sdreport (getsd = FALSE), so the standard-error clause is
+  # silent then.
+  se_of <- function(sp, slot) {
+    i <- pos_of(sp, slot)
+    if (is.null(ch$se_fixed) || length(i) != 1L || i > length(ch$se_fixed)) return(NA_real_)
+    unname(ch$se_fixed[i])
+  }
+  # A curve held at its inputs (srr_est_mode = "Fixed", or a linkage fixing
+  # alpha and beta) is what the user asked for, not something the data failed
+  # to inform; it is reported without a warning.
+  fixed_curve <- function(sp) {
+    !is.null(ch$index) && !length(pos_of(sp, "alpha")) && !length(pos_of(sp, "beta"))
+  }
+
+  msg <- character(0); dat <- list(); held <- character(0)
+  for (sp in seq_len(nrow(rp))) {
+    if (isTRUE(estd[sp] > 0)) next                       # input numbers, no curve
+    if (fixed_curve(sp)) { held <- c(held, spp[sp]); next }
+    la <- rp[sp, 2]; lb <- rp[sp, 3]
+    a  <- exp(la);   b  <- exp(lb)
+    s  <- ssb[sp, seq_len(nyrs_hind)]
+    s  <- s[is.finite(s) & s > 0]
+    if (!length(s)) next
+    smin <- min(s); smax <- max(s)
+    se_a <- se_of(sp, "alpha"); se_b <- se_of(sp, "beta")
+    why <- character(0)
+    # Density dependence at the two ends of the observed SSB range.
+    if (curve %in% c(2L, 3L)) {
+      # Beverton-Holt: predicted / asymptote = beta S / (1 + beta S).
+      dd_smin <- b * smin / (1 + b * smin); dd_smax <- b * smax / (1 + b * smax)
+      if (dd_smin > 0.9) why <- c(why, sprintf(
+        "flat over the observed SSB range (predicted/asymptote %.3f at the lowest SSB, %.4g): recruitment does not depend on SSB in these data",
+        dd_smin, smin))
+      if (dd_smax < 0.1) why <- c(why, sprintf(
+        "linear over the observed SSB range (predicted/asymptote %.3f at the highest SSB, %.4g): no density dependence, beta is not informed",
+        dd_smax, smax))
+    } else {
+      # Ricker: R = alpha S exp(-beta S / 1e6); the density-dependence factor is
+      # exp(-beta S / 1e6) and the curve peaks at S* = 1e6 / beta.
+      dd_smin <- exp(-b * smin / 1e6); dd_smax <- exp(-b * smax / 1e6)
+      speak   <- 1e6 / b
+      if (dd_smax > 0.9) why <- c(why, sprintf(
+        "linear over the observed SSB range (density-dependence factor %.3f at the highest SSB, %.4g): no density dependence, beta is not informed",
+        dd_smax, smax))
+      if (speak < smin) why <- c(why, sprintf(
+        "peak at SSB %.4g, below the lowest observed SSB (%.4g): every observation is on the descending limb",
+        speak, smin))
+    }
+    at_bound <- abs(c(la, lb)) >= 30 - 1e-3
+    if (any(at_bound)) why <- c(why, sprintf(
+      "%s at the +/-30 log-scale overflow bound",
+      paste(c("alpha", "beta")[at_bound], collapse = " and ")))
+    big_se <- c(alpha = se_a, beta = se_b)
+    big_se <- big_se[is.finite(big_se) & big_se > 10 | is.nan(big_se)]
+    if (length(big_se)) why <- c(why, sprintf(
+      "log-scale standard error %s on %s",
+      paste(signif(big_se, 3), collapse = " and "), paste(names(big_se), collapse = " and ")))
+    dat[[spp[sp]]] <- list(alpha = a, beta = b, se_log_alpha = se_a, se_log_beta = se_b,
+                           dd_at_smin = dd_smin, dd_at_smax = dd_smax,
+                           ssb_range = c(smin, smax))
+    if (length(why)) msg <- c(msg, sprintf("%s: %s.", spp[sp], paste(why, collapse = "; ")))
+  }
+  if (!length(dat)) {
+    if (!length(held)) return(list(stock_recruit = .conv_record(
+      "stock_recruit", "fit", "NOTE",
+      "Stock-recruit curve not checked: no species carries an estimated curve with usable spawning biomass.",
+      list())))
+    return(list(stock_recruit = .conv_record(
+      "stock_recruit", "fit", "NOTE",
+      sprintf("Stock-recruit curve held at its inputs for %s; nothing to check.",
+              paste(held, collapse = ", ")),
+      list(held = held))))
+  }
+  if (!length(msg)) {
+    return(list(stock_recruit = .conv_record(
+      "stock_recruit", "fit", "OK",
+      "Stock-recruit curve bends within the observed SSB range (steepness is undefined under msmMode > 0, so the replacement line is not checked).",
+      dat)))
+  }
+  list(stock_recruit = .conv_record(
+    "stock_recruit", "fit", "WARN",
+    paste(c("Stock-recruit curve not informed by the data under predation.", msg,
+            "Anchor it with an alpha prior through build_srr(linkages = ), or report the fit as a mean-recruitment model."),
+          collapse = " "),
+    dat))
 }
 
 

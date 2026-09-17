@@ -12,6 +12,53 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.39.0
+
+## Stock-recruit curves under predation
+
+* **Alpha and beta are bounded at +/-30 on the log scale.** Under predation
+  nothing ties a stock-recruit curve to an equilibrium, and on a flat ridge
+  log alpha has reached 702, next to the double-precision limit; +/-30 is 13
+  orders of magnitude either side of any stock's scale, so it never binds a
+  determined estimate. A linkage bound on alpha or beta overrides it.
+  **A fit saved on the old unbounded ridge, with log alpha or log beta beyond
+  +/-30, no longer refits**: `build_bounds()` stops because its starting values
+  are outside the bounds, which takes `retrospective()`, `profile()` and
+  `run_mse()` on that fit with it. The error names the block and says so.
+  Restart such a fit from values on the stock's scale
+  (`build_srr(srr_alpha_init =, srr_beta_init =)`); the curve it came from was
+  the degenerate one this release exists to report.
+* **The convergence battery now reads the curve under predation instead of
+  skipping it.** Steepness needs spawning biomass per recruit, which is
+  undefined under `msmMode > 0`, so `check_convergence()` returned a NOTE
+  without looking at the curve, and the flat Pacific hake curve passed. It now
+  reports a WARN when the curve is flat over the observed SSB range
+  (Beverton-Holt predicted/asymptote above 0.9 at the lowest SSB), linear (below
+  0.1 at the highest; for Ricker, a density-dependence factor above 0.9), when a
+  Ricker peaks below the lowest observed SSB, when log alpha or log beta sits at
+  the overflow bound, or (with `getsd = TRUE`) when a log-scale standard error
+  exceeds 10; the record carries alpha, beta, their standard errors and the
+  density dependence at both ends of the SSB range per species. A curve held
+  at its inputs is a NOTE, not a warning. The hindcast standard errors it reads
+  are now kept in the fit's convergence snapshot, since under an estimating HCR
+  `fit$sdrep` is the projection's.
+* **Simulation recovery.** `tools/verify/verify-sim-recovery-srr-msm.R`
+  imposes a Beverton-Holt curve with its bend inside the observed SSB range on
+  the two-species fixture (fished with a strong pulse, SSB spanning about 7x)
+  and refits it from the true values after redrawing the observations and the
+  recruitment process; a `dispersed` option starts a log unit away. Over 30
+  replicates from the truth, species 2 recovers cleanly (log alpha 2.51
+  against a true 2.55, empirical SD 0.19, mean reported SE 0.20; log beta
+  -5.64 against -5.66); species 1, whose recruitment is noisier, recovers in
+  the replicates that converge and runs to the ridge in those that do not.
+  From dispersed starts species 2 still recovers (2.58 against 2.54) and
+  species 1 reaches the ridge in half the replicates, which is the behaviour
+  the new check reports.
+* Tests: `sample_rec()` projects the mean multiplier at both draw sites
+  (`test-functions-sample-rec-agreement.R`); one fitted Ianelli case under
+  predation; the degenerate-curve check on both ridges and both forms.
+  `?build_srr` says what the `R0` slot starts at under a multispecies curve.
+
 # Rceattle 5.38.0
 
 ## New features
@@ -73,6 +120,24 @@ version throughout.
   the first age is kept. A script that sets `inits$index_q_rho` keeps running,
   with that assignment now inert. No reachable fit changes; the golden fits
   are unchanged.
+
+## Documentation
+
+* **A contributor path.** `CONTRIBUTING.md` (setup, tests, branches, what a
+  pull request carries) replaces the branch table and commit convention in the
+  developer guide. A new article, *Adding a selectivity form*, traces
+  `Selectivity = "DoubleNormal"` through every file, fits it on `GOApollock`,
+  and shows what the drift guards report on a half-finished form;
+  `test-docs-anchors.R` checks every path, function and code it quotes. The
+  C++ template is now published as a Doxygen reference from the site's
+  Contributing menu (`Doxyfile`, built by `pkgdown.yaml`); the growth header's
+  equations render, and stale `@param` names in the growth, selectivity and
+  predation headers are corrected. The forms table no longer calls the double
+  normal six-parameter: it estimates four (peak, two widths, right-tail floor).
+  Two defects the trace found are recorded in `inst/dev/CLEANUP_BACKLOG.md`,
+  not fixed here: a `DoubleNormal` fleet with `Time_varying_sel =
+  "RandomWalkAscending"` silently drops its deviates, and the form's default
+  starting values describe a flat curve the optimizer does not leave.
 
 # Rceattle 5.36.0
 

@@ -40,6 +40,7 @@ Each script prints a pass/fail digest and leaves its numbers on stdout.
 | `verify-sim-recovery-M.R` | Whether the data actually inform M. Reproduces the documented limit: deviations recover, their SD does not. |
 | `verify-sim-local-optimum.R` | When recovery is poor, whether that basin is the MLE for the simulated data or a local optimum. |
 | `verify-sim-recovery-apical.R` | The per-sex apical selectivity offset recovers from joint compositions (`GOAatf` fishery, known male offset), with the mean, empirical SD and reported SE over `n` replicates. |
+| `verify-sim-recovery-srr-msm.R` | Whether the data can inform a Beverton-Holt curve under predation, where no equilibrium anchors it: a curve bending inside a 7x SSB range is imposed on the two-species fixture and refitted after redrawing observations and recruitment. |
 
 ## ci/
 

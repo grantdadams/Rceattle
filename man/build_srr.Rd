@@ -117,7 +117,9 @@ spawning biomass per recruit and so exists only in single-species models.
 
 \section{Starting values}{
 
-Mean recruitment (\code{R0}) starts at \eqn{e^9 = 8103} thousand fish. Alpha
+Mean recruitment (\code{R0}) starts at \eqn{e^9 = 8103} thousand fish; under
+a curve fitted in the hindcast of a multispecies model the same slot is the
+free initial recruitment level \code{R_init}, with the same start. Alpha
 starts at \code{srr_prior} (default 4) wherever that is an alpha, and at
 \eqn{e^3} otherwise; beta starts at 3. None of them knows the stock's scale. Set them
 with \code{srr_alpha_init} / \code{srr_beta_init} or a linkage \code{init};

@@ -5,6 +5,8 @@
 ^\.claude$
 ^\.mcp\.json$
 ^CLAUDE\.md$
+^CONTRIBUTING\.md$
+^Doxyfile$
 ^doc$
 ^Meta$
 ^examples$
