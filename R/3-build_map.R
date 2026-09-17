@@ -717,8 +717,31 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
   # -- Map out parameters (then turned on)
   sel_params <- c("sel_coff", "sel_coff_dev", "log_sel_slp", "sel_inf",
-                  "log_sel_slp_dev", "sel_inf_dev", "sel_dev_log_sd", "sel_curve_pen")
+                  "log_sel_slp_dev", "sel_inf_dev", "sel_dev_log_sd", "sel_curve_pen",
+                  "log_sel_apical")
   map_list[sel_params] <- lapply(map_list[sel_params], function(x) replace(x, values = NA))
+
+  # The per-sex apical height is estimated only where a selectivity linkage on
+  # `apical` carries an estimable intercept; every other cell stays at 0 (no
+  # offset). A slope-only spec leaves the base at 0 and the covariate carries
+  # the whole effect, as for the other selectivity parameters.
+  tbl <- data_list$linkage_table
+  if (!is.null(tbl) && nrow(tbl) > 0L) {
+    ap <- tbl[tbl$process == "sel" & tbl$param == "apical" &
+                tbl$design_col == "(Intercept)" & as.integer(tbl$est_phase) != 0L, ,
+              drop = FALSE]
+    ind_ap <- 1L
+    for (i in seq_len(nrow(ap))) {
+      idx <- .linkage_row_indices(ap[i, , drop = FALSE], data_list)
+      for (f in idx$fleet) {
+        sp <- data_list$fleet_control$Species[f]
+        for (s in idx$per_sp[[as.character(sp)]]$sex) {
+          map_list$log_sel_apical[f, s] <- ind_ap
+          ind_ap <- ind_ap + 1L
+        }
+      }
+    }
+  }
 
   # -- Selectivity  indices
   ind_coff <- 1
@@ -1425,6 +1448,7 @@ adjust_map_shared_params <- function(map_list, data_list) {
         map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
         map_list$sel_dev_log_sd[flt] <- map_list$sel_dev_log_sd[sel_duplicate]
         map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
+        map_list$log_sel_apical[flt,] <- map_list$log_sel_apical[sel_duplicate,]
       }
     }
 
@@ -1846,6 +1870,8 @@ map_linkage_adjuster <- function(map_list, data_list) {
             map_list$sel_inf[m$slot, idx$fleet, sx(map_list$sel_inf, 3L)] <- NA
           } else if (m$arr == "sel_coff") {
             map_list$sel_coff[idx$fleet, sx(map_list$sel_coff, 2L), ] <- NA
+          } else if (m$arr == "log_sel_apical") {
+            map_list$log_sel_apical[idx$fleet, sx(map_list$log_sel_apical, 2L)] <- NA
           }
         }
       }

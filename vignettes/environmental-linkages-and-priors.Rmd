@@ -869,9 +869,39 @@ keys, which name the underlying slots shared across the parametric forms:
 |---|---|---|
 | `slp_asc`, `slp_desc` | ascending / descending slope | `sigma_asc`, `sigma_desc` |
 | `inf_asc`, `inf_desc` | ascending / descending inflection | `peak`, `right_floor` |
+| `apical` | a multiplier on one sex's whole curve (every estimated form) | same |
 
 The DoubleNormal aliases (`sigma_asc`, `peak`, ...) map to the same slots,
 so you name the quantity your fleet's form actually has.
+
+**A per-sex apical height.** Fishing mortality is one `log_F` per fleet and
+year shared by the sexes, so a sex difference in F can only come from
+selectivity, and no form has a height parameter of its own. `apical`
+multiplies one sex's whole curve by `exp(log_sel_apical)`, bin by bin, after
+the form and before normalization, so it works for every estimated form. Name
+the fleet and the sex that carries it; the other sex is the reference, as in
+Stock Synthesis's male-offset option:
+
+```r
+build_selectivity(linkages = list(
+  apical = linkage_spec(~ 1, by = ~ fleet + sex, fleet = 3, sex = "male",
+                        priors = list(intercept = lognormal(0, 0.5)))))
+```
+
+The multiplier equals the ratio of the sexes' peak heights only where their
+shapes peak equally, which the logistic family does on an age axis; for a
+dome with sex-specific shape it is the pointwise multiplier, and the peak ratio
+is read from `fit$quantities$sel_at_age`. Only the contrast between the sexes
+is identified, so the fit is refused when both sexes or no sex carry it, when
+no fleet is named, on a one-sex species, on a `Fixed`, AR1 or mirror fleet,
+with `link = "identity"`, and where `Sel_norm_scope = "WithinSex"`
+normalization would divide the offset out (use `"AcrossSexes"`, under which
+the more-selected sex peaks at 1, or turn `Sel_norm_bin` off). The contrast is
+informed only by joint compositions (`comp_data$Sex = 3`); with single-sex
+compositions it rests on its prior. On `GOAatf`'s fishery (Logistic,
+across-sex normalization) the male multiplier fits at 2.15 (log offset 0.77,
+SE 0.21), which is also the peak ratio there because both logistic curves
+saturate.
 
 ```{r}
 fit <- fit_mod(
@@ -893,7 +923,8 @@ link the log-space slope and the natural-space inflection independently.
 **Supported forms:** the parametric selectivities -- `Logistic`,
 `DoubleLogistic`, `DescendingLogistic`, `DoubleNormal`, and `LogisticPM`.
 A linkage on any other form errors at fit time naming the fleet, rather than
-being estimated to no effect. The non-parametric forms (`coff`) are
+being estimated to no effect. `apical` is the exception: it multiplies the
+finished curve, so every estimated form takes it. The non-parametric forms (`coff`) are
 excluded on principle: they mean-center their coefficients every year, so a
 per-year offset applied across all bins cancels exactly -- a per-bin
 covariate would be needed, which the formula grammar does not express.

@@ -304,7 +304,14 @@ void calculate_selectivity(
     // not const-qualified; these tensors are read, never written, here.
     array<Type>& sel_slp_off,      array<Type>& sel_slp_off_nat,
     array<Type>& sel_inf_off,      array<Type>& sel_inf_off_nat,
-    array<Type>& sel_coff_off,     array<Type>& sel_coff_off_nat
+    array<Type>& sel_coff_off,     array<Type>& sel_coff_off_nat,
+    // Per-sex apical height: exp(log_sel_apical + log offset) + natural offset
+    // multiplies one sex's whole curve. Compiled in only when a selectivity
+    // linkage names `apical` (sel_apical_on), so every other model keeps its
+    // AD tape unchanged.
+    const int& sel_apical_on,
+    array<Type>& log_sel_apical,   // [n_flt, max_sex]
+    array<Type>& sel_apical_off,   array<Type>& sel_apical_off_nat   // [n_flt, max_sex, nyrs]
 ) {
   sel_at_age.setZero();
   sel_at_length.setZero();
@@ -597,6 +604,26 @@ void calculate_selectivity(
 
       } // End sex
     } // End year
+
+    // --- 2b. PER-SEX APICAL HEIGHT ---
+    // One sex's whole curve times exp(log_sel_apical + log-link offset), plus
+    // the identity-link offset, the convention the log-scale slopes use. Applied
+    // after every form's own centring or normalization (NonParametric,
+    // NonParametricPM and Hake rescale inside the switch) and before the shared
+    // normalizer, which must pool its reference across sexes (AcrossSexes) or be
+    // off for the offset to survive; .check_sel_apical_rows() refuses the rest.
+    if (sel_apical_on == 1) {
+      for (int yr = 0; yr < nyrs_hind; yr++) {
+        for (int sex = 0; sex < nsex(sp); sex++) {
+          Type scale = exp(log_sel_apical(flt, sex) + sel_apical_off(flt, sex, yr))
+                       + sel_apical_off_nat(flt, sex, yr);
+          for (int bin = 0; bin < nbins; bin++) {
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) *= scale;
+            else                 sel_at_age(flt, sex, bin, yr) *= scale;
+          }
+        }
+      }
+    }
 
     // --- 3. NORMALIZATION & PROJECTION ---
     normalize_and_project_selectivity(

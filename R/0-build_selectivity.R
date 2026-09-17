@@ -4,7 +4,8 @@
 #' @keywords internal
 #' @noRd
 SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
-                        "sigma_asc", "sigma_desc", "peak", "right_floor")
+                        "sigma_asc", "sigma_desc", "peak", "right_floor",
+                        "apical")
 
 
 #' @keywords internal
@@ -32,10 +33,40 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #'     (natural scale); for a double-normal the peak and the logit right-floor,
 #'     aliased `peak` / `right_floor`.}
 #'   \item{`coff`}{non-parametric selectivity-at-bin coefficients.}
+#'   \item{`apical`}{a multiplier on one sex's whole curve (log scale),
+#'     applied after the form and before normalization, so every estimated
+#'     form takes it. Name the fleet and the sex that carries it
+#'     (`by = ~ fleet + sex`, `fleet = 3`, `sex = "male"`), as Stock
+#'     Synthesis's male-offset option does; the other sex is the reference.
+#'     See Details.}
 #' }
 #'
-#' Every parameter accepts `link = "log"` (multiplicative on the natural
-#' parameter) or `link = "identity"` (additive), like the other processes.
+#' Every parameter but `apical` accepts `link = "log"` (multiplicative on the
+#' natural parameter) or `link = "identity"` (additive), like the other
+#' processes; `apical` is a multiplier already and takes `"log"` only.
+#'
+#' @details
+#' **The `apical` offset.** Fishing mortality is one `log_F` per fleet and
+#' year shared by the sexes, so a sex difference in F can only come from
+#' selectivity, and no form has a height parameter: the logistic family and
+#' DoubleNormal peak at 1 for every sex, the non-parametric forms re-centre
+#' each sex, Hake normalizes each sex by its own maximum. `apical` multiplies
+#' one sex's curve by `exp(log_sel_apical)`, bin by bin. That equals the ratio
+#' of the sexes' peak heights only where their shapes peak equally (the
+#' logistic family on an age axis); for a dome with sex-specific shape, read
+#' it as the multiplier on that sex's curve and take the peak ratio from
+#' `fit$quantities$sel_at_age`. Only the contrast between the sexes is
+#' identified (the common level is `log_F`), so one sex carries it and the fit
+#' is refused if both do, if no fleet or no sex is named, if the species has
+#' one sex, or on a `Fixed`, AR1 or mirror fleet. It is also refused where
+#' `Sel_norm_scope = "WithinSex"` normalization would divide it straight back
+#' out; use `"AcrossSexes"`, under which the more-selected sex peaks at 1, or
+#' turn `Sel_norm_bin` off. The contrast is informed only by joint composition
+#' (`comp_data$Sex = 3`); with single-sex compositions it rests on its prior.
+#' An intercept prior is on the multiplier's natural scale (`lognormal()`
+#' centred on 1 means no offset). Like every selectivity linkage, a covariate
+#' on it acts in the hindcast years; projection years carry the last hindcast
+#' year's curve.
 #'
 #' **Priors on a selectivity parameter.** An intercept-only formula (`~ 1`) with
 #' a `priors` entry places a prior on the selectivity parameter itself (no
@@ -89,7 +120,8 @@ build_selectivity <- function(linkages = NULL) {
   inf_desc    = list(arr = "sel_inf",     slot = 2L),
   peak        = list(arr = "sel_inf",     slot = 1L),
   right_floor = list(arr = "sel_inf",     slot = 2L),
-  coff        = list(arr = "sel_coff",    slot = NA_integer_)
+  coff        = list(arr = "sel_coff",    slot = NA_integer_),
+  apical      = list(arr = "log_sel_apical", slot = NA_integer_)  # [fleet, sex]
 )
 
 
@@ -101,7 +133,8 @@ build_selectivity <- function(linkages = NULL) {
 .SEL_LINKAGE_WIRED_FORMS <- c("Logistic", "DoubleLogistic", "DescendingLogistic",
                               "DoubleNormal", "LogisticPM")
 .SEL_LINKAGE_WIRED_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc",
-                               "sigma_asc", "sigma_desc", "peak", "right_floor")
+                               "sigma_asc", "sigma_desc", "peak", "right_floor",
+                               "apical")
 
 
 #' Reject selectivity linkages the model does not yet consume
@@ -111,9 +144,16 @@ build_selectivity <- function(linkages = NULL) {
 #' @return invisibly NULL; errors on an unsupported sel linkage.
 #' @keywords internal
 #' @noRd
-.check_sel_linkage_support <- function(linkage_table, fleet_control) {
+.check_sel_linkage_support <- function(linkage_table, fleet_control, nsex = NULL) {
   if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
   sel <- linkage_table[linkage_table$process == "sel", , drop = FALSE]
+  if (nrow(sel) == 0L) return(invisible())
+
+  # `apical` multiplies the finished curve, so it needs no form-specific consume
+  # site and is checked on its own terms below; the form check is for the rest.
+  ap  <- sel[sel$param == "apical", , drop = FALSE]
+  sel <- sel[sel$param != "apical", , drop = FALSE]
+  if (nrow(ap) > 0L) .check_sel_apical_rows(ap, fleet_control, nsex)
   if (nrow(sel) == 0L) return(invisible())
 
   bad_param <- setdiff(unique(sel$param), .SEL_LINKAGE_WIRED_PARAMS)
@@ -213,6 +253,100 @@ build_selectivity <- function(linkages = NULL) {
           form, paste(used[[form]], collapse = " / ")), call. = FALSE)
       }
     }
+  }
+  invisible()
+}
+
+
+#' Refuse an `apical` selectivity linkage the model cannot identify
+#'
+#' The offset scales one sex's curve. `log_F` is shared by the sexes, so only
+#' the ratio between them is identified, and normalization within a sex divides
+#' the offset straight back out.
+#'
+#' @param ap the `apical` rows of the pooled linkage table.
+#' @param fleet_control the fleet control table, canonical switch strings.
+#' @param nsex sexes per species (`data_list$nsex`); NULL skips the sex checks.
+#' @return invisibly NULL; errors on an unidentified offset.
+#' @keywords internal
+#' @noRd
+.check_sel_apical_rows <- function(ap, fleet_control, nsex = NULL) {
+  fc  <- fleet_control
+  refuse <- function(fmt, flts) {
+    stop(sprintf(fmt, paste(fc$Fleet_name[flts], collapse = ", ")), call. = FALSE)
+  }
+
+  # The offset is one parameter per fleet and sex, and its prior lands on the
+  # fleet the row names; a row for every fleet would free one cell per fleet
+  # under a single prior. So every row names its fleet.
+  if (anyNA(ap$fleet)) stop(
+    "apical selectivity linkage names no fleet: the offset is per fleet, so ",
+    "write by = ~ fleet + sex with fleet = <Fleet_code>.", call. = FALSE)
+  # A natural-scale offset is added to the multiplier, so below -1 it would
+  # make selectivity, F and the predicted catch negative.
+  if (any(ap$link == "identity")) stop(
+    "apical selectivity linkage with link = \"identity\": the offset is a ",
+    "multiplier on the curve, so use link = \"log\" (the default).", call. = FALSE)
+
+  for (i in seq_len(nrow(ap))) {
+    flts <- as.integer(ap$fleet[i])
+    fixed <- flts[as.character(fc$Selectivity[flts]) == "Fixed"]
+    if (length(fixed)) refuse(paste0(
+      "apical selectivity linkage on fleet(s) %s with Selectivity = \"Fixed\": an ",
+      "input curve has no estimated height to offset."), fixed)
+    # The AR1 forms already carry a free per-sex level in sel_coff and are held
+    # in (0, 1); a multiplier on top is confounded with it.
+    ar1 <- flts[as.character(fc$Selectivity[flts]) %in% c("2DAR1", "3DAR1")]
+    if (length(ar1)) refuse(paste0(
+      "apical selectivity linkage on fleet(s) %s with an AR1 selectivity form: ",
+      "those forms estimate a per-sex level in sel_coff already."), ar1)
+
+    # A mirror takes its whole selectivity block from its lead fleet, this
+    # offset included, so a linkage placed on the mirror would free nothing.
+    sidx   <- fc$Selectivity_index
+    mirror <- flts[!is.na(sidx[flts]) & sidx[flts] != flts]
+    if (length(mirror)) refuse(paste0(
+      "apical selectivity linkage on fleet(s) %s that mirror another fleet's ",
+      "selectivity (Selectivity_index != Fleet_code): the block is the lead ",
+      "fleet's. Place it on the lead fleet; the mirrors share it."), mirror)
+
+    if (!is.null(nsex)) {
+      one_sex <- flts[nsex[fc$Species[flts]] == 1]
+      if (length(one_sex)) refuse(paste0(
+        "apical selectivity linkage on one-sex fleet(s) %s: with one sex the ",
+        "offset is the common selectivity level, which log_F already carries, ",
+        "so it is not identified."), one_sex)
+      if (is.na(ap$sex[i])) refuse(paste0(
+        "apical selectivity linkage on fleet(s) %s names no sex, so both sexes ",
+        "would carry the offset and only their ratio is identified. Use ",
+        "by = ~ fleet + sex with sex = \"male\" (or \"female\"); the other sex ",
+        "is the reference."), flts)
+    }
+
+    # Normalization within a sex rescales each sex to its own reference, which
+    # removes a whole-curve multiplier exactly. Hake and LogisticPM never reach
+    # the shared normalizer.
+    norm_on <- !is.na(.rce_sel_norm_code(fc$Sel_norm_bin[flts], allow_all = TRUE))
+    within  <- !fc$Sel_norm_scope[flts] %in% c("AcrossSexes", sel_norm_scope_map[["AcrossSexes"]])
+    shared  <- !as.character(fc$Selectivity[flts]) %in% c("Hake", "LogisticPM")
+    cancel  <- flts[norm_on & within & shared]
+    if (length(cancel)) refuse(paste0(
+      "apical selectivity linkage on fleet(s) %s whose Sel_norm_scope is ",
+      "\"WithinSex\": normalizing each sex to its own reference divides the offset ",
+      "out. Set Sel_norm_scope = \"AcrossSexes\", or Sel_norm_bin = \"Off\"."), cancel)
+  }
+
+  # Both sexes named across rows on one fleet is the same ridge as naming none:
+  # the union of named sexes per fleet must be one sex.
+  if (!is.null(nsex)) {
+    named  <- ap[!is.na(ap$sex), , drop = FALSE]
+    by_flt <- split(as.integer(named$sex), as.integer(named$fleet))
+    both   <- as.integer(names(by_flt)[vapply(by_flt, function(s) length(unique(s)) > 1L,
+                                              logical(1))])
+    if (length(both)) refuse(paste0(
+      "apical selectivity linkage on fleet(s) %s names both sexes; only their ",
+      "ratio is identified, so one sex carries the offset and the other is the ",
+      "reference."), both)
   }
   invisible()
 }

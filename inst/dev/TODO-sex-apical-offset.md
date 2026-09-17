@@ -1,6 +1,18 @@
 # A per-sex apical selectivity offset
 
-Status: **proposed, not implemented.**
+Status: **implemented in 5.38.0** as the selectivity linkage parameter `apical`
+(`log_sel_apical`, `[n_flt, max_sex]`), per the design below. Refusals live in
+`.check_sel_apical_rows()` (no fleet, no sex, both sexes across rows, one-sex
+species, Fixed / AR1 / mirror fleets, identity link, within-sex normalization);
+`test-linkage-selectivity-apical.R` pins them and the closed-form 0.5 multiplier.
+The multiplier is bin-wise: it equals the ratio of the sexes' peak heights only
+where their shapes peak equally (logistic on an age axis, measured 0.5 exactly; a
+double-logistic with sex-specific descending inflections gave a peak ratio of
+0.33 at a multiplier of 0.5). On `GOAatf`'s fishery (Logistic, across-sex
+normalization) the male multiplier fits at 2.15 (log 0.767, SE 0.213, PD Hessian,
+objective 356.56 with the lognormal(0, 0.5) prior against 364.01 without the
+offset). `tools/verify/verify-sim-recovery-apical.R` is the recovery harness. The
+rest of this note is the design record; PR 6 folds it into `TODO-selectivity.md`.
 
 ## What is missing
 

@@ -218,6 +218,9 @@ build_bounds <- function(param_list = NULL, data_list) {
                      } else if (identical(sel_slot$arr, "sel_inf")) {
                        lower_bnd$sel_inf[sel_slot$slot, idx$fleet, sx] <- lo
                        upper_bnd$sel_inf[sel_slot$slot, idx$fleet, sx] <- hi
+                     } else if (identical(sel_slot$arr, "log_sel_apical")) {
+                       lower_bnd$log_sel_apical[idx$fleet, sx] <- log(lo)
+                       upper_bnd$log_sel_apical[idx$fleet, sx] <- log(hi)
                      }
                    }
                  }

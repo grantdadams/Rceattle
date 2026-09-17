@@ -107,6 +107,8 @@
       "Logistic-family selectivity slope; row 1 ascending, row 2 descending.", "[2, n_sel, nsex]"),
     r("sel_inf", "selectivity inflection", "selectivity",
       "Logistic-family age/length at 50% selection; row 1 ascending, row 2 descending.", "[2, n_sel, nsex]"),
+    r("log_sel_apical", "selectivity apical height", "selectivity",
+      "Log multiplier on one sex's whole curve, applied after the form and before normalization; 0 = no offset. Estimated only through a selectivity linkage on `apical`.", "[n_sel, nsex]"),
     r("log_sel_slp_dev", "slope deviations", "selectivity",
       "Annual deviations on the selectivity slope.", "[2, n_sel, nsex, nyrs_hind]"),
     r("sel_inf_dev", "inflection deviations", "selectivity",

@@ -93,11 +93,13 @@ LINKAGE_PARAM_CODES <- list(
   #   0/1 = log_sel_slp[asc/desc]  (log-scale: slope, or log-sigma in DoubleNormal)
   #   2/3 = sel_inf[asc/desc]      (natural: inflection, or peak/logit-floor)
   #   4   = sel_coff               (non-parametric per-bin coefficients)
+  #   5   = log_sel_apical         (log-scale per-sex multiplier on the curve)
   # The form-specific aliases (sigma_*, peak, right_floor) resolve to the same
   # slot, so a user names the quantity their form actually has.
   sel         = c(slp_asc     = 0L, slp_desc = 1L,
                   inf_asc     = 2L, inf_desc = 3L,
                   coff        = 4L,
+                  apical      = 5L,
                   # DoubleNormal aliases
                   sigma_asc   = 0L, sigma_desc = 1L,
                   peak        = 2L, right_floor = 3L),
