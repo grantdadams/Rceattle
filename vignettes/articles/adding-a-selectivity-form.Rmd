@@ -76,8 +76,9 @@ limbs (`log_sel_slp(0)` and `log_sel_slp(1)`), each as base parameter plus annua
 deviate plus linkage offset. The floor is on the logit scale so a linkage offset
 cannot push it above 1, and the descending limb approaches the floor rather than
 zero, which is Stock Synthesis's `end_logit`. `build_map_selectivity()` frees
-those four slots per sex and, for `Time_varying_sel` in `IID`, `AR1` and
-`RandomWalk`, a deviate per hindcast year on each; `Block` replaces the base
+those four slots per sex and, for `Time_varying_sel` in `IID` and `RandomWalk`,
+a deviate per hindcast year on each (the block also names `AR1`, which
+`data_check()` refuses for every form); `Block` replaces the base
 parameters with one value per block. `ceattle.cpp` scores those deviates in
 `JNLL_SEL_DEV` because `8` is in its type lists; the form has no penalty of its
 own. `.PAR_SEL_SLOTS` relabels the slots, `.SEL_LINKAGE_WIRED_FORMS` admits the

@@ -33,8 +33,9 @@
  *   recruitment correction at the season transition.
  * - **SD-at-Age**: For current_age <= age_L1, SD = \f$e^{sd_0}\f$. Otherwise
  *   linear interpolation in length between SD(\f$l_1\f$) = \f$e^{sd_0}\f$ and
- *   SD(\f$L_{\infty}\f$) = \f$e^{sd_1}\f$, with the plus group pinned to the upper
- *   anchor \f$e^{sd_1}\f$ (WHAM-style; identical in estimate_growth_within_yr()).
+ *   SD(\f$L_{\infty}\f$) = \f$e^{sd_1}\f$. The plus group is pinned to \f$e^{sd_1}\f$
+ *   under `growth_sd_style == 1` (WHAM) and interpolated like every other age
+ *   under `growth_sd_style == 2` (SS3), as in estimate_growth_within_yr().
  * - **Size Transition**: Converts mean length and SD into a probability
  *   matrix \f$P(\text{Length} | \text{Age})\f$ via `pnorm`. First length bin is
  *   a minus-group; last length bin is a plus-group.
