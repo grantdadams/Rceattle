@@ -62,7 +62,11 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' `Sel_norm_scope = "WithinSex"` normalization would divide it straight back
 #' out; use `"AcrossSexes"`, under which the more-selected sex peaks at 1, or
 #' turn `Sel_norm_bin` off. The contrast is informed only by joint composition
-#' (`comp_data$Sex = 3`); with single-sex compositions it rests on its prior.
+#' (`comp_data$Sex = 3`); with single-sex compositions it rests on its prior,
+#' and `fit_mod()` warns when a fleet has neither. Read the fitted multiplier
+#' with `exp(fit$estimated_params$log_sel_apical[fleet, sex])`, or `sex_max(fit)`
+#' for the realized ratio of the sexes' maxima. Naming `fleet` and `sex` is
+#' enough: `by` defaults to `~ fleet + sex` for this parameter.
 #' An intercept prior is on the multiplier's natural scale (`lognormal()`
 #' centred on 1 means no offset). Like every selectivity linkage, a covariate
 #' on it acts in the hindcast years; projection years carry the last hindcast
@@ -141,10 +145,13 @@ build_selectivity <- function(linkages = NULL) {
 #'
 #' @param linkage_table pooled linkage table (may be NULL / empty).
 #' @param fleet_control the fleet control table.
+#' @param nsex sexes per species (`data_list$nsex`); NULL skips the sex checks.
+#' @param comp_data the composition data; NULL skips the joint-composition check.
 #' @return invisibly NULL; errors on an unsupported sel linkage.
 #' @keywords internal
 #' @noRd
-.check_sel_linkage_support <- function(linkage_table, fleet_control, nsex = NULL) {
+.check_sel_linkage_support <- function(linkage_table, fleet_control, nsex = NULL,
+                                       comp_data = NULL) {
   if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
   sel <- linkage_table[linkage_table$process == "sel", , drop = FALSE]
   if (nrow(sel) == 0L) return(invisible())
@@ -153,7 +160,7 @@ build_selectivity <- function(linkages = NULL) {
   # site and is checked on its own terms below; the form check is for the rest.
   ap  <- sel[sel$param == "apical", , drop = FALSE]
   sel <- sel[sel$param != "apical", , drop = FALSE]
-  if (nrow(ap) > 0L) .check_sel_apical_rows(ap, fleet_control, nsex)
+  if (nrow(ap) > 0L) .check_sel_apical_rows(ap, fleet_control, nsex, comp_data)
   if (nrow(sel) == 0L) return(invisible())
 
   bad_param <- setdiff(unique(sel$param), .SEL_LINKAGE_WIRED_PARAMS)
@@ -267,10 +274,11 @@ build_selectivity <- function(linkages = NULL) {
 #' @param ap the `apical` rows of the pooled linkage table.
 #' @param fleet_control the fleet control table, canonical switch strings.
 #' @param nsex sexes per species (`data_list$nsex`); NULL skips the sex checks.
+#' @param comp_data the composition data; NULL skips the joint-composition check.
 #' @return invisibly NULL; errors on an unidentified offset.
 #' @keywords internal
 #' @noRd
-.check_sel_apical_rows <- function(ap, fleet_control, nsex = NULL) {
+.check_sel_apical_rows <- function(ap, fleet_control, nsex = NULL, comp_data = NULL) {
   fc  <- fleet_control
   refuse <- function(fmt, flts) {
     stop(sprintf(fmt, paste(fc$Fleet_name[flts], collapse = ", ")), call. = FALSE)
@@ -347,6 +355,30 @@ build_selectivity <- function(linkages = NULL) {
       "apical selectivity linkage on fleet(s) %s names both sexes; only their ",
       "ratio is identified, so one sex carries the offset and the other is the ",
       "reference."), both)
+  }
+
+  # The sexes' ratio is informed only by joint-sex compositions. With neither
+  # those nor a prior the offset is a free parameter in a flat direction: the
+  # fit converges and reports a number the data never constrained.
+  if (!is.null(comp_data) && !is.null(comp_data$Sex) && !is.null(comp_data$Fleet_code)) {
+    # as.character() first: a factor Sex (read.csv with stringsAsFactors) would
+    # otherwise compare as its level index rather than as the code it names.
+    sex_code <- suppressWarnings(as.integer(as.character(comp_data$Sex)))
+    joint <- unique(as.integer(comp_data$Fleet_code[!is.na(sex_code) & sex_code == 3L]))
+    free  <- is.na(ap$est_phase) | as.integer(ap$est_phase) != 0L
+    base  <- if (is.null(ap$design_col)) rep(TRUE, nrow(ap)) else
+      ap$design_col == "(Intercept)"
+    none  <- if (is.null(ap$prior_family)) TRUE else
+      is.na(ap$prior_family) | ap$prior_family %in% c("none", "")
+    blind <- unique(as.integer(ap$fleet[free & base & none &
+                                          !as.integer(ap$fleet) %in% joint]))
+    if (length(blind)) warning(sprintf(paste0(
+      "apical selectivity linkage on fleet(s) %s: that fleet has no joint-sex ",
+      "composition rows (comp_data Sex = 3) and the offset carries no prior, so ",
+      "nothing informs the sexes' ratio and the estimate is whatever the ",
+      "optimizer leaves. Add priors = list(intercept = lognormal(0, 0.5)), or fit ",
+      "that fleet's compositions jointly."),
+      paste(fc$Fleet_name[blind], collapse = ", ")), call. = FALSE)
   }
   invisible()
 }

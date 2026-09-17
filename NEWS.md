@@ -35,7 +35,10 @@ version throughout.
   sexes, one on a one-sex species, a `Fixed` or AR1 fleet, a mirror fleet, one
   with `link = "identity"`, and one on a fleet whose
   `Sel_norm_scope = "WithinSex"` normalization would divide the offset out.
-  The contrast is informed only by joint compositions (`comp_data$Sex = 3`).
+  The contrast is informed only by joint compositions (`comp_data$Sex = 3`), and
+  `fit_mod()` warns when the named fleet has none and the offset carries no
+  prior, since nothing then informs the ratio. Naming `fleet` and `sex` is
+  enough: `by` defaults to `~ fleet + sex` for this parameter.
   The multiplier is compiled into the template only when a linkage names it,
   so every existing model keeps its AD tape and the golden fits are unchanged;
   `inits` and a stored `map` from an older fit are filled with the block fixed

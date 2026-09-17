@@ -60,7 +60,11 @@ one sex, or on a \code{Fixed}, AR1 or mirror fleet. It is also refused where
 \code{Sel_norm_scope = "WithinSex"} normalization would divide it straight back
 out; use \code{"AcrossSexes"}, under which the more-selected sex peaks at 1, or
 turn \code{Sel_norm_bin} off. The contrast is informed only by joint composition
-(\code{comp_data$Sex = 3}); with single-sex compositions it rests on its prior.
+(\code{comp_data$Sex = 3}); with single-sex compositions it rests on its prior,
+and \code{fit_mod()} warns when a fleet has neither. Read the fitted multiplier
+with \code{exp(fit$estimated_params$log_sel_apical[fleet, sex])}, or \code{sex_max(fit)}
+for the realized ratio of the sexes' maxima. Naming \code{fleet} and \code{sex} is
+enough: \code{by} defaults to \code{~ fleet + sex} for this parameter.
 An intercept prior is on the multiplier's natural scale (\code{lognormal()}
 centred on 1 means no offset). Like every selectivity linkage, a covariate
 on it acts in the hindcast years; projection years carry the last hindcast

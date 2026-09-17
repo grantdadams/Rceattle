@@ -1807,6 +1807,11 @@ pool_linkages <- function(spec_groups, env_data, strata = list(), quiet = FALSE)
 # is split -- the fleet DM weights (theta_comp / theta_caal) key by fleet, the
 # per-predator diet weight (theta_diet) by species.
 .default_stratum <- function(process_label, param) {
+  # `apical` keys by fleet AND sex: only the sexes' ratio is identified, so a
+  # spec names one sex and the other is the reference.
+  if (process_label == "sel" && identical(as.character(param), "apical")) {
+    return(~ fleet + sex)
+  }
   if (process_label %in% c("q", "sel")) return(~ fleet)
   if (process_label == "comp") {
     return(if (identical(as.character(param), "theta_diet")) ~ species else ~ fleet)

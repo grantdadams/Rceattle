@@ -624,8 +624,12 @@ fit_mod <-
     # is not yet wired, and the non-parametric `coff` param, so the effect is
     # never silently dropped. (Empirical and the RPM random walk cannot carry
     # a covariate offset at all.)
+    # comp_data only when warnings are wanted: it drives the advisory about an
+    # apical offset no joint composition informs, and a refit has raised it once
+    # already. The refusals below it are unconditional.
     .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control,
-                               data_list$nsex)
+                               data_list$nsex,
+                               if (!isTRUE(quiet_data_check)) data_list$comp_data)
     .check_q_linkage_support(data_list$linkage_table, data_list$fleet_control)
     .check_M_linkage_prior(data_list$linkage_table, data_list$M1_use_prior,
                            data_list$M2_use_prior, data_list$spnames)

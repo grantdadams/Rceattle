@@ -168,6 +168,56 @@ testthat::test_that("inits and a stored map that predate log_sel_apical still re
   testthat::expect_true(all(is.na(m1$map$mapList$log_sel_apical)))
 })
 
+testthat::test_that("`by` defaults to fleet + sex, and an uninformed offset warns", {
+  testthat::skip_on_cran()
+  d <- apical_data()
+  # `by` omitted: the apical default is ~ fleet + sex, so naming the fleet and
+  # the sex is the whole specification.
+  auto <- Rceattle::build_selectivity(linkages = list(
+    apical = Rceattle::linkage_spec(~ 1, fleet = 3L, sex = "male")))
+  m <- apical_build(d, auto)
+  testthat::expect_identical(sum(names(m$obj$par) == "log_sel_apical"), 1L)
+  testthat::expect_false(is.na(m$map$mapList$log_sel_apical[3, 2]))
+
+  # No joint-sex compositions on that fleet and no prior: nothing informs the
+  # sexes' ratio, and the fit would still report a number.
+  d2 <- d
+  d2$comp_data$Sex[d2$comp_data$Fleet_code == 3] <- 1L
+  bare <- function(dat, spec) suppressMessages(Rceattle::fit_mod(
+    data_list = dat, msmMode = 0, estimateMode = 3, selFun = spec,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)))
+  testthat::expect_warning(bare(d2, male_offset()), "no joint-sex composition")
+  # A prior is the documented answer, so it is silent.
+  testthat::expect_no_warning(
+    bare(d2, male_offset(priors = list(intercept = lognormal(0, 0.5)))),
+    message = "no joint-sex composition")
+  # With joint comps it is silent too.
+  testthat::expect_no_warning(bare(d, male_offset()), message = "no joint-sex composition")
+  # And a refit is silent: .refit_like() sets quiet_data_check, and the first
+  # fit already raised it. The refusals stay on either way.
+  testthat::expect_no_warning(
+    suppressMessages(Rceattle::fit_mod(
+      data_list = d2, msmMode = 0, estimateMode = 3, selFun = male_offset(),
+      quiet_data_check = TRUE,
+      fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))),
+    message = "no joint-sex composition")
+})
+
+
+testthat::test_that("a refit through .refit_like() keeps the apical linkage", {
+  testthat::skip_on_cran()
+  # retrospective(), jitter(), self_test(), profile() and run_mse() all refit
+  # through .refit_like(), which rebuilds selFun from data_list$sel_linkages.
+  d <- apical_data()
+  m <- apical_build(d, male_offset())
+  rf <- suppressMessages(suppressWarnings(Rceattle:::.refit_like(
+    data_list = m$data_list, inits = m$estimated_params, estimateMode = 3,
+    map = m$map)))
+  testthat::expect_identical(sum(rf$data_list$linkage_table$param == "apical"), 1L)
+  testthat::expect_identical(sum(names(rf$obj$par) == "log_sel_apical"), 1L)
+})
+
+
 testthat::test_that("a fitted apical offset moves the male:female ratio off 1", {
   testthat::skip_on_cran()
   d <- apical_data()
