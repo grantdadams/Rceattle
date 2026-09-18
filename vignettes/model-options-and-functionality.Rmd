@@ -128,6 +128,8 @@ below (integers or strings both work):
 | `8` | `"DoubleNormal"` | Four-parameter double normal: peak, ascending and descending widths, and a right-tail floor (the Stock Synthesis pattern 24 shape without its initial-selectivity and plateau-width parameters) |
 | `9` | `"NonParametricPM"` | Ianelli non-parametric with the ADMB AMAK ("pm") penalty; see `Sel_avgsel_pen`, `Sel_cap_bin` |
 | `11` | `"LogisticPM"` | AMAK ("pm") logistic: multiplicative inflection/slope deviations plus a free age-1 log-selectivity |
+| `13` | `"NonParametricIID"` | The `NonParametric` base curve with iid annual deviates that carry a proper density: the shape penalties are charged once on the base, so `random_sel = TRUE` integrates the deviates |
+| `14` | `"NonParametricRW"` | The same base curve with random-walk increments carrying a proper density; `random_sel = TRUE` integrates them |
 
 There is no `10`: the integer codes are frozen, because renumbering one would
 silently reinterpret every saved config and every fitted `.rds` that carries it.
@@ -162,6 +164,8 @@ a deviation where it defines a density for it:
 | `Logistic`, `DoubleLogistic`, `DescendingLogistic`, `DoubleNormal` | `Off`, `IID`, `Block`, `RandomWalk`; `RandomWalkAscending` on `DoubleLogistic` and `DoubleNormal` |
 | `NonParametric` | `Off`, `IID`, `RandomWalk` |
 | `NonParametricPM` | `Off`, `RandomWalk` — its deviates *are* the walk increments, so `IID` would describe a different curve than the model builds |
+| `NonParametricIID` | `Off`, `IID` — the base curve carries the shape penalties, the deviates a proper density, so `random_sel = TRUE` integrates them |
+| `NonParametricRW` | `Off`, `RandomWalk` — increments from the base curve with a proper density; integrates likewise |
 | `Hake` | `Off`, `IID` |
 | `2DAR1`, `3DAR1` | none — the field carries its own correlations and sd through `Sel_curve_pen` |
 
@@ -182,9 +186,16 @@ is the IID normal *times* those penalties. None of them scales with
 weights are — measured at about 5% of the precision at sd 0.35 from the
 average-selectivity term alone, more as the sd grows — and `Sel_curve_pen1` is
 also one-sided, which leaves the Laplace objective only piecewise smooth.
-Charging the shape penalties once on the base curve would make the mode
-integrable; that change moves every penalized fit and is designed in
-`inst/dev/TODO-nonparametric-iid-integrable.md`.
+Charging the shape penalties once on the base curve makes the mode
+integrable without moving any penalized fit: that is what `NonParametricIID`
+and `NonParametricRW` (5.40.0) do, and they are the forms to use with
+`random_sel = TRUE`.
+Their density is complete, but the Laplace marginal likelihood that
+`random_sel = TRUE` maximizes still underestimates a variance component on small
+multinomial samples: on `Atka2022`'s fishery (input sample sizes 2 to 236) a
+true deviation SD of 0.35 comes back at 0.24 to 0.26, 0.70 near 0.61, and
+0.35 near 0.32 with ten times the sample size (`tools/verify/verify-sim-recovery-np-integrable.R`).
+Read the reported SD as a lower bound unless the compositions are well sampled.
 
 The switch is **soft-deprecated as a whole**, and `data_check()` says so on use.
 The linkage grammar expresses the same IID, random-walk and AR(1) deviations —
@@ -303,7 +314,7 @@ different levels at all is a property of the **form**, not of these two columns:
 | Form | Sex difference in level |
 |---|---|
 | `Logistic`, `DescendingLogistic`, `LogisticPM` | **none** — the curve tends to 1 for either sex, whatever its parameters |
-| `NonParametric`, `NonParametricPM` | **none** — each sex is re-centred so its own mean selectivity-at-age is exactly 1, every year |
+| `NonParametric`, `NonParametricPM`, `NonParametricIID`, `NonParametricRW` | **none** — each sex is re-centred so its own mean selectivity-at-age is exactly 1, every year |
 | `Hake` | **none** — normalizes within sex by its own maximum; `Sel_norm_scope` is not read (`LogisticPM` likewise: its `Sel_norm_bin` is a penalty range) |
 | `DoubleNormal` | **old-age plateau only** — the right-tail floor is sex-specific, but both sexes peak at exactly 1 |
 | `DoubleLogistic`, `2DAR1`, `3DAR1` | **free** — the height is a free function of that sex's own parameters |

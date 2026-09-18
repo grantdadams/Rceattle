@@ -47,7 +47,8 @@ their own random effects.
 **Which code to take.** Codes are frozen, because a saved configuration and a
 saved fit carry the integer. Two are not free although no form uses them: 10 was
 retired, and 12 is still named in the normalizer's exclusion list in
-`selectivity.hpp` (`sel_type != 12`). The next form takes 13.
+`selectivity.hpp` (`sel_type != 12`). 13 and 14 are `NonParametricIID` and
+`NonParametricRW` (5.40.0), so the next form takes 15.
 
 ## The files, in pipeline order
 

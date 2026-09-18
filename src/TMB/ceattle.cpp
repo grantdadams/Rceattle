@@ -4210,9 +4210,68 @@ Type objective_function<Type>::operator() () {
       }
 
 
+      // 1c) NonParametricIID (13) and NonParametricRW (14): the Ianelli shape
+      //     priors (decreasing, curvature, average selectivity) are charged ONCE
+      //     on the base curve sel_coff, and the deviates carry a proper Gaussian
+      //     density with sel_dev_sd, so under random_sel = TRUE the Laplace
+      //     approximation integrates a density whose normalizing constant is
+      //     complete. With no deviates the objective equals NonParametric's.
+      if((flt_sel_type(flt) == 13) || (flt_sel_type(flt) == 14)) {
+        int n_sel_bins = flt_n_sel_bins(flt);
+        int start_yr   = flt_sel_start_yr(flt);
+        for(sex = 0; sex < nsex(sp); sex++){
+
+          // The base curve as selectivity.hpp builds a year without deviates:
+          // the estimated bins, the tail held at the last estimated bin, the
+          // whole vector centred to mean exp() of 1. Bins below the first
+          // selected bin read the 0 that build_map() leaves in sel_coff there,
+          // exactly as the realized curve does before the normalizer zeroes them.
+          vector<Type> base(nbins);
+          for(int bin = 0; bin < nbins; bin++){
+            base(bin) = sel_coff(flt, sex, (bin < n_sel_bins ? bin : n_sel_bins - 1));
+          }
+          vector<Type> est(n_sel_bins);
+          for(int bin = 0; bin < n_sel_bins; bin++) est(bin) = base(bin);
+          Type avg_base = log_mean_exp(est);
+          Type ctr = log_mean_exp(base);
+          for(int bin = 0; bin < nbins; bin++) base(bin) -= ctr;
+
+          // 1. Decreasing-selectivity penalty on the base.
+          for(int bin = 0; bin < (nbins - 1); bin++) {
+            Type d = base(bin) - base(bin + 1);
+            jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(d) + d)/2.0 );
+          }
+          // 2. Curvature penalty on the base.
+          vector<Type> d2 = first_difference( first_difference( base ) );
+          for(int a2 = 0; a2 < d2.size(); a2++) {
+            jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
+          }
+          // 4. Average-selectivity level of the base coefficients.
+          jnll_comp(JNLL_SEL_NONPARAM, flt) += 2.0 * square(avg_base);
+
+          // 3. The deviates: iid about the base (13) over every hindcast year,
+          //    or random-walk increments (14) from the year after the fleet's
+          //    start year (the start-year increment is fixed at 0). Only the
+          //    estimated coefficient bins are scored; a bin held at 0 would add
+          //    a constant rising with the sd and pull it toward zero.
+          //    With Time_varying_sel = "Off" there are no deviates and no density.
+          bool scored = (flt_sel_type(flt) == 13 && flt_varying_sel(flt) == 1) ||
+                        (flt_sel_type(flt) == 14 && flt_varying_sel(flt) == 4);
+          int yr_lo = (flt_sel_type(flt) == 14) ? start_yr + 1 : 0;
+          if(scored){
+            for(yr = yr_lo; yr < nyrs_hind; yr++){
+              for(int bin = bin_first_selected(flt); bin < n_sel_bins; bin++) {
+                jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_coff_dev(flt, sex, bin, yr), Type(0.0), sel_dev_sd(flt), true);
+              }
+            }
+          }
+        }
+      }
+
+
       // 2) Logistic selectivity penalties
       // Penalized/random effect likelihood time-varying logistic/double-logistic selectivity deviates
-      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11)){
+      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11) && (flt_sel_type(flt) != 13) && (flt_sel_type(flt) != 14)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 0; yr < nyrs_hind; yr++){
 
@@ -4236,7 +4295,7 @@ Type objective_function<Type>::operator() () {
       // Random walk:
       // - Type 4 = random walk on ascending and descending for double logistic
       // - Type 5 = ascending only for double logistics
-      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11)){
+      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11) && (flt_sel_type(flt) != 13) && (flt_sel_type(flt) != 14)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 

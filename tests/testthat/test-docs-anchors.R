@@ -120,8 +120,10 @@ test_that("the switch codes and modes the recipe quotes still hold", {
   testthat::expect_identical(unname(sel_map[["DoubleNormal"]]), 8)
   testthat::expect_identical(unname(sel_map[["Fixed"]]), 0)
   testthat::expect_false("Fake" %in% names(sel_map))
-  # "The next form takes 13": 10 retired, 12 still named by the normalizer.
-  testthat::expect_false(any(c(10, 12, 13) %in% sel_map))
+  # "The next form takes 15": 10 retired, 12 still named by the normalizer,
+  # 13 and 14 the integrable non-parametric forms.
+  testthat::expect_false(any(c(10, 12, 15) %in% sel_map))
+  testthat::expect_identical(unname(sel_map[c("NonParametricIID", "NonParametricRW")]), c(13, 14))
   testthat::expect_match(sel, "sel_type != 12", fixed = TRUE)
   testthat::expect_match(sel, "case 8:")
   testthat::expect_false(grepl("switch \\(sel_type\\)[^}]*default:", sel, perl = TRUE))

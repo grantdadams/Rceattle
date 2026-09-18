@@ -12,6 +12,53 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.40.0
+
+## New features
+
+* **Two non-parametric selectivity forms whose deviates integrate.**
+  `NonParametric` charges its shape penalties on each year's realized curve,
+  so under `random_sel = TRUE` the density the Laplace approximation
+  integrates is tilted and the reported deviation SD is not the SD of the
+  deviations; `fit_mod()` refuses that combination, and the random-walk mode
+  for its own reason (`inst/dev/TODO-nonparametric-iid-integrable.md`). Two
+  new forms keep `NonParametric` and `NonParametricPM` exactly as they are and
+  add a proper density: `Selectivity = "NonParametricIID"` (code 13) is the
+  Ianelli base curve with iid annual deviates, `"NonParametricRW"` (14) the
+  same base with random-walk increments (the start-year increment fixed at
+  0), each taking only the `Time_varying_sel` mode its density describes. The
+  decreasing, curvature and average-selectivity penalties are charged once on
+  the base coefficients, and the deviates are scored by `dnorm(0, sel_dev_sd)`
+  on the estimated bins, so `random_sel = TRUE` estimates the SD from a
+  complete density. With `Time_varying_sel = "Off"` both give the
+  `NonParametric` objective to the last digit, at any `Bin_first_selected`;
+  `NonParametricRW` reads no `Sel_cap_bin`. `fit_mod()`'s refusals now name
+  them as the alternative. The per-year mean of a year's deviates is removed by
+  the curve's centring, so the data never see it: under `random_sel = TRUE` it
+  integrates out exactly, under `random_sel = FALSE` those directions are pure
+  prior.
+* **A non-parametric fleet's coefficients below `Bin_first_selected` are held at
+  0.** They are mapped off, but the curve reads them: each year is centred by the
+  log mean over every bin, so a value there shifted the whole curve while no
+  density scored it. `inits` from a fit with a lower `Bin_first_selected` carry
+  such values -- 0.9 in those cells moved `Atka2022`'s fishery objective by 704
+  nats and year-1 selectivity by 0.21. `NonParametric` and `NonParametricPM` were
+  affected as well as the new forms; a fit started from the build defaults, the
+  golden fits included, is unchanged.
+* **What the estimated SD is worth.** `tools/verify/verify-sim-recovery-np-integrable.R`
+  draws deviates at a known SD on `Atka2022`'s fishery (multinomial age
+  compositions, input sample sizes 2 to 236), simulates the observations and
+  refits with `random_sel = TRUE`. The estimate is biased low: 0.24 to 0.26
+  against a true 0.35 across two runs of eight and ten replicates, every
+  replicate below the truth (reported SE on the log scale 0.12), 13% low at
+  0.70, and 9% low at 0.35 with the sample sizes multiplied by ten. Every scored cell has its density and no estimated cell
+  is unscored (checked cell by cell), so this is the Laplace marginal
+  likelihood's known downward bias for variance components on small
+  multinomial samples (Breslow and Lin 1995), not a scoring defect. Read the
+  reported SD as a lower bound on the process SD unless the compositions are
+  well sampled; MCMC through `tmbstan` on the fitted object removes the
+  approximation.
+
 # Rceattle 5.39.0
 
 ## Stock-recruit curves under predation

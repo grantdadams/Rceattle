@@ -377,6 +377,35 @@ void calculate_selectivity(
           }
           break;
 
+        case 14: { // NonParametricRW: the Ianelli curve on the base coefficients
+                   // plus the running sum of increments (years after the fleet's
+                   // start year), centred for output only, so with no increments
+                   // every year is NonParametric's curve. No cap; the increments
+                   // are scored in ceattle.cpp.
+          for(int bin = 0; bin < n_sel_bins; bin++){
+            Type inc = (yr > flt_sel_start_yr(flt)) ? sel_coff_dev(flt, sex, bin, yr) : Type(0.0);
+            np_unc(sex, bin, yr) = (yr > 0 ? np_unc(sex, bin, yr - 1) : Type(0.0)) + inc;
+            non_par_sel(flt, sex, bin, yr) = sel_coff(flt, sex, bin) + np_unc(sex, bin, yr);
+          }
+          { vector<Type> base(n_sel_bins);
+            for(int bin = 0; bin < n_sel_bins; bin++) base(bin) = non_par_sel(flt, sex, bin, yr);
+            avg_sel(flt, sex, yr) = log_mean_exp(base); }
+          for(int bin = n_sel_bins; bin < nbins; bin++) {
+            non_par_sel(flt, sex, bin, yr) = non_par_sel(flt, sex, n_sel_bins - 1, yr);
+          }
+          { vector<Type> ls(nbins);
+            for(int bin = 0; bin < nbins; bin++) ls(bin) = non_par_sel(flt, sex, bin, yr);
+            avgsel_tmp = log_mean_exp(ls); }
+          for(int bin = 0; bin < nbins; bin++) {
+            non_par_sel(flt, sex, bin, yr) -= avgsel_tmp;
+            log_non_par_sel(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
+            non_par_sel(flt, sex, bin, yr) = exp(non_par_sel(flt, sex, bin, yr));
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
+            else                 sel_at_age(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
+          }
+          break;
+        }
+
         case 9: { // NonParametricRPM (RTMB "rpm"): random walk on the per-year-
                   // renormalized log-selectivity, then a flat age-cap.
           // sel_coff = base coffs (year styr, ages 0..n_sel_bins-1); sel_coff_dev =
@@ -424,6 +453,7 @@ void calculate_selectivity(
           break;
         }
 
+        case 13: // NonParametricIID: the same curve, penalties charged on the base in ceattle.cpp
         case 2: // Non-parametric (Ianelli style)
           for(int bin = 0; bin < n_sel_bins; bin++) {
             non_par_sel(flt, sex, bin, yr) = sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr);

@@ -878,6 +878,7 @@ data_check <- function(data_list) {
       # ignores both columns.
       .sel_form <- if("Selectivity" %in% colnames(fc)) .canon_switch(fc$Selectivity[flt], sel_map) else NA_character_
       reads_nsb <- isTRUE(.sel_form %in% c("NonParametric", "NonParametricPM",
+                                           "NonParametricIID", "NonParametricRW",
                                            "Hake", "2DAR1", "3DAR1"))
       .lowest_nsb <- if(isTRUE(.sel_form == "Hake")) bfs + 1L else bfs
       if(reads_nsb && !is.na(bfs) && !is.na(nsb) && .lowest_nsb > nsb){
@@ -971,6 +972,17 @@ data_check <- function(data_list) {
          !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
         errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametricPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'. Its deviates are random-walk increments, so 'IID' would not describe the curve the model builds; 'NonParametric' supports 'IID'."))
       }
+      #  - NonParametricIID (13) scores iid deviates about the base curve, and
+      #    NonParametricRW (14) random-walk increments from it; each takes the
+      #    one mode its density describes.
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "NonParametricIID" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "IID")){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametricIID' selectivity, 'Time_varying_sel' must be 'Off' or 'IID'"))
+      }
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "NonParametricRW" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametricRW' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'"))
+      }
       if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "Hake" &&
          !fc$Time_varying_sel[flt] %in% c("Off", "IID")){
         errors <- c(errors, "For 'Hake' selectivity, 'Time_varying_sel' must be 'Off' or 'IID'")
@@ -998,7 +1010,8 @@ data_check <- function(data_list) {
       # missing / non-numeric (e.g. a Time_varying_sel mode string accidentally
       # written into Sel_curve_pen) before it surfaces as a cryptic
       # "inits not within bounds" error in build_bounds.
-      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM")){
+      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM",
+                                    "NonParametricIID", "NonParametricRW")){
         cp1 <- suppressWarnings(as.numeric(fc$Sel_curve_pen1[flt]))
         cp2 <- suppressWarnings(as.numeric(fc$Sel_curve_pen2[flt]))
         if(is.na(cp1) || is.na(cp2)){
@@ -1681,6 +1694,8 @@ data_check <- function(data_list) {
       .stv[.sel == "NonParametric"] %in% c("IID", "RandomWalk")
     .reads_sel_sd[.sel == "NonParametricPM"] <-
       .stv[.sel == "NonParametricPM"] == "RandomWalk"
+    .reads_sel_sd[.sel == "NonParametricIID"] <- .stv[.sel == "NonParametricIID"] == "IID"
+    .reads_sel_sd[.sel == "NonParametricRW"]  <- .stv[.sel == "NonParametricRW"] == "RandomWalk"
 
     .require_positive(.fc, .col, list(
       list(col = "Time_varying_sel_sd",
