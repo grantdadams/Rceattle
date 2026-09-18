@@ -37,6 +37,14 @@ version throughout.
   the curve's centring, so the data never see it: under `random_sel = TRUE` it
   integrates out exactly, under `random_sel = FALSE` those directions are pure
   prior.
+* **A non-parametric fleet's coefficients below `Bin_first_selected` are held at
+  0.** They are mapped off, but the curve reads them: each year is centred by the
+  log mean over every bin, so a value there shifted the whole curve while no
+  density scored it. `inits` from a fit with a lower `Bin_first_selected` carry
+  such values -- 0.9 in those cells moved `Atka2022`'s fishery objective by 704
+  nats and year-1 selectivity by 0.21. `NonParametric` and `NonParametricPM` were
+  affected as well as the new forms; a fit started from the build defaults, the
+  golden fits included, is unchanged.
 * **What the estimated SD is worth.** `tools/verify/verify-sim-recovery-np-integrable.R`
   draws deviates at a known SD on `Atka2022`'s fishery (multinomial age
   compositions, input sample sizes 2 to 236), simulates the observations and

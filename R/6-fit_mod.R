@@ -1206,6 +1206,25 @@ fit_mod <-
     # proj_F_prop, log_Ftarget, log_M1 and the stock-recruit alpha / beta.
     # retrospective() and jitter() reuse this as their refit starting values.
     # Taken before TMBphase() replaces start_par with a fitted state.
+    # A non-parametric fleet's coefficients and deviates below
+    # Bin_first_selected are mapped off, but the curve still reads them: each
+    # year is centred by the log mean over every bin, so a value there shifts the
+    # whole curve while no density scores it (0.9 in those cells moved Atka2022's
+    # fishery objective 704 nats and year-1 selectivity 0.21). `inits` from a fit
+    # with a lower Bin_first_selected carry such values, so hold them at 0, as
+    # the walk holds its start-year increment.
+    .np_forms <- c("NonParametric", "NonParametricPM", "NonParametricIID", "NonParametricRW")
+    if (!is.null(data_list$fleet_control$Bin_first_selected)) {
+      for (.f in which(as.character(data_list$fleet_control$Selectivity) %in% .np_forms)) {
+        .bfs <- suppressWarnings(as.integer(data_list$fleet_control$Bin_first_selected[.f]))
+        if (is.na(.bfs) || .bfs <= 1L) next
+        .flt  <- data_list$fleet_control$Fleet_code[.f]   # arrays are indexed by Fleet_code
+        .below <- seq_len(.bfs - 1L)
+        if (!is.null(start_par$sel_coff))     start_par$sel_coff[.flt, , .below]     <- 0
+        if (!is.null(start_par$sel_coff_dev)) start_par$sel_coff_dev[.flt, , .below, ] <- 0
+      }
+    }
+
     mod_objects$initial_params <- start_par
 
     if (verbose > 0) { message("Step 4: Data rearrange complete") }

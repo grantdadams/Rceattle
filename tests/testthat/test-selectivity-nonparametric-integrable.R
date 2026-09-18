@@ -147,6 +147,57 @@ testthat::test_that("each form takes only the mode its density describes", {
   testthat::expect_error(np_build(np_data("NonParametricRW", "IID")), "'Off' or 'RandomWalk'")
 })
 
+testthat::test_that("coefficients and deviates below the first selected bin are held at 0", {
+  testthat::skip_on_cran()
+  # They are mapped off, but the curve centres each year by the log mean over
+  # every bin, so a value there shifts the whole curve with no density scoring
+  # it. `inits` from a fit with a lower Bin_first_selected carry such values:
+  # measured before the guard, 0.9 in those cells moved Atka2022's fishery
+  # objective by 704 nats (116258.42 -> 115554.32) and year-1 selectivity by 0.21.
+  d <- np_data("NonParametricIID", "IID")
+  d$fleet_control$Bin_first_selected[2] <- 3
+  m   <- np_build(d)
+  ini <- m$initial_params
+  ini$sel_coff[2, 1, 1:2]      <- 0.9
+  ini$sel_coff_dev[2, 1, 1:2, ] <- 0.9
+  m2 <- np_build(d, inits = ini)
+  testthat::expect_equal(m2$obj$fn(), m$obj$fn())
+  testthat::expect_equal(m2$quantities$sel_at_age[2, 1, , ], m$quantities$sel_at_age[2, 1, , ])
+  testthat::expect_true(all(m2$initial_params$sel_coff[2, , 1:2] == 0))
+  testthat::expect_true(all(m2$initial_params$sel_coff_dev[2, , 1:2, ] == 0))
+})
+
+
+testthat::test_that("above a first selected bin of 1, the scored cells are exactly the estimated ones", {
+  testthat::skip_on_cran()
+  # build_map() frees bins bin_first_selected:N_sel_bins in 1-based R indexing;
+  # the density loops from the template's bin_first_selected, which
+  # rearrange_data() made 0-based. The two conventions have to agree: an
+  # estimated deviate with no density is a free parameter the integration never
+  # sees, and under random_sel the reported SD would absorb it. The Off
+  # equivalence tests above cannot catch it, having no deviates at all.
+  for (f in c("NonParametricIID", "NonParametricRW")) {
+    iid <- identical(f, "NonParametricIID")
+    d <- np_data(f, if (iid) "IID" else "RandomWalk")
+    d$fleet_control$Bin_first_selected[2] <- 3
+    m   <- np_build(d)
+    nyh <- d$endyr - d$styr + 1
+    yrs <- if (iid) seq_len(nyh) else 2:nyh          # the walk fixes year 1 at 0
+    ml  <- m$map$mapList$sel_coff_dev[2, 1, , ]
+    testthat::expect_true(all(is.na(ml[1:2, ])), info = f)          # below the first selected bin
+    testthat::expect_true(all(!is.na(ml[3:10, yrs])), info = f)     # estimated
+    # Every estimated cell carries its density: set them all and read the row.
+    amp  <- if (iid) 0.4 else 0.05                  # a walk accumulates
+    devs <- seq(-amp, amp, length.out = length(3:10) * length(yrs))
+    ini  <- m$initial_params
+    ini$sel_coff_dev[2, 1, 3:10, yrs] <- devs
+    m2 <- np_build(d, inits = ini)
+    testthat::expect_equal(np_rows(m2)[["Selectivity deviates"]],
+                           -sum(stats::dnorm(devs, 0, 0.35, log = TRUE)), info = f)
+  }
+})
+
+
 testthat::test_that("the deviation SD is estimated, not collapsed, when the deviates are integrated", {
   testthat::skip_on_cran()
   fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
