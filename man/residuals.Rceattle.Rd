@@ -71,7 +71,9 @@ small enough for truncation to shift the mean. For \code{comp} / \code{caal},
 \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 N.}
 \item{\code{"osa"}}{One-step-ahead residuals via \code{\link[=osa_residuals]{osa_residuals()}}, which builds
-the composition observation data on demand from any fit.}
+the composition observation data on demand from any fit. Pass its
+arguments through \code{...}; note that \code{method = "cdf"} forms no conditional
+mean, so \code{Fitted} is \code{NA} for every row under it.}
 \item{\code{"process"}}{Process residuals via \code{\link[=process_residuals]{process_residuals()}} for the
 model's random-effect deviations; \code{source} does not apply.}
 }

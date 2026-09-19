@@ -12,6 +12,171 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.41.0
+
+## One-step-ahead residuals from the conditional CDF
+
+* **`osa_residuals(method = "cdf")`.** The one-step-ahead residual is defined
+  through the conditional CDF, `qnorm(F(x))`, and is standard normal by the
+  probability integral transform whatever shape the conditional has. Until now
+  the model could not supply that CDF, so only the Gaussian methods -- which
+  approximate the conditional as normal and standardize the observation against
+  its conditional mode -- were available. The template now supplies it: the
+  continuous binomial `1 - I_p(x + 1, n - x)` for a composition bin, which is
+  defined at the fractional counts composition data carry, and `pnorm` for the
+  aggregate index, catch and covariate series (`src/TMB/comp_osa.hpp`, gated by
+  `keep.cdf_lower` / `keep.cdf_upper` under a new `osa_mode = 2`). The fitted
+  objective is untouched: the gates are zero except inside a
+  [TMB::oneStepPredict()] call, and the terms are not even evaluated outside it.
+
+  **The composition residuals it returns are the only ones that pass a
+  self-test.** Residualizing simulated observations at the parameters that
+  generated them makes the answer exactly iid N(0, 1), so the methods can be
+  scored rather than argued about. On BS2017SS over 20 replicates of 4538
+  composition bins (`tools/verify/verify-osa-cdf.R`):
+
+  | method | mean | sd | lag-1 acf within a composition | KS rejects |
+  |---|---|---|---|---|
+  | `oneStepGaussianOffMode` | +0.103 | 0.918 | +0.060 | every replicate |
+  | `cdf`, `discrete = FALSE` | +0.610 | 1.262 | +0.434 | every replicate |
+  | `cdf`, `discrete = TRUE` | -0.007 | 0.995 | +0.001 | none |
+
+  The null standard error on the autocorrelation is 0.015. On the aggregate
+  series, which are genuinely Gaussian, all three agree to 5e-5 and all three
+  pass.
+
+* **`discrete` now defaults per method** -- `TRUE` under `"cdf"`, `FALSE`
+  otherwise, which is what every method that existed before this one already
+  did. The default changed from `FALSE` to `NULL` to express that; passing
+  `TRUE` or `FALSE` explicitly still does exactly what it did. It has to be
+  `TRUE` under `"cdf"`: a composition bin holds a count, so its conditional CDF
+  is a step function and `qnorm(F(x))` inherits the step, which is why the
+  middle row of the table above is the worst of the three rather than the best.
+  Randomizing over the step -- `qnorm(F(x) - U f(x))`, Dunn and Smyth (1996),
+  the construction Trijoulet et al. (2023) prescribe -- removes it. The
+  randomization is drawn serially under `seed` after the per-observation loop
+  returns, so this method stays bit-reproducible with `parallel = TRUE`, and
+  `attr(osa, "discrete")` records what was used.
+
+* **`predicted` is `NA` on every row under `method = "cdf"`.**
+  [TMB::oneStepPredict()] returns `Fx`, `px` and `nll` for this method and no
+  fitted value. Nothing is substituted for it: the Gaussian methods' `predicted`
+  is a conditional mode, and reusing a marginal fitted value would give the
+  column two different meanings depending on `method`. The Dirichlet-multinomial
+  fleets below run under a Gaussian method and do produce one; it is blanked for
+  the same reason, since they would otherwise be the only rows of a `"cdf"`
+  object carrying a `predicted` -- and they are the rows where an expected count
+  goes negative. Fitted values remain in `fit$quantities` and in
+  `residuals(fit, type = "pearson")`. (`sd` is `NA` under the package default
+  too: only `method = "oneStepGaussian"` ever returns one.)
+
+  This is also what resolves the negative composition `predicted` values
+  reported as issue #108 point 1 -- 404 of 4538 rows on BS2017SS, minimum
+  -10.86, every one of them carrying a positive-biased residual. An expected
+  count cannot be negative; under `"cdf"` no expected count is formed at all.
+  The Gaussian methods still report and warn about them, unchanged, and the
+  behaviour is not an Rceattle defect -- WHAM does the same thing on its own
+  example.
+
+* **`Index_distribution = "TruncatedNormal"` is exact under `"cdf"`, in the
+  main call.** The template supplies the truncated CDF
+  `[Phi(z) - Phi(-m)] / Phi(m)` in closed form, so the family no longer needs
+  its own `"oneStepGeneric"` call over `(0, Inf)`. That removes the numerical
+  integration, its cost, its failure to converge on some random-effects models
+  (which fell back to an approximate spline), and its side effect of moving the
+  other fleets' residuals.
+
+* **Known limitation: compositions at scale under random effects.** On a
+  random-effects model with a large composition data set, `method = "cdf"`
+  returns non-finite residuals in bulk and is very slow -- on `BS2017SS` with
+  `random_rec = TRUE` (159 random effects, 4538 composition bins), **1879 of
+  4538 residuals are non-finite** against 0 for `"oneStepGaussianOffMode"` on
+  the same fit. The failures are a contiguous tail and the same rows come back
+  clean when residualized on their own, so it is the depth of the conditioning,
+  not the observations; redoing the tail on a fresh call recovers nothing.
+  **Use a Gaussian `method` for composition residuals on a random-effects
+  model.** `"cdf"` is sound on fixed-effect models, and on random-effects models
+  for the aggregate and covariate series.
+
+* **A Dirichlet-multinomial composition cannot use `"cdf"`** and is residualized
+  with `"oneStepGaussianOffMode"` instead, announced in a message and recorded
+  as `attr(osa, "method")["DirichletMultinomial"]`. The conditional is a
+  beta-binomial, which has no elementary CDF; the reference implementation TMB
+  ships (`contrib/OSA_multivariate_dists-main/distr.hpp`) sums the pmf over
+  `0..floor(x)`, which is a step function of a fractional count and costs `O(x)`
+  beta functions per bin. This is said rather than approximated quietly,
+  because a missing CDF term does not fail loudly -- it makes both tails equal,
+  giving `Fx = 0.5` and a residual of exactly 0 for every bin.
+
+* **`|residual|` is censored at 8.04 under `"cdf"`, in both directions, and
+  `osa_residuals()` warns when any residual sits there.** The upper end is
+  forced: `Fx` is recovered from `1 / (1 + exp(nlcdf.lower - nlcdf.upper))` in
+  double precision, which saturates at the last double below one, so nothing
+  reading a CDF can report past 8.21 on that side. The lower end is *not* --
+  that expression carries a small `F` down to about 1e-308, a residual of -37 --
+  and is censored to match anyway, because an asymmetric ceiling would show as a
+  long left tail against a wall on the right, which is what skewness in the
+  residuals looks like. The cost is real: `osa_diagnostics()` computes SDNR and
+  the tail statistics on the censored values, and it bites hardest on a short
+  series where one observation carries the statistic. Which method to reach for
+  then is measured rather than asserted
+  (`tools/verify/verify-osa-cdf-accuracy.R`, a 12-year survey with one
+  observation multiplied by 200): `"oneStepGaussian"` reports it uncensored at
+  38.98 (SDNR 12.89), `"cdf"` censors to 8.04 (SDNR 4.59), `"oneStepGeneric"`
+  compresses it to 3.33 (SDNR 2.21), and the package default
+  `"oneStepGaussianOffMode"` returns `NaN` there, making its SDNR unusable
+  rather than merely large. That last failure is magnitude-dependent -- at a x20
+  outlier the default is finite and matches `"oneStepGaussian"` -- so **reach
+  for `"oneStepGaussian"` specifically**, not for "a Gaussian method", and on
+  the fleet in question rather than a whole composition source, since it costs
+  an `nlminb` per observation. (Four machine epsilons rather than one, so the ceiling does
+  not land on that arithmetic's rounding tie, which produced 6 infinite
+  residuals on BS2017SS.)
+
+* **`"cdf"` is exact only without random effects, and the recommendation splits
+  by data type there.** With random effects [TMB::oneStepPredict()] integrates
+  the CDF over the latent states by Laplace, and that integrand is a Gaussian
+  times a sigmoid rather than a density. Against the exact Kalman innovations of
+  a linear-Gaussian state space model, `fullGaussian` and `oneStepGaussian` are
+  exact to machine precision while `"cdf"` errs by 7e-4 to 4e-2 as the latent
+  state becomes more informative. **That is a result about a LINEAR-Gaussian
+  model and does not carry over wholesale**: the Gaussian methods are exact when
+  the one-step-ahead predictive is Gaussian, which needs the model to be linear
+  in the random effects, and Rceattle's index and catch are `exp()` of cumulated
+  log recruitment deviations through the population dynamics. `fullGaussian` and
+  `oneStepGaussian` cannot differ for a Gaussian conditional, and on a
+  17-deviation fixture they differ by 0.091 on both index and catch, where
+  `"cdf"` differs from `oneStepGaussian` by 0.017 on index -- so **no method is
+  exact for index or catch under random effects** and this release does not
+  claim one. **`"ecov"` is the exception**: its conditional genuinely is
+  linear-Gaussian, the two Gaussian methods agree there to 4e-14, and `"cdf"`
+  sits 0.139 away -- about a quarter of the residual sd -- so prefer a Gaussian
+  method for that source. It does not reverse for
+  compositions, whose conditional is discrete and skewed -- exactly what the
+  Gaussian methods get wrong, and by much more. Simulating from a
+  22-random-effect model with the recruitment deviations redrawn (1680
+  residuals): `oneStepGaussianOffMode` gives mean +0.513, sd 0.404 and KS
+  rejection in 120 of 120 replicates; `"cdf"` with `discrete = TRUE` gives mean
+  +0.006, sd 1.002 and 6 of 120, the nominal 5%.
+
+  Both halves of that split are what the SAM authors do, in two packages:
+  `stockassessment::residuals.sam()` names no method, so it takes
+  [TMB::oneStepPredict()]'s Gaussian default with `discrete = FALSE`, on a model
+  that is random effects throughout with Gaussian log observations; their
+  composition package `compResidual::resMulti()` -- the implementation Trijoulet
+  et al. (2023) cite -- hardcodes `method = "cdf", discrete = TRUE`. Rceattle
+  fits both kinds of data, so it chooses per observation type inside one call.
+
+* **Every [TMB::oneStepPredict()] call now conditions on the observations that
+  precede its group** (`conditional =`), instead of discarding them. The
+  composition and aggregate rows must be split into separate calls under
+  `"cdf"` because they need different `discrete` settings, and without this the
+  split zeroed the aggregate data terms while the compositions were
+  residualized -- which on a random-effects model moved the composition
+  residuals by up to 0.99 on a 21-random-effect fixture. It also improves the
+  pre-existing `"TruncatedNormal"` split. Fixed-effect models are unaffected,
+  and `verify-refit-like.R` is bit-identical.
+
 # Rceattle 5.40.0
 
 ## New features
