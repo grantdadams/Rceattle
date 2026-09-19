@@ -560,3 +560,66 @@ testthat::test_that("an unknown method is rejected before any model is built", {
     Rceattle::osa_residuals(fit, source = "index", method = "cfd"),
     "should be one of")
 })
+
+
+testthat::test_that("`discrete` is validated before any model is built", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # NULL means "choose per method", so the check cannot simply be is.logical():
+  # a non-logical has to be refused rather than resolving to one by coercion.
+  dat <- make_test_data(nyrs = 8, nages = 5, seed = 17)
+  fit <- Rceattle::fit_mod(dat, file = NULL, estimateMode = 3, msmMode = 0,
+                           fit_control = fit_control(phase = FALSE, verbose = 0))
+  fit$data_list$estimateMode <- 1
+  for (bad in list("yes", 1L, c(TRUE, FALSE), NA)) {
+    testthat::expect_error(
+      Rceattle::osa_residuals(fit, source = "index", method = "cdf",
+                              discrete = bad),
+      "TRUE, FALSE, or NULL")
+  }
+})
+
+
+testthat::test_that("one Dirichlet-multinomial fleet does not take the others off cdf", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The fallback is per OBSERVATION, not per call. A whole-model decision would
+  # be wrong either way here: routing everything to the Gaussian method throws
+  # away the residuals this method exists to give, and routing everything to cdf
+  # returns exactly 0 for the D-M bins, since a missing CDF term leaves the two
+  # tails equal. Both fleets are in one obsvec, so this is the case that says
+  # which it does.
+  dat <- make_test_data(nyrs = 10, nages = 6, seed = 15)
+  dat$fleet_control$Comp_distribution[dat$fleet_control$Fleet_code == 1] <-
+    "DirichletMultinomial"
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE)))
+
+  testthat::expect_message(
+    o <- suppressWarnings(Rceattle::osa_residuals(
+      fit, source = "comp", method = "cdf", parallel = FALSE)),
+    "Dirichlet-multinomial")
+  g <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = "comp", parallel = FALSE)))
+
+  dm  <- o$fleet == 1
+  mn  <- o$fleet == 2
+  testthat::expect_true(any(dm) && any(mn))
+  # The D-M rows are the package default's, to the bit.
+  testthat::expect_equal(o$residual[dm], g$residual[dm])
+  # The multinomial rows are NOT: they went through the conditional CDF, and
+  # they are not the identical zero a missing CDF term would have given.
+  testthat::expect_false(isTRUE(all.equal(o$residual[mn], g$residual[mn])))
+  testthat::expect_false(all(abs(o$residual[mn]) < 1e-8))
+
+  # The attributes report the split rather than one global answer.
+  testthat::expect_equal(unname(attr(o, "method")[["default"]]), "cdf")
+  testthat::expect_equal(unname(attr(o, "method")[["DirichletMultinomial"]]),
+                         "oneStepGaussianOffMode")
+  d <- attr(o, "discrete")
+  testthat::expect_true(unname(d[["default"]]))
+  testthat::expect_false(unname(d[["DirichletMultinomial"]]))
+})
