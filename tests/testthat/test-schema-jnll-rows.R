@@ -10,12 +10,49 @@
 # survey's likelihood against a species. These tests read the template and assert
 # the three agree.
 
-cpp_source <- function() {
+cpp_source <- function(strip_comments = FALSE) {
   cpp <- c("src/TMB/ceattle.cpp",
            testthat::test_path("..", "..", "src", "TMB", "ceattle.cpp"))
   cpp <- cpp[file.exists(cpp)]
   testthat::skip_if(length(cpp) == 0, "src/TMB/ceattle.cpp not available")
-  readLines(cpp[1], warn = FALSE)
+  src <- readLines(cpp[1], warn = FALSE)
+  if (strip_comments) src <- .strip_cpp_comments(src)
+  src
+}
+
+# Blank out `//` tails and `/* ... */` blocks, keeping the line count so any
+# reported position still matches the file. Without this a scan for
+# `jnll_comp(JNLL_*, col)` matches the Kinzey & Punt ration likelihood, which
+# lives inside a block comment -- so the guard would report rows 16 and 17 as
+# written and never take its own "a row nothing writes yet" branch. The guard
+# then measures less than it claims, which is the failure mode it exists to
+# prevent elsewhere.
+.strip_cpp_comments <- function(src) {
+  src <- sub("//.*$", "", src)
+  out <- src
+  in_block <- FALSE
+  for (i in seq_along(src)) {
+    line <- src[i]
+    res <- ""
+    pos <- 1L
+    n <- nchar(line)
+    while (pos <= n) {
+      if (!in_block) {
+        j <- regexpr("/\\*", substring(line, pos))
+        if (j < 0) { res <- paste0(res, substring(line, pos)); break }
+        res <- paste0(res, substring(line, pos, pos + j - 2))
+        pos <- pos + j + 1L
+        in_block <- TRUE
+      } else {
+        j <- regexpr("\\*/", substring(line, pos))
+        if (j < 0) break
+        pos <- pos + j + 1L
+        in_block <- FALSE
+      }
+    }
+    out[i] <- res
+  }
+  out
 }
 
 
@@ -49,7 +86,7 @@ testthat::test_that("the row registry uses the labels a user actually sees", {
 
 
 testthat::test_that("each row's declared axis matches the column the template writes", {
-  src <- cpp_source()
+  src <- cpp_source(strip_comments = TRUE)
 
   # position -> enum constant, in declaration order, which is the row order of
   # both the matrix and .JNLL_ROW_AXIS.

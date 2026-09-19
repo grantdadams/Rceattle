@@ -177,3 +177,23 @@ testthat::test_that("MVN OSA residuals match compResidual::resmvnorm (SAM-author
                                               matrix(mu, ncol = 1), Sigma))
   testthat::expect_equal(osa$residual[order(osa$year)], r_sam, tolerance = 1e-6)
 })
+testthat::test_that("method = \"cdf\" reproduces the MVN whitened innovation", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The whitened block is independent standard normals, so its conditional CDF is
+  # pnorm of the innovation and method = "cdf" must return the same closed form
+  # the Gaussian methods do. This is the only cover the MVN CDF call site has.
+  for (dist in c("MVN", "MVNORM")) {
+    o <- .osa_index_fit(dist); fit <- o$fit; Sigma <- o$Sigma
+    osa <- suppressWarnings(suppressMessages(
+      osa_residuals(fit, source = "index", method = "cdf", parallel = FALSE)))
+    sel <- .fitted_index(fit)
+    rp  <- fit$obj$report(fit$obj$env$last.par.best)
+    innov <- as.numeric(forwardsolve(t(chol(Sigma)),
+                                     fit$obj$env$data$index_obs[sel, 1] - rp$index_hat[sel]))
+    testthat::expect_equal(osa$residual[order(osa$year)], innov, tolerance = 1e-5,
+                           info = dist)
+    testthat::expect_true(all(is.na(osa$predicted)), info = dist)
+  }
+})

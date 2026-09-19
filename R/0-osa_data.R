@@ -214,10 +214,14 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
           # Malformed / non-PD / mis-dimensioned covariance, or non-chronological
           # rows: fall back to excluding this fleet from the OSA residuals rather
           # than emit a wrong or ambiguously-ordered residual.
+          # A fleet at obsvec position -1 adds nothing to the residualization
+          # model, so under random effects excluding it moves every other residual.
           warning(sprintf(paste0(
-            "OSA residuals: index fleet %d has a missing / non-positive-definite / ",
-            "non-%dx%d covariance matrix or non-chronological survey rows; ",
-            "excluding it from the OSA residuals."), f, length(rows), length(rows)))
+            "OSA residuals: index fleet %d has survey rows out of year order or a ",
+            "missing / non-positive-definite / non-%dx%d covariance matrix. Its ",
+            "survey likelihood is dropped from the residual model, so it gets no ",
+            "residuals and, under random effects, the other fleets' residuals ",
+            "shift."), f, length(rows), length(rows)))
         } else {
           z <- as.numeric(forwardsolve(L, index_obs[rows, 1]))   # L^-1 obs (whitened)
           index_obsvec_idx[rows] <- append_obs(
