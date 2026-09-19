@@ -197,3 +197,31 @@ testthat::test_that("method = \"cdf\" reproduces the MVN whitened innovation", {
     testthat::expect_true(all(is.na(osa$predicted)), info = dist)
   }
 })
+
+
+testthat::test_that("a survey whose rows are out of year order is dropped, with a warning", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The lower-triangular whitening conditions row k on rows 1..k-1, so it is the
+  # one-step-ahead conditioning order only while the rows are chronological and
+  # aligned with Sigma. Out of order, the residuals would be a valid
+  # decomposition of the wrong conditioning sequence -- so the fleet is dropped
+  # instead, and the warning has to say that the drop is from the residual
+  # MODEL, not just the output: the other fleets' residuals move with it under
+  # random effects.
+  o  <- .osa_index_fit("MVNORM")
+  dl <- o$fit$obj$env$data
+  rows <- .fitted_index(o$fit)
+  testthat::expect_gt(length(rows), 1)
+
+  # Same rows, same Sigma, years no longer ascending.
+  dl$index_ctl[rows, 3] <- rev(dl$index_ctl[rows, 3])
+  testthat::expect_warning(
+    osa_dat <- build_osa_data(dl, build_osa = TRUE),
+    "out of year order")
+
+  # Dropped means excluded from obsvec, which is what makes the residual model
+  # differ from the fitted one -- not merely filtered out of the returned frame.
+  testthat::expect_true(all(osa_dat$index_obsvec_idx[rows] == -1L))
+})
