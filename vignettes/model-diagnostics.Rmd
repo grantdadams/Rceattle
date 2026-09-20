@@ -457,6 +457,16 @@ and residualizing at the generating parameters (1680 residuals),
 one of 120 replicates, against +0.006, sd 1.002 and 6 of 120 — the nominal 5% —
 for `"cdf"` with `discrete = TRUE`.
 
+What limits `"cdf"` on compositions is the depth of the conditioning rather than
+the random effects themselves. On `BS2017SS` with `random_rec = TRUE` (159 random
+effects, 4538 composition bins) it returns 1879 non-finite residuals, against 0
+for `"oneStepGaussianOffMode"` on the same fit, and takes hours; the same rows
+residualized on their own come back clean, and the 22-random-effect model above
+is residualized correctly. So try it, read the warning it issues, and where the
+residuals come back non-finite in bulk fall back to a Gaussian method for that
+source — remembering that its composition residuals are the under-dispersed ones
+in the comparison above.
+
 Both halves of that split are what the SAM authors do, in two packages.
 `stockassessment::residuals.sam()` names no method, so it takes
 `oneStepPredict()`'s `"oneStepGaussianOffMode"` default with `discrete = FALSE`

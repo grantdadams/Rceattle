@@ -147,6 +147,8 @@
 #'   residual to be standard normal at all, and `FALSE` otherwise, matching how
 #'   CEATTLE fits the composition likelihood with effective-sample-size-scaled
 #'   counts.
+#'   Passing `FALSE` under `"cdf"` is allowed, and says in a message that those
+#'   composition residuals are biased up.
 #'   When `TRUE`, composition residuals are randomized quantile residuals (Dunn
 #'   and Smyth 1996) and so are stochastic; set `seed` for reproducibility. The
 #'   aggregate index/catch series are always continuous (lognormal); the
@@ -164,9 +166,11 @@
 #'   the loop then recomputes serially, after rebuilding, and prints the worker's
 #'   own "irrecoverable exception" message, which comes from C and cannot be
 #'   suppressed. That message does not mean the call failed. Pass `FALSE` to skip
-#'   the attempt. Only the continuous group is parallelized; the discrete
-#'   (randomized-quantile) path always runs serially so it stays reproducible
-#'   given `seed`.
+#'   the attempt. `method = "cdf"` is parallelized whether or not `discrete` is
+#'   `TRUE`: the workers only evaluate the objective, and
+#'   [TMB::oneStepPredict()] draws the randomizing uniforms under `seed` once
+#'   they return, so the residuals are the serial ones. A discrete group under
+#'   `"oneStepGeneric"` runs serially, where that has not been measured.
 #' @param seed Random seed passed to [TMB::oneStepPredict()] for reproducibility
 #'   of randomized-quantile residuals. Default `123`.
 #' @param trace Logical; print [TMB::oneStepPredict()] progress. Default `FALSE`.
@@ -225,14 +229,12 @@
 #' * **`predicted` is `NA` on every row** (and so is `sd`, which
 #'   `"oneStepGaussianOffMode"` does not return either). [TMB::oneStepPredict()]
 #'   gives `Fx`, `px` and `nll` for this method and no fitted value, and there is
-#'   no conditional mode to put in the column. The model's own fitted values are
-#'   in `fit$quantities` and in `residuals(fit, type = "pearson")`; reusing one
-#'   of those here would make a column that means the conditional mode under one
-#'   method and the marginal fit under another. The Dirichlet-multinomial fleets
-#'   below run under a Gaussian method and so do produce one, but it is blanked
-#'   for the same reason -- otherwise they would be the only rows of a `"cdf"`
-#'   object carrying a `predicted`, and they are exactly the rows where an
-#'   expected count goes negative.
+#'   no conditional mode to put in the column; a marginal fitted value in its
+#'   place would mean the conditional mode under one method and the marginal fit
+#'   under another. Fitted values are in `fit$quantities` and in
+#'   `residuals(fit, type = "pearson")`. The column is blanked on the
+#'   Dirichlet-multinomial rows too, which run under a Gaussian method, so it
+#'   means one thing across the object.
 #' * **The conditional mean cannot leave the support**, because it is never
 #'   computed. That removes the negative composition `predicted` values described
 #'   below, and the positive bias they carry into the residual on those rows.
@@ -247,43 +249,25 @@
 #'   fractional count. Those fleets are residualized with
 #'   `"oneStepGaussianOffMode"`, announced in a message and recorded in the
 #'   `method` attribute.
-#' * **`|residual|` is censored at 8.04, in both directions, deliberately.** The
-#'   upper end is forced: [TMB::oneStepPredict()] recovers `F` as
-#'   `1 / (1 + exp(.))`, which saturates at the last double below one, so no
-#'   method reading a CDF can report past 8.21 on that side. The lower end is
-#'   not -- that same expression carries a small `F` down to about 1e-308, i.e.
-#'   a residual of -37 -- and it is censored to match anyway, because an
-#'   asymmetric ceiling would show as a long left tail against a wall on the
-#'   right, which is what skewness in the residuals looks like. Losing magnitude
-#'   symmetrically is preferable to manufacturing an apparent shape.
+#' * **`|residual|` is censored at 8.04, in both directions.** The upper end is
+#'   forced: [TMB::oneStepPredict()] recovers `F` as `1 / (1 + exp(.))`, which
+#'   saturates at the last double below one. The lower end is not -- that same
+#'   expression carries a small `F` down to a residual of -37 -- and is censored
+#'   to match anyway, because an asymmetric ceiling would show as a long left
+#'   tail against a wall on the right, which is what skewness in the residuals
+#'   looks like. This is a ceiling, not a large number standing in for a larger
+#'   one: [osa_diagnostics()] computes SDNR and the tail statistics on the
+#'   censored values, so it bites hardest on a short series where one
+#'   observation carries the statistic, and the function warns when any residual
+#'   sits there.
 #'
-#'   The cost is real: this is a ceiling, not a large number standing in for a
-#'   larger one, and [osa_diagnostics()] computes SDNR and the tail statistics on
-#'   the censored values. It bites hardest on a short series, where one
-#'   observation carries the statistic. The function warns when any residual sits
-#'   at the ceiling.
-#'
-#'   **Which method to reach for then is not obvious**, so it is measured
-#'   (`tools/verify/verify-osa-cdf-accuracy.R`): a 12-year survey with one
-#'   observation multiplied by 200, fixed effects, so the methods differ only in
-#'   how each handles an observation past what a CDF can report.
-#'
-#'   | method | min | max | non-finite | SDNR |
-#'   |---|---|---|---|---|
-#'   | `oneStepGaussianOffMode` | -11.77 | 0.19 | 1 | `NA` |
-#'   | `oneStepGaussian` | -11.77 | 38.98 | 0 | 12.89 |
-#'   | `oneStepGeneric` | -3.95 | 3.33 | 0 | 2.21 |
-#'   | `cdf` | -8.04 | 8.04 | 0 | 4.59 |
-#'
-#'   Only `"oneStepGaussian"` reports the uncensored value here. The package
-#'   default returns `NaN` on that row, so its SDNR is unusable rather than
-#'   merely large, and `"oneStepGeneric"` compresses the outlier harder than this
-#'   ceiling does. The default's failure is magnitude-dependent -- at a x20
-#'   outlier on the same fixture it returns a finite -8.02 and matches
-#'   `"oneStepGaussian"` -- so **reach for `"oneStepGaussian"` specifically**
-#'   rather than for "a Gaussian method". It costs an `nlminb` and an
-#'   `optimHess` per observation, so use it on the fleet in question, not on a
-#'   whole composition source.
+#'   For an observation past the ceiling, **reach for `"oneStepGaussian"`
+#'   specifically** and on the fleet in question -- on a 12-year survey with one
+#'   observation multiplied by 200 it reports 38.98 uncensored, where the package
+#'   default returns `NaN` and `"oneStepGeneric"` compresses the same row to
+#'   3.33. It costs an `nlminb` and an `optimHess` per observation. The
+#'   comparison is in `vignette("model-diagnostics")` and reproduced by
+#'   `tools/verify/verify-osa-cdf-accuracy.R`.
 #' * **Compositions are residualized in their own [TMB::oneStepPredict()] call**,
 #'   because `discrete` differs between them and the aggregate series and TMB
 #'   takes one setting per call. Everything earlier in the sequence is passed as
@@ -322,15 +306,11 @@
 #' [TMB::oneStepPredict()] integrates the CDF over the latent states by Laplace,
 #' and the integrand there is a Gaussian times a sigmoid rather than a density,
 #' so the approximation is not exact -- where for a Gaussian observation the
-#' Gaussian methods integrate a density and are. Measured against the exact
-#' Kalman innovations of a linear-Gaussian state space model, as the latent state
-#' becomes more informative relative to the observation:
-#'
-#' | latent/observation sd | `fullGaussian` | `oneStepGaussian` | `cdf` |
-#' |---|---|---|---|
-#' | 0.56 | 4e-16 | 3e-14 | 7e-04 |
-#' | 1.12 | 1e-15 | 4e-14 | 6e-03 |
-#' | 2.24 | 1e-15 | 3e-14 | 4e-02 |
+#' Gaussian methods integrate a density and are. Against the exact Kalman
+#' innovations of a linear-Gaussian state space model the Gaussian methods are
+#' exact to 1e-14, while `"cdf"` errs by 7e-4 to 4e-2 as the latent state becomes
+#' more informative relative to the observation
+#' (`tools/verify/verify-osa-cdf-accuracy.R`, which compiles that model).
 #'
 #' **That result is about a LINEAR-Gaussian model, and does not carry over
 #' wholesale.** Those methods are exact when the one-step-ahead *predictive* is
@@ -350,8 +330,17 @@
 #' `test-likelihood-osa-cdf.R`, while `"cdf"` sits 0.139 away, about a quarter of
 #' the residual standard deviation.
 #'
-#' Both measurements are reproduced by `tools/verify/verify-osa-cdf-accuracy.R`,
-#' which compiles the state space model it scores against.
+#' **It does not reverse for compositions.** Their conditional is a discrete,
+#' skewed binomial, which is what the Gaussian methods get wrong, and by far more
+#' than the Laplace error above. Simulating from a 22-random-effect model with the
+#' recruitment deviations redrawn and residualizing at the generating parameters
+#' (1680 residuals, 120 replicates; null standard errors 0.024 and 0.017),
+#' `"oneStepGaussianOffMode"` gives mean +0.513 and sd 0.404 with
+#' Kolmogorov-Smirnov rejecting all 120, against mean +0.006, sd 1.002 and 6 of
+#' 120 -- the nominal 5% -- for `"cdf"` with `discrete = TRUE`.
+#' The Gaussian default is not merely biased there; it is under-dispersed by a
+#' factor of two and a half. What limits `"cdf"` on compositions is scale, not
+#' random effects -- see the section below.
 #'
 #' @section Known limitation -- compositions at scale under random effects:
 #' On a random-effects model with a large composition data set, `method = "cdf"`
@@ -367,34 +356,14 @@
 #' conditioning itself, and redoing the tail on a fresh call does not recover it
 #' (1879 before, 1879 after).
 #'
-#' So for composition residuals on a random-effects model, use a Gaussian
-#' `method` for now. `"cdf"` is sound on fixed-effect models -- where it is the
-#' only method whose composition residuals pass a self-test -- and on
-#' random-effects models for the aggregate and covariate series, which are few
-#' enough not to reach the depth where this bites.
-#' **It does not reverse for compositions.** A composition conditional is a
-#' discrete, skewed binomial, which is what the Gaussian methods get wrong, and
-#' that error is far larger than the Laplace one. Simulating from a
-#' 22-random-effect model with the recruitment deviations redrawn and
-#' residualizing at the generating parameters (1680 residuals):
-#'
-#' | method | mean (se 0.024) | sd (se 0.017) | KS rejects |
-#' |---|---|---|---|
-#' | `oneStepGaussianOffMode` | +0.513 | 0.404 | 120 of 120 |
-#' | `cdf`, `discrete = TRUE` | +0.006 | 1.002 | 6 of 120 |
-#'
-#' Six of 120 is the nominal 5% rejection rate. The Gaussian default is not
-#' merely biased there, it is under-dispersed by a factor of two and a half.
-#'
-#' Both halves of that split are what the SAM authors do, in two packages.
-#' `stockassessment::residuals.sam()` names no method at all, so it takes
-#' [TMB::oneStepPredict()]'s `"oneStepGaussianOffMode"` default with
-#' `discrete = FALSE` -- on a model that is random effects throughout, whose
-#' observations (`logobs`) are Gaussian on the log scale. Their composition
-#' package `compResidual::resMulti()`, the implementation Trijoulet et al. (2023)
-#' cite, instead hardcodes `method = "cdf", discrete = TRUE` and drops each
-#' composition's last bin. Rceattle fits both kinds of data, so it makes the same
-#' choice per observation type inside one call rather than across two packages.
+#' What binds is the depth, not the presence of random effects: the same method
+#' residualizes 1680 composition bins on a 22-random-effect model correctly (the
+#' section above). So try `"cdf"` and read the warning it issues -- when it
+#' returns non-finite residuals in bulk, fall back to a Gaussian `method` for
+#' that source, remembering that its composition residuals are under-dispersed
+#' by about a factor of two and a half. `"cdf"` is sound on fixed-effect models,
+#' and on random-effects models for the aggregate and covariate series, which are
+#' few enough not to reach the depth where this bites.
 #'
 #' One caveat that applies to every method, not just this one:
 #' `Estimate_index_sd = "Analytical"` / `Estimate_catch_sd = "Analytical"` and
@@ -506,7 +475,8 @@ osa_residuals <- function(object = NULL,
   # 0.995, autocorrelation +0.001 against a null standard error of 0.015, and no
   # rejection. The Gaussian default, over the same replicates, gives mean +0.103,
   # sd 0.918 and autocorrelation +0.060.
-  if (is.null(discrete)) discrete <- identical(method, "cdf")
+  discrete_default <- is.null(discrete)
+  if (discrete_default) discrete <- identical(method, "cdf")
   if (!is.logical(discrete) || length(discrete) != 1L || is.na(discrete)) {
     stop("`discrete` must be TRUE, FALSE, or NULL to choose per method.",
          call. = FALSE)
@@ -636,6 +606,20 @@ osa_residuals <- function(object = NULL,
     }
   }
 
+  # Overriding the default to FALSE under "cdf" leaves the step in qnorm(F(x)),
+  # which is the worst-calibrated of the three composition options measured
+  # (mean +0.610, sd 1.262 where the answer is known to be standard normal). It
+  # is a legitimate thing to ask for, so it runs; every other resolution here
+  # that moves numbers announces itself, and so does this one. Counted after the
+  # Dirichlet-multinomial split above, whose rows are continuous either way.
+  if (identical(method, "cdf") && !discrete_default && !isTRUE(discrete) &&
+      any(is_comp & !sel_dm)) {
+    message("osa_residuals(): discrete = FALSE with method = \"cdf\" leaves the ",
+            "step in the composition transform. Those ", sum(is_comp & !sel_dm),
+            " residual(s) are biased up and over-dispersed (mean +0.61, sd 1.26 ",
+            "on a self-test). See ?osa_residuals.")
+  }
+
   # (b) Discrete compositions. The Gaussian methods are continuous-only, so
   # `discrete = TRUE` needs a CDF-based method: "cdf" already is one, and any
   # Gaussian choice falls back to the generic (numerically integrated) one.
@@ -757,9 +741,8 @@ osa_residuals <- function(object = NULL,
   .run_osp <- function(rows, dsc, meth, trunc = FALSE, spline = FALSE) {
     # `meth` is the group's own method, already resolved above -- a Gaussian
     # method never reaches a discrete group, and the families that cannot use the
-    # caller's choice have been split off. Parallelize only the continuous group;
-    # the discrete path uses the seeded RNG, so keep it serial to stay
-    # bit-reproducible across runs.
+    # caller's choice have been split off. Which groups run in parallel is
+    # decided at `want_par` below.
     osp <- function(par) {
       args <- list(
         obj                 = obj_osa,

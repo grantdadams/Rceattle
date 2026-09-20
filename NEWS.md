@@ -48,7 +48,8 @@ version throughout.
 * **`discrete` now defaults per method** -- `TRUE` under `"cdf"`, `FALSE`
   otherwise, which is what every method that existed before this one already
   did. The default changed from `FALSE` to `NULL` to express that; passing
-  `TRUE` or `FALSE` explicitly still does exactly what it did. It has to be
+  `TRUE` or `FALSE` explicitly still does exactly what it did, and `FALSE` under
+  `"cdf"` now says in a message that those composition residuals are biased up. It has to be
   `TRUE` under `"cdf"`: a composition bin holds a count, so its conditional CDF
   is a step function and `qnorm(F(x))` inherits the step, which is why the
   middle row of the table above is the worst of the three rather than the best.
@@ -60,23 +61,20 @@ version throughout.
 
 * **`predicted` is `NA` on every row under `method = "cdf"`.**
   [TMB::oneStepPredict()] returns `Fx`, `px` and `nll` for this method and no
-  fitted value. Nothing is substituted for it: the Gaussian methods' `predicted`
-  is a conditional mode, and reusing a marginal fitted value would give the
-  column two different meanings depending on `method`. The Dirichlet-multinomial
-  fleets below run under a Gaussian method and do produce one; it is blanked for
-  the same reason, since they would otherwise be the only rows of a `"cdf"`
-  object carrying a `predicted` -- and they are the rows where an expected count
-  goes negative. Fitted values remain in `fit$quantities` and in
-  `residuals(fit, type = "pearson")`. (`sd` is `NA` under the package default
-  too: only `method = "oneStepGaussian"` ever returns one.)
+  fitted value, and nothing is substituted: the Gaussian methods' `predicted` is
+  a conditional mode, and a marginal fitted value in its place would give the
+  column two meanings depending on `method`. The Dirichlet-multinomial rows
+  below run under a Gaussian method and are blanked with the rest, so the column
+  means one thing across the object. Fitted values remain in `fit$quantities`
+  and in `residuals(fit, type = "pearson")`. (`sd` is `NA` under the package
+  default too: only `method = "oneStepGaussian"` ever returns one.)
 
   This is also what resolves the negative composition `predicted` values
   reported as issue #108 point 1 -- 404 of 4538 rows on BS2017SS, minimum
-  -10.86, every one of them carrying a positive-biased residual. An expected
-  count cannot be negative; under `"cdf"` no expected count is formed at all.
-  The Gaussian methods still report and warn about them, unchanged, and the
-  behaviour is not an Rceattle defect -- WHAM does the same thing on its own
-  example.
+  -10.86, each carrying a positive-biased residual. Under `"cdf"` no expected
+  count is formed at all. The Gaussian methods still report and warn about them,
+  unchanged; WHAM does the same thing on its own example, so this is not an
+  Rceattle defect.
 
 * **`Index_distribution = "TruncatedNormal"` is exact under `"cdf"`, in the
   main call.** The template supplies the truncated CDF
@@ -94,9 +92,13 @@ version throughout.
   the same fit. The failures are a contiguous tail and the same rows come back
   clean when residualized on their own, so it is the depth of the conditioning,
   not the observations; redoing the tail on a fresh call recovers nothing.
-  **Use a Gaussian `method` for composition residuals on a random-effects
-  model.** `"cdf"` is sound on fixed-effect models, and on random-effects models
-  for the aggregate and covariate series.
+  What binds is that depth, not the presence of random effects -- the same
+  method residualizes 1680 composition bins on a 22-random-effect model
+  correctly. **So try `"cdf"`, and when the warning reports non-finite residuals
+  in bulk, fall back to a Gaussian `method` for that source** -- taking its
+  composition residuals as under-dispersed by about a factor of two and a half
+  (the numbers are in the bullet below). `"cdf"` is sound on fixed-effect
+  models, and on random-effects models for the aggregate and covariate series.
 
 * **A Dirichlet-multinomial composition cannot use `"cdf"`** and is residualized
   with `"oneStepGaussianOffMode"` instead, announced in a message and recorded
@@ -129,9 +131,9 @@ version throughout.
   outlier the default is finite and matches `"oneStepGaussian"` -- so **reach
   for `"oneStepGaussian"` specifically**, not for "a Gaussian method", and on
   the fleet in question rather than a whole composition source, since it costs
-  an `nlminb` per observation. (Four machine epsilons rather than one, so the ceiling does
-  not land on that arithmetic's rounding tie, which produced 6 infinite
-  residuals on BS2017SS.)
+  an `nlminb` per observation. The template shrinks the CDF away from 0 and 1 by
+  four machine epsilons rather than one, so the ceiling does not land on that
+  recovery's rounding tie, which produced 6 infinite residuals on BS2017SS.
 
 * **`"cdf"` is exact only without random effects, and the recommendation splits
   by data type there.** With random effects [TMB::oneStepPredict()] integrates
@@ -159,13 +161,12 @@ version throughout.
   rejection in 120 of 120 replicates; `"cdf"` with `discrete = TRUE` gives mean
   +0.006, sd 1.002 and 6 of 120, the nominal 5%.
 
-  Both halves of that split are what the SAM authors do, in two packages:
-  `stockassessment::residuals.sam()` names no method, so it takes
-  [TMB::oneStepPredict()]'s Gaussian default with `discrete = FALSE`, on a model
-  that is random effects throughout with Gaussian log observations; their
-  composition package `compResidual::resMulti()` -- the implementation Trijoulet
-  et al. (2023) cite -- hardcodes `method = "cdf", discrete = TRUE`. Rceattle
-  fits both kinds of data, so it chooses per observation type inside one call.
+  Both halves of that split are what the SAM authors do across two packages --
+  `stockassessment::residuals.sam()` takes the Gaussian default with
+  `discrete = FALSE`, their composition package `compResidual::resMulti()`
+  hardcodes `method = "cdf", discrete = TRUE`. Rceattle fits both kinds of data,
+  so it chooses per observation type inside one call
+  (`vignette("model-diagnostics")`).
 
 * **Every [TMB::oneStepPredict()] call now conditions on the observations that
   precede its group** (`conditional =`), instead of discarding them. The

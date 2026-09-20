@@ -581,6 +581,33 @@ testthat::test_that("`discrete` is validated before any model is built", {
 })
 
 
+testthat::test_that("turning `discrete` off under cdf says what it costs", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # discrete = FALSE leaves the step in qnorm(F(x)) for a count observation,
+  # which is the worst-calibrated of the three composition options measured
+  # (mean +0.610, sd 1.262 against a known standard normal). It is a legitimate
+  # thing to ask for -- the verification harness does -- so it runs, but it is
+  # announced, like every other resolution in the function that moves numbers.
+  dat <- make_test_data(nyrs = 10, nages = 6, seed = 18)
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE)))
+
+  testthat::expect_message(
+    suppressWarnings(Rceattle::osa_residuals(
+      fit, source = "comp", method = "cdf", discrete = FALSE, parallel = FALSE)),
+    "discrete = FALSE")
+  # Not on the default, which already is TRUE there ...
+  testthat::expect_no_message(suppressWarnings(Rceattle::osa_residuals(
+    fit, source = "comp", method = "cdf", parallel = FALSE)))
+  # ... nor on a Gaussian method, whose compositions were always continuous.
+  testthat::expect_no_message(suppressWarnings(Rceattle::osa_residuals(
+    fit, source = "comp", discrete = FALSE, parallel = FALSE)))
+})
+
+
 testthat::test_that("one Dirichlet-multinomial fleet does not take the others off cdf", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")

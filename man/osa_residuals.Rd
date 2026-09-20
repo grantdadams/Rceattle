@@ -40,6 +40,8 @@ per method: \code{TRUE} under \code{method = "cdf"}, where it is needed for the
 residual to be standard normal at all, and \code{FALSE} otherwise, matching how
 CEATTLE fits the composition likelihood with effective-sample-size-scaled
 counts.
+Passing \code{FALSE} under \code{"cdf"} is allowed, and says in a message that those
+composition residuals are biased up.
 When \code{TRUE}, composition residuals are randomized quantile residuals (Dunn
 and Smyth 1996) and so are stochastic; set \code{seed} for reproducibility. The
 aggregate index/catch series are always continuous (lognormal); the
@@ -57,9 +59,11 @@ time-varying catchability -- abort the forked worker instead of returning;
 the loop then recomputes serially, after rebuilding, and prints the worker's
 own "irrecoverable exception" message, which comes from C and cannot be
 suppressed. That message does not mean the call failed. Pass \code{FALSE} to skip
-the attempt. Only the continuous group is parallelized; the discrete
-(randomized-quantile) path always runs serially so it stays reproducible
-given \code{seed}.}
+the attempt. \code{method = "cdf"} is parallelized whether or not \code{discrete} is
+\code{TRUE}: the workers only evaluate the objective, and
+\code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} draws the randomizing uniforms under \code{seed} once
+they return, so the residuals are the serial ones. A discrete group under
+\code{"oneStepGeneric"} runs serially, where that has not been measured.}
 
 \item{seed}{Random seed passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} for reproducibility
 of randomized-quantile residuals. Default \code{123}.}
@@ -225,14 +229,12 @@ method has three properties the Gaussian ones do not:
 \item \strong{\code{predicted} is \code{NA} on every row} (and so is \code{sd}, which
 \code{"oneStepGaussianOffMode"} does not return either). \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}
 gives \code{Fx}, \code{px} and \code{nll} for this method and no fitted value, and there is
-no conditional mode to put in the column. The model's own fitted values are
-in \code{fit$quantities} and in \code{residuals(fit, type = "pearson")}; reusing one
-of those here would make a column that means the conditional mode under one
-method and the marginal fit under another. The Dirichlet-multinomial fleets
-below run under a Gaussian method and so do produce one, but it is blanked
-for the same reason -- otherwise they would be the only rows of a \code{"cdf"}
-object carrying a \code{predicted}, and they are exactly the rows where an
-expected count goes negative.
+no conditional mode to put in the column; a marginal fitted value in its
+place would mean the conditional mode under one method and the marginal fit
+under another. Fitted values are in \code{fit$quantities} and in
+\code{residuals(fit, type = "pearson")}. The column is blanked on the
+Dirichlet-multinomial rows too, which run under a Gaussian method, so it
+means one thing across the object.
 \item \strong{The conditional mean cannot leave the support}, because it is never
 computed. That removes the negative composition \code{predicted} values described
 below, and the positive bias they carry into the residual on those rows.
@@ -248,43 +250,25 @@ is a beta-binomial, which has no closed-form CDF and cannot be summed at a
 fractional count. Those fleets are residualized with
 \code{"oneStepGaussianOffMode"}, announced in a message and recorded in the
 \code{method} attribute.
-\item \strong{\verb{|residual|} is censored at 8.04, in both directions, deliberately.} The
-upper end is forced: \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} recovers \code{F} as
-\code{1 / (1 + exp(.))}, which saturates at the last double below one, so no
-method reading a CDF can report past 8.21 on that side. The lower end is
-not -- that same expression carries a small \code{F} down to about 1e-308, i.e.
-a residual of -37 -- and it is censored to match anyway, because an
-asymmetric ceiling would show as a long left tail against a wall on the
-right, which is what skewness in the residuals looks like. Losing magnitude
-symmetrically is preferable to manufacturing an apparent shape.
+\item \strong{\verb{|residual|} is censored at 8.04, in both directions.} The upper end is
+forced: \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} recovers \code{F} as \code{1 / (1 + exp(.))}, which
+saturates at the last double below one. The lower end is not -- that same
+expression carries a small \code{F} down to a residual of -37 -- and is censored
+to match anyway, because an asymmetric ceiling would show as a long left
+tail against a wall on the right, which is what skewness in the residuals
+looks like. This is a ceiling, not a large number standing in for a larger
+one: \code{\link[=osa_diagnostics]{osa_diagnostics()}} computes SDNR and the tail statistics on the
+censored values, so it bites hardest on a short series where one
+observation carries the statistic, and the function warns when any residual
+sits there.
 
-The cost is real: this is a ceiling, not a large number standing in for a
-larger one, and \code{\link[=osa_diagnostics]{osa_diagnostics()}} computes SDNR and the tail statistics on
-the censored values. It bites hardest on a short series, where one
-observation carries the statistic. The function warns when any residual sits
-at the ceiling.
-
-\strong{Which method to reach for then is not obvious}, so it is measured
-(\code{tools/verify/verify-osa-cdf-accuracy.R}): a 12-year survey with one
-observation multiplied by 200, fixed effects, so the methods differ only in
-how each handles an observation past what a CDF can report.\tabular{lllll}{
-   method \tab min \tab max \tab non-finite \tab SDNR \cr
-   \code{oneStepGaussianOffMode} \tab -11.77 \tab 0.19 \tab 1 \tab \code{NA} \cr
-   \code{oneStepGaussian} \tab -11.77 \tab 38.98 \tab 0 \tab 12.89 \cr
-   \code{oneStepGeneric} \tab -3.95 \tab 3.33 \tab 0 \tab 2.21 \cr
-   \code{cdf} \tab -8.04 \tab 8.04 \tab 0 \tab 4.59 \cr
-}
-
-
-Only \code{"oneStepGaussian"} reports the uncensored value here. The package
-default returns \code{NaN} on that row, so its SDNR is unusable rather than
-merely large, and \code{"oneStepGeneric"} compresses the outlier harder than this
-ceiling does. The default's failure is magnitude-dependent -- at a x20
-outlier on the same fixture it returns a finite -8.02 and matches
-\code{"oneStepGaussian"} -- so \strong{reach for \code{"oneStepGaussian"} specifically}
-rather than for "a Gaussian method". It costs an \code{nlminb} and an
-\code{optimHess} per observation, so use it on the fleet in question, not on a
-whole composition source.
+For an observation past the ceiling, \strong{reach for \code{"oneStepGaussian"}
+specifically} and on the fleet in question -- on a 12-year survey with one
+observation multiplied by 200 it reports 38.98 uncensored, where the package
+default returns \code{NaN} and \code{"oneStepGeneric"} compresses the same row to
+3.33. It costs an \code{nlminb} and an \code{optimHess} per observation. The
+comparison is in \code{vignette("model-diagnostics")} and reproduced by
+\code{tools/verify/verify-osa-cdf-accuracy.R}.
 \item \strong{Compositions are residualized in their own \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} call},
 because \code{discrete} differs between them and the aggregate series and TMB
 takes one setting per call. Everything earlier in the sequence is passed as
@@ -326,15 +310,11 @@ ceiling above does not bind) and all three pass.
 \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} integrates the CDF over the latent states by Laplace,
 and the integrand there is a Gaussian times a sigmoid rather than a density,
 so the approximation is not exact -- where for a Gaussian observation the
-Gaussian methods integrate a density and are. Measured against the exact
-Kalman innovations of a linear-Gaussian state space model, as the latent state
-becomes more informative relative to the observation:\tabular{llll}{
-   latent/observation sd \tab \code{fullGaussian} \tab \code{oneStepGaussian} \tab \code{cdf} \cr
-   0.56 \tab 4e-16 \tab 3e-14 \tab 7e-04 \cr
-   1.12 \tab 1e-15 \tab 4e-14 \tab 6e-03 \cr
-   2.24 \tab 1e-15 \tab 3e-14 \tab 4e-02 \cr
-}
-
+Gaussian methods integrate a density and are. Against the exact Kalman
+innovations of a linear-Gaussian state space model the Gaussian methods are
+exact to 1e-14, while \code{"cdf"} errs by 7e-4 to 4e-2 as the latent state becomes
+more informative relative to the observation
+(\code{tools/verify/verify-osa-cdf-accuracy.R}, which compiles that model).
 
 \strong{That result is about a LINEAR-Gaussian model, and does not carry over
 wholesale.} Those methods are exact when the one-step-ahead \emph{predictive} is
@@ -354,8 +334,17 @@ unconditional -- genuinely is linear-Gaussian: \code{fullGaussian} and
 \code{test-likelihood-osa-cdf.R}, while \code{"cdf"} sits 0.139 away, about a quarter of
 the residual standard deviation.
 
-Both measurements are reproduced by \code{tools/verify/verify-osa-cdf-accuracy.R},
-which compiles the state space model it scores against.
+\strong{It does not reverse for compositions.} Their conditional is a discrete,
+skewed binomial, which is what the Gaussian methods get wrong, and by far more
+than the Laplace error above. Simulating from a 22-random-effect model with the
+recruitment deviations redrawn and residualizing at the generating parameters
+(1680 residuals, 120 replicates; null standard errors 0.024 and 0.017),
+\code{"oneStepGaussianOffMode"} gives mean +0.513 and sd 0.404 with
+Kolmogorov-Smirnov rejecting all 120, against mean +0.006, sd 1.002 and 6 of
+120 -- the nominal 5\% -- for \code{"cdf"} with \code{discrete = TRUE}.
+The Gaussian default is not merely biased there; it is under-dispersed by a
+factor of two and a half. What limits \code{"cdf"} on compositions is scale, not
+random effects -- see the section below.
 }
 
 \section{Known limitation -- compositions at scale under random effects}{
@@ -373,34 +362,14 @@ observations against none): the Laplace inner problem fails on the
 conditioning itself, and redoing the tail on a fresh call does not recover it
 (1879 before, 1879 after).
 
-So for composition residuals on a random-effects model, use a Gaussian
-\code{method} for now. \code{"cdf"} is sound on fixed-effect models -- where it is the
-only method whose composition residuals pass a self-test -- and on
-random-effects models for the aggregate and covariate series, which are few
-enough not to reach the depth where this bites.
-\strong{It does not reverse for compositions.} A composition conditional is a
-discrete, skewed binomial, which is what the Gaussian methods get wrong, and
-that error is far larger than the Laplace one. Simulating from a
-22-random-effect model with the recruitment deviations redrawn and
-residualizing at the generating parameters (1680 residuals):\tabular{llll}{
-   method \tab mean (se 0.024) \tab sd (se 0.017) \tab KS rejects \cr
-   \code{oneStepGaussianOffMode} \tab +0.513 \tab 0.404 \tab 120 of 120 \cr
-   \code{cdf}, \code{discrete = TRUE} \tab +0.006 \tab 1.002 \tab 6 of 120 \cr
-}
-
-
-Six of 120 is the nominal 5\% rejection rate. The Gaussian default is not
-merely biased there, it is under-dispersed by a factor of two and a half.
-
-Both halves of that split are what the SAM authors do, in two packages.
-\code{stockassessment::residuals.sam()} names no method at all, so it takes
-\code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}'s \code{"oneStepGaussianOffMode"} default with
-\code{discrete = FALSE} -- on a model that is random effects throughout, whose
-observations (\code{logobs}) are Gaussian on the log scale. Their composition
-package \code{compResidual::resMulti()}, the implementation Trijoulet et al. (2023)
-cite, instead hardcodes \verb{method = "cdf", discrete = TRUE} and drops each
-composition's last bin. Rceattle fits both kinds of data, so it makes the same
-choice per observation type inside one call rather than across two packages.
+What binds is the depth, not the presence of random effects: the same method
+residualizes 1680 composition bins on a 22-random-effect model correctly (the
+section above). So try \code{"cdf"} and read the warning it issues -- when it
+returns non-finite residuals in bulk, fall back to a Gaussian \code{method} for
+that source, remembering that its composition residuals are under-dispersed
+by about a factor of two and a half. \code{"cdf"} is sound on fixed-effect models,
+and on random-effects models for the aggregate and covariate series, which are
+few enough not to reach the depth where this bites.
 
 One caveat that applies to every method, not just this one:
 \code{Estimate_index_sd = "Analytical"} / \code{Estimate_catch_sd = "Analytical"} and
