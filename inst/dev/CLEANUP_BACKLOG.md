@@ -72,6 +72,13 @@ from what its FIXME claimed. Add new rows above it.
 Not bugs, but they bound what the model can be asked. Worth documenting in a vignette rather
 than fixing.
 
+- **An observation the R inclusion set keeps but the template skips returns a residual of
+  exactly 0 under `method = "cdf"`, where a Gaussian method returns `NaN`.** A row scored by
+  neither density nor CDF leaves `nlcdf.lower == nlcdf.upper`, so `oneStepPredict()` recovers
+  `F = 0.5`. The two inclusion sets are built independently — `build_osa_data()` in R, the
+  `pos >= 0` and year/type conditions in `ceattle.cpp` — and agree for every fitted row today.
+  A future divergence would show as a clean-looking zero rather than a visible gap. A REPORTed
+  count of CDF-scored positions, asserted in R against the residual count, would make it loud.
 - **Forecast growth is ignored** by the retrospective and MSE projection paths
   (`ignores forecasted growth`, twice in `R/9-retro_and_jitter.R`, once in `R/10-run_mse.R`) —
   the terminal-year growth is carried forward.

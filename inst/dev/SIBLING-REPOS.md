@@ -171,6 +171,12 @@ Traps:
   `as.data.frame()` on it errors -- that is the caller's bug, not a broken MSE.
 
 - The pollock scripts' `Data/` paths are relative to the **project** root, not the year folder.
+- **`../GOA-multispecies-assessment` runs entirely off saved fits.** `R/03`–`R/07` load
+  `models/GOA_26_mod_list.RData` rather than refitting, so a breaking change surfaces there as a
+  script error, not as a moved number, and the saved objects can lag the package. Fits are
+  ~1 min each; `run_all.R` rebuilds them from `R/02`. Its `R/07_figures_tables.R` renders every
+  figure the chapter uses, so it is a cheap end-to-end check of the `plot_*()` surface: source it
+  and confirm the manifest it prints reports no new skips.
 - **The ATF script cannot be sourced straight through on any version** — it references three
   objects it never assigns (`:364`, `:480`, `:570`, the last gating the whole final figure
   block). This is a property of the script, not of your change.
