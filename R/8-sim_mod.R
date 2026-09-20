@@ -1221,8 +1221,6 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
 #'   attribute makes that case detectable rather than only documented.
 #' @export
 compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
-  # TODO update
-
   # Every statistic below is a deviation from `operating_mod`. That is the truth
   # only when the replicates redrew the observations alone; with
   # sim_mod(process = ) / self_test(process = ) the operating model's deviations

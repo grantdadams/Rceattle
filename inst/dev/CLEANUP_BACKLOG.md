@@ -1,6 +1,6 @@
 # Cleanup backlog
 
-The 72 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
+The `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
 unasked.** Fix the one in the file you were already asked to touch, in the same commit.
 
 **Cite the marker text, not a line number.** These references have gone stale three times --
@@ -11,13 +11,38 @@ Three tiers: a **known defect** is a wrong answer waiting for the right input an
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
 marking a judgement call for Grant, and is never resolved by an agent.
 
-62 remain as of 5.29.0. Counts by area: `src/TMB/ceattle.cpp` 24 ·
+57 remain as of 5.41.0 (this file's own consolidation removed the 58th, a bare
+`# TODO update` in `R/8-sim_mod.R`). Counts by area: `src/TMB/ceattle.cpp` 23 ·
 `src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 · `R/10-run_mse.R` 4 ·
-`src/TMB/growth.hpp` 3 · `R/3-build_map.R` 3 · `R/9-retro_and_jitter.R` 3 ·
-`R/0-rceattle_class.R` 3 · rest 1–2. Re-derive with
+`R/3-build_map.R` 3 · `R/9-retro_and_jitter.R` 3 · `R/0-rceattle_class.R` 3 ·
+`src/TMB/growth.hpp` 2 · rest 1–2. Re-derive with
 `grep -rnE 'TODO|FIXME' R/ src/TMB/ | grep -v 'todo <-' | grep -v 'TODO-'` -- the `-E` is
 needed for the alternation, the first filter drops a variable in `R/6-process_residuals.R`, and
 the second drops pointers to `inst/dev/TODO-*.md` notes, which are not markers.
+
+
+## How to work one
+
+Absorbed from `BACKLOG-PLAN.md`, which this file replaces.
+
+1. **Reproduce first, in a test that fails.** The marker names the triggering input; build the
+   fixture that reaches it. A fix whose test passes before the fix is not a test.
+2. **Check what actually covers it.** `/golden-check` will be green either way for almost every
+   item here -- none of the four reference models reaches these inputs. Use `/verify` to pick the
+   right `tools/verify/*.R` harness, and remember no harness reaches
+   `sample_rec(update_model = TRUE)`, `reweight_comps()`, or any figure.
+3. **For a C++ change**, recompile before testing (`pkgload::load_all(".")`) and run the suite
+   serially (`TESTTHAT_PARALLEL=false`). Golden is required even when you expect no movement.
+4. **Adversarially review the diff before committing.** Across this work every review found
+   something real, including two changes that moved fitted numbers and would otherwise have
+   shipped.
+5. **NEWS + `DESCRIPTION` + the affected vignette, same commit.** `/doc-sync` checks it.
+6. **Move the item to "Deliberately not changed" or delete it** -- a backlog that only grows
+   stops being read.
+
+**A Tier 0 claim is a claim about behaviour, so check it against the code, not just the
+comment.** One entry named the wrong switch (`Time_varying_q` instead of `Catchability`) for a
+whole session, and the source comment goes out of its way to warn about that confusion.
 
 ---
 
@@ -87,10 +112,11 @@ than fixing.
 - **`ration_data` is sized for the hindcast only** (`R/5-rearrange_data.R`,
   `Change for forecast`).
 - **SPR reference points**: `sex_ratio` is an input rather than estimated for two-sex models,
-  and the M used is the terminal-year value (`src/TMB/ceattle.cpp`, `rates for a reference point
-  are the terminal hindcast year's`). The `sex_ratio` marker went in 5.24.1, when SPR was
-  corrected to apply only the recruitment split `sex_ratio(sp, 0)` to a two-sex species
-  (`female_split`); the ratio itself is still read from data.
+  and the M used is the terminal-year value. **Neither has a marker** -- `rates for a reference
+  point are the terminal hindcast year's` (`src/TMB/ceattle.cpp:1595`) is an ordinary comment, so
+  the grep recipe above will not find it, and no `TODO`/`FIXME` mentions `sex_ratio` at all.
+  5.24.1 corrected SPR to apply only the recruitment split `sex_ratio(sp, 0)` to a two-sex
+  species (`female_split`, `ceattle.cpp:1605`); the ratio itself is still read from data.
 - **Linkage random-effect priors are penalties, not proper densities** (`src/TMB/ceattle.cpp`,
   `FIXME(jacobian)`, twice). The sigma and rho priors sit on the natural scale without the
   Jacobian of the `log` / `rho_trans` transform. Fine as a penalty under maximum likelihood;
@@ -101,6 +127,24 @@ than fixing.
 
 Cleared in 5.14.0 except where noted. As in Tier 0, three of these were not what their marker
 said, so each struck row records what it actually turned out to be.
+
+Found during the 5.34.0-5.41.0 batch and recorded rather than fixed:
+
+- **`sex =`, `species =` and `fleet =` in a linkage spec are silent no-ops unless the term is in
+  `by`** (`R/0-build_linkage.R`). Documented for `sex` only, warned for none. A user who
+  stratifies with the argument rather than the formula gets one shared coefficient and no
+  message, which is the silent-wrong-model class this package treats as its worst failure. One
+  warning covers all three.
+
+- **`run_mse()` carries every deviation array into the operating-model projection except
+  `log_M1_dev`** (`R/10-run_mse.R:900`), so an operating model with `M1_re` projects at zero M
+  deviation. Carry the terminal year, as `index_q_dev` is.
+- **`fit_mod(initMode =)` overwrites `data_list$initMode` unconditionally** (`R/6-fit_mod.R:174`,
+  `:377`), so a value stored on the data object is never read. `BS2017MS$initMode = 1` has
+  therefore never reached the golden `ms` fit. Also in `TRAPS.md`.
+- **The AMAK selectivity start is not the package's** (`src/TMB/ceattle.cpp:4073`,
+  `FIXME: AMAK starts at nbins/2`). A formulation divergence, not a defect; record it where a
+  bridging exercise will find it.
 
 - ~~**Split `R/0-build_srr_and_M.R`**~~ — **Done in 5.14.0**, but not as described. The file was
   1,497 lines and **52** top-level objects, not 29, and the three-way srr/M1/growth split named
@@ -185,7 +229,8 @@ Still open. No user-visible consequence; do them opportunistically.
   with the dynamics fitted against it. The derivation above the marker already quantifies the
   current approximation at ~1.5% trend error over F 0.05–0.8, against −29% to +33% for the
   snapshot it replaced.
-- The `logH_*` / `H_4` / `log_gam_*` markers belong to the stubbed Kinzey-Punt predation forms
+- The `logH_*` and `log_gam_*` markers belong to the stubbed Kinzey-Punt predation forms
+  (`H_4` is NOT one: it is a plain declaration comment inside the commented-out block)
   (`msmMode` 3–9) and the gamma predator selectivity. They are pinned as stubbed in
   `tests/testthat/test-schema-registries.R`; leave them until that work is picked up.
 - `src/TMB/ceattle.cpp` (`penalize every selectivity deviation rather than a sub-range`) —
@@ -195,9 +240,10 @@ Still open. No user-visible consequence; do them opportunistically.
   coefficients through that year and pins the random walk's level in `build_map()`, and
   `Sel_pen_first_bin` / `Sel_pen_last_bin` bound the shape penalty, not the deviation penalty.
   Moves every fit with penalized deviations, so it needs `/golden-check`.
-- `R/0-osa_data.R` (`switch_check() does not run`) — the comment above it says `comp_offset` is
-  filled by `switch_check()`; on the exported `rearrange_data()` path it and the
-  `bias_adjust_*` scalars are filled in `build_osa_data()`. Reword only; no behaviour.
+- `R/0-osa_data.R:80` — the comment there names `switch_check()` as what fills `comp_offset`,
+  where in fact three sites do. Reword only; no behaviour. **Not a marker**, so it will not
+  appear in the counts above; the similar-sounding `switch_check() does not run` sits at
+  `R/5-rearrange_data.R:202` and is about `Sel_norm_bin` validation instead.
 
 - ~~**Single-species hindcast-curve projection double-counts the SSB drop.**~~ **Resolved in
   5.33.0**: `sample_rec(sample_rec = FALSE)` and `retrospective()` take the hindcast's mean
@@ -211,8 +257,9 @@ Still open. No user-visible consequence; do them opportunistically.
   the hake operating model the curve sat at about 1.5 × R0 there, so no-fishing recruitment ran
   about 1.5 times too high; hake dynamic SB0 falls to 0.60-0.83 of its old value.
   `test-dynamics-dynamic-b0-ianelli.R` checks dynamic B0 equals the hindcast with F near zero.
-- **`.map_switch()` passes a factor through**, so a factor `srr_est_mode` skips `build_srr()`'s
-  checks and fits as its level code.
+- ~~**`.map_switch()` passes a factor through**, so a factor `srr_est_mode` skips
+  `build_srr()`'s checks and fits as its level code.~~ **Resolved in 5.35.0**: it coerces a
+  factor to character first (`R/0-switches.R:378`), with a comment naming this failure.
 - **The refit warning for retired srr codes is hidden** by the `suppressWarnings()` wrapped
   around `.refit_like()` in `retrospective()`, `jitter()`, `profile()` and `self_test()`.
 - **A one-year retrospective peel** averages over that year, though its warning says "after the
@@ -242,6 +289,12 @@ under "Deliberately not changed".
   ConstantFSSB tunes realized SSB against SB0, CMSY reads depletion, and `mse_summary()` reads SBF
   only when `msmMode == 0`. Allowing HCR 5 in multispecies mode would make this a defect;
   `test-switches-hcr-multispecies.R` pins the refusal.
+  **Measured, so the size is known before anyone reopens it** (`BS2017MS`, `estimateMode = 4`):
+  pointing `NByageF` at `M_at_age_dBF` moves `SBF` by 5.27, and pointing `NByage0` at
+  `M_at_age_dB0` moves summed `NByage0` by 16808.7. The scope is six new arrays and six new
+  solver parameters inside the `iter` loop. Settle what the reference point should MEAN under
+  predation before writing any of it -- an unfished equilibrium whose M2 comes from a fished
+  projection is not one definition or the other.
 - **Non-parametric growth** is declared and calls `error("not yet implemented")`.
 - **The `msmMode` 3–9 Kinzey-Punt branches are not declared at all** -- the whole block in
   `predation.hpp` is inside a `/* ... */`, so there is no dispatch, live or erroring. The live

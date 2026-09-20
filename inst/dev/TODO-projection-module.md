@@ -93,6 +93,14 @@ default the last 5); the bridge averages 5 (`spm_bridge.R:104-110`). Identical
 for arrowtooth, whose biology is time-invariant; different on any stock with
 time-varying selectivity or weight-at-age. Moves numbers, so `/golden-check`.
 
+**Count the sites before changing one.** Terminal-year selectivity is read in
+five places, not one: the projection's F (`FIXME using last year of
+selectivity`), the two `max_catch_hat` sums, `exploitable_biomass`, and the
+reference-point schedules, where `Flimit` and `Ftarget` are selectivity-scaled
+off the terminal hindcast year (`FIXME: time-vary sel in the forecast`). An
+averaging window that reaches only the first leaves the reference points on a
+different basis from the projection they are compared against.
+
 **Gap 1 — catch-conditioned projection years (the keystone).** There is no way
 to specify catch in a projection year; `proj_F` comes from the HCR only. SS3
 and WHAM solve F from a specified catch inside the tape (WHAM `proj.catch`, and
