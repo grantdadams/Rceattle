@@ -49,7 +49,8 @@ version throughout.
   otherwise, which is what every method that existed before this one already
   did. The default changed from `FALSE` to `NULL` to express that; passing
   `TRUE` or `FALSE` explicitly still does exactly what it did, and `FALSE` under
-  `"cdf"` now says in a message that those composition residuals are biased up. It has to be
+  `"cdf"` now says in a message that those composition residuals are biased up.
+  It has to be
   `TRUE` under `"cdf"`: a composition bin holds a count, so its conditional CDF
   is a step function and `qnorm(F(x))` inherits the step, which is why the
   middle row of the table above is the worst of the three rather than the best.
