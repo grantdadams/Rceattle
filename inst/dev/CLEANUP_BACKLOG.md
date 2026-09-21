@@ -135,6 +135,19 @@ said, so each struck row records what it actually turned out to be.
 
 Found during the 5.34.0-5.41.0 batch and recorded rather than fixed:
 
+- **Three tests read as guards and never run.** Each calls `testthat::skip()` unconditionally,
+  so a full `NOT_CRAN=true` suite reports them as skips among 9,506 passing assertions and
+  nobody notices. Found running the release suite 2026-09-21.
+  - `test-dynamics-multi-spp-model.R:119`, "Equilibrium MSVPA suitability dynamics match" --
+    the only one with a stated reason, inline: a minor unexplained difference, possibly bias in
+    diet weighting, where the old EBS CEATTLE still matches. **That is an open numerical
+    discrepancy against the reference implementation and it is recorded nowhere else.**
+  - `test-dynamics-fit-sanity-model.R:5`, "key quantities match baseline" -- no reason given.
+  - `test-data-input-validation.R:4` -- no reason given, and it also carries `skip_on_cran()`,
+    so it is doubly inert.
+  Either restore them or delete them; a skipped test that names a baseline is worse than no
+  test, because the suite reports a guard that is not guarding.
+
 - **`run_mse()` carries every deviation array into the projection except `log_M1_dev`.** The
   carry is commented out at `R/10-run_mse.R:901` for the operating model, under the
   `#FIXME - simulate` marker, and again at `:1126` for the estimation model's refit, so a model
