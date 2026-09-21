@@ -107,6 +107,24 @@ positive-definite Hessian. The 5.32.1 column is measured on dev `cff500c7`.
 | MSVPA, estimated M | 2140.4295989555 | 2137.4433306648 |
 | estimated suitability | 2267.4725502601 | 2260.7063099168 |
 
+**Those four are STALE against the script as it stands.** `MSE_yr2024.R` changed on 2026-09-15
+(`bc9596e`, Rceattle-models): it added lognormal intercept priors and an M prior to the existing
+fits and appended an Ianelli Beverton-Holt section, so the script now fits different models than
+it did when the table above was recorded on 2026-09-11. No input data changed. Re-measured
+2026-09-21 on the current script, running it twice against different package versions:
+
+| Fit (in script order) | 5.41.0 | 5.33.0 |
+|---|---|---|
+| single-species | 2440.0942 | 2440.0942 |
+| single-species + category-1 HCR | 2440.6633 | 2440.6633 |
+| MSVPA, estimated M | 2447.0049 | 2447.0049 |
+| estimated suitability | 2669.3776 | 2669.3776 |
+
+All six fits the script reports, not just these four, agree to every digit printed, and neither
+run errored. **So 5.34.0-5.41.0 moved nothing here**; the gap against the older table is the
+script, and a reader comparing to it would see a 300-nat regression that does not exist.
+Re-record against whichever script revision you ran, and say which.
+
 Re-run on 5.25.0 (2026-09-01), against that day's references (stage 2 2134.4713926593, stage 4
 2260.7063099135): stages 1, 3 and 4 bit-identical, and stage 2 higher
 by 1.8e-06 (8.3e-10 relative, below the optimizer's own tolerance). Stage 2 is the only one that
