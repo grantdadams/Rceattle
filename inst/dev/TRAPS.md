@@ -359,10 +359,19 @@ the config from the data (`run_config(d, ...)`) or from a fit. The same applies 
 `model_config()` field, not only `selFun`.
 
 `random_sel` does not reach the linkage REs either way — it gates only the `fleet_control`
-`Time_varying_sel` deviations (`R/6-fit_mod.R:760`, `:818`); linkage REs are integrated whenever
-present, unless the spec sets `integrate = FALSE` (`:836`). Its config description ("Estimate time-varying selectivity as random effects",
-`R/0-save_config.R:306`) reads otherwise, and IPHC read it that way. `random_q` is the same: it
-gates only `index_q_dev` (`:757`).
+`Time_varying_sel` deviations (`R/6-fit_mod.R:852`); linkage REs are integrated whenever
+present, unless the spec sets `integrate = FALSE` (`:923`). `random_q` is the same: it gates
+only `index_q_dev` (`:849`). The config description that misled an external user into reading
+`random_sel` as a switch over linkage REs was corrected in 5.36.0 and now says
+"Integrate the Time_varying_sel deviations and estimate their sd (linkages integrate either
+way)" (`R/0-save_config.R:309`), so the trap is the behaviour, not the wording.
+
+**`fit_mod(initMode =)` never reads the data object's own `initMode`.** The argument defaults to
+`"NonEquilibrium"` (`R/6-fit_mod.R:185`) and is written to the data list unconditionally
+(`:424`), so a value set on the data is overwritten before anything reads it. `BS2017MS$initMode`
+is 1 (`Equilibrium`), and the golden `ms` fit -- which passes no `initMode` -- initializes as
+`NonEquilibrium`. A
+`model_config` slot on the data is honoured (`:385`, since 5.36.0); the bare field is not.
 
 **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing.**
 The feature is then silently lossy through the standard xlsx format. This is how `index_cov` was
@@ -523,6 +532,21 @@ only in a Markdown file, the same file executed and the worker died with exit co
 `check-r-package` step instead — step env beats both the job env and anything a prior step
 exported, and it is printed in the step's own env block, so the log says which mode ran. 1 of 7
 recent Windows runs slipped; when it does not slip you learn nothing.
+
+**The file testthat names for this crash carries NO information — measured 2026-09-21.** Tests
+run in parallel (`Config/testthat/parallel: true`, two workers on the runner), so when a worker
+dies testthat reports whichever file that worker was holding. Three occurrences have named three
+unrelated files: `test-selectivity-catchability.R`, `test-switch-string-aliases.R` (on `main`)
+and `test-data-input-validation.R`. **The last of those executes nothing in CI** -- it opens with
+`skip_on_cran()` and an unconditional `skip()`, and CI runs `NOT_CRAN=false` -- so a file that
+ran zero lines was blamed for the fault. Do not investigate the named file, and do not read
+`verify-safebounds.R`'s "the CI crash config" case as targeting anything established; that
+config was chosen from one such attribution.
+
+**It is not specific to any release line.** `main` at 5.33.0, released and unchanged, crashed
+with the same exit code on 2026-09-21. Rate over the 30 most recent `R-CMD-check` runs: 2
+failures, both that day, while Windows also PASSED on that day on another branch -- so
+intermittent, not an image change. Everything from 2026-09-16 to 2026-09-20 passed.
 
 **An access violation is memory corruption, not a bad optimum.** A fit in a different basin
 gives a huge gradient and a failed `sdreport` — not a fault. The model is built

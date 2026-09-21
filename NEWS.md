@@ -188,7 +188,7 @@ version throughout.
   so under `random_sel = TRUE` the density the Laplace approximation
   integrates is tilted and the reported deviation SD is not the SD of the
   deviations; `fit_mod()` refuses that combination, and the random-walk mode
-  for its own reason (`inst/dev/TODO-nonparametric-iid-integrable.md`). Two
+  for its own reason (`inst/dev/TODO-selectivity.md`). Two
   new forms keep `NonParametric` and `NonParametricPM` exactly as they are and
   add a proper density: `Selectivity = "NonParametricIID"` (code 13) is the
   Ianelli base curve with iid annual deviates, `"NonParametricRW"` (14) the

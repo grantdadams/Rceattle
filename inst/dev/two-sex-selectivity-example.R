@@ -134,7 +134,7 @@ mod_list <- list(NP_IID      = m1,
 ##   NonParametric / NonParametricPM              each sex re-centered to mean 1
 ##   Hake                                         each sex scaled by its own max
 ##                                                (Sel_norm_scope is inert here --
-##                                                 inst/dev/TODO-hake-sel-norm-scope.md) (need to fix)
+##                                                 inst/dev/TODO-selectivity.md) (need to fix)
 ##   DoubleNormal                                 both sexes peak at exactly 1
 ##                                                (only the old-age plateau differs)
 ##

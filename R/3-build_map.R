@@ -623,7 +623,7 @@ build_map_predation <- function(map_list, data_list) {
 #' charged on each year's realized curve and hold no `sel_dev_sd`, so the
 #' reported sd is biased low whatever the penalty weights are. Refused at every
 #' setting; charging the penalties once on the base curve is the fix
-#' (`inst/dev/TODO-nonparametric-iid-integrable.md`).
+#' (`inst/dev/TODO-selectivity.md`).
 #'
 #' @param fleet_control The `fleet_control` table, with canonical switch strings.
 #' @return A data frame of the `Fleet_code`s affected and the reason for each.

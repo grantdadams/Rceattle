@@ -13,8 +13,8 @@ knitr::opts_chunk$set(
 This guide is for people who want to modify Rceattle itself: add a parameter,
 a data input, a new selectivity or suitability form, or a likelihood
 component. It is not needed to *fit* models — for that, start with the user
-articles ([Introduction](../introduction.html) and
-[Model options and functionality](../model-options-and-functionality.html)).
+articles ([Introduction](introduction.html) and
+[Model options and functionality](model-options-and-functionality.html)).
 
 It consolidates and updates the developer notes on the
 [GitHub wiki](https://github.com/grantdadams/Rceattle/wiki).
@@ -149,7 +149,8 @@ file):
 | `helper_functions.hpp` | Shared utilities. |
 | `comp_osa.hpp` | Composition likelihoods and the one-step-ahead (OSA) decomposition. |
 | `growth.hpp` | Growth (von Bertalanffy / Richards); weight- and length-at-age. |
-| `selectivity.hpp` | Selectivity forms, dispatched by the integer case of the `switch` on `Selectivity` — e.g. logistic (1), double logistic (3), Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7), double-normal (8), NonParametricRPM (9), LogisticPM (11). |
+| `selectivity.hpp` | Selectivity forms, dispatched by the integer case of the `switch` on `Selectivity` — e.g. logistic (1), double logistic (3), Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7), double-normal (8), NonParametricPM (9), LogisticPM (11), NonParametricIID (13),
+NonParametricRW (14). |
 | `recruitment.hpp` | Stock–recruitment functions. |
 | `bioenergetics.hpp` | Temperature-dependent ration / consumption (`Ceq`). |
 | `predation.hpp` | Prey suitability and predation mortality (MSVPA type-2, estimated iteratively). |
@@ -389,7 +390,7 @@ convention and what CI runs where are stated once, in
 * **Reproducing an external model.** Supply numbers-at-age via the
   `NByageFixed` sheet and selectivity via `emp_sel` with `Selectivity = "Fixed"`,
   set `estDynamics = 1`, and run `fit_mod(estimateMode = 1)` to evaluate without
-  re-fitting. (See also the [Stock Synthesis conversion](../stock-synthesis-conversion.html)
+  re-fitting. (See also the [Stock Synthesis conversion](stock-synthesis-conversion.html)
   article.)
 
 ## The argument names, and what is deliberately left alone
@@ -457,7 +458,7 @@ default. Worth knowing when reading a profile that looks flatter than expected.
 
 * [GitHub wiki](https://github.com/grantdadams/Rceattle/wiki) — the original
   developer notes this page consolidates.
-* [Model parameterizations](../model-parameterizations.html) — equation-level
+* [Model parameterizations](model-parameterizations.html) — equation-level
   detail on selectivity, catchability, and predation.
 * Adams et al. (2022), *Fisheries Research* 251:106303 — the TMB generalisation
   of CEATTLE. Holsman et al. (2016), *Deep-Sea Research II* 134:360–378 — the

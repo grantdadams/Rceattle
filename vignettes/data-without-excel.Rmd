@@ -218,7 +218,7 @@ simData$fleet_control <- data.frame(
   #   0 / "Off" = time-invariant (default)
   #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_sel_sd
   #       unless random_sel = TRUE in fit_mod)
-  #   2 / "AR1" = AR(1) (not yet implemented)
+  #   2 / "AR1" = REMOVED in 5.16.0; data_check() errors on it
   #   3 / "Block" = time blocks (specify via R-side mapping)
   #   4 / "RandomWalk" = random walk
   #   5 / "RandomWalkAscending" = random walk on ascending portion of double logistic
@@ -252,7 +252,7 @@ simData$fleet_control <- data.frame(
   #   0 / "Off" = time-invariant
   #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_q_sd
   #       unless random_q = TRUE in fit_mod)
-  #   2 / "AR1" = AR(1) (not yet implemented)
+  #   2 / "AR1" = REMOVED in 5.16.0; data_check() errors on it
   #   3 / "Block" = time blocks
   #   4 / "RandomWalk" = random walk
   Time_varying_q          = rep(c(0, NA), nspp),

@@ -69,6 +69,11 @@ The `pkgdown` GitHub Actions workflow rebuilds the website on the
 `release` event, so a GitHub Release must be published from the tag —
 drafting one is not enough, the event is `release: published`.
 
+**Check that a release actually rebuilt the site rather than assuming the
+event fired.** It has silently not fired: 5.20.0 has a `release`-triggered
+pkgdown run and 5.21.0, published the same way, got none. The recovery is
+a manual dispatch, `gh workflow run pkgdown.yaml --ref main`.
+
 Write the body; do not paste `NEWS.md`. A release that folds a dozen
 versions spans well over a thousand lines there, and the reader needs the
 short answer: what forces a refit, what breaks, what is new. Follow the
