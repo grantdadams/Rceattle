@@ -533,6 +533,21 @@ only in a Markdown file, the same file executed and the worker died with exit co
 exported, and it is printed in the step's own env block, so the log says which mode ran. 1 of 7
 recent Windows runs slipped; when it does not slip you learn nothing.
 
+**The file testthat names for this crash carries NO information — measured 2026-09-21.** Tests
+run in parallel (`Config/testthat/parallel: true`, two workers on the runner), so when a worker
+dies testthat reports whichever file that worker was holding. Three occurrences have named three
+unrelated files: `test-selectivity-catchability.R`, `test-switch-string-aliases.R` (on `main`)
+and `test-data-input-validation.R`. **The last of those executes nothing in CI** -- it opens with
+`skip_on_cran()` and an unconditional `skip()`, and CI runs `NOT_CRAN=false` -- so a file that
+ran zero lines was blamed for the fault. Do not investigate the named file, and do not read
+`verify-safebounds.R`'s "the CI crash config" case as targeting anything established; that
+config was chosen from one such attribution.
+
+**It is not specific to any release line.** `main` at 5.33.0, released and unchanged, crashed
+with the same exit code on 2026-09-21. Rate over the 30 most recent `R-CMD-check` runs: 2
+failures, both that day, while Windows also PASSED on that day on another branch -- so
+intermittent, not an image change. Everything from 2026-09-16 to 2026-09-20 passed.
+
 **An access violation is memory corruption, not a bad optimum.** A fit in a different basin
 gives a huge gradient and a failed `sdreport` — not a fault. The model is built
 `safebounds = FALSE`, so an out-of-range access is a silent write into adjacent memory; that is
