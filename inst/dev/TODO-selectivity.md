@@ -8,15 +8,18 @@ feature is not.
 
 ## Open 1 — `Hake` selectivity ignores `Sel_norm_scope`
 
-**Status: proposed, not implemented.** Nothing in the template marks this, so grep will not
-find it -- `selectivity.hpp` carries no `PROPOSED` block, and the five in `ceattle.cpp` belong
-to the superseded non-parametric penalty design instead.
+**Status: proposed, not implemented.** `selectivity.hpp` carries no `PROPOSED` block for this
+(the five in `ceattle.cpp` belong to the superseded non-parametric penalty design), but it does
+carry a comment naming this file at `src/TMB/selectivity.hpp:531`, sitting where the fix goes.
+That comment is the anchor; grep for the filename, not for a marker.
 
 `Hake` (type 5) takes its normalization reference inside the sex loop, so the reference is
 always that sex's own maximum, and it is excluded from the shared normalizer
-(`normalize_and_project_selectivity()` runs on every form but 5, 11 and 12 -- `selectivity.hpp:74`;
-no form maps to 12 today). `Sel_norm_scope` is
-therefore inert on a Hake fleet. Measured on `GOAatf` fleet 3 (`nsex = 2`,
+-- `normalize_and_project_selectivity()` is called for EVERY fleet (`selectivity.hpp:660`), but
+its normalization block is gated on `sel_type` not in 5, 11, 12 (`:74`; no form maps to 12
+today). Its other two blocks do run for Hake: zeroing bins below `Bin_first_selected` (`:55`)
+and, load-bearing for the fix below, copying the terminal hindcast curve into every projection
+year (`:120`). `Sel_norm_scope` is therefore inert on a Hake fleet. Measured on `GOAatf` fleet 3 (`nsex = 2`,
 `Time_varying_sel = "IID"`, `Sel_norm_bin = 0`), the two settings agree to every digit reported:
 
 | `Sel_norm_scope` | female max | male max | ratio | jnll |
@@ -28,13 +31,30 @@ Two consequences. Setting the column changes nothing. And because F is shared ac
 (`F_flt_age = sel_at_age * exp(log_F)`), a Hake fleet cannot express sex-specific fishing
 mortality at all, whatever the data say.
 
-The welding shows in the fitted shape: on `GOAatf` under today's within-sex rule, age-1
-selectivity is 1.83e-4 for females and **2.25e-47** for males. With each sex's peak held at 1, a
-near-step curve is the only way left for the model to say males are less available overall.
-Suggestive rather than proof, but it is the shape the pooling question is about.
+**Pooling the reference is not sufficient on its own, and the reason is specific to this form.**
+Hake's curve is a cumulative sum of `sel_coff` on the log scale, and the first coefficient is
+mapped off at 0 for BOTH sexes (`R/3-build_map.R:1141`, "first parameter is not-identifiable and
+is not estimated"; `sel_coff` inits to 0). So each sex's raw log-curve starts at exactly 0, and
+the normalization decides **where the two sexes are welded together**:
+
+| | reference subtracted | sexes forced equal at | free |
+|---|---|---|---|
+| `"WithinSex"` (today) | each sex's own max | the **peak** -- both are 1 | the ratio at young ages |
+| `"AcrossSexes"` | one pooled max `M` | the **first selected bin** -- both `exp(-M)` | the ratio at the peak |
+
+Neither frees the male:female level outright; pooling only relocates the pin. **Across-sex
+relocates it to the better place.** For a dimorphic stock the sexes are similar in size where
+they first recruit to the gear and diverge as females grow, so equal selectivity at the first
+selected bin is defensible, where equal selectivity at the peak asserts they are equally
+available exactly where they differ most. Measured on `GOAatf` under today's within-sex rule,
+age-1 selectivity is 1.83e-4 for females and **2.25e-47** for males: with the peak welded to 1,
+a near-step curve is the only way left for the model to say males are less available overall.
+Suggestive rather than proof, but it is the shape the constraint predicts. This is also why
+freeing `sel_coff`'s first bin for the second sex is tempting and still wrong -- see the fix
+sketch.
 
 Since 5.35.0 the silence is partly gone: `data_check()` messages a two-sex Hake or `LogisticPM`
-fleet left at the default `AcrossSexes` that the column is not read and the sexes cannot differ
+fleet whose `Sel_norm_scope` is `AcrossSexes`, set or defaulted, that the column is not read and the sexes cannot differ
 in level (`R/1-data_check.R:993`). A fleet explicitly set to `WithinSex` gets nothing, because
 the behaviour happens to match what was asked for. The capability gap is untouched either way.
 
@@ -61,6 +81,20 @@ which is NOT what the shared normalizer computes -- and state the choice in
 apical offset's job, and doing both gives two parameters for one quantity. Pooling here only
 relocates where the sexes are welded together; it is not a substitute for the offset.
 
+**What done looks like.** Without these the fix can ship leaving a vignette that contradicts the
+code and no test that would have been red beforehand:
+
+- No bundled golden model uses Hake (`BS2017SS` / `BS2017MS` are `Selectivity` 2/2/2/1 and
+  `GOA2018SS` has no 5), so `/golden-check` should be bit-identical. Confirm that rather than
+  assume it.
+- The fit DOES move for any two-sex Hake fleet left on the default `AcrossSexes`, so this is a
+  behaviour change: NEWS, `DESCRIPTION` `Version:`, and the `Sel_norm_scope` row in
+  `vignettes/model-options-and-functionality.Rmd`, which currently states the limitation as
+  permanent and would become wrong.
+- Add the two-scope pair to `tests/testthat/` as a regression. Today they are identical; after
+  the fix `AcrossSexes` must differ from `WithinSex` on `GOAatf` fleet 3. **The table above is
+  the test.**
+
 ## Open 2 — `sel-penalty-form`, parked
 
 Branch `sel-penalty-form` (`Sel_penalty_form`, 5 commits, 638 insertions) is parked by
@@ -77,7 +111,9 @@ had an apical height parameter: logistic forms asymptote to 1 for every sex, the
 forms re-centre each sex to mean 1 every year, Hake normalizes within sex, and `DoubleNormal`
 peaks at exactly 1 for both.
 
-Shipped as the selectivity linkage parameter `apical` (`log_sel_apical`, `[n_flt, max_sex]`).
+Shipped as the selectivity linkage parameter `apical` (`log_sel_apical`, one row per
+selectivity BLOCK not per fleet: `[n_selectivities, max_sex]`, which is why mirroring fleets
+share it and a linkage on one is refused).
 `.check_sel_apical_rows()` refuses no fleet, no sex, both sexes across rows, a one-sex species,
 Fixed / AR1 / mirror fleets, an identity link, and within-sex normalization.
 
@@ -92,7 +128,9 @@ Two things to carry forward:
 
 On `GOAatf`'s fishery the male multiplier fits at 2.15 (log 0.767, SE 0.213, positive-definite
 Hessian, objective 356.56 with the `lognormal(0, 0.5)` prior against 364.01 without the offset).
-Recovery is unbiased over 120 replicates. Harness: `tools/verify/verify-sim-recovery-apical.R`.
+Recovery over 120 replicates is consistent with unbiased (mean 0.685 against a true
+0.693, empirical SD 0.28), which is not the same as demonstrating it.
+Harness: `tools/verify/verify-sim-recovery-apical.R`.
 
 **A prior on `inf_desc` is not a substitute**, though it was suggested as a stopgap. On
 `GOAatf`, free per-sex parameters gave a male:female max ratio of 1.9687 and a tight
@@ -129,7 +167,18 @@ constructing the walk as a base plus a running sum of increments and centring on
 
 **The superseded design is still in the template as comments.** Five `PROPOSED` blocks in
 `ceattle.cpp` sketch moving the penalty onto `sel_coff` in place. That approach was rejected in
-favour of new forms because it would move every penalized AMAK fit. Read them as history.
+favour of new forms because it would move every penalized AMAK fit. Read them as history -- and
+with the two approaches that were tried against the same problem and rejected, since the blocks
+invite both:
+
+- **Smoothing the hinge is not the fix.** Replacing `CppAD::abs(d)` with `sqrt(d*d + eps*eps)`
+  gives a C-infinity penalty and cures the kink, but leaves the unnormalized prior untouched. It
+  buys a converged fit with a wrong variance, which is worse than a refusal because nothing
+  announces it.
+- **Adding `log Z(sd, w)` to the objective is closed form for only half of it.** For the
+  curvature term alone, a Gaussian times `exp(-w u'Du)` gives
+  `log Z = -0.5 * log det(I + 2 w sd^2 D)`. Term 1's hinge has no closed-form normalizer, so
+  that route needs the smoothing above AND a numerical constant.
 
 **The guard was necessary but not sufficient, which is why new forms were the right answer.**
 `.rce_np_unintegrable_fleets()` tested `Sel_curve_pen1` only. Zeroing it removes the kink and

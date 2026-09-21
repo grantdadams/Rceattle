@@ -52,7 +52,7 @@ What FIMS does better is the contributor path:
 |---|---|---|
 | `vignettes/adding-new-module.Rmd`, 739 lines: ordered file list, validation checklist, troubleshooting | a 465-line `developer-guide.Rmd` plus one per-task recipe, `adding-a-selectivity-form.Rmd` (5.37.0); two more recipes open | `wc -l` both |
 | `inst/include/common/glossary.md` — every symbol, meaning, units | nothing | `find` |
-| Doxygen with rendered LaTeX, published on the pkgdown site | Doxygen comments in all 11 headers, built by `Doxyfile` and published from the pkgdown workflow (5.37.0) | `grep -rl "@brief" src/TMB/`; `.github/workflows/pkgdown.yaml` |
+| Doxygen with rendered LaTeX, published on the pkgdown site | Doxygen comments in all 11 headers, built by `Doxyfile` and published from the pkgdown workflow (5.37.0) | `ls src/TMB/*.hpp` = 11, all with `@brief`; `.github/workflows/pkgdown.yaml` |
 | `CONTRIBUTING.md`, 101 lines | `CONTRIBUTING.md`, 124 lines (5.37.0); `CLAUDE.md` keeps the agent-facing policy | `ls` |
 | `use_gtest_template()` / `use_testthat_template()` scaffolding | none | `grep -rn "usethis::" R/` = none |
 | `.devcontainer/` + a setup vignette + `setup_fims.sh` | the `export PATH=/usr/bin:$PATH` toolchain trap, documented only in `CLAUDE.md` | `ls` |
@@ -71,12 +71,12 @@ correct this table**, and the prompt says so.
 
 | File | When | Why |
 |---|---|---|
-| `R/0-switches.R` | always | `sel_map` (`:73`–`:84`) — the name the user types. `"DoubleNormal" = 8` is at `:82` |
+| `R/0-switches.R` | always | `sel_map` (`:73`–`:87`) — the name the user types. `"DoubleNormal" = 8` is at `:82`; the 5.40.0 forms close the list at `:85`–`:86` |
 | `R/0-column_schema.R` | always | the `Selectivity` description (`:118`) is the user-facing switch documentation |
 | `src/TMB/selectivity.hpp` | always | the `case` in `switch (sel_type)` at `:361` |
-| `R/1-data_check.R` | usually | per-form checks: `N_sel_bins` at `:867`–`:889`, form x `Time_varying_sel` at `:960`–`:984` and `:1013`–`:1014` |
+| `R/1-data_check.R` | usually | per-form checks: `N_sel_bins` at `:867`–`:889`; form x `Time_varying_sel` for the non-parametric forms at `:960`–`:984`, Hake at `:986`–`:989`, LogisticPM at `:1002`–`:1005` |
 | `R/2-build_params.R` | if the form has new parameters | |
-| `R/3-build_map.R` | if the form has new parameters | 301 selectivity references; the densest file in the list |
+| `R/3-build_map.R` | if the form has new parameters | the densest file in the list: `grep -ci sel` returns 302 lines |
 | `R/4-build_parameter_bounds.R` | if the form has new parameters | |
 | `R/5-rearrange_data.R` | if the form needs a column passed to TMB | |
 | `src/TMB/ceattle.cpp` + the `JnllRow` enum | if the form carries its own penalty | |
@@ -131,8 +131,8 @@ The knowledge already exists in `.claude/commands/new-column.md`, written for an
 are the same content for a person. The linkage article must state rule 12 (`linkage.hpp` and
 `R/0-linkage_encode.R` in lockstep).
 
-Fitting chunks are gated the way `vignettes/*.Rmd` do it — eleven files now open with
-`eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true")`. Do not copy
+Fitting chunks are gated the way `vignettes/*.Rmd` do it — nine of them open with
+`eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true")`, as do both articles. Do not copy
 `vignettes/articles/developer-guide.Rmd` for this; it has one chunk.
 
 **Every recipe ships with its drift guard (below). A recipe without one is not done.**
@@ -176,7 +176,7 @@ the A-guard test so it cannot drift.
 ### C. Publish the Doxygen — half a day · nearly free, immediately visible
 
 A `Doxyfile` plus a step in `.github/workflows/pkgdown.yaml`. The `@brief` blocks already exist
-in all ten headers; this is a build and a link, and it makes the C++ browsable without an editor.
+in all eleven headers; this is a build and a link, and it makes the C++ browsable without an editor.
 
 `pkgdown.yaml` triggers on `main` only, so a PR to `dev` gets no CI for it — run
 `/pkgdown-check` locally.

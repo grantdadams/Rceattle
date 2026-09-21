@@ -359,10 +359,12 @@ the config from the data (`run_config(d, ...)`) or from a fit. The same applies 
 `model_config()` field, not only `selFun`.
 
 `random_sel` does not reach the linkage REs either way — it gates only the `fleet_control`
-`Time_varying_sel` deviations (`R/6-fit_mod.R:760`, `:818`); linkage REs are integrated whenever
-present, unless the spec sets `integrate = FALSE` (`:836`). Its config description ("Estimate time-varying selectivity as random effects",
-`R/0-save_config.R:306`) reads otherwise, and an external user read it that way. `random_q` is
-the same: it gates only `index_q_dev` (`:757`).
+`Time_varying_sel` deviations (`R/6-fit_mod.R:852`); linkage REs are integrated whenever
+present, unless the spec sets `integrate = FALSE` (`:923`). `random_q` is the same: it gates
+only `index_q_dev` (`:849`). The config description that misled an external user into reading
+`random_sel` as a switch over linkage REs was corrected in 5.36.0 and now says
+"Integrate the Time_varying_sel deviations and estimate their sd (linkages integrate either
+way)" (`R/0-save_config.R:309`), so the trap is the behaviour, not the wording.
 
 **`fit_mod(initMode =)` never reads the data object's own `initMode`.** The argument defaults to
 `"NonEquilibrium"` (`R/6-fit_mod.R:185`) and is written to the data list unconditionally

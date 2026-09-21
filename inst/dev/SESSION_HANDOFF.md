@@ -5,10 +5,13 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**`dev` is at 5.41.0 and nothing is open against it.** `main` is at 5.33.0, so the next step is
-one `dev` -> `main` release covering 5.34.0 through 5.41.0, per `inst/RELEASE-CHECKLIST.md`.
+**`dev` is at 5.41.0**, and once this notes consolidation merges nothing is open against it.
+`main` is at 5.33.0, so the next step is one `dev` -> `main` release covering 5.34.0 through
+5.41.0, per `inst/RELEASE-CHECKLIST.md`. Read that file's pkgdown note before tagging: the
+`release: published` event has silently failed to fire once already.
 
-The 2026-09-14 backlog plan is finished. Eight branches merged in order, each reviewed
+The 2026-09-14 backlog plan is finished. Eight branches, listed below in version order
+(#150 merged before #149), each reviewed
 adversarially before commit and again by a second session before merge:
 
 | Version | PR | What landed |
@@ -54,7 +57,8 @@ adversarially before commit and again by a second session before merge:
 
 - `sel-penalty-form` (`Sel_penalty_form`, 5 commits) — parked by decision, not by defect.
 - `dsem-v5-integration` — PR #111 closed unmerged 2026-09-09.
-- `reporting-tables` — one stray doc commit, `4716968c`, cherry-picked in #146.
+- `reporting-tables` — one stray doc commit, `4716968c`, which reached `dev` as `3255fb49`
+  via PR #132.
 
 ## Resume here
 

@@ -40,6 +40,11 @@ Absorbed from `BACKLOG-PLAN.md`, which this file replaces.
 6. **Move the item to "Deliberately not changed" or delete it** -- a backlog that only grows
    stops being read.
 
+**The tiers are not a priority order.** Sequence by who is exposed: a defect a live assessment
+can reach outranks a tidier one a fixture cannot. Two of these produce a wrong number rather
+than an error, which is the failure mode this package cannot afford, and they come first
+whatever tier they sit in.
+
 **A Tier 0 claim is a claim about behaviour, so check it against the code, not just the
 comment.** One entry named the wrong switch (`Time_varying_q` instead of `Catchability`) for a
 whole session, and the source comment goes out of its way to warn about that confusion.
@@ -130,12 +135,6 @@ said, so each struck row records what it actually turned out to be.
 
 Found during the 5.34.0-5.41.0 batch and recorded rather than fixed:
 
-- **`sex =`, `species =` and `fleet =` in a linkage spec are silent no-ops unless the term is in
-  `by`** (`R/0-build_linkage.R`). Documented for `sex` only, warned for none. A user who
-  stratifies with the argument rather than the formula gets one shared coefficient and no
-  message, which is the silent-wrong-model class this package treats as its worst failure. One
-  warning covers all three.
-
 - **`run_mse()` carries every deviation array into the projection except `log_M1_dev`.** The
   carry is commented out at `R/10-run_mse.R:901` for the operating model, under the
   `#FIXME - simulate` marker, and again at `:1126` for the estimation model's refit, so a model
@@ -145,6 +144,10 @@ Found during the 5.34.0-5.41.0 batch and recorded rather than fixed:
   `:424`), so the data object's own `initMode` field is never read. `BS2017MS$initMode = 1` has
   therefore never reached the golden `ms` fit. A `model_config` slot on the data IS read, since
   5.36.0 (`:385`) -- it is the bare field that is not. Also in `TRAPS.md`.
+  **`random_sel` has the same shape** and is worth knowing before anyone attempts the "one
+  object carries every switch" simplification: `fit_mod()` writes `data_list$random_sel` from
+  its own argument at `R/6-fit_mod.R:420`, so setting the field on the data object is silently
+  ignored. A `config` slot is read first (`:369`), as for `initMode`.
 - **The AMAK selectivity start is not the package's** (`src/TMB/ceattle.cpp:4073`,
   `FIXME: AMAK starts at nbins/2`). A formulation divergence, not a defect; record it where a
   bridging exercise will find it.
@@ -249,10 +252,10 @@ Still open. No user-visible consequence; do them opportunistically.
   coefficients through that year and pins the random walk's level in `build_map()`, and
   `Sel_pen_first_bin` / `Sel_pen_last_bin` bound the shape penalty, not the deviation penalty.
   Moves every fit with penalized deviations, so it needs `/golden-check`.
-- `R/0-osa_data.R:80` — the comment there names `switch_check()` as what fills `comp_offset`,
-  where in fact three sites do. Reword only; no behaviour. **Not a marker**, so it will not
-  appear in the counts above; the similar-sounding `switch_check() does not run` sits at
-  `R/5-rearrange_data.R:202` and is about `Sel_norm_bin` validation instead.
+- ~~`R/0-osa_data.R:80` — the comment names only `switch_check()` as what fills
+  `comp_offset`.~~ **Resolved in 5.36.0**: it names all three fill sites (`:79`-`:82`). Never a
+  marker, so it never appeared in the counts above; the similar-sounding
+  `switch_check() does not run` sits at `R/5-rearrange_data.R:202` and is about `Sel_norm_bin`.
 
 - ~~**Single-species hindcast-curve projection double-counts the SSB drop.**~~ **Resolved in
   5.33.0**: `sample_rec(sample_rec = FALSE)` and `retrospective()` take the hindcast's mean
@@ -303,7 +306,10 @@ under "Deliberately not changed".
   `M_at_age_dB0` moves summed `NByage0` by 16808.7. The scope is six new arrays and six new
   solver parameters inside the `iter` loop. Settle what the reference point should MEAN under
   predation before writing any of it -- an unfished equilibrium whose M2 comes from a fished
-  projection is not one definition or the other.
+  projection is not one definition or the other. **The proposed answer**, for whoever picks it
+  up: `NByage0` is not a strict equilibrium anyway (mean recruitment and terminal-year weights,
+  but year-specific M1 and R0), so "equilibrium M2" here means dynamic-B0 without the
+  recruitment deviations.
 - **Non-parametric growth** is declared and calls `error("not yet implemented")`.
 - **The `msmMode` 3–9 Kinzey-Punt branches are not declared at all** -- the whole block in
   `predation.hpp` is inside a `/* ... */`, so there is no dispatch, live or erroring. The live
