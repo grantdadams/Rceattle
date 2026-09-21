@@ -136,15 +136,24 @@ Found during the 5.34.0-5.41.0 batch and recorded rather than fixed:
   message, which is the silent-wrong-model class this package treats as its worst failure. One
   warning covers all three.
 
-- **`run_mse()` carries every deviation array into the operating-model projection except
-  `log_M1_dev`** (`R/10-run_mse.R:900`), so an operating model with `M1_re` projects at zero M
-  deviation. Carry the terminal year, as `index_q_dev` is.
-- **`fit_mod(initMode =)` overwrites `data_list$initMode` unconditionally** (`R/6-fit_mod.R:174`,
-  `:377`), so a value stored on the data object is never read. `BS2017MS$initMode = 1` has
-  therefore never reached the golden `ms` fit. Also in `TRAPS.md`.
+- **`run_mse()` carries every deviation array into the projection except `log_M1_dev`.** The
+  carry is commented out at `R/10-run_mse.R:901` for the operating model, under the
+  `#FIXME - simulate` marker, and again at `:1126` for the estimation model's refit, so a model
+  with `M1_re` projects at zero M deviation. Carry the terminal year, as `index_q_dev` is.
+- **`fit_mod(initMode =)` overwrites `data_list$initMode` unconditionally** (the argument
+  defaults to `"NonEquilibrium"` at `R/6-fit_mod.R:185` and is written to the data list at
+  `:424`), so the data object's own `initMode` field is never read. `BS2017MS$initMode = 1` has
+  therefore never reached the golden `ms` fit. A `model_config` slot on the data IS read, since
+  5.36.0 (`:385`) -- it is the bare field that is not. Also in `TRAPS.md`.
 - **The AMAK selectivity start is not the package's** (`src/TMB/ceattle.cpp:4073`,
   `FIXME: AMAK starts at nbins/2`). A formulation divergence, not a defect; record it where a
   bridging exercise will find it.
+- **Two places name selectivity codes that no form uses.** The shared normalizer's gate is
+  `sel_type != 5 && sel_type != 12 && sel_type != 11` (`src/TMB/selectivity.hpp:74`) though
+  `sel_map` has no 12, and the invalid-`Selectivity` error offers `range(sel_map)` as the allowed
+  set (`R/0-switches.R:1326`), i.e. "0:14", which includes the unused 10 and 12. Neither is a
+  defect -- `switch_check()` refuses a fleet carrying 10 or 12 -- but the gate reads as though
+  three forms normalize per sex when two do, and the error names codes it would reject.
 
 - ~~**Split `R/0-build_srr_and_M.R`**~~ — **Done in 5.14.0**, but not as described. The file was
   1,497 lines and **52** top-level objects, not 29, and the three-way srr/M1/growth split named

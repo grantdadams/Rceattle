@@ -361,8 +361,15 @@ the config from the data (`run_config(d, ...)`) or from a fit. The same applies 
 `random_sel` does not reach the linkage REs either way — it gates only the `fleet_control`
 `Time_varying_sel` deviations (`R/6-fit_mod.R:760`, `:818`); linkage REs are integrated whenever
 present, unless the spec sets `integrate = FALSE` (`:836`). Its config description ("Estimate time-varying selectivity as random effects",
-`R/0-save_config.R:306`) reads otherwise, and IPHC read it that way. `random_q` is the same: it
-gates only `index_q_dev` (`:757`).
+`R/0-save_config.R:306`) reads otherwise, and an external user read it that way. `random_q` is
+the same: it gates only `index_q_dev` (`:757`).
+
+**`fit_mod(initMode =)` never reads the data object's own `initMode`.** The argument defaults to
+`"NonEquilibrium"` (`R/6-fit_mod.R:185`) and is written to the data list unconditionally
+(`:424`), so a value set on the data is overwritten before anything reads it. `BS2017MS$initMode`
+is 1 (`Equilibrium`), and the golden `ms` fit -- which passes no `initMode` -- initializes as
+`NonEquilibrium`. A
+`model_config` slot on the data is honoured (`:385`, since 5.36.0); the bare field is not.
 
 **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing.**
 The feature is then silently lossy through the standard xlsx format. This is how `index_cov` was

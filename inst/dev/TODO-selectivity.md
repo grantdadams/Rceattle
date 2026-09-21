@@ -14,8 +14,9 @@ to the superseded non-parametric penalty design instead.
 
 `Hake` (type 5) takes its normalization reference inside the sex loop, so the reference is
 always that sex's own maximum, and it is excluded from the shared normalizer
-(`normalize_and_project_selectivity()` gates on `sel_type != 5`). `Sel_norm_scope` is therefore
-silently inert on a Hake fleet. Measured on `GOAatf` fleet 3 (`nsex = 2`,
+(`normalize_and_project_selectivity()` runs on every form but 5, 11 and 12 -- `selectivity.hpp:74`;
+no form maps to 12 today). `Sel_norm_scope` is
+therefore inert on a Hake fleet. Measured on `GOAatf` fleet 3 (`nsex = 2`,
 `Time_varying_sel = "IID"`, `Sel_norm_bin = 0`), the two settings agree to every digit reported:
 
 | `Sel_norm_scope` | female max | male max | ratio | jnll |
@@ -23,12 +24,19 @@ silently inert on a Hake fleet. Measured on `GOAatf` fleet 3 (`nsex = 2`,
 | `"AcrossSexes"` (default) | 1.0000 | 1.0000 | 1.0000 | 46.4710 |
 | `"WithinSex"` | 1.0000 | 1.0000 | 1.0000 | 46.4710 |
 
-Two consequences. A user who sets the column gets no error, no warning and no change. And
-because F is shared across sexes (`F_flt_age = sel_at_age * exp(log_F)`), a Hake fleet cannot
-express sex-specific fishing mortality at all, whatever the data say.
+Two consequences. Setting the column changes nothing. And because F is shared across sexes
+(`F_flt_age = sel_at_age * exp(log_F)`), a Hake fleet cannot express sex-specific fishing
+mortality at all, whatever the data say.
 
-Since 5.35.0 `data_check()` warns that the column is inert on Hake and `LogisticPM`, so the
-silence is gone; the capability gap is not.
+The welding shows in the fitted shape: on `GOAatf` under today's within-sex rule, age-1
+selectivity is 1.83e-4 for females and **2.25e-47** for males. With each sex's peak held at 1, a
+near-step curve is the only way left for the model to say males are less available overall.
+Suggestive rather than proof, but it is the shape the pooling question is about.
+
+Since 5.35.0 the silence is partly gone: `data_check()` messages a two-sex Hake or `LogisticPM`
+fleet left at the default `AcrossSexes` that the column is not read and the sexes cannot differ
+in level (`R/1-data_check.R:993`). A fleet explicitly set to `WithinSex` gets nothing, because
+the behaviour happens to match what was asked for. The capability gap is untouched either way.
 
 **A second, smaller gap sits in the same block.** Hake honours a single named bin
 (`sel_norm_bin1 >= 0 && sel_norm_bin2 < 0`) but falls through to the maximum when a bin RANGE is

@@ -85,8 +85,9 @@ correct this table**, and the prompt says so.
 
 **A trap the recipe must state:** `Selectivity` is compared against **canonical strings**
 everywhere in the R pipeline. Integers or strings on input become strings at `switch_check()`,
-which ends by calling `revert_switches()` (`R/0-switches.R:1003`, converting at `:1152`), and
-they become integers only inside `rearrange_data()`, on the copy handed to TMB
+which calls `revert_switches()` before it returns (`R/0-switches.R:1003`, converting at `:1152`;
+nothing after that call re-converts the column). They become integers only inside
+`rearrange_data()`, on the copy handed to TMB
 (`convert_switches()`, `R/0-switches.R:1471`). So a form added to `sel_map` but not to the
 per-form string checks passes validation and fails later. Some sites defend both spellings, for
 example `R/0-switches.R:944`.
@@ -242,9 +243,9 @@ often the difference between contributing and not.
 Item F proposed reporting switch names rather than codes, on the premise that
 `fit$data_list$fleet_control$Selectivity` holds an integer after `switch_check()` and that
 messages therefore quote `8` rather than `"DoubleNormal"`. That premise was wrong, and had been
-since before the item was written: `switch_check()` ends by calling `revert_switches()`, so the
-stored column holds the canonical string and the messages already quote it. The integer exists
-only on the copy `rearrange_data()` hands to TMB.
+since before the item was written: `switch_check()` calls `revert_switches()` before returning,
+so the stored column holds the canonical string and the messages already quote it. The integer
+exists only on the copy `rearrange_data()` hands to TMB.
 
 The item is deleted rather than rewritten, because what it asked for is what the code does.
 What survives is the trap above, stated the right way round.
