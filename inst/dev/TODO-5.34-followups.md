@@ -1,6 +1,7 @@
 # TODO: follow-ups found while preparing 5.34.0 (PR #144)
 
-Status: **open, not started.** Pre-existing defects seen during the projection and MSE work.
+Status: **open except the `zero_N_pen` item, which shipped in 5.35.0.** Re-checked
+2026-09-21 against 5.41.0. Pre-existing defects seen during the projection and MSE work.
 None was fixed there because each changes an objective or a result on its own.
 
 ## PFMC's `Ftarget` is assigned after the hindcast years of the F loop
@@ -24,19 +25,21 @@ from `log_Ftarget = 3` (F = 20) stays at 20.08 with objective 83886.99 against 8
 is the realistic route. Bound the parameter, or start every estimated `log_Ftarget` at 0 as
 the multispecies loop does.
 
-## `zero_N_pen` over-counts
+## ~~`zero_N_pen` over-counts~~ -- FIXED in 5.35.0 (`c20f2ec7`)
 
-`penalty` (`ceattle.cpp`) is reset at the top of section 6.3 and of 6.5, never per cell. Each
-`posfun()` adds to it, and `zero_N_pen(sp) += penalty` adds the running total: once per species
-in 6.3 (Ricker only), and at every numbers-at-age cell in 6.5, where the total also carries
-earlier species' penalties. It is exactly zero unless a numbers-at-age or Ricker intercept fell
-below the 0.001 floor. Fixing it changes the objective of any fit that pays it; reset `penalty`
-per cell, re-run golden and refit the live assessments.
+`penalty` was reset per section rather than per cell, so `zero_N_pen(sp) += penalty` added a
+running total that also carried earlier species'. Every floor site now declares its own
+accumulator (`{ Type pen_N = 0; ... zero_N_pen(sp) += pen_N; }`, nine sites in `ceattle.cpp`)
+and `check_convergence()` reports the row. **Do not re-do this**: the prescription here was to
+reset the penalty, re-run golden and refit the live assessments, which is a day's work against
+a fix that shipped.
 
 ## `run_mse(regenerate_past = TRUE)`'s average-F refit never runs
 
-`R/10-run_mse.R` tests `em$data_list$HCR == 2`, but the rule is stored under its name
-(`"ConstantF"`), so the branch is dead. `.normalize_hcr()` in `R/10-mse_summary.R` is the
+`R/10-run_mse.R:647` tests `em$data_list$HCR == 2`, but the rule reaches it under its name
+(`"ConstantF"`) on the string path, so the branch is dead there. `.normalize_hcr()`'s own
+comment says either form may be stored depending on the processing path, so it is dead on that
+path rather than universally. `.normalize_hcr()` in `R/10-mse_summary.R` is the
 existing way to compare either spelling. If the branch is revived, `Ftarget` needs a full
 per-species vector: `avg_F$avg_F` covers only species with a fleet in `fleet_control`, and
 `extend_length()` stops on any other length.
