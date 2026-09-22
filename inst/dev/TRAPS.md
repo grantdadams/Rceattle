@@ -187,7 +187,7 @@ age `minage` the hindcast years of `Ftarget_at_age` still carry `exp(log_Ftarget
 reads a hindcast year, and the single-species reference-point penalty pulls `Flimit` toward
 whatever that start implies. Every single-species PFMC fit, the hake EM included, carries the
 start-0 version. Fix: assign `Ftarget` from `Flimit` before the F loop; see
-`TODO-5.34-followups.md`.
+`CLEANUP_BACKLOG.md`.
 
 **A Pearson residual must divide by the effective sample size the likelihood used.** Fixed in
 5.29.0; the structure that caused it is still there, so a fourth composition-like source would
@@ -648,7 +648,7 @@ minimum with `newtonsteps = 3` in place. HEAD reproduces the reference (12867.99
 gap; polishing did not remove it. A `goa_ss` delta of 52.9 with the other three models
 bit-identical is this, not a numeric regression. Diagnose it from the gradient at the reference
 `par`, not from the objective. A robustness fix (a warm start from the reference `par`, or a
-second start keeping the lower minimum) is open; see `TODO-5.34-followups.md`.
+second start keeping the lower minimum) is open; see `CLEANUP_BACKLOG.md`.
 
 ## Prior centring shares `bias_adjust_proc` with the recruitment deviations
 
@@ -683,6 +683,26 @@ Only centring exactly one term gives a mean of `sqrt(R0 * R_hat)`; with the flag
 reference points and a `proj_mean_rec = FALSE` projection read. The data dampen the shift on
 hindcast R. Accepted for 5.33.0 (2026-09-12); removing it would move the hake baselines again.
 `test-likelihood-prior-bias-adjust.R` pins the formula, not this property.
+
+## Porting an ADMB model
+
+Absorbed from `ADMB-CONVERSION.md`, which this file replaces; nothing referenced it.
+
+**An ADMB `dev_vector`'s sum-to-zero constraint cannot be replicated in TMB, and a straight
+port is unidentified.** The deviations and the parameter they deviate from trade off freely and
+the optimizer wanders the ridge. Fix: map the first element to `NA` in `R/3-build_map.R`, which
+pins the level. **Exception:** if the vector already carries its own penalty -- a normal
+penalty or a random-effects density -- that pins it, and turning off the first element as well
+over-constrains it.
+
+**AMAK conventions are reproduced deliberately, not corrected.** `src/TMB/selectivity.hpp:609`
+evaluates the logistic at mid-age (`age_vector(j) = j + 0.5`, so `bin + 1.5`) for `LogisticPM`
+(11); the standard `Logistic` (1) uses `bin + 1`. `NonParametricPM` (9) and `LogisticPM` exist
+to match ADMB AMAK's "pm" parameterizations, penalties included, and `NonParametricIID` (13)
+and `NonParametricRW` (14) came from the same lineage in 5.40.0.
+
+The literature citations through `src/TMB/` are the specification for those blocks, not
+historical notes; `CLAUDE.md` says so under Comments.
 
 ## CLAUDE.md's traps in full
 

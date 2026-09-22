@@ -47,10 +47,10 @@ adversarially before commit and again by a second session before merge:
 - `TODO-srr-multispecies.md` — initial ages do not decay with M1 + M2 under predation. Built
   and measured during #150, then reverted: year-1 N and M2 feed back across predation
   iterations, and `BS2017MS`'s default starts reached an infinite objective at `niter = 10`.
-- `TODO-5.34-followups.md` — PFMC `Ftarget` assigned inside the F loop; `zero_N_pen`
-  over-count; the dead average-F refit in `run_mse()`.
+- `CLEANUP_BACKLOG.md` — everything found and deliberately not fixed, in tiers. Absorbed
+  `TODO-5.34-followups.md`: the PFMC `Ftarget` assignment and the `goa_ss` second minimum
+  live in `TRAPS.md`, the unbounded `log_Ftarget` and the dead average-F branch here.
 - `TODO-projection-module.md`, `TODO-mse-horizon.md` — unchanged by this batch.
-- `CLEANUP_BACKLOG.md` — everything found and deliberately not fixed, in tiers.
 - `TRAPS.md` — verified traps with the measured numbers behind them.
 
 ## Parked branches
