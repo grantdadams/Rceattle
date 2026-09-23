@@ -5,10 +5,35 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**`dev` is at 5.41.0**, and once this notes consolidation merges nothing is open against it.
-`main` is at 5.33.0, so the next step is one `dev` -> `main` release covering 5.34.0 through
-5.41.0, per `inst/RELEASE-CHECKLIST.md`. Read that file's pkgdown note before tagging: the
-`release: published` event has silently failed to fire once already.
+**`dev` is at 5.41.0 and `main` at 5.33.0.** The next step is one `dev` -> `main` release
+covering 5.34.0 through 5.41.0, per `inst/RELEASE-CHECKLIST.md`. Read that file's pkgdown note
+before tagging: the `release: published` event has silently failed to fire once already.
+
+**Everything the checklist asks for before tagging is done** (2026-09-23). Full suite 9,506
+assertions / 0 failures / 3 skips; ecosystem sweep clean; hake `MSE_yr2024.R` identical to
+5.33.0 on all six fits; a reproducible install into a temporary library driven through them.
+
+**The release sequence, from here:**
+
+1. Merge whatever `inst/dev` PRs are still open (they are documentation only).
+2. Open and merge the `dev` -> `main` release PR. Say what forces a refit, what breaks and what
+   is new; do not paste `NEWS.md`.
+3. Tag the MERGE COMMIT on `main`, then publish a GitHub Release from the tag.
+4. Confirm pkgdown actually rebuilt, then `gh workflow run deep-checks.yaml --ref main`.
+5. Tell the consumer repos to pin the tag rather than track `main`.
+
+**Two things are red before the release starts, and neither is from this batch.** Do not read
+either as evidence against the tag, and do not spend the release chasing them:
+
+- **`deep-checks` `golden` fails on `main` at 5.33.0.** `goa_ss` lands in the second local
+  minimum and `goa_ms` inherits it through its warm start. See `TRAPS.md`; the robustness fix
+  is the first job after the release, because until it lands this guard cannot gate anything.
+- **Windows `R-CMD-check` fails intermittently**, about 2 runs in 30, with an access violation
+  that also reproduces on `main`. The file the framework names carries no information. See
+  `TRAPS.md`.
+
+macOS was red 2026-09-20 to 09-22 for two unrelated upstream reasons and recovered on its own;
+branch `ci/macos-libomp` holds an unmerged remedy if the OpenMP one recurs.
 
 The 2026-09-14 backlog plan is finished. Eight branches, listed below in version order
 (#150 merged before #149), each reviewed
@@ -25,16 +50,19 @@ adversarially before commit and again by a second session before merge:
 | 5.40.0 | #151 | `NonParametricIID` (13) and `NonParametricRW` (14) |
 | 5.41.0 | #152 | `osa_residuals(method = "cdf")` |
 
-## Before the release
+## After the release, in order
 
-1. Work `inst/dev/SIMPLIFY-LOG.md`. It is the accumulated list of API, switch and workflow
-   simplifications found while doing the above. Every row is logged rather than done, by
-   standing rule. Grant picks which become PRs after the release.
-2. `/ecosystem-sweep` the four consumer repos in `SIBLING-REPOS.md`. 5.35.0 retired
-   `estDynamics = 3` and 5.37.0 refuses unknown names in a stored `map`, so a sweep is not
-   optional this cycle.
-3. Run the hake `MSE_yr2024.R`. It is the only end-to-end `run_mse()` and the only routine
-   exercise of estimated suitability; reference objectives are in `SIBLING-REPOS.md`.
+1. **Make `golden` robust**, so `deep-checks` can gate a release. Warm-start the reference fits
+   from the pinned parameters, or take the lower of two starts. It is a harness change and
+   cannot move a fitted number.
+2. **Decide on the three inert test guards** (`CLEANUP_BACKLOG.md`): restore or delete. The
+   multispecies one is hiding an unexplained disagreement with the old EBS CEATTLE.
+3. **Work `SIMPLIFY-LOG.md`.** Fifteen open rows: four change behaviour and need a deprecation
+   path or a shim, one moves a golden reference, four are internal, two additive, one doc.
+   Every row is logged rather than done, by standing rule; Grant picks which become PRs.
+
+Done for this cycle, so do not repeat them: the ecosystem sweep of the four consumer repos, and
+the hake `MSE_yr2024.R` run. Both are recorded above with their results.
 
 ## Open work, by where it is recorded
 
