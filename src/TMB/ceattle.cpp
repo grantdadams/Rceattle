@@ -207,6 +207,9 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( minage );                 // Minimum age of each species
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths
   DATA_MATRIX(lengths);                   // Length bins for each species [sp, nlengths]
+  DATA_IVECTOR( nlengths_pop );           // Number of population length bins per species; equals nlengths when no population grid is given
+  DATA_MATRIX( lengths_pop );             // Population length bins, lower edges (cm) [sp, nlengths_pop]: the grid the age-length key, weight and maturity are integrated on
+  DATA_IMATRIX( pop_to_data_bin );        // Data length bin (0-based) that each population bin sums into [sp, nlengths_pop]
   DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get N_at_age
   DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
   DATA_VECTOR( MSB0 );                    // B0 from projecting the model forward in multi-species mode under no fishing
@@ -225,7 +228,13 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.3. Growth model specifications
   DATA_IVECTOR(growth_model); // 0: "input", 1: "vB-classic", 2: "Richards", 3: "nonparametric LAA" [sp]
-  DATA_IVECTOR(growth_sd_style); // Plus-group SD-at-age treatment [sp]: 1 = WHAM (pin to exp(sd_Linf)), 2 = SS3 (interpolate by length)
+  DATA_IVECTOR(growth_sd_style); // Plus-group SD-at-age treatment [sp]: 1 = WHAM (pin to exp(sd_Linf)), 2 = interpolate by length
+  DATA_IVECTOR(growth_sd_form);  // Growth variability endpoints [sp]: 1 = SDs in cm (SS3 CV_Growth_Pattern 2), 2 = CVs, SD = CV * L (SS3 pattern 0)
+  DATA_IVECTOR(growth_plus_length); // Plus-group mean length [sp]: 1 = M1-weighted, 2 = none (SS3 Linf_decay -998), 3 = SS3.24 (-999), 4 = SS3 decay rate
+  DATA_VECTOR(plus_group_decay); // Decay rate (per year) for growth_plus_length == 4 [sp]
+  DATA_IMATRIX(sel_dn6_ends);    // DoubleNormalSS3, per fleet [flt, 2]: 1 = scale the initial / final end by P5 / P6, 0 = SS3's -999 (unscaled)
+  DATA_IVECTOR(mat_len_use);     // 1 = maturity-at-length replaces the age-based maturity in spawning output [sp]
+  DATA_MATRIX(mat_len_pars);     // Maturity-at-length [sp, 2]: L50 (cm), logistic slope (per cm)
   DATA_VECTOR(growth_age_L1); // VB anchor age (= SS3 Growth_Age_for_L1) per sp; defaults to max(0.5, minage[sp]) in R-side fit_mod()
 
   // -- 2.3b. Long-format linkage table (see R/0-linkage_encode.R).
@@ -494,6 +503,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( log_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
   PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
   PARAMETER_ARRAY( log_sel_apical );              // per-sex log multiplier on the whole curve, after the form and before normalization; n = [n_selectivities, nsex]
+  PARAMETER_ARRAY( sel_dn6 );                     // DoubleNormalSS3 (SS3 pattern 24) parameters on SS3's scales: peak, logit top, log asc, log desc, logit init, logit final; n = [6, n_selectivities, nsex]
   PARAMETER_VECTOR( sel_dev_log_sd );              // Log standard deviation of selectivity; n = [1, n_selectivities]
   PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
 
@@ -540,6 +550,7 @@ Type objective_function<Type>::operator() () {
   // -- 4.2. Growth
   array<Type> growth_matrix(nspp * 2 + n_flt, max_sex, max_age, max_nlengths, nyrs); growth_matrix.setZero(); // growth transition matrix for each fleet and each species derived quantity (biomass and ssb)
   array<Type> weight_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); weight_hat.setZero(); // Estimated weight-at-age for each fleet and each species derived quantity (biomass and ssb)
+  array<Type> mat_weight_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); mat_weight_hat.setZero(); // Mature weight-at-age (kg), maturity-at-length species only
   array<Type> length_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); length_hat.setZero(); // Estimated length-at-age for each fleet and each species derived quantity (biomass and ssb)
 
   // -- 4.3. Estimated population quantities
@@ -1148,9 +1159,13 @@ Type objective_function<Type>::operator() () {
     weight_hat,
     length_hat,
     growth_matrix,
+    mat_weight_hat,
     weight_obs,
     growth_model,
     growth_sd_style,
+    growth_sd_form,
+    growth_plus_length,
+    plus_group_decay,
     nspp,
     nyrs,
     nyrs_hind,
@@ -1167,11 +1182,35 @@ Type objective_function<Type>::operator() () {
     flt_wt_index,
     spawn_month,
     lengths,
+    nlengths_pop,
+    lengths_pop,
+    pop_to_data_bin,
     growth_parameters,
     growth_log_sd,
     weight_length_pars,
+    mat_len_use,
+    mat_len_pars,
     log_M1
   );
+
+  // -- Spawning output per fish (kg) at spawning time, female-only for a
+  //    two-sex species. Weight x maturity-at-age x sex ratio by default; with
+  //    maturity-at-length it is the mature weight integrated over the length
+  //    distribution at spawning, so maturity and weight vary together with length.
+  array<Type> spawn_output(nspp, max_age, nyrs); spawn_output.setZero();
+  for(sp = 0; sp < nspp; sp++){
+    wt_idx_ssb = 2 * sp + 1;
+    for(age = 0; age < nages(sp); age++){
+      for(yr = 0; yr < nyrs; yr++){
+        if(mat_len_use(sp) == 1){
+          spawn_output(sp, age, yr) = mat_weight_hat(wt_idx_ssb, 0, age, yr) * ((nsex(sp) == 1) ? sex_ratio(sp, age) : Type(1.0));
+        } else {
+          spawn_output(sp, age, yr) = weight_hat(wt_idx_ssb, 0, age, yr) * mature_females(sp, age);
+        }
+      }
+    }
+  }
+  REPORT(spawn_output);
 
 
   // 5.8. SELECTIVITY
@@ -1185,6 +1224,8 @@ Type objective_function<Type>::operator() () {
   array<Type> sel_coff_off_nat (n_flt, max_sex, max_bin, nyrs); sel_coff_off_nat.setZero();
   array<Type> sel_apical_off (n_flt, max_sex, nyrs);            sel_apical_off.setZero();
   array<Type> sel_apical_off_nat (n_flt, max_sex, nyrs);        sel_apical_off_nat.setZero();
+  array<Type> sel_dn6_off        (6, n_flt, max_sex, nyrs);     sel_dn6_off.setZero();
+  array<Type> sel_dn6_off_nat    (6, n_flt, max_sex, nyrs);     sel_dn6_off_nat.setZero();
 
   // The per-sex apical multiplier is compiled in only when a selectivity
   // linkage names it (param 5); otherwise the curve is untouched and the AD
@@ -1195,14 +1236,14 @@ Type objective_function<Type>::operator() () {
   }
 
   rceattle_apply_sel_linkages(
-    sel_slp_off, sel_inf_off, sel_coff_off, sel_apical_off,
+    sel_slp_off, sel_inf_off, sel_coff_off, sel_apical_off, sel_dn6_off,
     /*link_code=*/ 1,   // log-link rows -> log-scale tensors
     linkage_process, linkage_param, linkage_species, linkage_sex,
     linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
     linkage_X, beta_linkage_eff, n_flt, max_sex, max_bin, nyrs);
 
   rceattle_apply_sel_linkages(
-    sel_slp_off_nat, sel_inf_off_nat, sel_coff_off_nat, sel_apical_off_nat,
+    sel_slp_off_nat, sel_inf_off_nat, sel_coff_off_nat, sel_apical_off_nat, sel_dn6_off_nat,
     /*link_code=*/ 0,   // identity-link rows -> natural-scale tensors
     linkage_process, linkage_param, linkage_species, linkage_sex,
     linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
@@ -1248,8 +1289,38 @@ Type objective_function<Type>::operator() () {
     sel_inf_off, sel_inf_off_nat,
     sel_coff_off, sel_coff_off_nat,
     sel_apical_on, log_sel_apical,  // per-sex apical height, only when a linkage names it
-    sel_apical_off, sel_apical_off_nat
+    sel_apical_off, sel_apical_off_nat,
+    sel_dn6, sel_dn6_off, sel_dn6_off_nat, sel_dn6_ends   // DoubleNormalSS3
   );
+
+  // -- Selected body weight. A length-selective fleet catches (or samples) the
+  //    larger or smaller fish of each age class, so its weight-at-age is the
+  //    mean weight of the fish it selects, sum_l P(l|a) s(l) w(l) / sum_l
+  //    P(l|a) s(l) (kg; Stock Synthesis's "bodywt"), not the age class's mean.
+  //    Catch and survey biomass both read it. Needs the fleet's age-length key,
+  //    so estimated growth only.
+  for(flt = 0; flt < n_flt; flt++){
+    sp = flt_spp(flt);
+    if(growth_model(sp) == 0 || flt_sel_dim(flt) != 1 || flt_sel_type(flt) == 0) continue;
+    int wt_idx_sel = nspp * 2 + flt;
+    for(sex = 0; sex < nsex(sp); sex++){
+      for(age = 0; age < nages(sp); age++){
+        for(yr = 0; yr < nyrs; yr++){
+          Type num = 0, den = 0;
+          for(int ln = 0; ln < nlengths(sp); ln++){
+            Type lenmid = (ln < nlengths(sp) - 1)
+              ? (lengths(sp, ln) + lengths(sp, ln + 1)) / Type(2.0)
+              : lengths(sp, ln) + (lengths(sp, ln) - lengths(sp, ln - 1)) / Type(2.0);
+            Type p_sel = growth_matrix(wt_idx_sel, sex, age, ln, yr) * sel_at_length(flt, sex, ln, yr);
+            num += p_sel * weight_length_pars(sp, 0) * pow(lenmid, weight_length_pars(sp, 1));
+            den += p_sel;
+          }
+          // An age class the fleet does not select contributes nothing either way.
+          weight_hat(wt_idx_sel, sex, age, yr) = num / (den + Type(1e-30));
+        }
+      }
+    }
+  }
 
 
   // 5.9. BIOENERGETICS AND CONSUMPTION
@@ -1610,12 +1681,12 @@ Type objective_function<Type>::operator() () {
           Z_target(age)   = M_at_age(sp, 0, age, term_yr) + Ftarget_at_age(sp, 0, age, term_yr);
           Z_init(age)     = M_at_age(sp, 0, age, 0) + Finit(sp);
 
-          wt_term(age)      = weight_hat(wt_idx_ssb, 0, age, term_yr);
-          wt_first(age)     = weight_hat(wt_idx_ssb, 0, age, 0);
           // Spawning output per TOTAL recruit, so the female fraction enters once:
-          // mature_females (5.4) carries the age-varying ratio for a one-sex species,
-          // female_split the recruitment split (6.6) for a two-sex one.
-          mature_at_age(age) = mature_females(sp, age) * female_split;
+          // spawn_output (5.7) carries maturity and the age-varying ratio for a
+          // one-sex species, female_split the recruitment split (6.6) for a two-sex one.
+          wt_term(age)      = spawn_output(sp, age, term_yr);
+          wt_first(age)     = spawn_output(sp, age, 0);
+          mature_at_age(age) = female_split;
         }
 
         vector<Type> n_unfished = per_recruit_survivors(Z_unfished);
@@ -1913,8 +1984,8 @@ Type objective_function<Type>::operator() () {
 
         // -- 6.5.4. Estimated initial female SSB
         wt_idx_ssb = 2 * sp + 1;
-        // ssb_at_age(sp, age, 0) = N_at_age(sp, 0, age, 0) * pow(S(sp, 0, age, 0), spawn_month(sp)/12) * weight_hat( wt_idx_ssb, 0, age, 0 ) * mature_females(sp, age); // 6.6.
-        ssb(sp, 0) += N_at_age(sp, 0, age, 0) * exp(-Z_at_age(sp, 0, age, 0) * spawn_month(sp)/12) * weight_hat( wt_idx_ssb, 0, age, 0 ) * mature_females(sp, age); // 6.6. ssb_at_age(sp, age, 0);
+        // ssb_at_age(sp, age, 0) = N_at_age(sp, 0, age, 0) * pow(S(sp, 0, age, 0), spawn_month(sp)/12) * spawn_output(sp, age, 0); // 6.6.
+        ssb(sp, 0) += N_at_age(sp, 0, age, 0) * exp(-Z_at_age(sp, 0, age, 0) * spawn_month(sp)/12) * spawn_output(sp, age, 0); // 6.6. ssb_at_age(sp, age, 0);
       }
     }
 
@@ -1999,10 +2070,10 @@ Type objective_function<Type>::operator() () {
           // -- 6.6.4. Estimated female ssb
           wt_idx_ssb = 2 * sp + 1;
           /*
-           ssb_at_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age); // 6.6.
+           ssb_at_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * spawn_output(sp, age, yr); // 6.6.
            ssb(sp, yr) += ssb_at_age(sp, age, yr);
            */
-          ssb(sp, yr) += N_at_age(sp, 0, age, yr) * exp(-Z_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0) * weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age); // 6.6.
+          ssb(sp, yr) += N_at_age(sp, 0, age, yr) * exp(-Z_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0) * spawn_output(sp, age, yr); // 6.6.
         }
       }
     }
@@ -2170,10 +2241,10 @@ Type objective_function<Type>::operator() () {
           wt_idx_ssb = 2 * sp + 1;
           // Multispecies: M_at_age carries the projection's realized M2. The one rule
           // that reads SBF, NPFMC (HCR 5), is refused there; SB0 is replaced by MSSB0 below.
-          SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
-          SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
-          DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-M_at_age_dB0(sp, 0, age, yr) * spawn_month(sp)/12.0);
-          DynamicSBF(sp, yr) +=  N_at_age_dBF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-(M_at_age_dBF(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
+          SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  spawn_output(sp, age, nyrs_hind - 1) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
+          SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  spawn_output(sp, age, nyrs_hind - 1) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
+          DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  spawn_output(sp, age, yr) * exp(-M_at_age_dB0(sp, 0, age, yr) * spawn_month(sp)/12.0);
+          DynamicSBF(sp, yr) +=  N_at_age_dBF(sp, 0, age, yr) *  spawn_output(sp, age, yr) * exp(-(M_at_age_dBF(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
 
           for(sex = 0; sex < nsex(sp); sex ++){
 
@@ -2356,10 +2427,10 @@ Type objective_function<Type>::operator() () {
           // -- 6.8.5. FORECAST SSB (SUM ACROSS AGES)
           wt_idx_ssb = 2 * sp + 1;
           /*
-           ssb_at_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * weight_hat( wt_idx_ssb, 0, age, nyrs_hind-1 ) * mature_females(sp, age); // 6.6.
+           ssb_at_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * spawn_output(sp, age, nyrs_hind-1); // 6.6.
            ssb(sp, yr) += ssb_at_age(sp, age, yr);
            */
-          ssb(sp, yr) += N_at_age(sp, 0, age, yr) * exp(-Z_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0) * weight_hat( wt_idx_ssb, 0, age, nyrs_hind-1 ) * mature_females(sp, age); // 6.6.
+          ssb(sp, yr) += N_at_age(sp, 0, age, yr) * exp(-Z_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0) * spawn_output(sp, age, nyrs_hind-1); // 6.6.
         }
       }
     }
@@ -4905,6 +4976,12 @@ Type objective_function<Type>::operator() () {
           // apical: the per-sex multiplier, stored logged, so the prior reads
           // on the multiplier itself (lognormal centred on 1 = no offset).
           b = log_sel_apical(fl_idx, sx_idx);
+        } else if (param >= 6 && param <= 11) {
+          // DoubleNormalSS3: the prior reads the parameter as stored, on SS3's
+          // own scale (peak in cm, P3/P4 log widths, P2/P5/P6 logits), which
+          // is where an SS3 control file puts its priors.
+          b = sel_dn6(param - 6, fl_idx, sx_idx);
+          base_is_log = false;
         }
       }
     }

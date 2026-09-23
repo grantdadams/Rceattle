@@ -626,9 +626,19 @@ constant along one dimension deliberately.
 | `1` | `"vonBertalanffy"` | von Bertalanffy length-at-age + length-weight allometry (`alpha_wt_len`, `beta_wt_len` on the data control sheet) |
 | `2` | `"Richards"` |Sex-specific Richards growth |
 
-Priors and environmental relationships can be added to growth 
-via `build_growth()`. See `?build_growth` for options and 
-`vignette("environmental-linkages-and-priors")` for details. 
+### Growth variability, plus group, length bins and maturity
+
+| Argument / column | Values | Description |
+|---|---|---|
+| `sd_form` | `"SD"` (default), `"CV"` | Whether `sd_L1` / `sd_Linf` are SDs of length-at-age (cm) or CVs (SD = CV x length) -- SS3 `CV_Growth_Pattern` 2 or 0 |
+| `sd_plus_group` | `"WHAM"` (default), `"SS3"` | Plus-group SD pinned to the upper endpoint, or interpolated by length. SS3 with `Growth_Age_for_L2 = 999` is `"WHAM"` |
+| `plus_group_length` | `"M1"` (default), `"none"`, `"SS3.24"`, `"decay"` | Plus-group mean length: M1-weighted mean toward L-infinity, or SS3's `Linf_decay` -998 / -999 / `plus_group_decay` |
+| `pop_lengths` | lower edges (cm); default the data bins | Population length bins on which the age-length key, weight and maturity are integrated |
+| `L50_mat_len`, `slope_mat_len` (control sheet) | cm, per cm; default NA | Logistic maturity-at-length; spawning output integrates maturity x weight over length. NA keeps the age-based `maturity` sheet |
+
+Priors and environmental relationships can be added to growth
+via `build_growth()`. See `?build_growth` for options and
+`vignette("environmental-linkages-and-priors")` for details.
 
 Time-varying growth is specified through the linkage grammar rather than a
 switch of its own — `build_growth(linkages = list(K = linkage_spec(~ rw(1 | Year))))`

@@ -86,6 +86,16 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
     data_list_new[[i]] <- c(data_list1[[i]], data_list2[[i]])
   }
 
+  # Optional per-species vectors: a data set without one uses NA for each of its
+  # species (for maturity-at-length, "use the age-based maturity sheet"), so the
+  # combined vector stays aligned with the species.
+  for(i in c("L50_mat_len", "slope_mat_len")){
+    if(!is.null(data_list1[[i]]) || !is.null(data_list2[[i]])){
+      data_list_new[[i]] <- c(data_list1[[i]] %||% rep(NA_real_, data_list1$nspp),
+                              data_list2[[i]] %||% rep(NA_real_, data_list2$nspp))
+    }
+  }
+
   # Combine matrices
   for(i in mat_names){
     data_list_new[[i]] <- plyr::rbind.fill(data_list1[[i]], data_list2[[i]])

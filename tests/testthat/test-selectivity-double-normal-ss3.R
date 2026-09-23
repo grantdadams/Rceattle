@@ -1,0 +1,98 @@
+# DoubleNormalSS3 (type 15): Stock Synthesis size-selectivity pattern 24, with
+# its six parameters in their own array (sel_dn6) and time variation only
+# through selectivity linkages. The R implementation below follows SS3 3.30's
+# SS_selex.tpl (pattern 24, Apical_Selex = 1): peak P1, logit top width P2, log
+# ascending / descending widths P3 / P4, logit initial / final selectivity
+# P5 / P6, with -999 on an end switching its scaling off. The curve is not
+# normalized.
+
+testthat::skip_on_cran()
+
+ss3_pattern24 <- function(x, P, init_on = TRUE, final_on = TRUE, w = diff(x)[1]) {
+  n <- length(x)
+  peak2  <- P[1] + w + (0.99 * x[n] - P[1] - w) / (1 + exp(-P[2]))
+  up     <- exp(P[3]); dn <- exp(P[4])
+  point1 <- 1 / (1 + exp(-P[5])); point2 <- 1 / (1 + exp(-P[6]))
+  t1min  <- exp(-(x[1] - P[1])^2 / up)
+  t2min  <- exp(-(x[n] - peak2)^2 / dn)
+  t1 <- x - P[1]; t2 <- x - peak2
+  j1 <- 1 / (1 + exp(-(20 * t1 / (1 + abs(t1)))))
+  j2 <- 1 / (1 + exp(-(20 * t2 / (1 + abs(t2)))))
+  asc <- if (init_on) point1 + (1 - point1) * (exp(-t1^2 / up) - t1min) / (1 - t1min) else exp(-t1^2 / up)
+  dsc <- if (final_on) 1 + (point2 - 1) * (exp(-t2^2 / dn) - 1) / (t2min - 1) else exp(-t2^2 / dn)
+  asc * (1 - j1) + j1 * ((1 - j2) + dsc * j2)
+}
+
+dn6_build <- function(d, inits = NULL, selFun = build_selectivity()) {
+  suppressWarnings(suppressMessages(fit_mod(
+    data_list = d, inits = inits, estimateMode = 3, msmMode = 0, random_rec = FALSE,
+    growthFun = build_growth(fun = "vonBertalanffy"), selFun = selFun,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))))
+}
+
+set.seed(21)
+d <- make_msm_test_data()$data_list
+fl <- which(d$fleet_control$Species == 1 & d$fleet_control$Fleet_type %in% c(1, "Fishery"))[1]
+d$fleet_control$Selectivity[fl]           <- "DoubleNormalSS3"
+d$fleet_control$Selectivity_dimension[fl] <- "Length"
+d$fleet_control$Time_varying_sel[fl]      <- "Off"
+edges <- sort(unique(d$caal_data$Length[d$caal_data$Species == 1]))
+mids  <- edges + diff(edges)[1] / 2
+
+testthat::test_that("the curve is SS3 pattern 24, unnormalized, with both ends scaled", {
+  m0 <- dn6_build(d)
+  P  <- c(55, -3, 4.5, 5.5, -2, 0.5)
+  ip <- m0$estimated_params
+  ip$sel_dn6[, fl, ] <- P
+  m  <- dn6_build(d, inits = ip)
+  got <- m$quantities$sel_at_length[fl, 1, seq_along(edges), 1]
+  testthat::expect_equal(unname(got), ss3_pattern24(mids, P), tolerance = 1e-10)
+  # Age selectivity is the length curve through the fleet's age-length key
+  gm <- m$quantities$growth_matrix[2 * d$nspp + fl, 1, , seq_along(edges), 1]
+  testthat::expect_equal(unname(m$quantities$sel_at_age[fl, 1, , 1]),
+                         unname(as.numeric(gm %*% got)), tolerance = 1e-10)
+})
+
+testthat::test_that("an end at SS3's -999 is unscaled and its parameter fixed", {
+  m0 <- dn6_build(d)
+  # The default start leaves both ends at -999
+  testthat::expect_equal(unname(m0$estimated_params$sel_dn6[5:6, fl, 1]), c(-999, -999))
+  testthat::expect_true(all(is.na(m0$map$mapList$sel_dn6[5:6, fl, ])))
+  testthat::expect_false(any(is.na(m0$map$mapList$sel_dn6[1:4, fl, ])))
+  P  <- c(60, -4, 5, 5, -999, -999)
+  ip <- m0$estimated_params
+  ip$sel_dn6[, fl, ] <- P
+  m  <- dn6_build(d, inits = ip)
+  testthat::expect_equal(unname(m$quantities$sel_at_length[fl, 1, seq_along(edges), 1]),
+                         ss3_pattern24(mids, P, init_on = FALSE, final_on = FALSE),
+                         tolerance = 1e-10)
+})
+
+testthat::test_that("block linkages replace a parameter, SS3 Blk_Fxn 2", {
+  yrs <- d$styr:d$endyr
+  brk <- c(-Inf, yrs[4] - 0.5, Inf)                   # two blocks
+  selFun <- build_selectivity(linkages = list(
+    dn_peak = linkage_spec(~ cut(Year, breaks = brk), fleet = fl, link = "identity")))
+  m0 <- dn6_build(d, selFun = selFun)
+  tbl <- m0$data_list$linkage_table
+  j <- which(tbl$process == "sel" & tbl$design_col != "(Intercept)")
+  testthat::expect_length(j, 1L)
+  # Second block's peak is 8 cm above the base (first block) peak
+  ip <- m0$estimated_params
+  ip$beta_linkage[j] <- 8
+  m <- dn6_build(d, inits = ip, selFun = selFun)
+  P  <- m$estimated_params$sel_dn6[, fl, 1]
+  Pb <- P; Pb[1] <- P[1] + 8
+  testthat::expect_equal(unname(m$quantities$sel_at_length[fl, 1, seq_along(edges), 1]),
+                         ss3_pattern24(mids, P, FALSE, FALSE), tolerance = 1e-10)
+  testthat::expect_equal(unname(m$quantities$sel_at_length[fl, 1, seq_along(edges), length(yrs)]),
+                         ss3_pattern24(mids, Pb, FALSE, FALSE), tolerance = 1e-10)
+})
+
+testthat::test_that("the new form is registered where the drift guards look", {
+  testthat::expect_equal(unname(sel_map["DoubleNormalSS3"]), 15)
+  testthat::expect_true(all(.SEL_DN6_PARAMS %in% SEL_LINKAGE_PARAMS))
+  testthat::expect_setequal(unique(unname(LINKAGE_PARAM_CODES$sel[.SEL_DN6_PARAMS])), 6:11)
+  d2 <- d; d2$fleet_control$Time_varying_sel[fl] <- "IID"
+  testthat::expect_error(data_check(switch_check(d2)), "must be 'Off'")
+})

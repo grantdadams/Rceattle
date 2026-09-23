@@ -266,8 +266,12 @@ test_that("every renamed template input is either a schema tmb_target or pinned"
   # (the *_obs / *_ctl / *_n triples, the biological sheets) or a value that
   # arrives from somewhere other than the workbook -- Ftarget_percent and
   # Flimit_percent come from build_hcr(), env_index from the environmental
-  # covariates, index_cov_const from index_cov.
+  # covariates, index_cov_const from index_cov. The population length grid
+  # (nlengths_pop, lengths_pop, pop_to_data_bin) comes from build_growth(), and
+  # mat_len_use is derived from the L50_mat_len / slope_mat_len pair.
+  # sel_dn6_ends is read off the DoubleNormalSS3 starting values (SS3's -999).
   not_a_column <- c(
+    "nlengths_pop", "lengths_pop", "pop_to_data_bin", "mat_len_use", "sel_dn6_ends",
     "age_error", "age_trans_matrix", "caal_ctl", "caal_n", "caal_obs",
     "catch_ctl", "catch_n", "catch_obs", "comp_ctl", "comp_n", "comp_obs",
     "diet_ctl", "diet_obs", "emp_sel_ctl", "emp_sel_obs", "env_index",

@@ -486,6 +486,24 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     }
   }
 
+  # * DoubleNormalSS3 ends ----
+  # Both ends scaled unless fit_mod() finds SS3's -999 in the starting values.
+  data_list$sel_dn6_ends <- matrix(1L, nrow(data_list$fleet_control), 2)
+
+  # * Population length bins ----
+  # The age-length key, weight-at-length and maturity-at-length are computed on
+  # these finer bins (SS3's population length bins) and summed into the data
+  # bins above. A species without its own grid uses its data bins.
+  data_list <- .rce_pop_length_bins(data_list)
+
+  # * Maturity-at-length ----
+  # Logistic in length (cm); a species with no L50 / slope keeps the age-based
+  # maturity sheet.
+  L50   <- as.numeric(data_list$L50_mat_len   %||% rep(NA_real_, data_list$nspp))
+  slope <- as.numeric(data_list$slope_mat_len %||% rep(NA_real_, data_list$nspp))
+  data_list$mat_len_use  <- as.integer(!is.na(L50) & !is.na(slope))
+  data_list$mat_len_pars <- cbind(ifelse(is.na(L50), 0, L50), ifelse(is.na(slope), 0, slope))
+
 
   # 6 -  Diet data ----
   # - Seperate diet metadata from observation
@@ -931,4 +949,43 @@ rearrange_dat <- function(data_list){
   .Deprecated("rearrange_data",
               msg = "rearrange_dat() is deprecated and will be removed in Rceattle 6.0.0; use rearrange_data().")
   rearrange_data(data_list)
+}
+
+
+#' Population length bins and their map onto the data length bins
+#'
+#' Adds `lengths_pop` (lower edges, cm; species x bins), `nlengths_pop` and
+#' `pop_to_data_bin` (0-based data bin that each population bin sums into) to
+#' `data_list`. The grid comes from `data_list$pop_lengths` (one vector for every
+#' species, or a list per species); a species without one, or with empirical
+#' growth, uses its data bins, so the map is the identity. A population bin below
+#' the first data edge sums into the first data bin and one above the last edge
+#' into the last, the data bins' minus and plus groups. Every data edge must also
+#' be a population edge, so no population bin straddles two data bins.
+#' @keywords internal
+#' @noRd
+.rce_pop_length_bins <- function(data_list) {
+  nspp <- data_list$nspp
+  pop  <- data_list$pop_lengths
+  grids <- lapply(seq_len(nspp), function(sp) {
+    data_edges <- as.numeric(data_list$lengths[sp, seq_len(data_list$nlengths[sp])])
+    g <- if (is.list(pop)) (if (sp <= length(pop)) pop[[sp]] else NULL) else pop
+    if (is.null(g) || isTRUE(data_list$growth_model[sp] == 0)) g <- data_edges
+    missing_edge <- data_edges[vapply(data_edges, function(e) !any(abs(g - e) < 1e-8), logical(1))]
+    if (length(missing_edge)) {
+      stop(sprintf("pop_lengths for species %d must include every data length-bin lower edge; missing: %s",
+                   sp, paste(missing_edge, collapse = ", ")), call. = FALSE)
+    }
+    bin <- pmax(findInterval(g + 1e-8, data_edges), 1L) - 1L
+    list(edges = g, bin = as.integer(bin))
+  })
+  n_pop <- vapply(grids, function(x) length(x$edges), integer(1))
+  data_list$nlengths_pop    <- as.integer(n_pop)
+  data_list$lengths_pop     <- matrix(0, nspp, max(n_pop))
+  data_list$pop_to_data_bin <- matrix(0L, nspp, max(n_pop))
+  for (sp in seq_len(nspp)) {
+    data_list$lengths_pop[sp, seq_len(n_pop[sp])]     <- grids[[sp]]$edges
+    data_list$pop_to_data_bin[sp, seq_len(n_pop[sp])] <- grids[[sp]]$bin
+  }
+  data_list
 }

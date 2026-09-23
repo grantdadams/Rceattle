@@ -997,6 +997,13 @@ data_check <- function(data_list) {
                 "' normalizes each sex to its own maximum, so 'Sel_norm_scope' is not ",
                 "read and the sexes cannot differ in selectivity level with this form.")
       }
+      #  - DoubleNormalSS3 (type 15): time variation is through selectivity
+      #    linkages on its six parameters (blocks as ~ cut(Year, ...), annual
+      #    devs as a random-effect term), so Time_varying_sel must be "Off".
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "DoubleNormalSS3" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", 0)){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': for 'DoubleNormalSS3' selectivity, 'Time_varying_sel' must be 'Off'; vary its parameters with build_selectivity(linkages = ...)."))
+      }
       #  - LogisticPM (ADMB AMAK "pm" BTS, type 11): random-walk deviates on
       #    slope/inflection/age-1 -> allow only "Off"/"RandomWalk".
       if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "LogisticPM" &&
@@ -1737,6 +1744,32 @@ data_check <- function(data_list) {
         "species via build_growth(fun = 'vonBertalanffy'), or (b) drop ",
         "caal_data rows for these species (set to empty, Sample_size = 0, or Year < 0)."
       ))
+    }
+  }
+
+  # Maturity-at-length is integrated over the length distribution at spawning,
+  # which only estimated growth provides. L50 and slope come as a pair: one
+  # without the other would silently fall back to the age-based maturity sheet.
+  if(!is.null(data_list$L50_mat_len) || !is.null(data_list$slope_mat_len)){
+    L50   <- as.numeric(data_list$L50_mat_len   %||% rep(NA_real_, data_list$nspp))
+    slope <- as.numeric(data_list$slope_mat_len %||% rep(NA_real_, data_list$nspp))
+    sp_lab <- data_list$spnames %||% as.character(seq_len(data_list$nspp))
+    half <- xor(is.na(L50), is.na(slope))
+    if(any(half)){
+      errors <- c(errors, paste0("Set both L50_mat_len and slope_mat_len, or neither, for species: ",
+                                 paste(sp_lab[half], collapse = ", "), "."))
+    }
+    used <- !is.na(L50) & !is.na(slope)
+    if(any(used & !(L50 > 0 & slope > 0))){
+      errors <- c(errors, paste0("L50_mat_len (cm) and slope_mat_len (per cm) must be positive for species: ",
+                                 paste(sp_lab[used & !(L50 > 0 & slope > 0)], collapse = ", "),
+                                 ". A negative slope entered from an SS3 control file needs its sign flipped."))
+    }
+    gm <- rep_len(data_list$growth_model %||% 0, data_list$nspp)
+    if(any(used & gm == 0)){
+      errors <- c(errors, paste0("Maturity-at-length needs estimated growth (build_growth(fun = ",
+                                 "'vonBertalanffy' or 'Richards')); species with empirical growth: ",
+                                 paste(sp_lab[used & gm == 0], collapse = ", "), "."))
     }
   }
 

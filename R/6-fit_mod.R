@@ -6,7 +6,7 @@
 # Parameter blocks added after fits were already being saved. `inits` and a
 # stored `map` from an older fit lack them; both are filled from the fresh
 # build (all fixed at the build default), so the older fit still refits.
-.RCE_ADDED_PARAMS <- c(log_sel_apical = "5.38.0")
+.RCE_ADDED_PARAMS <- c(log_sel_apical = "5.38.0", sel_dn6 = "5.42.0")
 
 #' Fit the CEATTLE assessment model
 #' @description Estimate CEATTLE population parameters by maximum likelihood, and
@@ -503,6 +503,18 @@ fit_mod <-
     }
     gal1[is.na(gal1)] <- pmax(0.5, as.numeric(extend_length(data_list$minage)))[is.na(gal1)]
     data_list$growth_age_L1 <- gal1
+    # Growth-variability form, plus-group mean length and population length
+    # grid, resolved like growth_sd_style: build_growth() > data_list > default.
+    .inherit <- function(from_fun, from_data, default) {
+      v <- extend_length(from_fun)
+      if (!is.null(from_data)) v[is.na(v)] <- extend_length(from_data)[is.na(v)]
+      v[is.na(v)] <- default
+      v
+    }
+    data_list$growth_sd_form     <- .inherit(growthFun$growth_sd_form, data_list$growth_sd_form, 1L)      # SD in cm
+    data_list$growth_plus_length <- .inherit(growthFun$growth_plus_length, data_list$growth_plus_length, 1L) # M1-weighted
+    data_list$plus_group_decay   <- .inherit(growthFun$plus_group_decay, data_list$plus_group_decay, 0)
+    if (!is.null(growthFun$pop_lengths)) data_list$pop_lengths <- growthFun$pop_lengths
 
 
     # * HCR Switches ----
@@ -1200,6 +1212,14 @@ fit_mod <-
     # overrides above.
     if (!refit_inits) {
       start_par <- .push_linkage_intercept_inits(start_par, data_list, fixed_only = TRUE)
+    }
+
+    # DoubleNormalSS3 ends: an end left at SS3's -999 is unscaled, read by the
+    # template as data because it switches the formula, not just a value.
+    if (!is.null(start_par$sel_dn6)) {
+      data_list_reorganized$sel_dn6_ends <- matrix(
+        as.integer(start_par$sel_dn6[5:6, , 1, drop = FALSE] > -999),
+        ncol = 2, byrow = TRUE)
     }
 
     # Starting parameters as the model uses them: the blocks above set

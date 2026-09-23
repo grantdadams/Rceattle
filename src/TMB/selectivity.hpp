@@ -71,7 +71,9 @@ void normalize_and_project_selectivity(
   //     less-selected sex stays below 1 and relative sex selectivity survives.
   // Identical for a one-sex species. Hake (5/12) normalizes in its own year/sex
   // block above; LogisticPM (11) reuses sel_norm_bin1/2 as a penalty age-range.
-  if((sel_norm_bin1(flt) > -500) && (sel_type != 5) && (sel_type != 12) && (sel_type != 11)) {
+  // DoubleNormalSS3 (15) is SS3's unnormalized pattern 24: its plateau is 1 by
+  // construction and F multiplies the curve as it stands.
+  if((sel_norm_bin1(flt) > -500) && (sel_type != 5) && (sel_type != 12) && (sel_type != 11) && (sel_type != 15)) {
     bool at_bin     = (sel_norm_bin1(flt) >= 0);
     bool over_range = at_bin && (sel_norm_bin2(flt) >= 0);
     bool across     = (sel_norm_scope(flt) == 1);
@@ -231,6 +233,24 @@ void convert_length_selectivity(
  *       sel_inf(1)     = logit(right_floor) (~SS3 P6/end_logit). logit -> -Inf gives a
  *                        fully dome-shaped curve; logit -> +Inf collapses to logistic
  *                        (ascending only). TV deviate: sel_inf_dev(1)
+ *
+ * - Case 15: DoubleNormalSS3 [Age or Length]
+ *     Stock Synthesis size-selectivity pattern 24 (and age pattern 20), evaluated at the
+ *     bin midpoints x with SS3's own six parameters, each on SS3's scale:
+ *       P1 peak (cm or age), P2 top width (logit), P3 ascending width (log),
+ *       P4 descending width (log), P5 initial selectivity (logit), P6 final (logit).
+ *       peak2 = P1 + w + (0.99 x_last - P1 - w) / (1 + exp(-P2)),  w = bin width
+ *       asc   = p1 + (1 - p1)(exp(-(x-P1)^2/e^P3) - t1min)/(1 - t1min), p1 = logistic(P5)
+ *       dsc   = 1 + (p2 - 1)(exp(-(x-peak2)^2/e^P4) - 1)/(t2min - 1),   p2 = logistic(P6)
+ *       j(t)  = 1/(1 + exp(-20 t/(1 + |t|)))
+ *       sel   = asc (1 - j(x-P1)) + j(x-P1) ((1 - j(x-peak2)) + dsc j(x-peak2))
+ *     t1min / t2min are the Gaussian limbs at the first and last bins. A P5 or P6 of
+ *     -999 or -1000 in SS3 drops that end's scaling (asc = exp(-(x-P1)^2/e^P3), likewise
+ *     dsc); here that choice is the data flag sel_dn6_ends. No normalization: the curve
+ *     peaks at 1 by construction. Parameters live in their own array, sel_dn6[6, flt, sex];
+ *     time variation is through linkages on each of the six, value = (P + identity
+ *     offset) x exp(log offset), so an SS3 block replacement (identity link, block
+ *     factor) followed by multiplicative annual devs (log link) reproduces SS3's order.
  * * @param nspp Number of species.
  * @param n_flt Number of fleets (fisheries and surveys).
  * @param nyrs Total years (including hindcast and projection).
@@ -312,7 +332,13 @@ void calculate_selectivity(
     // AD tape unchanged.
     const int& sel_apical_on,
     array<Type>& log_sel_apical,   // [n_flt, max_sex]
-    array<Type>& sel_apical_off,   array<Type>& sel_apical_off_nat   // [n_flt, max_sex, nyrs]
+    array<Type>& sel_apical_off,   array<Type>& sel_apical_off_nat,  // [n_flt, max_sex, nyrs]
+    // DoubleNormalSS3 (case 15): SS3 pattern-24 parameters on SS3's scales, their
+    // linkage offsets, and per fleet whether each end's scaling is used
+    // (sel_dn6_ends(flt, 0) = initial, (flt, 1) = final; 1 = used, 0 = SS3 -999).
+    array<Type>& sel_dn6,          // [6, n_flt, max_sex]
+    array<Type>& sel_dn6_off,      array<Type>& sel_dn6_off_nat,     // [6, n_flt, max_sex, nyrs]
+    matrix<int>& sel_dn6_ends      // [n_flt, 2]
 ) {
   sel_at_age.setZero();
   sel_at_length.setZero();
@@ -578,6 +604,40 @@ void calculate_selectivity(
             // Right tail approaches right_floor (mirrors SS3 P6 / end_logit behaviour)
             Type val_desc   = right_floor + (1.0 - right_floor) * desc_gauss;
             Type val        = (1.0 - w) * asc_gauss + w * val_desc;
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
+            else                 sel_at_age(flt, sex, bin, yr) = val;
+          }
+          break;
+        }
+
+        case 15: { // DoubleNormalSS3: SS3 size pattern 24 (see Doxygen header above)
+          vector<Type> P(6);
+          for (int k = 0; k < 6; k++) {
+            P(k) = (sel_dn6(k, flt, sex) + sel_dn6_off_nat(k, flt, sex, yr)) * exp(sel_dn6_off(k, flt, sex, yr));
+          }
+          Type peak      = P(0);
+          Type upselex   = exp(P(2));
+          Type downselex = exp(P(3));
+          Type x_first   = is_length_based ? (lengths(sp, 0) + 0.5 * binwidth) : Type(1);
+          Type x_last    = is_length_based ? (lengths(sp, nbins - 1) + 0.5 * binwidth) : Type(nbins);
+          Type peak2     = peak + binwidth + (0.99 * x_last - peak - binwidth) / (1.0 + exp(-P(1)));
+          Type point1    = 1.0 / (1.0 + exp(-P(4)));
+          Type point2    = 1.0 / (1.0 + exp(-P(5)));
+          Type t1min     = exp(-square(x_first - peak) / upselex);
+          Type t2min     = exp(-square(x_last - peak2) / downselex);
+          for (int bin = 0; bin < nbins; bin++) {
+            Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
+            Type t1    = x_val - peak;
+            Type t2    = x_val - peak2;
+            Type join1 = 1.0 / (1.0 + exp(-(20.0 * t1 / (1.0 + CppAD::abs(t1)))));
+            Type join2 = 1.0 / (1.0 + exp(-(20.0 * t2 / (1.0 + CppAD::abs(t2)))));
+            Type asc   = (sel_dn6_ends(flt, 0) == 1)
+                         ? point1 + (1.0 - point1) * (exp(-square(t1) / upselex) - t1min) / (1.0 - t1min)
+                         : exp(-square(t1) / upselex);
+            Type dsc   = (sel_dn6_ends(flt, 1) == 1)
+                         ? 1.0 + (point2 - 1.0) * (exp(-square(t2) / downselex) - 1.0) / (t2min - 1.0)
+                         : exp(-square(t2) / downselex);
+            Type val   = asc * (1.0 - join1) + join1 * ((1.0 - join2) + dsc * join2);
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
             else                 sel_at_age(flt, sex, bin, yr) = val;
           }

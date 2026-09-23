@@ -1,6 +1,6 @@
 Package: Rceattle
 Title: Fits the Multispecies Assessment Model (CEATTLE) Using TMB
-Version: 5.41.0
+Version: 5.42.0
 Authors@R:
     person(given = "Grant",
            family = "Adams",
@@ -70,3 +70,4 @@ Config/testthat/start-first: functions-profile-param, functions-mse,
     dynamics-brps, functions-retrospective, likelihood-osa-residuals,
     selectivity-normalization, dynamics-recruitment-linkage
 Config/roxygen2/version: 8.1.0
+RoxygenNote: 7.3.3

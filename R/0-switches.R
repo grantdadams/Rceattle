@@ -83,7 +83,8 @@ sel_map <- c(
   "NonParametricPM" = 9,  # Ianelli non-parametric, ADMB AMAK ("pm") selectivity penalty
   "LogisticPM" = 11,      # ADMB AMAK ("pm") BTS: logistic (multiplicative inflection/slope devs) + free age-1 log-selectivity
   "NonParametricIID" = 13, # Ianelli base curve with iid annual deviates carrying a proper density (integrable)
-  "NonParametricRW"  = 14  # Ianelli base curve with random-walk increments carrying a proper density (integrable)
+  "NonParametricRW"  = 14, # Ianelli base curve with random-walk increments carrying a proper density (integrable)
+  "DoubleNormalSS3"  = 15  # Stock Synthesis size pattern 24: six-parameter double normal, own parameter array (sel_dn6)
 )
 
 # Whether selectivity normalization pools its reference across sexes. Orthogonal

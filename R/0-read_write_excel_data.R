@@ -241,7 +241,8 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
     nspp = 1, styr = 1, endyr = nyrs, projyr = nyrs + nprojyrs,
     spnames = "Species_1", nsex = 1, spawn_month = 0, nages = nages,
     minage = minage, nlengths = nages, pop_wt_index = 1, ssb_wt_index = 1,
-    alpha_wt_len = 1e-4, beta_wt_len = 3, pop_age_transition_index = 1,
+    alpha_wt_len = 1e-4, beta_wt_len = 3, L50_mat_len = NA, slope_mat_len = NA,
+    pop_age_transition_index = 1,
     sigma_rec = 1, other_food = 1e6, estDynamics = 0)
 
   # fleet_control: one survey + one fishery, on EVERY column the schema defines.

@@ -12,6 +12,74 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.42.0
+
+## Stock Synthesis growth, maturity and length-bin options
+
+Four options that let an estimated-growth model reproduce Stock Synthesis 3.30's
+growth and spawning output exactly. Each defaults to the current behaviour, so
+existing models and the golden references are unchanged.
+
+* **`build_growth(pop_lengths =)`: population length bins.** The age-length
+  key, weight-at-length and maturity-at-length are computed on these finer bins
+  (lower edges, cm) and then summed into the data length bins, as SS3 does with
+  its population bins. The linear growth ramp below `growth_age_L1` starts from
+  the lowest population edge. Every data-bin edge must be a population edge.
+  Default: the data bins.
+* **`build_growth(sd_form = "CV")`: growth variability as CVs.** The two
+  endpoints `sd_L1` / `sd_Linf` become coefficients of variation and the SD of
+  length-at-age is CV x mean length at every age (SS3 `CV_Growth_Pattern` 0).
+  `"SD"` (default) keeps them as SDs in cm (pattern 2).
+* **`build_growth(plus_group_length =)`: plus-group mean length.** `"M1"`
+  (default) is the current M1-weighted mean; `"none"`, `"SS3.24"` and `"decay"`
+  (with `plus_group_decay`) are SS3's `Linf_decay` = -998, -999 and a positive
+  decay rate. Under the three SS3 forms the plus group also grows within the
+  year, as SS3's does.
+* **`L50_mat_len` / `slope_mat_len`: maturity-at-length.** Two new per-species
+  control columns (cm, per cm; logistic). When set, spawning output per fish is
+  maturity x weight integrated over the length distribution at spawning, SS3's
+  fecundity-at-age, instead of weight-at-age x the age-based maturity sheet.
+  Needs estimated growth. Round-trips through `write_data()` / `read_data()` and
+  appears in `write_template()`.
+
+Spawning biomass, SB0/SBF, dynamic B0 and the SPR reference points now all read
+one reported array, `spawn_output` (`[nspp, nages, nyrs]`, kg per fish).
+
+Measured on the Aleutian Islands Pacific cod bridge (SS3 3.30.22.1, model M24_1),
+with SS3's MLE injected: the largest difference from SS3 in length-at-age fell
+from 1.5% to 4.5e-6, in the Jan-1 age-length key to 4.3e-7, and in
+fecundity-at-age (mature ages) from a 5-6% Jensen gap to 2.8e-6 -- all within
+Report.sso's printed precision. SSB is now within 1.5%, the rest being
+selectivity.
+
+`sd_plus_group`: when SS3's `Growth_Age_for_L2` is 999, SS3 pins the plus
+group to CV_old, which is `sd_plus_group = "WHAM"` here, not `"SS3"`. The
+documentation now says so.
+
+## Stock Synthesis selectivity
+
+* **`Selectivity = "DoubleNormalSS3"` (15): SS3 size pattern 24.** The six-
+  parameter double normal, each parameter on SS3's own scale (peak; logit top
+  width; log ascending and descending widths; logit initial and final
+  selectivity), in its own parameter array `sel_dn6`. An end left at SS3's
+  -999 is unscaled and its parameter fixed. The curve is not normalized, as in
+  SS3. All six parameters take selectivity linkages, under the SS3 manual's
+  names (`dn_peak`, `top_logit`, `ascend_se`, `descend_se`, `start_logit`,
+  `end_logit`) or `dn_` aliases, so SS3 block replacement is
+  `linkage_spec(~ cut(Year, breaks), link = "identity")` and SS3's annual devs
+  (`dev_link` 1) are a log-link `(1 | Year)` term with `integrate = FALSE` and a
+  fixed SD. `Time_varying_sel` must be `"Off"` for this form.
+
+## Behaviour change: selected body weight for length-selective fleets
+
+A fleet with length-based selectivity and estimated growth now weighs its catch
+and survey biomass by the mean weight of the fish it selects,
+sum_l P(l | a) s(l) w(l) / sum_l P(l | a) s(l), not by the age class's mean
+weight at the fleet's month. A length-selective fleet takes the larger fish of a
+young age class, so the age-class mean understated its catch weight; this is
+also Stock Synthesis's catch weight. Age-selective fleets and empirical-weight
+models are unchanged, including all four golden references.
+
 # Rceattle 5.41.0
 
 ## One-step-ahead residuals from the conditional CDF

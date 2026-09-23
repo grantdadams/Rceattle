@@ -5,7 +5,10 @@
 #' @noRd
 SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
                         "sigma_asc", "sigma_desc", "peak", "right_floor",
-                        "apical")
+                        "apical",
+                        "dn_peak", "top_logit", "dn_top", "ascend_se", "dn_asc",
+                        "descend_se", "dn_desc", "start_logit", "dn_init",
+                        "end_logit", "dn_final")
 
 
 #' @keywords internal
@@ -126,7 +129,14 @@ build_selectivity <- function(linkages = NULL) {
   peak        = list(arr = "sel_inf",     slot = 1L),
   right_floor = list(arr = "sel_inf",     slot = 2L),
   coff        = list(arr = "sel_coff",    slot = NA_integer_),
-  apical      = list(arr = "log_sel_apical", slot = NA_integer_)  # [fleet, sex]
+  apical      = list(arr = "log_sel_apical", slot = NA_integer_), # [fleet, sex]
+  # DoubleNormalSS3: sel_dn6 is [6, fleet, sex], each slot on SS3's own scale
+  dn_peak     = list(arr = "sel_dn6", slot = 1L),
+  top_logit   = list(arr = "sel_dn6", slot = 2L), dn_top   = list(arr = "sel_dn6", slot = 2L),
+  ascend_se   = list(arr = "sel_dn6", slot = 3L), dn_asc   = list(arr = "sel_dn6", slot = 3L),
+  descend_se  = list(arr = "sel_dn6", slot = 4L), dn_desc  = list(arr = "sel_dn6", slot = 4L),
+  start_logit = list(arr = "sel_dn6", slot = 5L), dn_init  = list(arr = "sel_dn6", slot = 5L),
+  end_logit   = list(arr = "sel_dn6", slot = 6L), dn_final = list(arr = "sel_dn6", slot = 6L)
 )
 
 
@@ -136,10 +146,17 @@ build_selectivity <- function(linkages = NULL) {
 # their exp. The non-parametric forms are excluded on purpose -- see the
 # `coff` note in .check_sel_linkage_support().
 .SEL_LINKAGE_WIRED_FORMS <- c("Logistic", "DoubleLogistic", "DescendingLogistic",
-                              "DoubleNormal", "LogisticPM")
+                              "DoubleNormal", "LogisticPM", "DoubleNormalSS3")
 .SEL_LINKAGE_WIRED_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc",
                                "sigma_asc", "sigma_desc", "peak", "right_floor",
-                               "apical")
+                               "apical",
+                               "dn_peak", "top_logit", "dn_top", "ascend_se", "dn_asc",
+                        "descend_se", "dn_desc", "start_logit", "dn_init",
+                        "end_logit", "dn_final")
+
+# The six DoubleNormalSS3 parameters live in their own array, so they belong to
+# that form only, and it has no other slots (apical aside, which every form has).
+.SEL_DN6_PARAMS <- names(Filter(function(m) identical(m$arr, "sel_dn6"), .SEL_PARAM_TO_SLOT))
 
 
 #' Reject selectivity linkages the model does not yet consume
