@@ -135,6 +135,21 @@ said, so each struck row records what it actually turned out to be.
 
 Found during the 5.34.0-5.41.0 batch and recorded rather than fixed:
 
+- **An estimated `log_Ftarget` is a single unbounded `nlminb` start.** The single-species
+  projection starts it at its `inits` value with no bounds (`R/4-build_parameter_bounds.R`
+  mentions it nowhere). 5.34.0 resets a no-fishing start (-999 or non-finite) to 0, but a large
+  start also sticks: NPFMC on `make_test_data()` from `log_Ftarget = 3` (F = 20) stays at 20.08
+  with objective 83886.99, against 83877.42 from 0. The realistic route in is a stored `CMSY` or
+  `ConstantFSSB` fit with a large estimated `Ftarget` handed on as `inits`. Bound it, or start
+  every estimated `log_Ftarget` at 0 as the multispecies loop already does. Note 5.39.0 bounded
+  `rec_pars[, 2:3]`, so this file now bounds some blocks and not this one.
+- **`run_mse(regenerate_past = TRUE)`'s average-F refit never runs on the string path.**
+  `R/10-run_mse.R:647` tests `em$data_list$HCR == 2`, but the rule reaches it under its name
+  (`"ConstantF"`) there, so the branch is dead. `.normalize_hcr()`'s own comment says either
+  form may be stored depending on the processing path, so it is dead on that path rather than
+  universally; `.normalize_hcr()` (`R/10-mse_summary.R`) is the existing way to compare either
+  spelling. If it is revived, `Ftarget` needs a full per-species vector: `avg_F$avg_F` covers
+  only species with a fleet in `fleet_control`, and `extend_length()` stops on any other length.
 - **Three tests read as guards and never run.** Each calls `testthat::skip()` unconditionally,
   so a full `NOT_CRAN=true` suite reports them as skips among 9,506 passing assertions and
   nobody notices. Found running the release suite 2026-09-21.

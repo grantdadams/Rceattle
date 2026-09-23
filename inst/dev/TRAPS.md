@@ -119,7 +119,7 @@ for every shortened token the dictionary uses.
 ## `fit$data_list` is the pre-`rearrange_data()` list
 
 **Nothing `rearrange_data()` derives survives onto a fitted object.** Its output goes to
-`data_list_reorganized`, and `mod_objects$data_list` (`R/6-fit_mod.R:1460`) is the *input* list
+`data_list_reorganized`, and `mod_objects$data_list` (`R/6-fit_mod.R:1664`) is the *input* list
 plus `calc_mcall_ianelli()`'s two numeric `fleet_control` columns. So `fit$data_list` has no
 `flt_sel_lead`, no `flt_sel_type`, no `bin_first_selected` — those exist only on
 `fit$obj$env$data`.
@@ -187,23 +187,23 @@ age `minage` the hindcast years of `Ftarget_at_age` still carry `exp(log_Ftarget
 reads a hindcast year, and the single-species reference-point penalty pulls `Flimit` toward
 whatever that start implies. Every single-species PFMC fit, the hake EM included, carries the
 start-0 version. Fix: assign `Ftarget` from `Flimit` before the F loop; see
-`TODO-5.34-followups.md`.
+`CLEANUP_BACKLOG.md`.
 
 **A Pearson residual must divide by the effective sample size the likelihood used.** Fixed in
 5.29.0; the structure that caused it is still there, so a fourth composition-like source would
 repeat it.
 
-- `Comp_weights` multiplies the multinomial log-likelihood (`ceattle.cpp:3686`), so it is an
+- `Comp_weights` multiplies the multinomial log-likelihood (`ceattle.cpp:3790`), so it is an
   effective sample size — the model's own simulator says so, drawing at
-  `n_nom * comp_weights(flt)` (`:3758`). Dividing by the raw `Sample_size` gives a residual
+  `n_nom * comp_weights(flt)` (`:3870`). Dividing by the raw `Sample_size` gives a residual
   `1/sqrt(w)` times the right one: too small on an upweighted fleet, too large on a downweighted
   one. `MultinomialAFSC` is the schema default, so this was the *common* case, and
   `reweight_comps()` tunes either side of 1.
 - A Dirichlet-multinomial is additionally overdispersed by `(n + conc)/(1 + conc)`, so those
   residuals were inflated into apparent misfit.
-- **Three sources, three different alpha constructions.** comp (`ceattle.cpp:3665`) and CAAL
-  (`:3819`) build the concentration on the offset-inflated total, so `sum(alpha) = N·S²·theta`
-  with `S = 1 + comp_offset·nbins`; diet (`:4848`) renormalizes first, so it is the clean
+- **Three sources, three different alpha constructions.** comp (`ceattle.cpp:3776`) and CAAL
+  (`:3931`) build the concentration on the offset-inflated total, so `sum(alpha) = N·S²·theta`
+  with `S = 1 + comp_offset·nbins`; diet (`:5009`) renormalizes first, so it is the clean
   `N_s·theta`. Sharing one formula across all three is wrong for two of them — measured up to
   1% in the sd on the smallest bins from the offset alone, at the default `comp_offset = 1e-5`.
 
@@ -231,10 +231,10 @@ verified against the 2026 GOA three-species assessment (2026-08-29):
   Unestimated they sit at `exp(0) = 1`, so that assessment reports **Ftarget = Flimit = 1.0/yr**
   for all three species — an enormous F that reads as an estimate. Gate on
   `build_hcr_map(data_list, fit$map)`. **Do NOT read `fit$map$mapList$log_Ftarget` instead**:
-  `build_map.R:1424` sets both to `NA` in the hindcast map whatever the HCR, so that test says
+  `R/3-build_map.R:1536` sets both to `NA` in the hindcast map whatever the HCR, so that test says
   "never estimated" for every model.
 - Under `msmMode > 0` the template overwrites `SB0` / `B0` with the `MSSB0` / `MSB0` inputs
-  (`ceattle.cpp:2118`), which stand at `.RCE_MSSB0_PLACEHOLDER = 999` mt until `fit_mod()`
+  (`ceattle.cpp:2189`), which stand at `.RCE_MSSB0_PLACEHOLDER = 999` mt until `fit_mod()`
   derives them from a no-fishing projection. Measured on that fit: `SB0 = 999` for all three
   species against true terminal SSB of 1,136,070 / 564,108 / 96,504 mt, so a
   `B_target = Ptarget * SB0` proxy comes out at **399.6 mt**. `data_list$MSSB0_derived` is the
@@ -323,7 +323,7 @@ fleet 2's composition likelihood while `jnll_comp[11, 2]` is species 2's recruit
 and `rowSums()` pools across two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the
 registry; `test-schema-jnll-rows.R` parses every `jnll_comp(JNLL_*, col)` write in the template
 and asserts each row's declared axis matches the column it is actually indexed by. Verified
-2026-08-26: 124 writes, all 21 rows covered.
+2026-08-26: 124 writes, all 21 rows covered; 133 writes at 5.41.0, same 21 rows.
 
 **`unweighted_jnll_comp` is populated for 5 of its 21 rows.** It exists so Francis and
 McAllister-Ianelli can read a composition likelihood without its `Comp_weights` multiplier, so
@@ -336,17 +336,20 @@ in its `@param`.
 
 **`retrospective(getsd = TRUE)` can return fewer peels than `getsd = FALSE`, so Mohn's rho
 differs.** `.refit_converged()` drops a peel on a non-positive-definite Hessian, and that check
-can only run when an `sdreport` was asked for (`R/0-convergence.R:213`, deliberate). A peel that
+can only run when an `sdreport` was asked for (`R/0-convergence.R:231`, deliberate). A peel that
 converges on gradient but has a singular Hessian is therefore kept without standard errors and
 dropped with them. On `make_test_data()` every peel is lost this way. Rho is computed over the
 peels that survive, so **two runs of the same model can report different rho** depending only on
 `getsd`. `test-functions-retrospective.R` compares the two runs peel by peel over the shared
 names for exactly this reason.
 
-**`fit_mod(d, config = cfg)` replaces `d$model_config` with `cfg$model_config`, linkages and
-all.** `R/6-fit_mod.R:318` attaches the config's structure to the data list unconditionally, so
-a config built from scratch discards every linkage `build_data()` put on `d`. Measured on 5.29.0,
-`GOAatf` with a survey `slp_asc ~ rw(1 | Year)` linkage:
+**~~`fit_mod(d, config = cfg)` replaces `d$model_config`, linkages and all.~~ Fixed in
+5.36.0** (`65259384`): `R/6-fit_mod.R:333-363` overlays only the fields the config's `"set"`
+attribute names, keeps the data's for the rest, and warns where the two differ. Kept because the
+measurement is what the fix was written against, and because a config saved before that release
+still carries no `"set"` attribute -- those set their non-default fields, which is the old
+behaviour for any field the author did change. Measured on 5.29.0, `GOAatf` with a survey
+`slp_asc ~ rw(1 | Year)` linkage:
 
 | call | random effects |
 |---|---|
@@ -354,9 +357,10 @@ a config built from scratch discards every linkage `build_data()` put on `d`. Me
 | `fit_mod(d, config = run_config(d, random_sel = FALSE))` | 57 |
 | `fit_mod(d, config = run_config(model_config(), random_sel = FALSE))` | **0** |
 
-No warning; the fit runs and returns a model without the time-varying survey selectivity. Build
-the config from the data (`run_config(d, ...)`) or from a fit. The same applies to every
-`model_config()` field, not only `selFun`.
+Before 5.36.0 there was no warning: the fit ran and returned a model without the time-varying
+survey selectivity. Building the config from the data (`run_config(d, ...)`) or from a fit is
+still the habit worth keeping, and it is the only thing that works for a config written before
+the attribute existed.
 
 `random_sel` does not reach the linkage REs either way — it gates only the `fleet_control`
 `Time_varying_sel` deviations (`R/6-fit_mod.R:852`); linkage REs are integrated whenever
@@ -513,7 +517,7 @@ ran when someone typed `/golden-check` locally. Its measured cost of `0` in
 a skipped file otherwise reports as a pass.
 
 **And golden was only the worst case of it: no `skip_on_cran()` test could fail any job.** That
-is 140 of the 192 test files — every test that runs a real `fit_mod()` optimization. `R-CMD-check`
+is 173 of the 240 test files — every test that runs a real `fit_mod()` optimization. `R-CMD-check`
 sets `NOT_CRAN=false`, so it skips all of them. `test-coverage` does run them, but
 `tools/ci/coverage-shard.R` passes `stop_on_failure = FALSE` (deliberately: a failure must not
 throw away the shard's coverage before it is written) and no later step reads the result — the
@@ -644,7 +648,7 @@ minimum with `newtonsteps = 3` in place. HEAD reproduces the reference (12867.99
 gap; polishing did not remove it. A `goa_ss` delta of 52.9 with the other three models
 bit-identical is this, not a numeric regression. Diagnose it from the gradient at the reference
 `par`, not from the objective. A robustness fix (a warm start from the reference `par`, or a
-second start keeping the lower minimum) is open; see `TODO-5.34-followups.md`.
+second start keeping the lower minimum) is open; see `CLEANUP_BACKLOG.md`.
 
 ## Prior centring shares `bias_adjust_proc` with the recruitment deviations
 
@@ -680,6 +684,26 @@ reference points and a `proj_mean_rec = FALSE` projection read. The data dampen 
 hindcast R. Accepted for 5.33.0 (2026-09-12); removing it would move the hake baselines again.
 `test-likelihood-prior-bias-adjust.R` pins the formula, not this property.
 
+## Porting an ADMB model
+
+Absorbed from `ADMB-CONVERSION.md`, which this file replaces; nothing referenced it.
+
+**An ADMB `dev_vector`'s sum-to-zero constraint cannot be replicated in TMB, and a straight
+port is unidentified.** The deviations and the parameter they deviate from trade off freely and
+the optimizer wanders the ridge. Fix: map the first element to `NA` in `R/3-build_map.R`, which
+pins the level. **Exception:** if the vector already carries its own penalty -- a normal
+penalty or a random-effects density -- that pins it, and turning off the first element as well
+over-constrains it.
+
+**AMAK conventions are reproduced deliberately, not corrected.** `src/TMB/selectivity.hpp:609`
+evaluates the logistic at mid-age (`age_vector(j) = j + 0.5`, so `bin + 1.5`) for `LogisticPM`
+(11); the standard `Logistic` (1) uses `bin + 1`. `NonParametricPM` (9) and `LogisticPM` exist
+to match ADMB AMAK's "pm" parameterizations, penalties included, and `NonParametricIID` (13)
+and `NonParametricRW` (14) came from the same lineage in 5.40.0.
+
+The literature citations through `src/TMB/` are the specification for those blocks, not
+historical notes; `CLAUDE.md` says so under Comments.
+
 ## CLAUDE.md's traps in full
 
 `CLAUDE.md` carries each of these as one line. This is the fuller text it held until 2026-09-14,
@@ -700,7 +724,7 @@ section above.
   by biomass in the last projection year, so blanking them alongside a placeholder `SB0`
   discards a valid series.
 - **A grep for `REPORT(` over `ceattle.cpp` over-counts** — several sit behind comments. A fit
-  reports 99 quantities; enumerate from `names(fit$quantities)`. `quantity_dictionary()` is the
+  reports 101 quantities at 5.41.0 (99 at 5.24.0); enumerate from `names(fit$quantities)`. `quantity_dictionary()` is the
   registry, and `test-schema-quantity-dictionary.R` holds the two together.
 - **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps** — the non-PD Hessian
   check only runs when an `sdreport` exists — so Mohn's rho can differ between the two.
