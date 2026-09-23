@@ -1228,7 +1228,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # simulation would then be indistinguishable by name from one that never
       # attempted the unfished run.
       # No fishing after the original OM's terminal year; the advanced om_use ends at the last assessment.
-      sim_list["OM_no_F"] <- list(tryCatch(remove_F(om_use, start_yr = om$data_list$endyr + 1), error = function(e) {
+      sim_list["OM_no_F"] <- list(tryCatch(remove_F(om_use, styr = om$data_list$endyr + 1), error = function(e) {
         # Recorded on the object, not just warned about: this runs in a parallel
         # worker, whose warnings are discarded, and the simulation is still
         # usable for everything that does not compare against the unfished run.

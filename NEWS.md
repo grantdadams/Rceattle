@@ -571,13 +571,13 @@ release stays a minor version.
 * **`remove_F()` sets F to 0 from the year after `endyr` by default**, not from
   the year after the latest `suit_endyr`. When the suitability window ended
   before `endyr` it removed fishing inside the hindcast: on the hake MSE,
-  2020–2023 of a 2023 hindcast. A new `start_yr` argument gives the first year
+  2020–2023 of a 2023 hindcast. A new `styr` argument gives the first year
   fished at F = 0; under predation it must fall after the empirical-suitability
   window (the `suit_endyr` of every predator with `suitMode = 0` and non-zero
   fitted suitability), since removing fishing inside it would change the
   suitability the model was fit with. As before, the
   projection is unfished whatever harvest control rule the model was fit under,
-  so `start_yr` can be no later than the year after `endyr`.
+  so `styr` can be no later than the year after `endyr`.
   `run_mse()` now builds `OM_no_F` with no fishing
   after the original operating model's terminal year, so it matches the OM
   through that year. The `OM no F: SSB Collapse` and `OM: SSB Collapse from F`
