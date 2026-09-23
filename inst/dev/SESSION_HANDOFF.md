@@ -7,7 +7,7 @@ session. Maintained by `/handoff`.
 
 **In flight (2026-09-23): exact SS3 -> Rceattle bridge for AI and GOA Pacific cod, branch
 `cod-bridge`** (off `dev` at `cf82f27e`; WIP commit `f0796442` pushed, 5.42.0 in DESCRIPTION;
-paired `Rceattle-models` commit `3c6e9f0` on master). Goal: from a cold start Rceattle reaches the same solution as an SS3 reference
+paired `Rceattle-models` commits `3c6e9f0`, `99f40e2` and `3b2fc4b` on master). Goal: from a cold start Rceattle reaches the same solution as an SS3 reference
 run. Plan: `../Rceattle-models/SS3-bridge/PLAN.md` (phases 0-5). Targets are SS3 runs
 adjusted only in *estimation-method* choices (F_Method 2, `max_bias_adj -1`, F_Ballpark off,
 InitEQ lambda 0); biology, selectivity and likelihood are built into Rceattle.
@@ -74,13 +74,66 @@ and SPR (`ceattle.cpp` 5.7). Defaults reproduce the old behaviour.
 G2 gradient/NLL at SS3 MLE, G3 cold start); converter consolidated to
 `Rceattle-models/SS3-bridge/ss3_to_rceattle.R`. Driver: `Rscript SS3-bridge/run_parity.R "AI cod - Dev"`
 from `Rceattle-models` (sources the stock's forward pass, then `parity_report()`).
+Set `RCEATTLE_PKG` to load a worktree of this branch instead of `../../Rceattle`.
 
-**AI cod G1: all 9 checks PASS at tol 1e-5 (Report.sso print precision)** — last run before
-the Phase 3 converter edits: length-at-age 4.5e-6, weight 2.4e-6, fecundity 2.8e-6, ALK
-4.3e-7, sel FshComb 7.3e-7, sel Srv 3.7e-7, N-at-age 7.5e-6, SSB 4.7e-6, R 3.9e-6.
-**G2 still FAILS: max |gradient| 532, all on `log_growth_pars`/`growth_log_sd`**; NLL
-Rceattle 1248.10 vs SS3 531.00 (CAAL +725, catch -70.5 = lognormal constant
-34 x log(0.05 sqrt(2 pi)), survey +12.9, recruitment +43.9).
+**AI cod, run 2026-09-23 with the converter's ageing error and sample-size factor.**
+`test-schema-cpp-dispatch.R` re-run with the new exemptions: 111 pass, and the whole
+`schema` + `switches-schema` set is green.
+
+G1, 12 rows at tol 1e-5 (Report.sso print precision), **11 PASS, 1 FAIL**: length-at-age
+4.5e-6, weight 2.4e-6, fecundity 2.8e-6, ALK 4.3e-7, sel FshComb 7.3e-7, sel Srv 3.7e-7,
+N-at-age 7.5e-6, SSB 4.7e-6, R 3.9e-6, length comp FshComb 1.3e-7, length comp Srv 8.7e-8,
+**predicted CAAL 1.2e-1**. The two composition rows are new — see "The CAAL gap" below.
+
+G2 still FAILS: **max |gradient| 547**, unchanged from 532 and still on
+`log_growth_pars` (547, 472, 233, 141) and `growth_log_sd` (55, 16), then `rec_pars` -26,
+`beta_linkage` 10, `index_log_q` -7. Total NLL Rceattle 519.71 vs SS3 531.00. Netting off
+the constants SS3 drops from its densities, what is left as a difference in fit is:
+
+| component | Rceattle | SS3 | constant | **residual** |
+|---|---|---|---|---|
+| Age_comp (CAAL) | 407.4520 | 402.4730 | -- | **+4.9790** |
+| Catch | -70.2254 | 0.3080 | 34 x (log 0.05 + 0.5 log 2pi) = -70.6110 | **+0.0776** |
+| Length_comp | 140.0588 | 140.0590 | -- | **-0.0002** |
+| Recruitment | 28.1199 | -2.9041 | 34 x 0.5 log 2pi = 31.2439 | **-0.2199** |
+| Survey | 3.9741 | -8.9361 | 14 x 0.5 log 2pi = 12.8651 | **+0.0451** |
+| [Rce only] Initial abundance deviates | 12.8700 | -- | -- | -- |
+| [Rce only] Linkage-table priors | -2.5415 | -- | -- | -- |
+
+**The ageing-error fix worked and was not the growth gradient.** CAAL fell from +725 to
++4.98, so `build_ss3_age_error()` closed 99.3% of that component. The growth gradient did
+**not** move (532 -> 547), so the previous note's hypothesis is refuted.
+
+**The CAAL gap, measured.** What has been ruled out, each against SS3's own Report.sso:
+
+- Observed CAAL is exact. `caal_data` is row-for-row with SS3's `agecomp` (same order,
+  same keys) and the proportions agree to 0 (max |diff| over 1157 x 13 cells).
+- Sample sizes are exact: `Nsamp_ss3 / Sample_size_rce` is the constant 6.1289572 for every
+  row, which is SS3's variance adjustment 0.163372 divided by the add-to-comp 1 + 13 x 1e-4.
+- The age-length key is exact **over the whole matrix**, not just Jan 1: `growth_matrix`
+  indices 1-2 match SS3's Sub_Seas 1 ALK to 4.3e-7 and indices 3-4 (the per-fleet keys, at
+  SS3 month 7 = Rceattle Month 6) match Sub_Seas 2 to 4.4e-7, across all 143 lengths x 14 ages.
+  Note SS3's ALK rows come out of `r4ss` in descending length order; sort before comparing.
+- N-at-age is exact (7.5e-6) and the survival to survey time agrees: SS3's own
+  `natage` mid/begin ratio is 0.8118 and is flat across ages 0-3, so it cancels in the
+  conditional either way.
+- No ageing-error matrix can close it. Solving for the matrix that maps Rceattle's reported
+  `pred_CAAL` onto SS3's `condbase` (a linear, well-posed fit, since every row sums to 1)
+  leaves 0.1148 against 0.1176 for the converter's. The error is in the joint, not the smear.
+- It is not the length axis: CAAL rows are single 1-cm bins (`Lbin_hi - Lbin_lo` = 1 for all
+  1160), and SS3's population bins are the data bins (143, 1 cm, 0.5-142.5).
+
+What is left: the predicted **length marginal** is exact to 1.3e-7 while the **age split
+within a length bin** is out by up to 0.118. The residual is concentrated at 23.5-26.5 cm
+(ages 1 v 2) and 36.5-40.5 cm (ages 2 v 3) -- where adjacent ages overlap -- and at 25.5 cm
+reads Rceattle 0.5705/0.4225 against SS3 0.4529/0.5377. **SS3's `condbase` expectation is
+not reproducible from SS3's own printed ALK and N-at-age**: that reconstruction gives
+0.5704, i.e. Rceattle's answer, not SS3's. Two one-parameter fits close most of it and are
+confounded on a ridge -- a growth timing of 0.465 yr instead of 0.5 (RMSE 0.0018 against
+0.0124) or a +0.5 cm shift of the length axis (0.0026) -- and neither reaches 1e-5, so
+neither is the cause. **Do not implement either.** The next step is to read SS3's source
+for how the conditional age-at-length expectation is formed for a survey at month 7,
+because the printed pieces do not compose into the printed answer.
 
 ## Known flags (cod bridge)
 
@@ -88,9 +141,13 @@ Rceattle 1248.10 vs SS3 531.00 (CAAL +725, catch -70.5 = lognormal constant
   use Month 6 (SS3 mid-season ALK). Fixed in the converter (`ss3_month_to_rce()`); this alone
   took AI survey selectivity from 2.9e-2 to 3.7e-7.
 - **SS3 age bins start at 1 for both stocks** (AI 1-13, GOA 1-10) while Rceattle ages start at
-  0; SS3's ageing error sends true age 0 into bin 1. The converter's new
-  `build_ss3_age_error()` does the same (age-0 obs column empty) — the likely source of the G2
-  growth gradient. **Not yet run.**
+  0; SS3's ageing error sends true age 0 into bin 1. The converter's `build_ss3_age_error()`
+  does the same (age-0 obs column empty). Run and verified 2026-09-23: it took AI CAAL from
+  +725 to +4.98. It is **not** the growth gradient, which did not move.
+- **Rceattle keeps one age-length key per fleet, not per data row**: `growth_matrix` is
+  indexed `nspp * 2 + flt`, and both the length-comp block and the CAAL block read it at
+  `flt_month(flt)`. `caal_data` carries no `Month` column, so a CAAL row's timing comes from
+  its fleet. That is right for SS3, whose sub-season ALKs these reproduce to 4.4e-7.
 - SS3 multinomial = `MultinomialAFSC` x 1/(1 + n_SS3bins x min_comp); the converter sets
   `comp_offset = addtocomp` and divides `Sample_size` by that factor. A `MultinomialSS3`
   family was written and **reverted at Grant's request** (2026-09-23). Tail compression is
@@ -151,16 +208,24 @@ Rceattle 1248.10 vs SS3 531.00 (CAAL +725, catch -70.5 = lognormal constant
 ## Resume here
 
 **Cod bridge** (`git checkout cod-bridge` and `git pull`; pull `../Rceattle-models` master too):
-1. Re-run `test-schema-cpp-dispatch.R` (exemptions added after the last run).
-2. Rerun AI parity (G1 + G2) with the new converter ageing error / sample-size factor; expect
-   the growth gradient to fall. Then work G2 down: recruitment (+43.9) and survey (+12.9) should
-   be constants only; `rec_pars` (-26) and `index_log_q` (-7) point at Phase 4 (InitF /
-   equilibrium catch, analytical q).
+1. **The one open question is the predicted CAAL** (G1 fails at 1.2e-1, CAAL NLL +4.98,
+   `log_growth_pars` gradient 547). Everything it is built from has been checked against
+   Report.sso and is exact — see "The CAAL gap" above for what is ruled out and with what
+   numbers. Read SS3's source for how a survey's conditional age-at-length expectation is
+   formed; do not fit the timing or the length axis, both of which close most of the gap
+   and are confounded.
+2. The rest of G2 is within 0.35 nats of SS3 once the densities' constants are netted off
+   (`parity_report()` prints the residual column). Two blocks have no SS3 counterpart:
+   `init_dev` (+12.87) and the linkage-table prior (-2.54). `rec_pars` (-26) and
+   `index_log_q` (-7) are still Phase 4 (InitF / equilibrium catch, analytical q); the
+   -0.22 recruitment and +0.045 survey residuals are the same two items.
 3. Phase 2 items for GOA: length selectivity on population bins (sel, ALK, comps, selected
    weight), SS3 age pattern 10 with length selectivity; Phase 3b multiple ageing-error
    definitions; then port GOA's forward pass off the branch-only switches.
 4. Before committing: NEWS 5.42.0 needs AI before/after numbers for selected body weight;
-   `/doc-sync`, `/document` (keep only intended `.Rd`), full `/test`.
+   `/doc-sync`, `/document` (keep only intended `.Rd`), full `/test`. None of the above has
+   touched `R/` or `src/` — the only code change this session was to the harness in
+   `Rceattle-models` (`3b2fc4b`).
 
 **Otherwise:** read `inst/RELEASE-CHECKLIST.md` and start the release, or pick from
 `SIMPLIFY-LOG.md` first. Both are Grant's call.
