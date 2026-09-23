@@ -8,8 +8,9 @@
 #'
 #' For operational use, the package version line is meant to make it
 #' obvious which version of `Rceattle` produced an archived fit so that
-#' results can be reproduced even if `master` has moved on. Tag a
-#' release (`devtools::install_github("grantdadams/Rceattle@vX.Y.Z")`)
+#' results can be reproduced even if `main` has moved on. Tag a
+#' release (`devtools::install_github("grantdadams/Rceattle@X.Y.Z")`,
+#' bare version, no leading `v`)
 #' and the same version string will reappear here on a fresh run.
 #'
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].

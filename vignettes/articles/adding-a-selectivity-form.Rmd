@@ -193,7 +193,7 @@ exemption in each direction (`Fixed = 0` is applied before the dispatch). A map
 entry with no `case` fails like this:
 
 ```
-── Failure ('test-schema-cpp-dispatch.R:157:5'): every C++ dispatch branch matches the R map that selects it ──
+── Failure ('test-schema-cpp-dispatch.R:161:5'): every C++ dispatch branch matches the R map that selects it ──
 Expected `setdiff(r, cpp)` to have the same values as `sort(unique(as.integer(s$map_only)))`.
 Actual: 0, 12
 Expected: 0

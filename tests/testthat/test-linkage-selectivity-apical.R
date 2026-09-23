@@ -109,12 +109,11 @@ testthat::test_that("an apical linkage the model cannot identify is refused", {
   testthat::expect_error(apical_build(apical_data(scope = "WithinSex"), male_offset()),
                          "WithinSex")
 
-  # The AR1 forms estimate a per-sex level in sel_coff already.
-  fc <- d$fleet_control
-  fc$Selectivity[3] <- "2DAR1"
-  ap <- data.frame(process = "sel", param = "apical", fleet = 3L, sex = 2L,
-                   link = "log", stringsAsFactors = FALSE)
-  testthat::expect_error(Rceattle:::.check_sel_apical_rows(ap, fc, d$nsex), "AR1")
+  # The AR1 forms estimate a per-sex level in sel_coff already. Through
+  # fit_mod(), so the refusal is proven on the path a user takes rather than
+  # against the helper alone.
+  testthat::expect_error(apical_build(apical_data(form = "2DAR1"), male_offset()),
+                         "AR1")
 
   # A one-sex species: the offset is the common level log_F already carries.
   d1 <- Rceattle::GOApollock

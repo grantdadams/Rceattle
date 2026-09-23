@@ -18,6 +18,8 @@ projection, MSE, diagnostics, plotting — is R.
    linkage grammar.
 4. `inst/dev/TRAPS.md` — verified traps with the measured numbers behind them.
 5. `inst/RELEASE-CHECKLIST.md` — the release and tag process.
+6. `CONTRIBUTING.md` — the same rules written for a human contributor, plus
+   `vignettes/articles/adding-a-selectivity-form.Rmd`, one extension end to end.
 
 ---
 
@@ -128,7 +130,8 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `test-vignette-api.R`, which parses every chunk and checks each Rceattle call names an
   exported function with arguments it has; that catches renames, not return-shape drift.
   `data/` has the bundled example datasets.
-- **`inst/dev/`** — committed developer notes (handoff, traps, sibling repos, ADMB conversion).
+- **`inst/dev/`** — committed developer notes (handoff, traps, sibling repos, backlog).
+  The ADMB porting notes are a section of `TRAPS.md`.
   The untracked `dev/` is scratch and does not survive a clone.
 
 ## Plotting

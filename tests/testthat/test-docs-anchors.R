@@ -154,8 +154,20 @@ test_that("the two test lines whose failures the recipe pastes still carry those
                          warn = FALSE)
   canonical <- readLines(file.path(root, "tests", "testthat", "test-schema-canonical.R"),
                          warn = FALSE)
-  # The pasted output names these lines. If the assertion moves, re-run the
-  # mutation and paste the new output; do not just renumber.
-  testthat::expect_match(dispatch[157],  "expect_setequal(setdiff(r, cpp)", fixed = TRUE)
-  testthat::expect_match(canonical[187], "missing_from_docs", fixed = TRUE)
+  # The pasted output names these lines, so the check reads the number OUT of
+  # the article rather than hard-coding it: an assertion that moves then fails
+  # here until the pasted output is refreshed, and renumbering the article
+  # alone cannot satisfy it. Re-run the mutation and paste the new output.
+  art <- paste(readLines(file.path(root, "vignettes", "articles",
+                                   "adding-a-selectivity-form.Rmd"), warn = FALSE),
+               collapse = "\n")
+  cited <- function(file) {
+    m <- regmatches(art, regexpr(paste0(file, ":\\d+"), art))
+    testthat::expect_length(m, 1L)
+    as.integer(sub(".*:", "", m))
+  }
+  testthat::expect_match(dispatch[cited("test-schema-cpp-dispatch.R")],
+                         "expect_setequal(setdiff(r, cpp)", fixed = TRUE)
+  testthat::expect_match(canonical[cited("test-schema-canonical.R")],
+                         "missing_from_docs", fixed = TRUE)
 })

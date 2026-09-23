@@ -165,9 +165,13 @@ finally the joint negative log-likelihood. The likelihood is accumulated in the
 Each row is addressed by a named constant from the `JnllRow` enum
 (`JNLL_INDEX`, `JNLL_CATCH`, `JNLL_COMP`, … `JNLL_LINKAGE_RE`, with
 `JNLL_N_ROWS` dimensioning the matrix), so a row is referred to by name in the
-C++ rather than by a bare integer. The **display names** for those rows live
-separately in `R/6-rename_output.R`; if you add or reorder a row, update both the
-enum and that name vector by hand (they are kept in sync manually).
+C++ rather than by a bare integer. The enum has **two hand-synced partners**:
+the display names in `R/6-rename_output.R`, and `.JNLL_ROW_AXIS` in
+`R/9-profile.R`, which records whether a row's columns count fleets or species.
+Adding or reordering a row means updating all three by hand, or a row is
+classified on the wrong axis and a survey's likelihood is reported against a
+species. `tests/testthat/test-schema-jnll-rows.R` reads the template and asserts
+the three agree.
 
 **Building.** `src/TMB/compile.R` compiles the model (`framework = "TMBad"`);
 `TMB` and `RcppEigen` are `LinkingTo` dependencies. The spurious Eigen
