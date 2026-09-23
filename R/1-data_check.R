@@ -993,9 +993,14 @@ data_check <- function(data_list) {
       if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] %in% c("Hake", "LogisticPM") &&
          isTRUE(data_list$nsex[fc$Species[flt]] == 2) &&
          isTRUE(fc$Sel_norm_scope[flt] %in% c("AcrossSexes", sel_norm_scope_map[["AcrossSexes"]]))){
-        message("Fleet '", flt_name, "': Selectivity = '", fc$Selectivity[flt],
-                "' normalizes each sex to its own maximum, so 'Sel_norm_scope' is not ",
-                "read and the sexes cannot differ in selectivity level with this form.")
+        why <- if(fc$Selectivity[flt] == "Hake"){
+          paste0("normalizes each sex to its own maximum in its own block, so 'Sel_norm_scope' ",
+                 "is not read and the sexes cannot differ in selectivity level with this form")
+        } else {
+          paste0("does not normalize at all and reads 'Sel_norm_bin' as a penalty bin range, ",
+                 "so 'Sel_norm_scope' is not read")
+        }
+        message("Fleet '", flt_name, "': Selectivity = '", fc$Selectivity[flt], "' ", why, ".")
       }
       #  - LogisticPM (ADMB AMAK "pm" BTS, type 11): random-walk deviates on
       #    slope/inflection/age-1 -> allow only "Off"/"RandomWalk".

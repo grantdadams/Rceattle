@@ -851,6 +851,7 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 #'
 #' @return An `Rceattle_linkage_table` with one row per coefficient.
 #' @keywords internal
+#' @noRd
 materialize_linkage <- function(spec, process, env_data, strata = list(), quiet = FALSE) {
   if (!inherits(spec, "Rceattle_linkage_spec")) {
     stop("`spec` must be an Rceattle_linkage_spec")
@@ -1500,6 +1501,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list(), quiet 
 #'     convenience).}
 #' }
 #' @keywords internal
+#' @noRd
 pool_linkages <- function(spec_groups, env_data, strata = list(), quiet = FALSE) {
   has_specs <- !is.null(spec_groups) && length(spec_groups) > 0L &&
     any(vapply(spec_groups, length, integer(1)) > 0L)

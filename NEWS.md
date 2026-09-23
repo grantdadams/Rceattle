@@ -207,11 +207,13 @@ version throughout.
 * **A non-parametric fleet's coefficients below `Bin_first_selected` are held at
   0.** They are mapped off, but the curve reads them: each year is centred by the
   log mean over every bin, so a value there shifted the whole curve while no
-  density scored it. `inits` from a fit with a lower `Bin_first_selected` carry
-  such values -- 0.9 in those cells moved `Atka2022`'s fishery objective by 704
-  nats and year-1 selectivity by 0.21. `NonParametric` and `NonParametricPM` were
-  affected as well as the new forms; a fit started from the build defaults, the
-  golden fits included, is unchanged.
+  density scored it. `inits` from a fit with a lower `Bin_first_selected` hold
+  such values: 0.9 in those cells moved `Atka2022`'s fishery objective by 704
+  nats and year-1 selectivity by 0.21. This affected `NonParametric` (2) and the
+  new forms 13 and 14. `NonParametricPM` (9) was never affected, because its
+  branch already zeroed those cells before centring, so no `NonParametricPM` fit
+  needs revisiting. A fit started from the build defaults, the golden fits
+  included, is unchanged.
 * **What the estimated SD is worth.** `tools/verify/verify-sim-recovery-np-integrable.R`
   draws deviates at a known SD on `Atka2022`'s fishery (multinomial age
   compositions, input sample sizes 2 to 236), simulates the observations and
@@ -497,9 +499,12 @@ release stays a minor version.
   relative to themselves and stay reported; under predation `MSSB0` replaces
   `SB0`.
 * **`data_check()` says when `Sel_norm_scope` is not read.** On a two-sex
-  `Hake` or `LogisticPM` fleet the column changed nothing (both normalize each
-  sex to its own maximum; measured identical to every digit on GOAatf fleet 3),
-  without saying so. The schema and the vignette now say it too.
+  `Hake` or `LogisticPM` fleet the column changed nothing, without saying so
+  (measured identical to every digit on GOAatf fleet 3). Neither form goes
+  through the shared normalizer, for different reasons: `Hake` normalizes each
+  sex to its own maximum in its own block, while `LogisticPM` does not normalize
+  at all and reuses `Sel_norm_bin` as a penalty bin range. The notice names the
+  reason that applies, and the schema and the vignette say it too.
 * `retrospective()`'s note on a penalty-form peel with no penalty years now
   covers a peel that keeps a single year.
 

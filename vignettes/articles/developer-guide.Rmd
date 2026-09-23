@@ -149,8 +149,7 @@ file):
 | `helper_functions.hpp` | Shared utilities. |
 | `comp_osa.hpp` | Composition likelihoods and the one-step-ahead (OSA) decomposition. |
 | `growth.hpp` | Growth (von Bertalanffy / Richards); weight- and length-at-age. |
-| `selectivity.hpp` | Selectivity forms, dispatched by the integer case of the `switch` on `Selectivity` — e.g. logistic (1), double logistic (3), Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7), double-normal (8), NonParametricPM (9), LogisticPM (11), NonParametricIID (13),
-NonParametricRW (14). |
+| `selectivity.hpp` | Selectivity forms, dispatched by the integer case of the `switch` on `Selectivity`: logistic (1), double logistic (3), Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7), double normal (8), NonParametricPM (9), LogisticPM (11), NonParametricIntegrable (13). |
 | `recruitment.hpp` | Stock–recruitment functions. |
 | `bioenergetics.hpp` | Temperature-dependent ration / consumption (`Ceq`). |
 | `predation.hpp` | Prey suitability and predation mortality (MSVPA type-2, estimated iteratively). |

@@ -343,13 +343,15 @@ Two things constrain what is actually estimable:
   summing to 1 independently — those carry **no** sex-ratio information, and
   `Sel_norm_bin` then makes no difference however it is set. There is no
   separate sex-ratio likelihood component.
-* **`Selectivity = "Hake"` and `"LogisticPM"` always normalize within sex**,
-  whatever `Sel_norm_bin` and `Sel_norm_scope` say; `data_check()` says so for a
-  two-sex fleet on the default `"AcrossSexes"`. That makes the two sexes reach 1
-  at their own peaks, so the *normalization* cannot express a level difference --
-  but an `apical` linkage on the fleet still can, and is allowed on exactly these
-  two forms for that reason. The multiplier is applied after each form's own
-  rescaling, so Hake's within-sex normalization does not remove it.
+* **`Sel_norm_scope` is not read by `Selectivity = "Hake"` or `"LogisticPM"`**,
+  because neither goes through the shared normalizer; `data_check()` says so for
+  a two-sex fleet on the default `"AcrossSexes"`. The reason differs by form.
+  Hake normalizes each sex to its own maximum in its own block, so both sexes
+  reach 1 at their own peaks and the normalization cannot express a level
+  difference. LogisticPM does not normalize at all, and reuses `Sel_norm_bin` as
+  a penalty bin range. On either form an `apical` linkage can still set the
+  per-sex level: the multiplier is applied after each form's own rescaling, so
+  Hake's within-sex normalization does not remove it.
 
 Related settings elsewhere: the sex ratio at recruitment is **fixed input**, not
 estimated — it comes from the `sex_ratio` sheet at the first modelled age.
