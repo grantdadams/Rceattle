@@ -92,6 +92,17 @@ jobs:
             libcurl4-openssl-dev \
             libxml2-dev
 
+      # TMB's macOS binary is built with OpenMP, so TMB.so carries unresolved
+      # `___kmpc_*` references that dlopen must satisfy at load. The runner image
+      # ships no libomp, so loading TMB fails with "symbol not found in flat
+      # namespace" and every check dies at the first `library(TMB)` -- which here
+      # is Rceattle's own src/TMB/compile.R, making it look like our compile
+      # broke. Seen 2026-09-21 on dev and main alike. Installing libomp is the
+      # whole fix; nothing in this package requests OpenMP itself.
+      - name: Install libomp for TMB (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libomp
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         env:
           PAK_VERBOSE: true
