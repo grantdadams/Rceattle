@@ -645,10 +645,25 @@ objective bit-identical and bounds-checked builds clean, but changed one `log_F`
 element by 3e-16 (presumably summation order), and from there `nlminb` reached the higher
 minimum with `newtonsteps = 3` in place. HEAD reproduces the reference (12867.9902664788). The
 52.9 that `golden-check.md` attributes to tolerance-stopping (commit `1a172677`) is the same
-gap; polishing did not remove it. A `goa_ss` delta of 52.9 with the other three models
-bit-identical is this, not a numeric regression. Diagnose it from the gradient at the reference
-`par`, not from the objective. A robustness fix (a warm start from the reference `par`, or a
-second start keeping the lower minimum) is open; see `CLEANUP_BACKLOG.md`.
+gap; polishing did not remove it. Diagnose it from the gradient at the reference `par`, not
+from the objective. A robustness fix (a warm start from the reference `par`, or a second start
+keeping the lower minimum) is open; see `CLEANUP_BACKLOG.md`.
+
+**It is reproducible on Linux CI, and it takes `goa_ms` with it.** Measured 2026-09-23: the
+`deep-checks` `golden` job on `main` at 5.33.0 -- released, unchanged code -- returned `goa_ss`
+12920.9 against the pinned 12867.99 (+52.9, this minimum) and `goa_ms` 12979.8 against
+12932.79 (+47.0), with one gradient at 0.0011 against a 1e-4 bar; `ss` and `ms` passed. So the
+old signature, "a `goa_ss` delta with the other three bit-identical", is wrong: `goa_ms` warm
+starts from `goa_ss`'s MLEs (`test-golden-regression.R:54`), so it inherits whichever minimum
+`goa_ss` found. **Expect BOTH GOA models to move together, and read that pair as this trap.**
+The same code reproduces the references on local macOS, so which minimum is reached depends on
+the platform's summation order.
+
+**Consequence for releases: `deep-checks` does not currently pass on `main`.** It is the only
+place golden and the bounds-checked build run in CI, so the guard a release leans on is red
+before the release begins, and a red `deep-checks` after tagging is not evidence the tag is
+bad. Either land the robustness fix or pin per-platform references before treating it as a
+gate.
 
 ## Prior centring shares `bias_adjust_proc` with the recruitment deviations
 
