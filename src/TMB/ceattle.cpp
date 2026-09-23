@@ -4226,7 +4226,7 @@ Type objective_function<Type>::operator() () {
           }
 
           // (4) Dev-magnitude penalty: norm2 of the RAW per-year increments
-          //     (sel_coff_dev IS the random-walk increment for NonParametricRPM;
+          //     (sel_coff_dev IS the random-walk increment for NonParametricPM;
           //     = RTMB norm2(sel_devs)). Increments are 0 at non-change years.
           for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){
             for(yr = start_yr; yr < nyrs_tmp; yr++){
@@ -4295,8 +4295,8 @@ Type objective_function<Type>::operator() () {
           // 4. Average-selectivity level of the base coefficients.
           jnll_comp(JNLL_SEL_NONPARAM, flt) += 2.0 * square(avg_base);
 
-          // 3. The deviates: iid about the base (13) over every hindcast year,
-          //    or random-walk increments (14) from the year after the fleet's
+          // 3. The deviates: iid about the base over every hindcast year,
+          //    or random-walk increments from the year after the fleet's
           //    start year (the start-year increment is fixed at 0). Only the
           //    estimated coefficient bins are scored; a bin held at 0 would add
           //    a constant rising with the sd and pull it toward zero.

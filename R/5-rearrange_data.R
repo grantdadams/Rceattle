@@ -1,9 +1,9 @@
-#' Flag the fleet that carries each shared parameter block's penalty
+#' Flag the fleet that holds each shared parameter block's penalty
 #'
 #' Fleets sharing an index estimate one block of parameters, so its prior /
 #' penalty must be accumulated once. Returns 1 for the first estimated fleet in
 #' each group and 0 for the rest. An "Off" fleet estimates nothing, so it is
-#' never chosen while an estimated fleet is available -- the same donor rule
+#' never chosen while an estimated fleet is available, the same donor rule
 #' `adjust_map_shared_params()` uses. Fleets with no index (`NA`) share with
 #' nobody and always lead.
 #'

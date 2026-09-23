@@ -16,17 +16,17 @@
 
 #' Build a model-configuration slot for a data list
 #'
-#' Bundles the model-structure arguments of [fit_mod()] -- predation mode,
+#' Bundles the model-structure arguments of [fit_mod()], predation mode,
 #' initialization, harvest control rule, and the `build_*()` process
-#' specifications -- into a single validated object that can be stored on a data
+#' specifications, into a single validated object that can be stored on a data
 #' list (`data_list$model_config`, e.g. via
 #' `build_data(..., model_config = model_config(...))`). A configuration then
 #' travels with the data instead of living only in the [fit_mod()] call.
 #'
 #' The defaults are exactly [fit_mod()]'s own argument defaults, so a data list
-#' carrying `model_config()` fits identically to one with no slot at all. When a
+#' holding `model_config()` fits identically to one with no slot at all. When a
 #' data list has a `model_config`, [fit_mod()] reads each field only for
-#' arguments the caller did **not** pass explicitly -- an argument passed to
+#' arguments the caller did **not** pass explicitly, an argument passed to
 #' [fit_mod()] always wins, even when passed at its default. Omit an argument to
 #' let the stored configuration take effect for that field.
 #'
@@ -50,7 +50,7 @@
 #' @section Persistence:
 #' The configuration is code-side model structure, not one of the workbook data
 #' sheets, so it is **not** written by [write_data()] and does not survive an
-#' xlsx round-trip -- `build_data(base = x, model_config = cfg)` piped through
+#' xlsx round-trip, `build_data(base = x, model_config = cfg)` piped through
 #' [write_data()] then [read_data()] returns without the slot. Re-attach it in
 #' code, store it alongside the data, or persist it as a documented, git-diffable
 #' YAML with [save_config()] / [load_config()] and apply it with

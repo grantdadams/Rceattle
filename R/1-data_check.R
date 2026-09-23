@@ -2186,7 +2186,7 @@ data_check <- function(data_list) {
 #' eigenvalues, because that is the operation the covariance index likelihood
 #' actually performs (`MVNORM()` / `Eigen::LLT` in `ceattle.cpp`): a matrix that
 #' factorizes here is one TMB can use. Assumes symmetry has already been
-#' checked -- `chol()` reads only the upper triangle, so it would accept an
+#' checked, `chol()` reads only the upper triangle, so it would accept an
 #' asymmetric matrix whose upper triangle happens to be positive definite.
 #'
 #' @param x A numeric matrix, assumed square and symmetric.
@@ -2211,12 +2211,12 @@ data_check <- function(data_list) {
 #' `fleet_control` still says they share one. Measured on `BS2017SS` with fleets
 #' 4 and 7 in one group and the linkage on fleet 7: fleet 4 flat at 0.035, fleet
 #' 7 running 0.087-0.537. With every fleet in the group named, and equal
-#' coefficients, they stay together -- so this fires on a strict subset only.
+#' coefficients, they stay together, so this fires on a strict subset only.
 #'
 #' Separate from `data_check()` because the linkage table does not exist yet
 #' when that runs: `fit_mod()` pools it after the check.
 #'
-#' @param data_list A `data_list` carrying `linkage_table` and `fleet_control`.
+#' @param data_list A `data_list` holding `linkage_table` and `fleet_control`.
 #' @keywords internal
 #' @noRd
 .warn_q_linkage_shared_group <- function(data_list) {

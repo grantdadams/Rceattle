@@ -26,7 +26,7 @@
 #'   (\code{HCR}); \code{"Hindcast"} (1) = fit the hindcast only (no fitting BRPs/HCR/projection);
 #'   \code{"Projection"} (2) = fit the BRPs/HCR/projection only, from the initial
 #'   parameters in \code{inits}; \code{"DebugBuild"} (3) = build through
-#'   \code{MakeADFun} but not \code{nlminb} -- the returned \code{obj} carries the
+#'   \code{MakeADFun} but not \code{nlminb}, the returned \code{obj} holds the
 #'   real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are usable
 #'   for diagnosing a model before committing to a fit; \code{"DebugOptimize"}
 #'   (4) = optimize with all parameters mapped out, so the objective is a
@@ -40,9 +40,9 @@
 #' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param growthFun The weight-at-age parameterization from \code{\link{build_growth}}.
 #' @param qFun Catchability specification from \code{\link{build_catchability}},
-#'   carrying any environmental linkages on q.
-#' @param selFun Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.
-#' @param compFun Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.
+#'   holding any environmental linkages on q.
+#' @param selFun Selectivity specification from \code{\link{build_selectivity}}, holding any environmental linkages on selectivity parameters.
+#' @param compFun Composition-weighting specification from \code{\link{build_composition}}, holding any priors on the Dirichlet-multinomial weights.
 #' @param msmMode The predation-mortality mode, as a string alias or integer code:
 #'   \code{"SingleSpecies"} (0, the default, no predation), \code{"MSVPA"}
 #'   (1, the Type-II MSVPA predation of Holsman et al. 2015) or
@@ -69,8 +69,8 @@
 #'   `NULL` (default) applies no configuration. See Details for what it overlays.
 #' @param quiet_data_check Drop the warnings the fit-time validation raises (errors still
 #'   stop the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
-#'   -- [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
-#'   [remove_F()], [sample_rec()], [reweight_comps()] -- set it, since they
+#', [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
+#'   [remove_F()], [sample_rec()], [reweight_comps()], set it, since they
 #'   re-validate a `data_list` the caller has already fitted once and would
 #'   otherwise repeat the same warnings per peel, jitter, or MSE iteration.
 #'   Also drops a linkage filter's "has no effect" warning; a filter that
@@ -90,7 +90,7 @@
 #' \item{2. MSVPA Holling Type III}
 #' }
 #'
-#' Values 3 through 9 (Kinzey & Punt 2009 functional responses --
+#' Values 3 through 9 (Kinzey & Punt 2009 functional responses,
 #' Holling Type I/II/III, predator interference, predator preemption,
 #' Hassell-Varley, Ecosim) are blocked at runtime by \code{data_check()}
 #' because the implementations have not been validated against the
@@ -116,7 +116,7 @@
 #'   \item{\code{"FreeParams"} (0)}{The initial age-structure is estimated directly, one free
 #'     parameter per age.}
 #'   \item{\code{"Equilibrium"} (1)}{Unfished (\eqn{F_{init} = 0}) equilibrium age-structure,
-#'     carried out from \eqn{R_0} and residual natural mortality \eqn{M1}.}
+#'     projected from \eqn{R_0} and residual natural mortality \eqn{M1}.}
 #'   \item{\code{"NonEquilibrium"} (2)}{As (1), plus estimated initial population deviates, so
 #'     the first year need not sit at equilibrium. The default.}
 #'   \item{\code{"FishedNonEquilibrium"} (3)}{As (2), with an estimated initial fishing
@@ -130,7 +130,7 @@
 #' }
 #'
 #' Modes 1 and 5 differ by exactly one term: both start from the initial equilibrium
-#' recruitment \eqn{R_{init}}, but (1) carries it forward unchanged while (5) seeds the first
+#' recruitment \eqn{R_{init}}, but (1) projects it forward unchanged while (5) seeds the first
 #' year with the realized recruitment \code{R_init * exp(rec_dev[1])}. On a stock whose first
 #' year was not average, that is not a small difference.
 #'

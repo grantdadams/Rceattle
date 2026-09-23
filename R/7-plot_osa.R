@@ -13,7 +13,7 @@
 #'     These series have no age/length bin, so no bubble plots are drawn.
 #'   \item **Composition** (`comp` / `caal`): a Q-Q panel, a signed OSA-residual
 #'     bubble panel, and a signed Pearson-residual bubble panel (the Pearson
-#'     residuals carried on the `rceattle_osa` object). By default age-based bins
+#'     residuals held on the `rceattle_osa` object). By default age-based bins
 #'     (age composition and conditional age-at-length) are shown in the left
 #'     column and length-based bins in the right column, each with its own bin
 #'     axis; set `combine = FALSE` to draw the age and length composition as two
@@ -229,7 +229,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' Joint-sex compositions stack females in bins `1..nbin` and males in bins
 #' `nbin+1..2*nbin` (where `nbin` is `nages` or `nlengths` for the species).
 #' This re-bases the male bins to `1..nbin` and tags the source label by sex so
-#' males and females face the same bin axis -- matching [plot_comp()]. Rows with
+#' males and females face the same bin axis, matching [plot_comp()]. Rows with
 #' Sex != 3 (single-sex or combined) are returned unchanged.
 #' @param df A data frame with `species`, `sex`, `index_label`, `age_length_bin`,
 #'   and `source` columns.

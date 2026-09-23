@@ -41,11 +41,11 @@ So the two sides of a form are bound by nothing but agreement: the name and code
 in `sel_map`, and the `case` label in `selectivity.hpp`. Three places inside R
 also compare the integer, and each is a site to edit: the parametric-form list
 `sel_para` in `data_check()`, the slot-label switch in
-`.rce_sel_slot_labels()`, and `sim_mod()`, which warns that the AR1 forms carry
+`.rce_sel_slot_labels()`, and `sim_mod()`, which warns that the AR1 forms hold
 their own random effects.
 
 **Which code to take.** Codes are frozen, because a saved configuration and a
-saved fit carry the integer. Two are not free although no form uses them: 10 was
+saved fit hold the integer. Two are not free although no form uses them: 10 was
 retired, and 12 is still named in the normalizer's exclusion list in
 `selectivity.hpp` (`sel_type != 12`). 13 is `NonParametricIntegrable` (5.40.0)
 and 14 is unused, so the next form takes 15.
@@ -85,7 +85,7 @@ parameters with one value per block. `ceattle.cpp` scores those deviates in
 own. `.PAR_SEL_SLOTS` relabels the slots, `.SEL_LINKAGE_WIRED_FORMS` admits the
 form with the parameter names `peak`, `right_floor`, `sigma_asc` and
 `sigma_desc`, and the shared normalizer zeroes the curve below
-`Bin_first_selected`, normalizes at `Sel_norm_bin` if set, and carries the last
+`Bin_first_selected`, normalizes at `Sel_norm_bin` if set, and holds the last
 hindcast year into the projection.
 
 ## Worked example: switching the fishery to `DoubleNormal`

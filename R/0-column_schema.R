@@ -234,11 +234,11 @@
 #' Upgrade deprecated names to canonical, in place.
 #'
 #' The single migration point for legacy names: every canonical column or
-#' element carries its historical spellings in the schema `aliases` field, and
+#' element holds its historical spellings in the schema `aliases` field, and
 #' this walks them, renaming any old name present to the canonical one. The two
 #' wrappers below differ only in which half of the schema they read and what
-#' they call the thing in a message -- the walk itself is shared, because when
-#' it was written twice both copies carried the same defect.
+#' they call the thing in a message, the walk itself is shared, because when
+#' it was written twice both copies held the same defect.
 #'
 #' Double-fire-safe: a no-op when the old name is absent, so re-running on an
 #' already-upgraded object is silent. Emits one deprecation message per rename.
@@ -298,10 +298,10 @@
 #' The deprecated column present but entirely blank: drop it, since a column
 #' holding no information cannot be what the caller meant.
 #'
-#' Both carrying values: they must say the same thing, and nothing is merged.
+#' Both holding values: they must say the same thing, and nothing is merged.
 #' Merging looks helpful and is not. `NA` is a real setting in several of these
-#' columns -- `Sel_norm_bin` and `Sel_cap_bin` mean "do not normalize" / "no
-#' cap", `Proj_F_proportion` means "no F apportioned" -- so filling the canonical
+#' columns, `Sel_norm_bin` and `Sel_cap_bin` mean "do not normalize" / "no
+#' cap", `Proj_F_proportion` means "no F apportioned", so filling the canonical
 #' column's blanks from the deprecated one cannot express clearing a value, and
 #' would change a number without saying so. Nor is there a "most recent" name to
 #' prefer: in a workbook both columns arrive at once.
@@ -359,12 +359,12 @@
 #' Where do two spellings of one column disagree?
 #'
 #' `NULL` when they hold the same setting: equal lengths, the same `NA` pattern,
-#' and equal values -- compared on the canonical meaning for a switch, so an
+#' and equal values, compared on the canonical meaning for a switch, so an
 #' integer code and its string agree. `NA_integer_` for a length mismatch,
 #' otherwise the positions that differ.
 #'
 #' Attributes are stripped before the `NA` patterns are compared: a per-species
-#' vector a script built with `setNames()` carries names that `identical()` would
+#' vector a script built with `setNames()` holds names that `identical()` would
 #' otherwise read as a difference in the values themselves.
 #'
 #' An unrecognized switch value canonicalizes to the `"<blank>"` sentinel, and
@@ -421,10 +421,10 @@
 #' RECOGNIZED older name; this catches the case where it is a typo or a
 #' half-remembered one, which is the same mistake with the same consequence.
 #'
-#' Only near misses are reported. Assessment workbooks legitimately carry
-#' columns this package does not read -- `Accumatation_age_*` on 147 of the 183
+#' Only near misses are reported. Assessment workbooks legitimately hold
+#' columns this package does not read, `Accumatation_age_*` on 147 of the 183
 #' fleet_control sheets in the sibling repositories, plus `Est_weights_mcallister`,
-#' `ALK_index` and `Log_q_prior` -- and warning about those would be noise that
+#' `ALK_index` and `Log_q_prior`, and warning about those would be noise that
 #' teaches people to ignore the warning. The threshold is an edit distance of at
 #' most a quarter of the name's length, which separates the two groups cleanly:
 #' `Bin_max_selected` -> `Age_max_selected` is 3/16, while `ALK_index` ->
@@ -522,7 +522,7 @@
 #'
 #' Emits the control-scalar rows, the fleet_control header + column rows, the
 #' data-sheet header rows, the bioenergetics-scalar rows, and the tail sheet
-#' headers + NOTE footer -- reproducing the layout of the bundled
+#' headers + NOTE footer, reproducing the layout of the bundled
 #' `meta_data_names.xlsx`.
 #'
 #' @return A data.frame with columns `Sheet name`, `Column/row name`,
@@ -586,7 +586,7 @@
 #' @param doc One sentence: what it selects.
 #' @param allowed Name of the map defining its values, in the package namespace.
 #' @param default The value applied when the user supplies none.
-#' @param scope `"scalar"`, `"per-species"`, or `"per-fleet"` -- whether one
+#' @param scope `"scalar"`, `"per-species"`, or `"per-fleet"`, whether one
 #'   value configures the model or one value per species/fleet is expected.
 #' @param tmb_target The `DATA_*` object it reaches, where it reaches one.
 #' @param set_by The function that takes it.

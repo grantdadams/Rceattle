@@ -215,7 +215,7 @@ print.summary.Rceattle <- function(x, n = 10, ...) {
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param what Character. One of `"biomass"` (default), `"ssb"`,
 #'   `"recruitment"`, `"depletion"` (total biomass / B0), `"ssb_depletion"`
-#'   (female spawning biomass / SB0 -- the quantity a Tier 3 HCR compares
+#'   (female spawning biomass / SB0, the quantity a Tier 3 HCR compares
 #'   against B40%), `"index"`, `"catch"`, `"selectivity"`, `"mortality"`, or
 #'   `"data"`.
 #' @param ... Passed to the underlying plotting function.
@@ -269,7 +269,7 @@ coef.Rceattle <- function(object, ...) {
 #' Variance-covariance matrix for an Rceattle fit
 #'
 #' Returns the fixed-effect covariance matrix produced by
-#' [TMB::sdreport()]. Random-effect covariance is not returned here --
+#' [TMB::sdreport()]. Random-effect covariance is not returned here,
 #' use `object$sdrep` for the full report.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
@@ -313,7 +313,7 @@ logLik.Rceattle <- function(object, ...) {
 #'
 #' Returns a long-format data frame of residuals, following the convention of
 #' [stats::residuals.glm()] where `type` selects the *kind* of residual. By
-#' default residuals are returned for every applicable data source -- survey
+#' default residuals are returned for every applicable data source, survey
 #' indices, fishery catches, age/length composition (`comp`), and conditional
 #' age-at-length (`caal`); use `source` to restrict to particular ones.
 #'
@@ -329,7 +329,7 @@ logLik.Rceattle <- function(object, ...) {
 #'     realized observation log-SD \eqn{\sigma} and the observation
 #'     bias-adjustment flag \eqn{b} (`bias_adjust_obs`, default 1). A
 #'     natural-scale index fleet (`Index_distribution` `"MVN"`, `"MVNORM"`,
-#'     `"Normal"` or `"TruncatedNormal"`) carries an ABSOLUTE \eqn{\sigma} and is
+#'     `"Normal"` or `"TruncatedNormal"`) holds an ABSOLUTE \eqn{\sigma} and is
 #'     standardized as \eqn{(o - \hat{o})/\sigma} instead. Two caveats there: a
 #'     covariance fleet gets its marginal residual, not the whitened one (use
 #'     `type = "osa"` for that), and `"TruncatedNormal"` is standardized on the
@@ -346,8 +346,8 @@ logLik.Rceattle <- function(object, ...) {
 #' }
 #'
 #' Composition rows are returned in long form (one row per observation x
-#' age/length bin) and carry the `Age0_Length1` flag from `comp_data` (`0` age,
-#' `1` length); CAAL rows carry both the conditioning `Length` and the age `Bin`.
+#' age/length bin) and hold the `Age0_Length1` flag from `comp_data` (`0` age,
+#' `1` length); CAAL rows hold both the conditioning `Length` and the age `Bin`.
 #'
 #' Where a fleet uses tail accumulation (`Comp_accum_young` /
 #' `Comp_accum_old`), composition residuals describe the bins the likelihood
@@ -772,7 +772,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #'   uses `n_input * S`, which is comp and CAAL's construction (they scale the
 #'   offset proportions by N, so the counts sum to `N * S`). Diet normalizes
 #'   BEFORE scaling by N, so its total is `N` and it passes that.
-#' @param alpha_scale Optional factor carrying the second appearance of the
+#' @param alpha_scale Optional factor holding the second appearance of the
 #'   total in the Dirichlet-multinomial concentration, per element. `NULL` uses
 #'   `S`: comp and CAAL build `alpha = (N*S) * hat_offset * theta` where
 #'   `hat_offset` sums to `S`. Diet's alphas are built on a renormalized vector
@@ -814,12 +814,12 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 
 #' Diet (stomach-content) Pearson residuals on the likelihood's own scale
 #'
-#' Each stomach carries an "other prey" balance that enters the density but not
+#' Each stomach holds an "other prey" balance that enters the density but not
 #' the residual frame, so the normalizing total is rebuilt from it. Proportions
 #' are renormalized before scaling by the stomach sample size
 #' (`ceattle.cpp:4837`), so the count total is `N_s`. The predicted other-prey
 #' bin is floored at 1e-5, which is within 1e-5 of the C++ `posfun()` it stands
-#' in for -- `posfun()` decays towards zero once the prey proportions sum past
+#' in for, `posfun()` decays towards zero once the prey proportions sum past
 #' one, where a flat floor holds. A difference at the scale of the offset itself,
 #' on a bin that is a residual balance rather than an observation.
 #'
@@ -914,9 +914,9 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #' Read a switch column by its canonical name or any deprecated spelling
 #'
 #' `switch_check()` upgrades an alias in place at build time, but a fit SAVED
-#' before a rename still carries the old spelling, and a fresh `residuals()`
+#' before a rename still holds the old spelling, and a fresh `residuals()`
 #' call on one would otherwise find nothing and fall back to the schema default
-#' -- the same silent wrong-family failure the canonical lookup exists to avoid.
+#', the same silent wrong-family failure the canonical lookup exists to avoid.
 #' Works on a `fleet_control` data frame and on the `data_list` itself, both
 #' being `[[`-indexable.
 #'
@@ -964,13 +964,13 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #' Resolve a family/weight pair, demoting a Dirichlet-multinomial with no theta
 #'
 #' A concentration that cannot be recovered has no safe substitute, so the row
-#' falls back to the multinomial variance -- too small for an overdispersed
+#' falls back to the multinomial variance, too small for an overdispersed
 #' composition, and warned about rather than left silent. Leaving the row on the
 #' Dirichlet-multinomial with a substituted weight would be worse: `exp(1)` is a
 #' concentration of e, which inflates the variance by a factor that looks like a
 #' considered choice and is not one.
 #'
-#' An unresolved family (a hand-built `data_list` carrying no switch column) is
+#' An unresolved family (a hand-built `data_list` holding no switch column) is
 #' the schema default, the multinomial, and needs no warning.
 #'
 #' @param family,weight Resolved family codes and weights, aligned to `ids`.
@@ -1342,7 +1342,7 @@ as.data.frame.Rceattle <- function(x,
 #' expected values rather than draws, call `sim_mod(simulate = FALSE)`.
 #'
 #' Draws are taken by the TMB model, so `simulate()` needs a live `$obj`: a
-#' model loaded from disk has one, a [model_average()] result does not -- see
+#' model loaded from disk has one, a [model_average()] result does not, see
 #' [sim_mod()].
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
@@ -1354,13 +1354,13 @@ as.data.frame.Rceattle <- function(x,
 #'   observation error. See [sim_mod()] for the alternatives.
 #' @param ... Currently unused.
 #'
-#' @return A list of `nsim` `data_list` objects -- always a list, including at
+#' @return A list of `nsim` `data_list` objects, always a list, including at
 #'   `nsim = 1`, so callers do not have to special-case the length. When
-#'   `process` redrew something, each element carries the deviations that
+#'   `process` redrew something, each element holds the deviations that
 #'   generated it as `attr(, "process_sim")`: a named list of whichever of
 #'   `rec_dev`, `init_dev`, `log_M1_dev` and `beta_linkage_re` were drawn, each
 #'   with a `_drawn` logical of the same shape marking the cells the draw
-#'   touched. Compare estimates against those rather than against `object` --
+#'   touched. Compare estimates against those rather than against `object`,
 #'   see [sim_mod()].
 #'
 #' @seealso [sim_mod()] for the observation model and the `process` options,

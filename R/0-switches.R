@@ -216,14 +216,14 @@ index_distribution_map <- c(
 #' family whose `Log_sd` is a CV / log-sd; `MVN` (1), `MVNORM` (2), `Normal` (3)
 #' and `TruncatedNormal` (4) are natural-scale families whose sd is ABSOLUTE, in
 #' the units of the index. Applying a log-scale formula to the second group does
-#' not error -- it silently returns nonsense, because `sigma^2 / 2` is then a
+#' not error, it silently returns nonsense, because `sigma^2 / 2` is then a
 #' number the size of the index squared.
 #'
 #' A new natural-scale family has to be added to the vector below as well as to
 #' `index_distribution_map`, or every fleet using it silently reverts to the
 #' log-scale treatment this function exists to prevent.
 #'
-#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @param data_list A `data_list` holding `fleet_control` and `index_data`.
 #' @return Logical, one per `index_data` row; `FALSE` where the fleet is
 #'   lognormal or cannot be resolved.
 #' @keywords internal
@@ -245,7 +245,7 @@ index_distribution_map <- c(
 }
 
 
-#' Fleet codes that carry survey-index observations the model fits
+#' Fleet codes that hold survey-index observations the model fits
 #'
 #' An index is a property of the data, not of the fleet type: the model scores
 #' an `index_data` row for any fleet that is not `Off`, so a fishery with a CPUE
@@ -253,7 +253,7 @@ index_distribution_map <- c(
 #' `Fleet_type == "Survey"` instead is what left such a fleet with its
 #' catchability frozen and its index absent from `plot_index()`.
 #'
-#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @param data_list A `data_list` holding `fleet_control` and `index_data`.
 #' @param fitted_only Keep only rows the likelihood uses (positive `Year`, at or
 #'   before `endyr`). A prediction-only row is not an observation and must not,
 #'   for instance, make catchability estimable.
@@ -517,8 +517,8 @@ msmMode_map <- c(
 #'
 #' The one place the column is read, since it holds either a word or a bin.
 #' Blank means do not normalize, and "Max" the largest value. A value below the
-#' fleet's first bin also means the largest value -- that is what a negative has
-#' always meant -- so `lo` must be the fleet's own first bin: the species' minage
+#' fleet's first bin also means the largest value: that is what a negative has
+#' always meant, so `lo` must be the fleet's own first bin: the species' minage
 #' on an age-based fleet, 1 on a length-based one. On a stock recruiting at age 0
 #' a `Sel_norm_bin` of 0 is the first age, not a flag.
 #'
@@ -1199,9 +1199,9 @@ revert_switches <- function(data_list) {
 #' means adding a row, not another hardcoded map reference in this file.
 #'
 #' The per-column subset predicate and the wording of the error stay at the call
-#' site. They are not uniform -- `Time_varying_q` is exempt while `Catchability`
+#' site. They are not uniform, `Time_varying_q` is exempt while `Catchability`
 #' is `"Environmental"`, `Catchability` itself allows `NA`, and the newer
-#' columns may be absent entirely on a list `switch_check()` has not yet seen --
+#' columns may be absent entirely on a list `switch_check()` has not yet seen,
 #' and flattening that into one generic loop would lose real behaviour.
 #'
 #' @param col Canonical column name.
@@ -1546,8 +1546,8 @@ convert_switches <- function(data_list) {
 #' reporting there printed the same message three times per fit and roughly
 #' twenty times per `retrospective()`.
 #'
-#' Only an exact 1 is reported -- the model value. Any other number was typed
-#' deliberately and needs no comment. Off fleets and fleets carrying no data for
+#' Only an exact 1 is reported, the model value. Any other number was typed
+#' deliberately and needs no comment. Off fleets and fleets holding no data for
 #' the composition in question are skipped: their weight is never read.
 #'
 #' @param data_list a data list, after `switch_check()` has resolved the

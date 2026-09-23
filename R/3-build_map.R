@@ -445,7 +445,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
 #'   turns on the parameters it uses.
 #'
 #'   Time-varying growth comes from the linkage grammar
-#'   (\code{build_growth(linkages = )}), whose random effects carry their own
+#'   (\code{build_growth(linkages = )}), whose random effects hold their own
 #'   density and map.
 #'
 #' @param map_list The current TMB map list.
@@ -613,7 +613,7 @@ build_map_predation <- function(map_list, data_list) {
 #'
 #' `RandomWalk` is scored on the realized log-selectivity, which is renormalized
 #' to mean 1 within each year, so the density never touches the level of a year's
-#' coefficients -- those directions are improper, not merely weakly identified,
+#' coefficients, those directions are improper, not merely weakly identified,
 #' and the deviation sd collapses (2.7e-8 on Atka2022).
 #'
 #' `IID` (`NonParametric` only; `NonParametricPM` cannot take it) is scored on
@@ -645,10 +645,10 @@ build_map_predation <- function(map_list, data_list) {
     stringsAsFactors = FALSE)
 }
 
-#' Fleets whose selectivity deviates are estimated but carry no density
+#' Fleets whose selectivity deviates are estimated but hold no density
 #'
 #' `Time_varying_sel = "Block"` estimates one deviate per block and the model
-#' scores none of them -- a block is a fixed effect, and "time blocks with no
+#' scores none of them, a block is a fixed effect, and "time blocks with no
 #' penalty" is what the switch means. Every other time-varying mode that
 #' estimates a deviate also defines a term for it, so this is the one
 #' configuration that has nothing to integrate against. `fit_mod()` reads this
@@ -1236,8 +1236,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 #'
 #' @description Maps catchability base parameters (\code{index_log_q}),
 #'   time-varying deviations (\code{index_q_dev}), and environmental linkages
-#'   (\code{index_q_beta}) for every fleet that carries
-#'   fitted \code{index_data} -- a fishery with a CPUE series as much as a
+#'   (\code{index_q_beta}) for every fleet that holds
+#'   fitted \code{index_data}, a fishery with a CPUE series as much as a
 #'   survey. A fleet with no index rows gets none of them, whatever its
 #'   \code{Catchability} says, since a q with no index to inform it is a flat
 #'   direction. Sharing overrides this: \code{adjust_map_shared_params()} then
@@ -1684,7 +1684,7 @@ build_map_debug <- function(map_list, debug) {
 #' @description Maps `beta_linkage` (one entry per row of
 #'   `data_list$linkage_table`). Rows whose `est_phase == 0` are fixed
 #'   at their initial values via `NA`; `(Intercept)` rows are also
-#'   fixed (their value stays at 0 -- the base parameter carries the
+#'   fixed (their value stays at 0, the base parameter holds the
 #'   level). Everything else is estimated.  Phased estimation honoring
 #'   nonzero phase ordinals can layer on later via the `phase` argument
 #'   to [fit_control()].
@@ -1778,7 +1778,7 @@ build_map_linkages <- function(map_list, data_list) {
 #'
 #' @description Maps the base parameter (`rec_pars`, `log_M1`,
 #'   `log_growth_pars`) out of estimation only for stratum groups
-#'   whose linkage formula carries *no* intercept. With an intercept
+#'   whose linkage formula holds *no* intercept. With an intercept
 #'   in the formula (`~ 1`, `~ temp`, ...) and a nonzero `est_phase` the
 #'   base parameter holds the level and stays estimable; the linkage
 #'   `(Intercept)` row is fixed at 0 instead. When an intercept row has
