@@ -1108,6 +1108,7 @@ osa_residuals <- function(object = NULL,
 #' @return `res`, with the recomputed tail spliced in. Messages only if it
 #'   recovered something, or if it could not.
 #' @keywords internal
+#' @noRd
 .osa_retry_tail <- function(res, rerun, max_try = .OSA_CDF_MAX_RETRY) {
   n_bad0 <- sum(!is.finite(res$residual))
   if (n_bad0 == 0L) return(res)
@@ -1162,6 +1163,7 @@ osa_residuals <- function(object = NULL,
 #'   failed parallel one-step-ahead loop needs a genuinely new one.
 #' @return A TMB ADFun object with the requested `osa_mode`.
 #' @keywords internal
+#' @noRd
 .osa_build_obj <- function(fit, osa_dat = NULL, osa_mode = 1L, force = FALSE) {
   obj <- fit$obj
   osa_mode <- as.integer(osa_mode)[1]

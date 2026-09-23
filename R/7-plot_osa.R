@@ -353,6 +353,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #'   `"fixed"` (Pearson residuals, which are not N(0, 1)) flags `|resid| > 3`.
 #' @return A `ggplot` object.
 #' @keywords internal
+#' @noRd
 .osa_bubble_plot <- function(osa, ylab = "Bin", title = "OSA residuals",
                              outlier = c("bonferroni", "fixed")) {
   outlier <- match.arg(outlier)
