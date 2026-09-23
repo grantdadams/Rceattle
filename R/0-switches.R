@@ -662,10 +662,24 @@ switch_check <- function(data_list){
   data_list$estDynamics <- set_default(data_list$estDynamics, rep(0, data_list$nspp), "'estDynamics' are not included in data, assuming 0")
   # Code 3 was retired in 5.35.0: it never estimated an age-specific multiplier
   # and fitted as 2, so a stored fit is rebuilt with 2 and is unchanged.
-  if (any(data_list$estDynamics %in% c(3, "3", "FixedScaledByAge"))) {
-    stop("estDynamics = 3 ('FixedScaledByAge') was retired in 5.35.0: it never ",
-         "estimated an age-specific multiplier and fitted as 2 ('FixedScaled'). ",
-         "Set estDynamics = 2; the fit is unchanged.", call. = FALSE)
+  .ed3 <- which(data_list$estDynamics %in% c(3, "3", "FixedScaledByAge"))
+  if (length(.ed3)) {
+    # estDynamics is per species, so name the ones to edit rather than the value.
+    # Only when it really is per species: a scalar applies to every species, and
+    # naming the first would send the user to the wrong cell.
+    .per_sp <- length(data_list$estDynamics) == data_list$nspp
+    .who <- if (!.per_sp) {
+      "every species"
+    } else if (!is.null(data_list$spnames) &&
+               length(data_list$spnames) >= max(.ed3)) {
+      paste(data_list$spnames[.ed3], collapse = ", ")
+    } else {
+      paste0("species ", paste(.ed3, collapse = ", "))
+    }
+    stop("estDynamics = 3 ('FixedScaledByAge') for ", .who,
+         " was retired in 5.35.0: it never estimated an age-specific multiplier ",
+         "and fitted as 2 ('FixedScaled'). Set estDynamics = 2 for ", .who,
+         "; the fit is unchanged.", call. = FALSE)
   }
   # Resolve readable strings ("Fixed"/"Estimated"/...) to integer codes now --
   # build_map()/build_params() read estDynamics numerically, before
@@ -858,7 +872,7 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_pen_last_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_last_bin, "Sel_pen_last_bin", .sch)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
   data_list$fleet_control$Sel_shape_mode <- .rce_apply_default(data_list$fleet_control$Sel_shape_mode, "Sel_shape_mode", .sch)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
   data_list$fleet_control$Sel_avgsel_pen <- .rce_apply_default(data_list$fleet_control$Sel_avgsel_pen, "Sel_avgsel_pen", .sch)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
-  data_list$fleet_control$Sel_cap_bin <- .rce_apply_default(data_list$fleet_control$Sel_cap_bin, "Sel_cap_bin", .sch)  # NonParametricRPM bin cap (NA -> no cap)
+  data_list$fleet_control$Sel_cap_bin <- .rce_apply_default(data_list$fleet_control$Sel_cap_bin, "Sel_cap_bin", .sch)  # NonParametricPM bin cap (NA -> no cap)
   data_list$fleet_control$Selectivity_dimension <- .rce_apply_default(data_list$fleet_control$Selectivity_dimension, "Selectivity_dimension", .sch, conditions = .dflt_when)
   data_list$fleet_control$Comp_distribution <- .rce_apply_default(data_list$fleet_control$Comp_distribution, "Comp_distribution", .sch)
   data_list$fleet_control$CAAL_distribution <- .rce_apply_default(data_list$fleet_control$CAAL_distribution, "CAAL_distribution", .sch, conditions = .dflt_when)

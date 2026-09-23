@@ -1100,7 +1100,7 @@ data_check <- function(data_list) {
     # settings are discarded. NA there really is "unset", so it is skipped.
     # Sel_norm_scope and Sel_cap_bin belong here too: both are per-fleet
     # DATA_IVECTORs read inside the curve builder (selectivity.hpp: the
-    # across-sex normalization reference, and the NonParametricRPM bin cap),
+    # across-sex normalization reference, and the NonParametricPM bin cap),
     # not behind a flt_sel_lead gate.
     .sel_shaping_cols <- c("Selectivity", "Selectivity_dimension",
                            "Bin_first_selected", "N_sel_bins",
