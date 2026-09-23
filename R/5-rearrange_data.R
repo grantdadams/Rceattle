@@ -264,7 +264,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     as.numeric(data_list$fleet_control$Sel_avgsel_pen))
   data_list$flt_sel_avgsel_pen[is.na(data_list$flt_sel_avgsel_pen)] <- 0
 
-  # - 9f) NonParametricRPM (type 9) bin cap (0-based): the realized selectivity is
+  # - 9f) NonParametricPM (type 9) bin cap (0-based): the realized selectivity is
   #       held flat at/after this bin (RTMB cap_old_age). NA -> -999 (no cap).
   data_list$flt_sel_cap_bin <- data_list$fleet_control %>%
     dplyr::mutate(Sel_cap_bin = .data$Sel_cap_bin - sel_bin_offset,

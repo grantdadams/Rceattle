@@ -183,27 +183,28 @@ version throughout.
 
 ## New features
 
-* **Two non-parametric selectivity forms whose deviates integrate.**
-  `NonParametric` charges its shape penalties on each year's realized curve,
-  so under `random_sel = TRUE` the density the Laplace approximation
-  integrates is tilted and the reported deviation SD is not the SD of the
-  deviations; `fit_mod()` refuses that combination, and the random-walk mode
-  for its own reason (`inst/dev/TODO-selectivity.md`). Two
-  new forms keep `NonParametric` and `NonParametricPM` exactly as they are and
-  add a proper density: `Selectivity = "NonParametricIID"` (code 13) is the
-  Ianelli base curve with iid annual deviates, `"NonParametricRW"` (14) the
-  same base with random-walk increments (the start-year increment fixed at
-  0), each taking only the `Time_varying_sel` mode its density describes. The
-  decreasing, curvature and average-selectivity penalties are charged once on
-  the base coefficients, and the deviates are scored by `dnorm(0, sel_dev_sd)`
-  on the estimated bins, so `random_sel = TRUE` estimates the SD from a
-  complete density. With `Time_varying_sel = "Off"` both give the
-  `NonParametric` objective to the last digit, at any `Bin_first_selected`;
-  `NonParametricRW` reads no `Sel_cap_bin`. `fit_mod()`'s refusals now name
-  them as the alternative. The per-year mean of a year's deviates is removed by
-  the curve's centring, so the data never see it: under `random_sel = TRUE` it
-  integrates out exactly, under `random_sel = FALSE` those directions are pure
-  prior.
+* **A non-parametric selectivity form whose deviations integrate.**
+  `NonParametric` charges its shape penalties on each year's realized curve, so
+  under `random_sel = TRUE` the density the Laplace approximation integrates is
+  tilted and the reported deviation SD is not the SD of the deviations;
+  `fit_mod()` refuses that combination, and the random-walk mode for its own
+  reason (`inst/dev/TODO-selectivity.md`). `Selectivity =
+  "NonParametricIntegrable"` (code 13) keeps `NonParametric` and
+  `NonParametricPM` exactly as they are and adds the missing density: it is the
+  Ianelli base curve with the decreasing, curvature and average-selectivity
+  penalties charged once on the base coefficients, and the deviations scored by
+  `dnorm(0, sel_dev_sd)` on the estimated bins, so `random_sel = TRUE` estimates
+  the SD from a complete density.
+
+  `Time_varying_sel` picks the structure, as it does for `NonParametric`:
+  `"Off"` estimates no deviations, `"IID"` gives independent annual deviations,
+  and `"RandomWalk"` gives increments from the base curve with the start-year
+  increment fixed at 0. Under `"Off"` the form reproduces the `NonParametric`
+  objective to the last digit, at any `Bin_first_selected`. It reads no
+  `Sel_cap_bin`, and `fit_mod()`'s refusals name it as the alternative. The
+  per-year mean of a year's deviations is removed by the curve's centring, so
+  the data never see it: under `random_sel = TRUE` it integrates out exactly,
+  under `random_sel = FALSE` those directions are pure prior.
 * **A non-parametric fleet's coefficients below `Bin_first_selected` are held at
   0.** They are mapped off, but the curve reads them: each year is centred by the
   log mean over every bin, so a value there shifted the whole curve while no
@@ -441,7 +442,9 @@ release stays a minor version.
   is always charged on each year's realized curve and does not scale with the
   deviation sd, so the sd that fit reported was the sd of a tilted density
   (about 5% of the precision low at sd 0.35, more as the sd grows). Fit with
-  `random_sel = FALSE`, the penalized AMAK formulation.
+  `random_sel = FALSE`, the penalized AMAK formulation. (From 5.40.0 the
+  integrable form `NonParametricIntegrable` takes
+  `random_sel = TRUE` instead; this refusal does not apply to them.)
 
 ## Bug fixes
 

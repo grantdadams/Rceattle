@@ -47,7 +47,7 @@ adversarially before commit and again by a second session before merge:
 | 5.37.0 | #147, #148 | QAR1 path removed; stored-map guard; `CONTRIBUTING.md`, the Doxygen build and `adding-a-selectivity-form.Rmd` |
 | 5.38.0 | #149 | Per-sex apical selectivity offset (`log_sel_apical`) |
 | 5.39.0 | #150 | Multispecies stock-recruit bounds and a degenerate-curve check |
-| 5.40.0 | #151 | `NonParametricIID` (13) and `NonParametricRW` (14) |
+| 5.40.0 | #151 | `NonParametricIntegrable` (13) |
 | 5.41.0 | #152 | `osa_residuals(method = "cdf")` |
 
 ## After the release, in order

@@ -890,8 +890,8 @@ fit_mod <-
       if (length(.walk)) {
         stop("Fleet ", .flts(.walk), ": set `random_sel = FALSE` to fit ",
              "non-parametric selectivity with `Time_varying_sel = \"RandomWalk\"`, ",
-             "or use `Selectivity = \"NonParametricRW\"`, whose increments carry a ",
-             "proper density.",
+             "or use `Selectivity = \"NonParametricIntegrable\"`, whose increments ",
+             "have a proper density.",
              "\n  The deviates cannot be integrated out: the walk is scored on ",
              "the renormalized curve, which leaves the level of each year's ",
              "coefficients unidentified, so the estimated deviation standard ",
@@ -904,8 +904,8 @@ fit_mod <-
       if (length(.iid)) {
         stop("Fleet ", .flts(.iid), ": set `random_sel = FALSE` to fit ",
              "non-parametric selectivity with `Time_varying_sel = \"IID\"`, or use ",
-             "`Selectivity = \"NonParametricIID\"`, which charges the shape penalties ",
-             "on the base curve and integrates.",
+             "`Selectivity = \"NonParametricIntegrable\"`, which charges the shape ",
+             "penalties on the base curve and integrates.",
              "\n  The shape and average-selectivity penalties do not scale with the ",
              "deviation sd, so an integrated sd would be biased low whatever ",
              "`Sel_curve_pen1` / `Sel_curve_pen2` are. ",
@@ -1218,7 +1218,7 @@ fit_mod <-
     # Taken before TMBphase() replaces start_par with a fitted state.
     # Non-parametric coefficients below Bin_first_selected are mapped off but enter
     # the curve's centring unscored, so hold them at 0 whatever `inits` carries.
-    .np_forms <- c("NonParametric", "NonParametricPM", "NonParametricIID", "NonParametricRW")
+    .np_forms <- c("NonParametric", "NonParametricPM", "NonParametricIntegrable")
     if (!is.null(data_list$fleet_control$Bin_first_selected)) {
       for (.f in which(as.character(data_list$fleet_control$Selectivity) %in% .np_forms)) {
         .bfs <- suppressWarnings(as.integer(data_list$fleet_control$Bin_first_selected[.f]))

@@ -82,8 +82,10 @@ sel_map <- c(
   "DoubleNormal" = 8,
   "NonParametricPM" = 9,  # Ianelli non-parametric, ADMB AMAK ("pm") selectivity penalty
   "LogisticPM" = 11,      # ADMB AMAK ("pm") BTS: logistic (multiplicative inflection/slope devs) + free age-1 log-selectivity
-  "NonParametricIID" = 13, # Ianelli base curve with iid annual deviates carrying a proper density (integrable)
-  "NonParametricRW"  = 14  # Ianelli base curve with random-walk increments carrying a proper density (integrable)
+  # Ianelli base curve whose deviations have a proper density, so random_sel can
+  # integrate them. Time_varying_sel picks the structure: "Off" (none), "IID" or
+  # "RandomWalk". Codes 10, 12 and 14 are unused.
+  "NonParametricIntegrable" = 13
 )
 
 # Whether selectivity normalization pools its reference across sexes. Orthogonal
@@ -769,7 +771,7 @@ switch_check <- function(data_list){
   # when such a fleet is present, otherwise default silently (avoids noise for
   # logistic-only models).
   .np_hake <- any(data_list$fleet_control$Selectivity %in%
-                    c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIID", 14, "NonParametricRW", 5, "Hake", 11, "LogisticPM"))
+                    c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIntegrable", 5, "Hake", 11, "LogisticPM"))
   # Intuitive alternative to the cryptic selectivity penalty WEIGHTS: express each
   # as a standard deviation. Every such penalty is a Gaussian SSQ
   # `weight * x^2 = x^2 / (2*sd^2)`, so `weight = 1/(2*sd^2)`. A fleet may supply
@@ -788,7 +790,7 @@ switch_check <- function(data_list){
   .had_sel_curve_pen <- "Sel_curve_pen1" %in% names(data_list$fleet_control)
   .fc  <- data_list$fleet_control
   .col <- function(nm) if (is.null(.fc[[nm]])) rep(NA_real_, nrow(.fc)) else suppressWarnings(as.numeric(.fc[[nm]]))
-  .np  <- c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIID", 14, "NonParametricRW")
+  .np  <- c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIntegrable")
   .lpm <- c(11, "LogisticPM")
   # SD column -> (target Sel_curve_pen slot, forms that use it as a weight). Both
   # NonParametric (2/9) and LogisticPM (11) use pen1 (shape) and pen3 (dev-mag) as
@@ -904,7 +906,7 @@ switch_check <- function(data_list){
   # same number, so the value cannot tell an un-upgraded workbook from a modern
   # one, while the column's absence can. 0 and 1 are modes, not weights -- a
   # fleet meaning "time-invariant" is not asking for a shape weight of 0.
-  np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIID", 14, "NonParametricRW")
+  np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIntegrable")
   .tv_num <- suppressWarnings(as.numeric(data_list$fleet_control$Time_varying_sel))
   # Only the two original codes can appear in a pre-4.4 workbook.
   np_legacy_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")

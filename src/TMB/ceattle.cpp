@@ -1223,6 +1223,7 @@ Type objective_function<Type>::operator() () {
     lengths,              // Length bin boundaries matrix
     flt_spp,              // Fleet to species mapping
     flt_sel_type,         // Selectivity model type per fleet
+    flt_varying_sel,      // Time_varying_sel per fleet (picks NonParametricIntegrable's construction)
     flt_sel_dim,          // Age or length based
     bin_first_selected,   // Min bin selected per fleet
     flt_n_sel_bins,       // Max estimated bins per fleet
@@ -4255,13 +4256,13 @@ Type objective_function<Type>::operator() () {
       }
 
 
-      // 1c) NonParametricIID (13) and NonParametricRW (14): the Ianelli shape
+      // 1c) NonParametricIntegrable (13): the Ianelli shape
       //     priors (decreasing, curvature, average selectivity) are charged ONCE
       //     on the base curve sel_coff, and the deviates carry a proper Gaussian
       //     density with sel_dev_sd, so under random_sel = TRUE the Laplace
       //     approximation integrates a density whose normalizing constant is
       //     complete. With no deviates the objective equals NonParametric's.
-      if((flt_sel_type(flt) == 13) || (flt_sel_type(flt) == 14)) {
+      if(flt_sel_type(flt) == 13) {
         int n_sel_bins = flt_n_sel_bins(flt);
         int start_yr   = flt_sel_start_yr(flt);
         for(sex = 0; sex < nsex(sp); sex++){
@@ -4300,9 +4301,8 @@ Type objective_function<Type>::operator() () {
           //    estimated coefficient bins are scored; a bin held at 0 would add
           //    a constant rising with the sd and pull it toward zero.
           //    With Time_varying_sel = "Off" there are no deviates and no density.
-          bool scored = (flt_sel_type(flt) == 13 && flt_varying_sel(flt) == 1) ||
-                        (flt_sel_type(flt) == 14 && flt_varying_sel(flt) == 4);
-          int yr_lo = (flt_sel_type(flt) == 14) ? start_yr + 1 : 0;
+          bool scored = (flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 4);
+          int yr_lo = (flt_varying_sel(flt) == 4) ? start_yr + 1 : 0;
           if(scored){
             for(yr = yr_lo; yr < nyrs_hind; yr++){
               for(int bin = bin_first_selected(flt); bin < n_sel_bins; bin++) {
@@ -4316,7 +4316,7 @@ Type objective_function<Type>::operator() () {
 
       // 2) Logistic selectivity penalties
       // Penalized/random effect likelihood time-varying logistic/double-logistic selectivity deviates
-      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11) && (flt_sel_type(flt) != 13) && (flt_sel_type(flt) != 14)){
+      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11) && (flt_sel_type(flt) != 13)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 0; yr < nyrs_hind; yr++){
 
@@ -4340,7 +4340,7 @@ Type objective_function<Type>::operator() () {
       // Random walk:
       // - Type 4 = random walk on ascending and descending for double logistic
       // - Type 5 = ascending only for double logistics
-      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11) && (flt_sel_type(flt) != 13) && (flt_sel_type(flt) != 14)){
+      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11) && (flt_sel_type(flt) != 13)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 

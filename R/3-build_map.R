@@ -901,18 +901,16 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       #      Both share identical parameters / mapping; they differ only in the
       #      selectivity penalty form (see ceattle.cpp).
       if (sel_type %in% c("NonParametric", "NonParametricPM",
-                          "NonParametricIID", "NonParametricRW")) {
-        # "IID" is scored for NonParametric only. NonParametricPM builds its
-        # curve as a cumulative walk (each year's coefficients are the previous
-        # year's plus sel_coff_dev, see selectivity.hpp case 9), so a deviate
-        # there IS a random-walk increment and an independent-deviate reading of
-        # it would not describe the curve the model draws. NonParametricIID and
-        # NonParametricRW each take the one mode their density describes.
+                          "NonParametricIntegrable")) {
+        # NonParametricPM builds its curve as a cumulative walk (each year's
+        # coefficients are the previous year's plus sel_coff_dev, see
+        # selectivity.hpp case 9), so a deviate there IS a random-walk increment
+        # and an independent-deviate reading of it would not describe the curve
+        # the model draws; it therefore takes no "IID".
         .np_modes <- switch(sel_type,
                             NonParametric    = c("Off", "IID", "RandomWalk"),
                             NonParametricPM  = c("Off", "RandomWalk"),
-                            NonParametricIID = c("Off", "IID"),
-                            NonParametricRW  = c("Off", "RandomWalk"))
+                            NonParametricIntegrable = c("Off", "IID", "RandomWalk"))
         if (!is.na(tv_sel) && !tv_sel %in% .np_modes) {
           stop(paste0("'Time_varying_sel' for fleet ", flt, " with '", sel_type,
                       "' selectivity must be ",
@@ -942,7 +940,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             sel_start_yr <- sel_start_yr_grp[i]  # group-resolved (mirrored fleets share one block)
             start_idx <- if (is.null(sel_start_yr) || is.na(sel_start_yr)) 1L else
               max(1L, min(nyrs_hind, as.integer(sel_start_yr) - data_list$styr + 1L))
-            if (sel_type == "NonParametricRW") {
+            if (sel_type == "NonParametricIntegrable") {
               # The base curve (sel_coff) carries the shape and stays estimated;
               # the increments are pure changes, so the one at the start year is
               # fixed at 0 and the earlier ones, with neither data nor a density,

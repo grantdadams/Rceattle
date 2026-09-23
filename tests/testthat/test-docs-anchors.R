@@ -120,13 +120,17 @@ test_that("the switch codes and modes the recipe quotes still hold", {
   testthat::expect_identical(unname(sel_map[["DoubleNormal"]]), 8)
   testthat::expect_identical(unname(sel_map[["Fixed"]]), 0)
   testthat::expect_false("Fake" %in% names(sel_map))
-  # "The next form takes 15": 10 retired, 12 still named by the normalizer,
-  # 13 and 14 the integrable non-parametric forms.
-  testthat::expect_false(any(c(10, 12, 15) %in% sel_map))
-  testthat::expect_identical(unname(sel_map[c("NonParametricIID", "NonParametricRW")]), c(13, 14))
+  # "The next form takes 15": 10 retired, 12 still named by the normalizer, 14
+  # freed when the two integrable forms collapsed into 13.
+  testthat::expect_false(any(c(10, 12, 14, 15) %in% sel_map))
+  testthat::expect_identical(unname(sel_map[["NonParametricIntegrable"]]), 13)
   testthat::expect_match(sel, "sel_type != 12", fixed = TRUE)
   testthat::expect_match(sel, "case 8:")
-  testthat::expect_false(grepl("switch \\(sel_type\\)[^}]*default:", sel, perl = TRUE))
+  # The switch dispatches on sel_case, not sel_type, so NonParametricIntegrable
+  # can pick its construction from Time_varying_sel. Keep the no-default check
+  # pointed at the name actually switched on, or it passes vacuously.
+  testthat::expect_match(sel, "switch (sel_case)", fixed = TRUE)
+  testthat::expect_false(grepl("switch \\(sel_case\\)[^}]*default:", sel, perl = TRUE))
   testthat::expect_true(all(c("NonParametric", "NonParametricPM", "Hake", "LogisticPM",
                               "DoubleLogistic") %in% names(sel_map)))
   testthat::expect_true(all(c("Off", "IID", "AR1", "RandomWalk", "Block",
