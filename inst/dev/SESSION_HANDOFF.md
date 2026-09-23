@@ -6,8 +6,8 @@ session. Maintained by `/handoff`.
 ## Now
 
 **In flight (2026-09-23): exact SS3 -> Rceattle bridge for AI and GOA Pacific cod, branch
-`cod-bridge`** (off `dev` at `cf82f27e`, nothing committed yet, version bumped to 5.42.0 in the
-working tree). Goal: from a cold start Rceattle reaches the same solution as an SS3 reference
+`cod-bridge`** (off `dev` at `cf82f27e`; WIP commit `f0796442` pushed, 5.42.0 in DESCRIPTION;
+paired `Rceattle-models` commit `3c6e9f0` on master). Goal: from a cold start Rceattle reaches the same solution as an SS3 reference
 run. Plan: `../Rceattle-models/SS3-bridge/PLAN.md` (phases 0-5). Targets are SS3 runs
 adjusted only in *estimation-method* choices (F_Method 2, `max_bias_adj -1`, F_Ballpark off,
 InitEQ lambda 0); biology, selectivity and likelihood are built into Rceattle.
@@ -41,7 +41,7 @@ adversarially before commit and again by a second session before merge:
 | 5.40.0 | #151 | `NonParametricIID` (13) and `NonParametricRW` (14) |
 | 5.41.0 | #152 | `osa_residuals(method = "cdf")` |
 
-## Done & verified (cod bridge, 2026-09-23, uncommitted on `cod-bridge`)
+## Done & verified (cod bridge, 2026-09-23, WIP on `cod-bridge`)
 
 **Phase 1, growth and biology.** `build_growth(pop_lengths, sd_form = "SD"/"CV",
 plus_group_length = "M1"/"none"/"SS3.24"/"decay", plus_group_decay)`; control columns
@@ -150,8 +150,7 @@ Rceattle 1248.10 vs SS3 531.00 (CAAL +725, catch -70.5 = lognormal constant
 
 ## Resume here
 
-**Cod bridge** (`git checkout cod-bridge`; all work is uncommitted, including in
-`../Rceattle-models`):
+**Cod bridge** (`git checkout cod-bridge` and `git pull`; pull `../Rceattle-models` master too):
 1. Re-run `test-schema-cpp-dispatch.R` (exemptions added after the last run).
 2. Rerun AI parity (G1 + G2) with the new converter ageing error / sample-size factor; expect
    the growth gradient to fall. Then work G2 down: recruitment (+43.9) and survey (+12.9) should
