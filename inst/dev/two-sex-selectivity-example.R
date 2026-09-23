@@ -1,10 +1,14 @@
 ## Time-varying selectivity options in Rceattle on two-sex model
 ## Also options for different scale between sexes
 ##
-## Fixes:
-##   1. NonParametric + IID now works.
-##   2. Fixed NonParametric + RandomWalk "NA/NaN
-##      function evaluation" overflow via log_sum_exp.
+## Status note (re-checked 2026-09-21, 5.41.0). The header used to say
+## "NonParametric + IID now works". It does not, and deliberately so:
+## 5.35.0 REFUSES random_sel = TRUE on NonParametric and NonParametricPM,
+## because the shape penalties are charged on each year's realized curve,
+## so the reported deviation sd is not the sd of the deviations. 5.40.0
+## added the two forms that do integrate, NonParametricIID (13) and
+## NonParametricRW (14); use those when you want random_sel = TRUE.
+## The sections below run because random_sel defaults to FALSE.
 ##
 ## Some models may not converge, so check warning!
 
@@ -94,7 +98,7 @@ d6 <- d
 d6$fleet_control$Selectivity[FISHERY]      <- "2DAR1"
 d6$fleet_control$N_sel_bins[FISHERY]       <- 19
 d6$fleet_control$Time_varying_sel[FISHERY] <- "Off"
-d6$fleet_control$Sel_norm_bin[FISHERY]     <- 0    # normalize by max (moving to "max" or 0 on next release)
+d6$fleet_control$Sel_norm_bin[FISHERY]     <- 0    # normalize by max ("Max" is accepted by Sel_norm_bin since 5.35.0)
 d6$fleet_control$Sel_norm_scope[FISHERY]   <- "AcrossSexes" # compared to "WithinSex"
 d6$fleet_control$Sel_curve_pen1[FISHERY]   <- 0   # correlation across bins
 
@@ -110,7 +114,7 @@ d7 <- d
 d7$fleet_control$Selectivity[FISHERY]      <- "3DAR1"
 d7$fleet_control$N_sel_bins[FISHERY]       <- 19
 d7$fleet_control$Time_varying_sel[FISHERY] <- "Off"
-d7$fleet_control$Sel_norm_bin[FISHERY]     <- 0    # normalize by max (moving to "max" or 0 on next release)
+d7$fleet_control$Sel_norm_bin[FISHERY]     <- 0    # normalize by max ("Max" is accepted by Sel_norm_bin since 5.35.0)
 d7$fleet_control$Sel_norm_scope[FISHERY]   <- "AcrossSexes" # compared to "WithinSex"
 d7$fleet_control$Sel_curve_pen1[FISHERY]   <- 0   # correlation across bins
 d7$fleet_control$Sel_curve_pen2[FISHERY]   <- 0   # correlation across years
@@ -134,7 +138,8 @@ mod_list <- list(NP_IID      = m1,
 ##   NonParametric / NonParametricPM              each sex re-centered to mean 1
 ##   Hake                                         each sex scaled by its own max
 ##                                                (Sel_norm_scope is inert here --
-##                                                 inst/dev/TODO-selectivity.md) (need to fix)
+##                                                 inst/dev/TODO-selectivity.md) (open: the capability gap, not the silence --
+##                                                 data_check() announces it since 5.35.0)
 ##   DoubleNormal                                 both sexes peak at exactly 1
 ##                                                (only the old-age plateau differs)
 ##
@@ -152,7 +157,7 @@ sex_max <- function(fit, flt = FISHERY, yr = 1) {
 # - Both sexes max at 1
 d8 <- d
 d8$fleet_control$Selectivity[FISHERY]         <- "Logistic"
-d8$fleet_control$Sel_norm_bin[FISHERY]     <- 0    # normalize by max (moving to "max" or 0 on next release)
+d8$fleet_control$Sel_norm_bin[FISHERY]     <- 0    # normalize by max ("Max" is accepted by Sel_norm_bin since 5.35.0)
 d8$fleet_control$Sel_norm_scope[FISHERY]   <- "AcrossSexes" # compared to "WithinSex"
 m8 <- fit_mod(data_list = d8, msmMode = 0, estimateMode = "Hindcast",
               fit_control = fit_control(phase = TRUE))
@@ -160,7 +165,7 @@ m8 <- fit_mod(data_list = d8, msmMode = 0, estimateMode = "Hindcast",
 ## 8b. Double logistic ----
 d9 <- d
 d9$fleet_control$Selectivity[FISHERY]         <- "DoubleLogistic"
-d9$fleet_control$Sel_norm_bin[FISHERY]     <- 0    # normalize by max (moving to "max" or 0 on next release)
+d9$fleet_control$Sel_norm_bin[FISHERY]     <- 0    # normalize by max ("Max" is accepted by Sel_norm_bin since 5.35.0)
 d9$fleet_control$Sel_norm_scope[FISHERY]   <- "AcrossSexes" # compared to "WithinSex"
 m9 <- fit_mod(data_list = d9, msmMode = 0, estimateMode = "Hindcast",
               fit_control = fit_control(phase = TRUE))

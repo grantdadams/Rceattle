@@ -33,7 +33,8 @@ set, so `fit_mod()` stops on them as `inits`; rerun the fit script first.
 Two data checks that 2024 Rceattle did not have also refused its workbook, and the scripts now
 handle both after `read_data()`. `Pcod_spawn_srv` and `Pcod_seine_srv` estimated selectivity with
 no composition data, so they are turned off. 252 of 4,096 `diet_data` rows carried cod at ages
-11–12 against a cod model of ages 1–10; `fold_diet_plus_group()` folds them into age 10.
+11–12 against a cod model of ages 1–10; Climate_MSE's own helper `fold_diet_plus_group()`
+(`R/Functions/` there, sourced per script -- it is not an Rceattle export) folds them into age 10.
 
 The port had to catch three silent changes. Any 2024-era script carries the same risk:
 
@@ -195,9 +196,12 @@ Traps:
   ~1 min each; `run_all.R` rebuilds them from `R/02`. Its `R/07_figures_tables.R` renders every
   figure the chapter uses, so it is a cheap end-to-end check of the `plot_*()` surface: source it
   and confirm the manifest it prints reports no new skips.
-- **The ATF script cannot be sourced straight through on any version** — it references three
-  objects it never assigns (`:364`, `:480`, `:570`, the last gating the whole final figure
-  block). This is a property of the script, not of your change.
+- **The ATF entry point is small and the sourcing caveat below is stale.**
+  `2026 assessment w HCR projection.R` is 68 lines, so the three unassigned-object line numbers
+  this note used to carry (`:364`, `:480`, `:570`) cannot refer to it; in the 2025 fallback
+  `Run_2025_ceattle.R` the objects at those lines are all assigned earlier in the same file.
+  Whatever revision that described is gone. Re-derive against the script you actually run before
+  repeating the claim.
 - Its `file =` arguments write **into the assessment repo**. Run it from a sandbox that
   symlinks `Data/`.
 - Force plots through `ggplot2::ggplot_build()`. A figure that assembles but cannot render is
