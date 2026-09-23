@@ -64,12 +64,9 @@
 #'   `loopnum`, `newtonsteps`, `TMBfilename`, `verbose`, `nlminb_control`).
 #'   Defaults to `fit_control()`. See [fit_control()] for the meaning and
 #'   defaults of each field.
-#' @param config (Optional) An `Rceattle_run_config` from [load_config()] (or
-#'   [run_config()]). Its stored `model_config` structure and estimation controls
-#'   (`estimateMode`, `random_rec`/`random_q`/`random_sel`, `suit_styr`/
-#'   `suit_endyr`, `fit_control`) overlay only the arguments the caller did *not*
-#'   pass -- an explicit argument always wins. `NULL` (default) applies no
-#'   configuration. Example: `fit_mod(data_list, config = load_config("run.yaml"))`.
+#' @param config (Optional) An `Rceattle_run_config` from [load_config()] or
+#'   [run_config()] whose stored settings overlay the ones you did not pass;
+#'   `NULL` (default) applies no configuration. See Details for what it overlays.
 #' @param quiet_data_check Drop the warnings the fit-time validation raises (errors still
 #'   stop the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
 #'   -- [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
@@ -98,6 +95,19 @@
 #' Hassell-Varley, Ecosim) are blocked at runtime by \code{data_check()}
 #' because the implementations have not been validated against the
 #' current parameter set. See \code{src/TMB/predation.hpp}.
+#'
+#' **What `config` overlays.** Two overlays happen, at different levels. The
+#' estimation controls (`estimateMode`, `random_rec` / `random_q` /
+#' `random_sel`, `suit_styr` / `suit_endyr`, `fit_control`) overlay only the
+#' arguments you did not pass, so an explicit argument always wins. The stored
+#' `model_config` is merged into the data object's **field by field**, not
+#' wholesale: only the fields the config actually set are imposed, and the data
+#' object keeps the rest. Since 5.36.0 a config built with [model_config()]
+#' therefore no longer drops the linkages held on the data object, which it
+#' did when the whole structure was replaced. Where a field is set on both and
+#' the two disagree, the config's value is used and the difference is reported
+#' as a warning naming the field. A config written before that field record
+#' existed is treated as having set its non-default fields.
 #'
 #'
 #' @section Initial age structure:

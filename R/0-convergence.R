@@ -860,10 +860,11 @@
 #'
 #' \code{fit_mod()} runs this automatically and attaches the result as
 #' \code{fit$convergence}; call \code{convergence_diagnostics()} directly to
-#' re-run it on any fit. Checks cover the optimizer gradient, Hessian
-#' positive-definiteness and conditioning, parameters on bounds, a deviation
-#' variance estimated to zero, phasing, parameter estimability, a numbers-at-age
-#' or recruitment floor that was reached, and the stock-recruit curve.
+#' re-run it on any fit. Checks cover the optimizer gradient, a requested
+#' \code{sdreport} that did not return, Hessian positive-definiteness and
+#' conditioning, parameters on bounds, a deviation variance estimated to zero,
+#' phasing, parameter estimability, a numbers-at-age, Ricker-intercept or
+#' recruitment floor that was reached, and the stock-recruit curve.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param ... Currently unused.

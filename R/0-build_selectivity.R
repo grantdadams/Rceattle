@@ -58,7 +58,9 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' `fit$quantities$sel_at_age`. Only the contrast between the sexes is
 #' identified (the common level is `log_F`), so one sex carries it and the fit
 #' is refused if both do, if no fleet or no sex is named, if the species has
-#' one sex, or on a `Fixed`, AR1 or mirror fleet. It is also refused where
+#' one sex, on a `Fixed`, AR1 or mirror fleet, or under `link = "identity"`,
+#' which could drive the multiplier negative; use the default `link = "log"`.
+#' It is also refused where
 #' `Sel_norm_scope = "WithinSex"` normalization would divide it straight back
 #' out; use `"AcrossSexes"`, under which the more-selected sex peaks at 1, or
 #' turn `Sel_norm_bin` off. The contrast is informed only by joint composition

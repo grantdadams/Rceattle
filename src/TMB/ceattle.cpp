@@ -77,10 +77,11 @@ struct LOM_t : vector<matrix<Type> > {
  *  5. Initial calculations
  *  6. Population dynamics
  *  7. Predation mortality equations
- *  9. Survey components
- *  10. Fishery components
- *  11. Compositon data components
- *  12. Diet data components
+ *  8. Index components equations
+ *  9. Fishery components equations
+ *  10. Composition equations
+ *  11. Predicted stomach content
+ *  12. Derived quantities
  *  13. Likelihood components
  *  14. Report section
  *  15. Model return/end
@@ -242,8 +243,8 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_X_col);         // 0-based column of linkage_X
   DATA_IVECTOR(linkage_link);          // identity=0, log=1, logit=2
   // Only an identity-link recruitment offset can make the curve non-positive, so
-  // the recruitment floors (6.6.1, 6.6, 6.10) run only then; every other model's
-  // AD tape is left exactly as it was.
+  // the recruitment floors (sections 6.3, 6.5, 6.6 and 6.9) run only then; every
+  // other model's AD tape is left exactly as it was.
   int rec_floor_on = 0;
   for (int i = 0; i < linkage_link.size(); ++i) {
     if (linkage_process(i) == RCEATTLE_PROC_RECRUIT && linkage_link(i) == 0) rec_floor_on = 1;
