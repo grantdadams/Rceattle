@@ -150,5 +150,12 @@ print.Rceattle_model_config <- function(x, ...) {
   cat("  growthFun: build_growth(fun =",
       if (!is.null(x$growthFun$fun)) x$growthFun$fun else x$growthFun$growth_model,
       ")\n")
+  # Only the fields recorded here overlay a data object's own model_config in
+  # fit_mod(config = ); the rest keep the data's. Print them so the overlay can
+  # be checked before fitting rather than from the per-field warnings it raises.
+  set <- attr(x, "set")
+  if (!is.null(set)) {
+    cat("  imposes :", if (length(set)) paste(set, collapse = ", ") else "(nothing)", "\n")
+  }
   invisible(x)
 }

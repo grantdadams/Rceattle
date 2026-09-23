@@ -458,7 +458,22 @@ osa_residuals <- function(object = NULL,
   # Check the method here rather than letting TMB reject it one observation group
   # at a time: the group split below reads it, so a typo would otherwise pick the
   # wrong split before failing.
+  .method_defaulted <- missing(method)
   method <- match.arg(method, choices = .OSA_METHODS)
+
+  # On composition data the package default is the method its own scoring table
+  # rejects: residualized at the parameters that simulated the data it fails the
+  # KS test on every replicate, where method = "cdf" passes (?osa_residuals,
+  # "Choosing a method"). The default stays put because "cdf" returns non-finite
+  # residuals in bulk on a deeply nested random-effects model, but a caller who
+  # never chose a method should be told which one they got.
+  if (.method_defaulted && any(c("comp", "caal", "diet") %in% source)) {
+    message("osa_residuals(): composition residuals are being computed with the default ",
+            "method = \"", method, "\", which is biased on composition data. ",
+            "method = \"cdf\" is the only one that passes a self-test there; it can return ",
+            "non-finite residuals on a model with many random effects. ",
+            "See the \"Choosing a method\" section of ?osa_residuals.")
+  }
 
   # Whether to treat a composition observation as the discrete count it is.
   # Default TRUE under method = "cdf" and FALSE otherwise, which leaves every

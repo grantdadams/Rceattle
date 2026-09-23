@@ -179,6 +179,22 @@ version throughout.
   pre-existing `"TruncatedNormal"` split. Fixed-effect models are unaffected,
   and `verify-refit-like.R` is bit-identical.
 
+## Ease of use
+
+* **`osa_residuals()` says when composition residuals are taken at the default
+  method.** The default is biased on composition data by the scoring table in
+  `?osa_residuals`, and stays the default because `"cdf"` returns non-finite
+  residuals in bulk on a deeply nested random-effects model. Naming any method,
+  the default included, is taken as a choice and stays silent.
+* **The install commands in the README and `?print.Rceattle` work as written.**
+  The version pin pointed at 4.3.0 and the tag convention was documented as
+  `@vX.Y.Z`; releases since 5.0.0 are tagged bare. The example links pointed at
+  `blob/master`, and there is no `master` branch.
+* **`print()` on a `model_config` lists the fields it imposes.** `fit_mod(config = )`
+  overlays only the fields the config set, so this is what a config will change
+  on a data object, readable before fitting rather than from the warnings the
+  fit raises.
+
 # Rceattle 5.40.0
 
 ## New features
