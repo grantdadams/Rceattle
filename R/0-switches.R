@@ -82,8 +82,10 @@ sel_map <- c(
   "DoubleNormal" = 8,
   "NonParametricPM" = 9,  # Ianelli non-parametric, ADMB AMAK ("pm") selectivity penalty
   "LogisticPM" = 11,      # ADMB AMAK ("pm") BTS: logistic (multiplicative inflection/slope devs) + free age-1 log-selectivity
-  "NonParametricIID" = 13, # Ianelli base curve with iid annual deviates carrying a proper density (integrable)
-  "NonParametricRW"  = 14  # Ianelli base curve with random-walk increments carrying a proper density (integrable)
+  # Ianelli base curve whose deviations have a proper density, so random_sel can
+  # integrate them. Time_varying_sel picks the structure: "Off" (none), "IID" or
+  # "RandomWalk". Codes 10, 12 and 14 are unused.
+  "NonParametricIntegrable" = 13
 )
 
 # Whether selectivity normalization pools its reference across sexes. Orthogonal
@@ -214,14 +216,14 @@ index_distribution_map <- c(
 #' family whose `Log_sd` is a CV / log-sd; `MVN` (1), `MVNORM` (2), `Normal` (3)
 #' and `TruncatedNormal` (4) are natural-scale families whose sd is ABSOLUTE, in
 #' the units of the index. Applying a log-scale formula to the second group does
-#' not error -- it silently returns nonsense, because `sigma^2 / 2` is then a
+#' not error, it silently returns nonsense, because `sigma^2 / 2` is then a
 #' number the size of the index squared.
 #'
 #' A new natural-scale family has to be added to the vector below as well as to
 #' `index_distribution_map`, or every fleet using it silently reverts to the
 #' log-scale treatment this function exists to prevent.
 #'
-#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @param data_list A `data_list` holding `fleet_control` and `index_data`.
 #' @return Logical, one per `index_data` row; `FALSE` where the fleet is
 #'   lognormal or cannot be resolved.
 #' @keywords internal
@@ -243,7 +245,7 @@ index_distribution_map <- c(
 }
 
 
-#' Fleet codes that carry survey-index observations the model fits
+#' Fleet codes that hold survey-index observations the model fits
 #'
 #' An index is a property of the data, not of the fleet type: the model scores
 #' an `index_data` row for any fleet that is not `Off`, so a fishery with a CPUE
@@ -251,7 +253,7 @@ index_distribution_map <- c(
 #' `Fleet_type == "Survey"` instead is what left such a fleet with its
 #' catchability frozen and its index absent from `plot_index()`.
 #'
-#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @param data_list A `data_list` holding `fleet_control` and `index_data`.
 #' @param fitted_only Keep only rows the likelihood uses (positive `Year`, at or
 #'   before `endyr`). A prediction-only row is not an observation and must not,
 #'   for instance, make catchability estimable.
@@ -515,8 +517,8 @@ msmMode_map <- c(
 #'
 #' The one place the column is read, since it holds either a word or a bin.
 #' Blank means do not normalize, and "Max" the largest value. A value below the
-#' fleet's first bin also means the largest value -- that is what a negative has
-#' always meant -- so `lo` must be the fleet's own first bin: the species' minage
+#' fleet's first bin also means the largest value: that is what a negative has
+#' always meant, so `lo` must be the fleet's own first bin: the species' minage
 #' on an age-based fleet, 1 on a length-based one. On a stock recruiting at age 0
 #' a `Sel_norm_bin` of 0 is the first age, not a flag.
 #'
@@ -660,10 +662,24 @@ switch_check <- function(data_list){
   data_list$estDynamics <- set_default(data_list$estDynamics, rep(0, data_list$nspp), "'estDynamics' are not included in data, assuming 0")
   # Code 3 was retired in 5.35.0: it never estimated an age-specific multiplier
   # and fitted as 2, so a stored fit is rebuilt with 2 and is unchanged.
-  if (any(data_list$estDynamics %in% c(3, "3", "FixedScaledByAge"))) {
-    stop("estDynamics = 3 ('FixedScaledByAge') was retired in 5.35.0: it never ",
-         "estimated an age-specific multiplier and fitted as 2 ('FixedScaled'). ",
-         "Set estDynamics = 2; the fit is unchanged.", call. = FALSE)
+  .ed3 <- which(data_list$estDynamics %in% c(3, "3", "FixedScaledByAge"))
+  if (length(.ed3)) {
+    # estDynamics is per species, so name the ones to edit rather than the value.
+    # Only when it really is per species: a scalar applies to every species, and
+    # naming the first would send the user to the wrong cell.
+    .per_sp <- length(data_list$estDynamics) == data_list$nspp
+    .who <- if (!.per_sp) {
+      "every species"
+    } else if (!is.null(data_list$spnames) &&
+               length(data_list$spnames) >= max(.ed3)) {
+      paste(data_list$spnames[.ed3], collapse = ", ")
+    } else {
+      paste0("species ", paste(.ed3, collapse = ", "))
+    }
+    stop("estDynamics = 3 ('FixedScaledByAge') for ", .who,
+         " was retired in 5.35.0: it never estimated an age-specific multiplier ",
+         "and fitted as 2 ('FixedScaled'). Set estDynamics = 2 for ", .who,
+         "; the fit is unchanged.", call. = FALSE)
   }
   # Resolve readable strings ("Fixed"/"Estimated"/...) to integer codes now --
   # build_map()/build_params() read estDynamics numerically, before
@@ -769,7 +785,7 @@ switch_check <- function(data_list){
   # when such a fleet is present, otherwise default silently (avoids noise for
   # logistic-only models).
   .np_hake <- any(data_list$fleet_control$Selectivity %in%
-                    c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIID", 14, "NonParametricRW", 5, "Hake", 11, "LogisticPM"))
+                    c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIntegrable", 5, "Hake", 11, "LogisticPM"))
   # Intuitive alternative to the cryptic selectivity penalty WEIGHTS: express each
   # as a standard deviation. Every such penalty is a Gaussian SSQ
   # `weight * x^2 = x^2 / (2*sd^2)`, so `weight = 1/(2*sd^2)`. A fleet may supply
@@ -788,7 +804,7 @@ switch_check <- function(data_list){
   .had_sel_curve_pen <- "Sel_curve_pen1" %in% names(data_list$fleet_control)
   .fc  <- data_list$fleet_control
   .col <- function(nm) if (is.null(.fc[[nm]])) rep(NA_real_, nrow(.fc)) else suppressWarnings(as.numeric(.fc[[nm]]))
-  .np  <- c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIID", 14, "NonParametricRW")
+  .np  <- c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIntegrable")
   .lpm <- c(11, "LogisticPM")
   # SD column -> (target Sel_curve_pen slot, forms that use it as a weight). Both
   # NonParametric (2/9) and LogisticPM (11) use pen1 (shape) and pen3 (dev-mag) as
@@ -856,7 +872,7 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_pen_last_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_last_bin, "Sel_pen_last_bin", .sch)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
   data_list$fleet_control$Sel_shape_mode <- .rce_apply_default(data_list$fleet_control$Sel_shape_mode, "Sel_shape_mode", .sch)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
   data_list$fleet_control$Sel_avgsel_pen <- .rce_apply_default(data_list$fleet_control$Sel_avgsel_pen, "Sel_avgsel_pen", .sch)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
-  data_list$fleet_control$Sel_cap_bin <- .rce_apply_default(data_list$fleet_control$Sel_cap_bin, "Sel_cap_bin", .sch)  # NonParametricRPM bin cap (NA -> no cap)
+  data_list$fleet_control$Sel_cap_bin <- .rce_apply_default(data_list$fleet_control$Sel_cap_bin, "Sel_cap_bin", .sch)  # NonParametricPM bin cap (NA -> no cap)
   data_list$fleet_control$Selectivity_dimension <- .rce_apply_default(data_list$fleet_control$Selectivity_dimension, "Selectivity_dimension", .sch, conditions = .dflt_when)
   data_list$fleet_control$Comp_distribution <- .rce_apply_default(data_list$fleet_control$Comp_distribution, "Comp_distribution", .sch)
   data_list$fleet_control$CAAL_distribution <- .rce_apply_default(data_list$fleet_control$CAAL_distribution, "CAAL_distribution", .sch, conditions = .dflt_when)
@@ -904,7 +920,7 @@ switch_check <- function(data_list){
   # same number, so the value cannot tell an un-upgraded workbook from a modern
   # one, while the column's absence can. 0 and 1 are modes, not weights -- a
   # fleet meaning "time-invariant" is not asking for a shape weight of 0.
-  np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIID", 14, "NonParametricRW")
+  np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 13, "NonParametricIntegrable")
   .tv_num <- suppressWarnings(as.numeric(data_list$fleet_control$Time_varying_sel))
   # Only the two original codes can appear in a pre-4.4 workbook.
   np_legacy_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
@@ -1183,9 +1199,9 @@ revert_switches <- function(data_list) {
 #' means adding a row, not another hardcoded map reference in this file.
 #'
 #' The per-column subset predicate and the wording of the error stay at the call
-#' site. They are not uniform -- `Time_varying_q` is exempt while `Catchability`
+#' site. They are not uniform, `Time_varying_q` is exempt while `Catchability`
 #' is `"Environmental"`, `Catchability` itself allows `NA`, and the newer
-#' columns may be absent entirely on a list `switch_check()` has not yet seen --
+#' columns may be absent entirely on a list `switch_check()` has not yet seen,
 #' and flattening that into one generic loop would lose real behaviour.
 #'
 #' @param col Canonical column name.
@@ -1530,8 +1546,8 @@ convert_switches <- function(data_list) {
 #' reporting there printed the same message three times per fit and roughly
 #' twenty times per `retrospective()`.
 #'
-#' Only an exact 1 is reported -- the model value. Any other number was typed
-#' deliberately and needs no comment. Off fleets and fleets carrying no data for
+#' Only an exact 1 is reported, the model value. Any other number was typed
+#' deliberately and needs no comment. Off fleets and fleets holding no data for
 #' the composition in question are skipped: their weight is never read.
 #'
 #' @param data_list a data list, after `switch_check()` has resolved the

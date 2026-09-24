@@ -40,7 +40,7 @@ For operational / management use, pin a specific tagged release rather than
 tracking `main`, e.g.:
 
 ```r
-remotes::install_github("grantdadams/Rceattle@4.3.0")
+remotes::install_github("grantdadams/Rceattle@5.41.0")
 ```
 
 The maintainer email in `DESCRIPTION` (`grant.adams@noaa.gov`) is the
@@ -139,12 +139,12 @@ and Wiki. The model can be updated following instructions
 
 **Examples**
 Additional code and function examples using data from the Bering Sea and Gulf of Alaska groundfish applications can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder and include:
-* [Fitting single-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_single-species_models.R)
-* [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_multi-species_model.R)
-* [Estimating growth](https://github.com/grantdadams/Rceattle/blob/master/examples/Growth_estimation.R)
-* [Alternative HCRs and MSE testing](https://github.com/grantdadams/Rceattle/blob/master/examples/HCRs_and_MSE_testing.R)
-* [Simulation](https://github.com/grantdadams/Rceattle/blob/master/examples/Simulation_testing.R)
-* [Model diagnostics](https://github.com/grantdadams/Rceattle/blob/master/examples/Model_diagnostics.R)
+* [Fitting single-species models](https://github.com/grantdadams/Rceattle/blob/main/examples/Fit_2018_GOA_single-species_models.R)
+* [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/main/examples/Fit_2018_GOA_multi-species_model.R)
+* [Estimating growth](https://github.com/grantdadams/Rceattle/blob/main/examples/Growth_estimation.R)
+* [Alternative HCRs and MSE testing](https://github.com/grantdadams/Rceattle/blob/main/examples/HCRs_and_MSE_testing.R)
+* [Simulation](https://github.com/grantdadams/Rceattle/blob/main/examples/Simulation_testing.R)
+* [Model diagnostics](https://github.com/grantdadams/Rceattle/blob/main/examples/Model_diagnostics.R)
 
 **References**
 
@@ -155,6 +155,16 @@ Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2016). A 
 Kristensen, K., Nielsen, A., Berg, C. W., Skaug, H., & Bell, B. (2015). TMB: automatic differentiation and Laplace approximation. arXiv preprint arXiv:1509.00660.
 
 Wassermann, S. N., Adams, G. D., Haltuch, M. A., Kaplan, I. C., Marshall, K. N., & Punt, A. E. (2025). Even low levels of cannibalism can bias population estimates for Pacific hake. ICES Journal of Marine Science, 82(1), fsae064.
+
+## Contributing
+
+Bug reports and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers
+the toolchain, how to run the tests, and the conventions a change is held to. Two
+articles go deeper: the
+[developer guide](https://grantdadams.github.io/Rceattle/articles/developer-guide.html)
+for the fit pipeline, the switch system and the column schema, and
+[adding a selectivity form](https://grantdadams.github.io/Rceattle/articles/adding-a-selectivity-form.html)
+for one extension traced end to end.
 
 ## Disclaimer
 

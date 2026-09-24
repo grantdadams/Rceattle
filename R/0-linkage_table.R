@@ -128,8 +128,8 @@ LINKAGE_LINKS <- c("identity", "log", "logit")
 #' Link functions with a C++ accumulator behind them
 #'
 #' Every accumulator in `src/TMB/linkage.hpp` gates on `linkfn == 1` (log) or
-#' `linkfn == 0` (identity). `"logit"` stays reserved -- the code is referenced
-#' by the C++ header -- but is rejected until an accumulator implements it;
+#' `linkfn == 0` (identity). `"logit"` stays reserved, the code is referenced
+#' by the C++ header, but is rejected until an accumulator implements it;
 #' the processes wired today expose only log-scale parameters.
 #'
 #' @keywords internal
@@ -159,7 +159,7 @@ LINKAGE_LINKS_IMPLEMENTED <- c("identity", "log")
 #' Construct an empty linkage table with the canonical schema
 #'
 #' @return An empty `data.frame` with the columns and types defined in
-#'   [LINKAGE_COLS], carrying class `c("Rceattle_linkage_table", "data.frame")`.
+#'   [LINKAGE_COLS], holding class `c("Rceattle_linkage_table", "data.frame")`.
 #' @keywords internal
 new_linkage_table <- function() {
   cols <- lapply(LINKAGE_COLS, function(type) {
@@ -400,7 +400,7 @@ linkage_row <- function(process, param, X_col,
 #'
 #' @param row a one-row slice of an `Rceattle_linkage_table`.
 #' @param data_list the data list (used for `nspp`, `nsex`, `nages`).
-#' @return a list with components `species`, `sex`, `age` -- each a list
+#' @return a list with components `species`, `sex`, `age`, each a list
 #'   keyed by species id, giving the sex/age index vectors to apply for
 #'   that species.
 #' @keywords internal
@@ -433,7 +433,7 @@ linkage_row <- function(process, param, X_col,
 #' length midpoint. Slot 2 is an inflection for the logistic family, but
 #' DoubleNormal reuses it as `logit(right_floor)` and LogisticPM as a log
 #' age-1 selectivity override. A value written on the wrong one of those is
-#' silently wrong -- `right_floor = 0.2` would become `plogis(0.2) = 0.55` --
+#' silently wrong, `right_floor = 0.2` would become `plogis(0.2) = 0.55`,
 #' so the transformed slots are refused rather than guessed at.
 #'
 #' @param param linkage parameter name; `slot` its `.SEL_PARAM_TO_SLOT` index.
@@ -449,14 +449,14 @@ linkage_row <- function(process, param, X_col,
 #' Is this fleet a follower in a shared selectivity / catchability block?
 #'
 #' `Selectivity_index` / `Catchability_index` are group keys, not fleet codes:
-#' fleets carrying the same value estimate ONE parameter block, and
+#' fleets holding the same value estimate ONE parameter block, and
 #' `adjust_map_shared_params()` copies the group's donor slice over the rest.
-#' The donor is the first estimated fleet in the group -- the same rule
+#' The donor is the first estimated fleet in the group, the same rule
 #' `.group_lead()` applies for `flt_sel_lead` / `flt_q_lead`, and the reason an
 #' `Off` fleet (whose slice is all NA) never leads. A value set on the donor is
 #' what the whole group uses; one set on any other member is overwritten.
 #'
-#' A group of one is not shared, whatever its key happens to be -- a survey
+#' A group of one is not shared, whatever its key happens to be, a survey
 #' catchability counter runs 1..n_survey and rarely matches the fleet code.
 #'
 #' @return `NA_integer_` if `flt` is not a follower, otherwise the fleet code of

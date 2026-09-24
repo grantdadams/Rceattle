@@ -189,7 +189,7 @@
 #' Coordinate columns are `NA` where the axis does not apply to a block. The
 #' linkage and environmental-covariate blocks (`beta_linkage`, `M1_beta`, ...)
 #' are indexed by a linkage-table row rather than a model coordinate, so they
-#' carry no coordinates and are reported by element number.
+#' hold no coordinates and are reported by element number.
 #'
 #' A selectivity `slot` is named from the fleet's `Selectivity`: slot 2 of
 #' `sel_inf` is a descending inflection for the double-logistic family, the
@@ -198,7 +198,7 @@
 #'
 #' Under `estimateMode = "Estimate"` with any HCR but `"NoFishing"`, `object$obj`
 #' is the projection object, whose only free parameters are `log_Ftarget` /
-#' `log_Flimit` -- so the index describes those, not the hindcast.
+#' `log_Flimit`, so the index describes those, not the hindcast.
 #' `fit$convergence` reads the hindcast index that [fit_mod()] captured before
 #' the projection remapped the model, and checks it against the vector it is
 #' labelling either way.

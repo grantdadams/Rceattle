@@ -156,7 +156,7 @@ user a shifted curve, not a lowered one.
 `random_sel = TRUE` the Laplace approximation integrates a tilted density and the reported
 deviation SD is not the SD of the deviations. Rather than move the penalty and change every
 penalized AMAK fit, two forms were added that carry a proper density:
-`NonParametricIID` (13) and `NonParametricRW` (14), one per combination the guard refuses.
+`NonParametricIntegrable` (13), one per combination the guard refuses.
 `NonParametric` and `NonParametricPM` are bit-identical and still refuse `random_sel = TRUE`;
 the refusal names the new forms. **The two refusals have different reasons**, and the pointers
 in `NEWS.md` and in `build_map()`'s roxygen land here for both: under `IID` the shape penalties are

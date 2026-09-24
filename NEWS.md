@@ -3,7 +3,7 @@ Version-numbering note. Three gaps in this file are deliberate, not lost entries
 
   * 4.14.0 was a real DESCRIPTION version whose entries were folded into 5.0.0.
   * 5.2.0-5.2.4 were likewise folded into 5.3.0.
-  * main's 4.9.0 / 4.9.1 are the same recruitment changes this line carries as
+  * main's 4.9.0 / 4.9.1 are the same recruitment changes this line has as
     5.5.0 / 5.5.1, applied to the two lines separately.
 
 No tag existed above 4.8.0 while these were in flight, so nobody could have installed an
@@ -19,11 +19,11 @@ version throughout.
 * **`osa_residuals(method = "cdf")`.** The one-step-ahead residual is defined
   through the conditional CDF, `qnorm(F(x))`, and is standard normal by the
   probability integral transform whatever shape the conditional has. Until now
-  the model could not supply that CDF, so only the Gaussian methods -- which
-  approximate the conditional as normal and standardize the observation against
-  its conditional mode -- were available. The template now supplies it: the
+  the model could not supply that CDF, so only the Gaussian methods were
+  available; those approximate the conditional as normal and standardize the
+  observation against its conditional mode. The template now supplies it: the
   continuous binomial `1 - I_p(x + 1, n - x)` for a composition bin, which is
-  defined at the fractional counts composition data carry, and `pnorm` for the
+  defined at the fractional counts composition data hold, and `pnorm` for the
   aggregate index, catch and covariate series (`src/TMB/comp_osa.hpp`, gated by
   `keep.cdf_lower` / `keep.cdf_upper` under a new `osa_mode = 2`). The fitted
   objective is untouched: the gates are zero except inside a
@@ -45,7 +45,7 @@ version throughout.
   series, which are genuinely Gaussian, all three agree to 5e-5 and all three
   pass.
 
-* **`discrete` now defaults per method** -- `TRUE` under `"cdf"`, `FALSE`
+* **`discrete` now defaults per method:** `TRUE` under `"cdf"`, `FALSE`
   otherwise, which is what every method that existed before this one already
   did. The default changed from `FALSE` to `NULL` to express that; passing
   `TRUE` or `FALSE` explicitly still does exactly what it did, and `FALSE` under
@@ -54,8 +54,8 @@ version throughout.
   `TRUE` under `"cdf"`: a composition bin holds a count, so its conditional CDF
   is a step function and `qnorm(F(x))` inherits the step, which is why the
   middle row of the table above is the worst of the three rather than the best.
-  Randomizing over the step -- `qnorm(F(x) - U f(x))`, Dunn and Smyth (1996),
-  the construction Trijoulet et al. (2023) prescribe -- removes it. The
+  Randomizing over the step removes it: `qnorm(F(x) - U f(x))`, Dunn and Smyth
+  (1996), the construction Trijoulet et al. (2023) prescribe. The
   randomization is drawn serially under `seed` after the per-observation loop
   returns, so this method stays bit-reproducible with `parallel = TRUE`, and
   `attr(osa, "discrete")` records what was used.
@@ -71,8 +71,8 @@ version throughout.
   default too: only `method = "oneStepGaussian"` ever returns one.)
 
   This is also what resolves the negative composition `predicted` values
-  reported as issue #108 point 1 -- 404 of 4538 rows on BS2017SS, minimum
-  -10.86, each carrying a positive-biased residual. Under `"cdf"` no expected
+  reported as issue #108 point 1: 404 of 4538 rows on BS2017SS, minimum
+  -10.86, each with a positive-biased residual. Under `"cdf"` no expected
   count is formed at all. The Gaussian methods still report and warn about them,
   unchanged; WHAM does the same thing on its own example, so this is not an
   Rceattle defect.
@@ -87,16 +87,16 @@ version throughout.
 
 * **Known limitation: compositions at scale under random effects.** On a
   random-effects model with a large composition data set, `method = "cdf"`
-  returns non-finite residuals in bulk and is very slow -- on `BS2017SS` with
+  returns non-finite residuals in bulk and is very slow. On `BS2017SS` with
   `random_rec = TRUE` (159 random effects, 4538 composition bins), **1879 of
   4538 residuals are non-finite** against 0 for `"oneStepGaussianOffMode"` on
   the same fit. The failures are a contiguous tail and the same rows come back
   clean when residualized on their own, so it is the depth of the conditioning,
   not the observations; redoing the tail on a fresh call recovers nothing.
-  What binds is that depth, not the presence of random effects -- the same
+  What binds is that depth, not the presence of random effects: the same
   method residualizes 1680 composition bins on a 22-random-effect model
   correctly. **So try `"cdf"`, and when the warning reports non-finite residuals
-  in bulk, fall back to a Gaussian `method` for that source** -- taking its
+  in bulk, fall back to a Gaussian `method` for that source**, taking its
   composition residuals as under-dispersed by about a factor of two and a half
   (the numbers are in the bullet below). `"cdf"` is sound on fixed-effect
   models, and on random-effects models for the aggregate and covariate series.
@@ -108,28 +108,28 @@ version throughout.
   ships (`contrib/OSA_multivariate_dists-main/distr.hpp`) sums the pmf over
   `0..floor(x)`, which is a step function of a fractional count and costs `O(x)`
   beta functions per bin. This is said rather than approximated quietly,
-  because a missing CDF term does not fail loudly -- it makes both tails equal,
+  because a missing CDF term does not fail loudly. It makes both tails equal,
   giving `Fx = 0.5` and a residual of exactly 0 for every bin.
 
 * **`|residual|` is censored at 8.04 under `"cdf"`, in both directions, and
   `osa_residuals()` warns when any residual sits there.** The upper end is
   forced: `Fx` is recovered from `1 / (1 + exp(nlcdf.lower - nlcdf.upper))` in
   double precision, which saturates at the last double below one, so nothing
-  reading a CDF can report past 8.21 on that side. The lower end is *not* --
-  that expression carries a small `F` down to about 1e-308, a residual of -37 --
-  and is censored to match anyway, because an asymmetric ceiling would show as a
+  reading a CDF can report past 8.21 on that side. The lower end is *not*
+  forced: that expression takes a small `F` down to about 1e-308, a residual of
+  -37. It is censored to match anyway, because an asymmetric ceiling would show as a
   long left tail against a wall on the right, which is what skewness in the
   residuals looks like. The cost is real: `osa_diagnostics()` computes SDNR and
   the tail statistics on the censored values, and it bites hardest on a short
-  series where one observation carries the statistic. Which method to reach for
+  series where one observation drives the statistic. Which method to reach for
   then is measured rather than asserted
   (`tools/verify/verify-osa-cdf-accuracy.R`, a 12-year survey with one
   observation multiplied by 200): `"oneStepGaussian"` reports it uncensored at
   38.98 (SDNR 12.89), `"cdf"` censors to 8.04 (SDNR 4.59), `"oneStepGeneric"`
   compresses it to 3.33 (SDNR 2.21), and the package default
   `"oneStepGaussianOffMode"` returns `NaN` there, making its SDNR unusable
-  rather than merely large. That last failure is magnitude-dependent -- at a x20
-  outlier the default is finite and matches `"oneStepGaussian"` -- so **reach
+  rather than merely large. That last failure is magnitude-dependent: at a x20
+  outlier the default is finite and matches `"oneStepGaussian"`, so **reach
   for `"oneStepGaussian"` specifically**, not for "a Gaussian method", and on
   the fleet in question rather than a whole composition source, since it costs
   an `nlminb` per observation. The template shrinks the CDF away from 0 and 1 by
@@ -143,26 +143,26 @@ version throughout.
   a linear-Gaussian state space model, `fullGaussian` and `oneStepGaussian` are
   exact to machine precision while `"cdf"` errs by 7e-4 to 4e-2 as the latent
   state becomes more informative. **That is a result about a LINEAR-Gaussian
-  model and does not carry over wholesale**: the Gaussian methods are exact when
+  model and does not transfer wholesale**: the Gaussian methods are exact when
   the one-step-ahead predictive is Gaussian, which needs the model to be linear
   in the random effects, and Rceattle's index and catch are `exp()` of cumulated
   log recruitment deviations through the population dynamics. `fullGaussian` and
   `oneStepGaussian` cannot differ for a Gaussian conditional, and on a
   17-deviation fixture they differ by 0.091 on both index and catch, where
-  `"cdf"` differs from `oneStepGaussian` by 0.017 on index -- so **no method is
+  `"cdf"` differs from `oneStepGaussian` by 0.017 on index, so **no method is
   exact for index or catch under random effects** and this release does not
   claim one. **`"ecov"` is the exception**: its conditional genuinely is
   linear-Gaussian, the two Gaussian methods agree there to 4e-14, and `"cdf"`
-  sits 0.139 away -- about a quarter of the residual sd -- so prefer a Gaussian
+  sits 0.139 away, about a quarter of the residual sd, so prefer a Gaussian
   method for that source. It does not reverse for
-  compositions, whose conditional is discrete and skewed -- exactly what the
+  compositions, whose conditional is discrete and skewed, exactly what the
   Gaussian methods get wrong, and by much more. Simulating from a
   22-random-effect model with the recruitment deviations redrawn (1680
   residuals): `oneStepGaussianOffMode` gives mean +0.513, sd 0.404 and KS
   rejection in 120 of 120 replicates; `"cdf"` with `discrete = TRUE` gives mean
   +0.006, sd 1.002 and 6 of 120, the nominal 5%.
 
-  Both halves of that split are what the SAM authors do across two packages --
+  Both halves of that split are what the SAM authors do across two packages.
   `stockassessment::residuals.sam()` takes the Gaussian default with
   `discrete = FALSE`, their composition package `compResidual::resMulti()`
   hardcodes `method = "cdf", discrete = TRUE`. Rceattle fits both kinds of data,
@@ -174,44 +174,63 @@ version throughout.
   composition and aggregate rows must be split into separate calls under
   `"cdf"` because they need different `discrete` settings, and without this the
   split zeroed the aggregate data terms while the compositions were
-  residualized -- which on a random-effects model moved the composition
+  residualized, which on a random-effects model moved the composition
   residuals by up to 0.99 on a 21-random-effect fixture. It also improves the
   pre-existing `"TruncatedNormal"` split. Fixed-effect models are unaffected,
   and `verify-refit-like.R` is bit-identical.
+
+## Ease of use
+
+* **`osa_residuals()` says when composition residuals are taken at the default
+  method.** The default is biased on composition data by the scoring table in
+  `?osa_residuals`, and stays the default because `"cdf"` returns non-finite
+  residuals in bulk on a deeply nested random-effects model. Naming any method,
+  the default included, is taken as a choice and stays silent.
+* **The install commands in the README and `?print.Rceattle` work as written.**
+  The version pin pointed at 4.3.0 and the tag convention was documented as
+  `@vX.Y.Z`; releases since 5.0.0 are tagged bare. The example links pointed at
+  `blob/master`, and there is no `master` branch.
+* **`print()` on a `model_config` lists the fields it imposes.** `fit_mod(config = )`
+  overlays only the fields the config set, so this is what a config will change
+  on a data object, readable before fitting rather than from the warnings the
+  fit raises.
 
 # Rceattle 5.40.0
 
 ## New features
 
-* **Two non-parametric selectivity forms whose deviates integrate.**
-  `NonParametric` charges its shape penalties on each year's realized curve,
-  so under `random_sel = TRUE` the density the Laplace approximation
-  integrates is tilted and the reported deviation SD is not the SD of the
-  deviations; `fit_mod()` refuses that combination, and the random-walk mode
-  for its own reason (`inst/dev/TODO-selectivity.md`). Two
-  new forms keep `NonParametric` and `NonParametricPM` exactly as they are and
-  add a proper density: `Selectivity = "NonParametricIID"` (code 13) is the
-  Ianelli base curve with iid annual deviates, `"NonParametricRW"` (14) the
-  same base with random-walk increments (the start-year increment fixed at
-  0), each taking only the `Time_varying_sel` mode its density describes. The
-  decreasing, curvature and average-selectivity penalties are charged once on
-  the base coefficients, and the deviates are scored by `dnorm(0, sel_dev_sd)`
-  on the estimated bins, so `random_sel = TRUE` estimates the SD from a
-  complete density. With `Time_varying_sel = "Off"` both give the
-  `NonParametric` objective to the last digit, at any `Bin_first_selected`;
-  `NonParametricRW` reads no `Sel_cap_bin`. `fit_mod()`'s refusals now name
-  them as the alternative. The per-year mean of a year's deviates is removed by
-  the curve's centring, so the data never see it: under `random_sel = TRUE` it
-  integrates out exactly, under `random_sel = FALSE` those directions are pure
-  prior.
+* **A non-parametric selectivity form whose deviations integrate.**
+  `NonParametric` charges its shape penalties on each year's realized curve, so
+  under `random_sel = TRUE` the density the Laplace approximation integrates is
+  tilted and the reported deviation SD is not the SD of the deviations;
+  `fit_mod()` refuses that combination, and the random-walk mode for its own
+  reason (`inst/dev/TODO-selectivity.md`). `Selectivity =
+  "NonParametricIntegrable"` (code 13) keeps `NonParametric` and
+  `NonParametricPM` exactly as they are and adds the missing density: it is the
+  Ianelli base curve with the decreasing, curvature and average-selectivity
+  penalties charged once on the base coefficients, and the deviations scored by
+  `dnorm(0, sel_dev_sd)` on the estimated bins, so `random_sel = TRUE` estimates
+  the SD from a complete density.
+
+  `Time_varying_sel` picks the structure, as it does for `NonParametric`:
+  `"Off"` estimates no deviations, `"IID"` gives independent annual deviations,
+  and `"RandomWalk"` gives increments from the base curve with the start-year
+  increment fixed at 0. Under `"Off"` the form reproduces the `NonParametric`
+  objective to the last digit, at any `Bin_first_selected`. It reads no
+  `Sel_cap_bin`, and `fit_mod()`'s refusals name it as the alternative. The
+  per-year mean of a year's deviations is removed by the curve's centring, so
+  the data never see it: under `random_sel = TRUE` it integrates out exactly,
+  under `random_sel = FALSE` those directions are pure prior.
 * **A non-parametric fleet's coefficients below `Bin_first_selected` are held at
   0.** They are mapped off, but the curve reads them: each year is centred by the
   log mean over every bin, so a value there shifted the whole curve while no
-  density scored it. `inits` from a fit with a lower `Bin_first_selected` carry
-  such values -- 0.9 in those cells moved `Atka2022`'s fishery objective by 704
-  nats and year-1 selectivity by 0.21. `NonParametric` and `NonParametricPM` were
-  affected as well as the new forms; a fit started from the build defaults, the
-  golden fits included, is unchanged.
+  density scored it. `inits` from a fit with a lower `Bin_first_selected` hold
+  such values: 0.9 in those cells moved `Atka2022`'s fishery objective by 704
+  nats and year-1 selectivity by 0.21. This affected `NonParametric` (2) and the
+  new forms 13 and 14. `NonParametricPM` (9) was never affected, because its
+  branch already zeroed those cells before centring, so no `NonParametricPM` fit
+  needs revisiting. A fit started from the build defaults, the golden fits
+  included, is unchanged.
 * **What the estimated SD is worth.** `tools/verify/verify-sim-recovery-np-integrable.R`
   draws deviates at a known SD on `Atka2022`'s fishery (multinomial age
   compositions, input sample sizes 2 to 236), simulates the observations and
@@ -251,7 +270,7 @@ version throughout.
   0.1 at the highest; for Ricker, a density-dependence factor above 0.9), when a
   Ricker peaks below the lowest observed SSB, when log alpha or log beta sits at
   the overflow bound, or (with `getsd = TRUE`) when a log-scale standard error
-  exceeds 10; the record carries alpha, beta, their standard errors and the
+  exceeds 10; the record holds alpha, beta, their standard errors and the
   density dependence at both ends of the SSB range per species. A curve held
   at its inputs is a NOTE, not a warning. The hindcast standard errors it reads
   are now kept in the fit's convergence snapshot, since under an estimating HCR
@@ -286,7 +305,7 @@ version throughout.
   `[n_fleets, nsex]`, log scale) multiplies one sex's whole curve by
   `exp(log_sel_apical)`, applied after the form and before the shared
   normalizer, so it works for every estimated form. Name the fleet and the sex
-  that carries it, as Stock Synthesis's male-offset option does:
+  that holds it, as Stock Synthesis's male-offset option does:
   `build_selectivity(linkages = list(apical = linkage_spec(~ 1, by = ~ fleet + sex, fleet = 3, sex = "male", priors = list(intercept = lognormal(0, 0.5)))))`.
   The multiplier equals the ratio of the sexes' peak heights only where their
   shapes peak equally (the logistic family on an age axis); for a dome with
@@ -297,7 +316,7 @@ version throughout.
   with `link = "identity"`, and one on a fleet whose
   `Sel_norm_scope = "WithinSex"` normalization would divide the offset out.
   The contrast is informed only by joint compositions (`comp_data$Sex = 3`), and
-  `fit_mod()` warns when the named fleet has none and the offset carries no
+  `fit_mod()` warns when the named fleet has none and the offset has no
   prior, since nothing then informs the ratio. Naming `fleet` and `sex` is
   enough: `by` defaults to `~ fleet + sex` for this parameter.
   The multiplier is compiled into the template only when a linkage names it,
@@ -320,16 +339,16 @@ version throughout.
   offsets) and its AR1 density, plus the `index_q_rho` parameter only they
   read. Both blocks and the parameter are gone; `index_q_rho` drops out of
   `parameter_dictionary()`, `set_phases()` and the map. An older fit's `inits`
-  and stored `map` carrying it are accepted (the block is dropped as retired),
+  and stored `map` naming it are accepted (the block is dropped as retired),
   and a stored `map` sizing `log_pop_scalar` by age (before 5.35.0) is
-  collapsed as `inits` already were -- levels included, so a map that estimated
+  collapsed as `inits` already were, levels included, so a map that estimated
   an age-specific scalar collapses to one per species rather than stopping in
-  TMB -- so `retrospective()`, `profile()` and `run_mse()` on a saved fit still
+  TMB, so `retrospective()`, `profile()` and `run_mse()` on a saved fit still
   run. A `map` name the model has no parameter for is dropped with a warning
   (a retired block is dropped silently), so a misspelling no longer fixes
   nothing; a `map` missing a parameter the model has stops with a message
   naming it, where TMB used to fail on the template read; a map level no cell
-  carries is dropped rather than becoming a parameter without a start value;
+  holds is dropped rather than becoming a parameter without a start value;
   and a `map` that estimated an age-specific `log_pop_scalar` warns that only
   the first age is kept. A script that sets `inits$index_q_rho` keeps running,
   with that assignment now inert. No reachable fit changes; the golden fits
@@ -338,7 +357,7 @@ version throughout.
 ## Documentation
 
 * **A contributor path.** `CONTRIBUTING.md` (setup, tests, branches, what a
-  pull request carries) replaces the branch table and commit convention in the
+  pull request owes) replaces the branch table and commit convention in the
   developer guide. A new article, *Adding a selectivity form*, traces
   `Selectivity = "DoubleNormal"` through every file, fits it on `GOApollock`,
   and shows what the drift guards report on a half-finished form;
@@ -433,13 +452,15 @@ release stays a minor version.
   a zero gradient, which leaves the Hessian singular. A spec with no
   `species =` expands to one row per species, so it is refused too; the message
   names the estimated species to put in `species = c(...)`.
-* **`random_sel = TRUE` is refused for non-parametric selectivity with
+* **`random_sel = TRUE` is refused for `Selectivity = "NonParametric"` with
   `Time_varying_sel = "IID"` at every `Sel_curve_pen` setting.** Until now
   `Sel_curve_pen1 = 0` lifted the refusal, but the average-selectivity penalty
   is always charged on each year's realized curve and does not scale with the
   deviation sd, so the sd that fit reported was the sd of a tilted density
   (about 5% of the precision low at sd 0.35, more as the sd grows). Fit with
-  `random_sel = FALSE`, the penalized AMAK formulation.
+  `random_sel = FALSE`, the penalized AMAK formulation. (From 5.40.0 the
+  integrable form `NonParametricIntegrable` takes
+  `random_sel = TRUE` instead; this refusal does not apply to them.)
 
 ## Bug fixes
 
@@ -448,7 +469,7 @@ release stays a minor version.
   zero; on the single-species fixture an alpha offset of -100 per unit covariate
   gave `R_hat` of -89 and a NaN objective, stock-recruit penalty and dynamic B0
   under Beverton-Holt, and a NaN `log(alpha * SPR0)` in `R_hat` and steepness
-  under Ricker. When the model carries an identity-link recruitment linkage,
+  under Ricker. When the model has an identity-link recruitment linkage,
   hindcast recruitment, R0, R_init, the penalty curve, `R_hat` (first year
   included) and the Ricker log arguments are kept positive by `posfun()` (a
   0.001 barrier: a badly negative curve returns a value well below 0.001, not
@@ -497,9 +518,12 @@ release stays a minor version.
   relative to themselves and stay reported; under predation `MSSB0` replaces
   `SB0`.
 * **`data_check()` says when `Sel_norm_scope` is not read.** On a two-sex
-  `Hake` or `LogisticPM` fleet the column changed nothing (both normalize each
-  sex to its own maximum; measured identical to every digit on GOAatf fleet 3),
-  without saying so. The schema and the vignette now say it too.
+  `Hake` or `LogisticPM` fleet the column changed nothing, without saying so
+  (measured identical to every digit on GOAatf fleet 3). Neither form goes
+  through the shared normalizer, for different reasons: `Hake` normalizes each
+  sex to its own maximum in its own block, while `LogisticPM` does not normalize
+  at all and reuses `Sel_norm_bin` as a penalty bin range. The notice names the
+  reason that applies, and the schema and the vignette say it too.
 * `retrospective()`'s note on a penalty-form peel with no penalty years now
   covers a peel that keeps a single year.
 
@@ -519,7 +543,7 @@ release stays a minor version.
   log F = -999, the value `build_params()` gives a fleet with no catch, not as
   -Inf; the projection was already unfished, only the stored parameter changes.
   A single-species projection under a rule that estimates `Ftarget` starts it
-  at log F = 0 when `inits` carry that no-fishing value, as the multispecies
+  at log F = 0 when `inits` hold that no-fishing value, as the multispecies
   loop already did; before, inits from a `ConstantF` fit with `Ftarget = 0`
   left the rule's `Ftarget` at 0, where its gradient is exactly 0.
 
@@ -530,7 +554,7 @@ release stays a minor version.
   already correct.
 
 * **A species with input numbers-at-age (`estDynamics > 0`) is projected at
-  F = 0 and carries no harvest control rule.** `build_hcr_map()` already left
+  F = 0 and takes no harvest control rule.** `build_hcr_map()` already left
   its `log_Ftarget` / `log_Flimit` unestimated and the reference-point
   penalties already skipped it, but the projection still fished it at those
   start values (F = 1 under most rules). Its projected catch is now 0. Its
@@ -563,13 +587,13 @@ release stays a minor version.
 * **`remove_F()` sets F to 0 from the year after `endyr` by default**, not from
   the year after the latest `suit_endyr`. When the suitability window ended
   before `endyr` it removed fishing inside the hindcast: on the hake MSE,
-  2020–2023 of a 2023 hindcast. A new `start_yr` argument gives the first year
+  2020–2023 of a 2023 hindcast. A new `styr` argument gives the first year
   fished at F = 0; under predation it must fall after the empirical-suitability
   window (the `suit_endyr` of every predator with `suitMode = 0` and non-zero
   fitted suitability), since removing fishing inside it would change the
   suitability the model was fit with. As before, the
   projection is unfished whatever harvest control rule the model was fit under,
-  so `start_yr` can be no later than the year after `endyr`.
+  so `styr` can be no later than the year after `endyr`.
   `run_mse()` now builds `OM_no_F` with no fishing
   after the original operating model's terminal year, so it matches the OM
   through that year. The `OM no F: SSB Collapse` and `OM: SSB Collapse from F`

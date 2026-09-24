@@ -698,8 +698,8 @@ over-constrains it.
 **AMAK conventions are reproduced deliberately, not corrected.** `src/TMB/selectivity.hpp:609`
 evaluates the logistic at mid-age (`age_vector(j) = j + 0.5`, so `bin + 1.5`) for `LogisticPM`
 (11); the standard `Logistic` (1) uses `bin + 1`. `NonParametricPM` (9) and `LogisticPM` exist
-to match ADMB AMAK's "pm" parameterizations, penalties included, and `NonParametricIID` (13)
-and `NonParametricRW` (14) came from the same lineage in 5.40.0.
+to match ADMB AMAK's "pm" parameterizations, penalties included, and
+`NonParametricIntegrable` (13) came from the same lineage in 5.40.0.
 
 The literature citations through `src/TMB/` are the specification for those blocks, not
 historical notes; `CLAUDE.md` says so under Comments.

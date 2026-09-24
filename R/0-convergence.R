@@ -150,21 +150,21 @@
 #' Did a diagnostic re-fit converge well enough to keep?
 #'
 #' @description
-#' The shared keep/drop gate for the re-fitting diagnostics --
-#' [retrospective()], [jitter()], [self_test()] and [profile.Rceattle()] -- each
+#' The shared keep/drop gate for the re-fitting diagnostics,
+#' [retrospective()], [jitter()], [self_test()] and [profile.Rceattle()], each
 #' of which silently drops the runs that did not converge.
 #'
 #' These call sites used to test `opt$Convergence_check` against the string
 #' `TMBhelper::fit_tmb()` uses for a non-invertible Hessian. `fit_tmb()` assigns
-#' that particular string in exactly one place -- when `sdreport` returns
-#' `pdHess = FALSE` -- and the test could not work in either direction:
+#' that particular string in exactly one place, when `sdreport` returns
+#' `pdHess = FALSE`, and the test could not work in either direction:
 #'
 #' * with `getsd = TRUE`, `fit_tmb()` returns early when the Hessian fails
 #'   `chol()`, so it never reaches that assignment, and the shape it returns
-#'   instead carries no `Convergence_check` at all -- the run was dropped by the
+#'   instead holds no `Convergence_check` at all, the run was dropped by the
 #'   enclosing `is.null()` guard, by accident rather than by the test;
 #' * with `getsd = FALSE` the assignment is unreachable, so *nothing* was ever
-#'   dropped -- a run that ended with a maximum gradient of 1e13 counted as
+#'   dropped, a run that ended with a maximum gradient of 1e13 counted as
 #'   converged. (`Convergence_check` is still set, but to one of the two gradient
 #'   verdicts, neither of which the test matched.)
 #'
@@ -189,8 +189,8 @@
 #' anything that only reads `length()`:
 #'
 #' * this is an OPTIMIZER gate, not the whole battery. A kept run can still
-#'   carry a WARN (gradient between 1e-3 and 1) or even a FAIL from one of the
-#'   other checks -- a non-positive-definite Hessian, a non-identifiable
+#'   hold a WARN (gradient between 1e-3 and 1) or even a FAIL from one of the
+#'   other checks, a non-positive-definite Hessian, a non-identifiable
 #'   parameter, a stock-recruit curve under the replacement line. Read
 #'   `$convergence` on what comes back; do not treat "returned" as "clean";
 #' * the one case that drops without a matching battery record is a non-finite
@@ -252,7 +252,7 @@
 #' While the keep/drop gate could not actually drop anything (see
 #' `.refit_converged()`) that silence cost nothing; now that it can, a caller
 #' who does not think to compare `length()` against what they asked for would
-#' read a thinned list as a complete one -- and for `jitter()` and `self_test()`
+#' read a thinned list as a complete one, and for `jitter()` and `self_test()`
 #' a thinned list is a biased sample, since the runs that failed are exactly the
 #' ones that would have shown the spread.
 #'
@@ -280,7 +280,7 @@
 #' @description
 #' `.fit_tmb()` optimizes with `eval.max = iter.max = 1e9`, so a re-fit that
 #' wanders somewhere pathological has no bound and one replicate can stall a
-#' whole `jitter()` or `self_test()` run -- the failure this is for is a hang,
+#' whole `jitter()` or `self_test()` run, the failure this is for is a hang,
 #' which no convergence check can reach because the fit never returns.
 #'
 #' The limit is approximate by construction: [setTimeLimit()] is checked when
@@ -288,7 +288,7 @@
 #' evaluations rather than inside one. That is enough here (`nlminb` re-enters R
 #' every evaluation) but a single very long evaluation can overrun it.
 #'
-#' Errors -- including the timeout -- are returned rather than thrown, so one bad
+#' Errors, including the timeout, are returned rather than thrown, so one bad
 #' replicate cannot abort the run and, under a cluster, take every other
 #' replicate with it.
 #'
@@ -554,8 +554,8 @@
 #' time-invariant. `Atka2022` under `random_sel = TRUE` with a non-parametric
 #' random walk reaches `sel_dev_sd = 2.7e-08`. The battery flags that particular
 #' fit through `max_gradient`, which reports that the optimizer stopped, not what
-#' went wrong; and a collapse at a CLEAN gradient -- a well-posed maximum at the
-#' boundary -- has nothing else to catch it.
+#' went wrong; and a collapse at a CLEAN gradient, a well-posed maximum at the
+#' boundary, has nothing else to catch it.
 #'
 #' Scope is deliberately narrow. Only the standard deviations of a modelled
 #' DEVIATION are read, all of which are log-scale and O(0.1)-O(1) in any
@@ -860,10 +860,11 @@
 #'
 #' \code{fit_mod()} runs this automatically and attaches the result as
 #' \code{fit$convergence}; call \code{convergence_diagnostics()} directly to
-#' re-run it on any fit. Checks cover the optimizer gradient, Hessian
-#' positive-definiteness and conditioning, parameters on bounds, a deviation
-#' variance estimated to zero, phasing, parameter estimability, a numbers-at-age
-#' or recruitment floor that was reached, and the stock-recruit curve.
+#' re-run it on any fit. Checks cover the optimizer gradient, a requested
+#' \code{sdreport} that did not return, Hessian positive-definiteness and
+#' conditioning, parameters on bounds, a deviation variance estimated to zero,
+#' phasing, parameter estimability, a numbers-at-age, Ricker-intercept or
+#' recruitment floor that was reached, and the stock-recruit curve.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param ... Currently unused.

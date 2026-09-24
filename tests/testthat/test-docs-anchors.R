@@ -120,13 +120,17 @@ test_that("the switch codes and modes the recipe quotes still hold", {
   testthat::expect_identical(unname(sel_map[["DoubleNormal"]]), 8)
   testthat::expect_identical(unname(sel_map[["Fixed"]]), 0)
   testthat::expect_false("Fake" %in% names(sel_map))
-  # "The next form takes 15": 10 retired, 12 still named by the normalizer,
-  # 13 and 14 the integrable non-parametric forms.
-  testthat::expect_false(any(c(10, 12, 15) %in% sel_map))
-  testthat::expect_identical(unname(sel_map[c("NonParametricIID", "NonParametricRW")]), c(13, 14))
+  # "The next form takes 15": 10 retired, 12 still named by the normalizer, 14
+  # freed when the two integrable forms collapsed into 13.
+  testthat::expect_false(any(c(10, 12, 14, 15) %in% sel_map))
+  testthat::expect_identical(unname(sel_map[["NonParametricIntegrable"]]), 13)
   testthat::expect_match(sel, "sel_type != 12", fixed = TRUE)
   testthat::expect_match(sel, "case 8:")
-  testthat::expect_false(grepl("switch \\(sel_type\\)[^}]*default:", sel, perl = TRUE))
+  # The switch dispatches on sel_case, not sel_type, so NonParametricIntegrable
+  # can pick its construction from Time_varying_sel. Keep the no-default check
+  # pointed at the name actually switched on, or it passes vacuously.
+  testthat::expect_match(sel, "switch (sel_case)", fixed = TRUE)
+  testthat::expect_false(grepl("switch \\(sel_case\\)[^}]*default:", sel, perl = TRUE))
   testthat::expect_true(all(c("NonParametric", "NonParametricPM", "Hake", "LogisticPM",
                               "DoubleLogistic") %in% names(sel_map)))
   testthat::expect_true(all(c("Off", "IID", "AR1", "RandomWalk", "Block",
@@ -150,8 +154,20 @@ test_that("the two test lines whose failures the recipe pastes still carry those
                          warn = FALSE)
   canonical <- readLines(file.path(root, "tests", "testthat", "test-schema-canonical.R"),
                          warn = FALSE)
-  # The pasted output names these lines. If the assertion moves, re-run the
-  # mutation and paste the new output; do not just renumber.
-  testthat::expect_match(dispatch[157],  "expect_setequal(setdiff(r, cpp)", fixed = TRUE)
-  testthat::expect_match(canonical[187], "missing_from_docs", fixed = TRUE)
+  # The pasted output names these lines, so the check reads the number OUT of
+  # the article rather than hard-coding it: an assertion that moves then fails
+  # here until the pasted output is refreshed, and renumbering the article
+  # alone cannot satisfy it. Re-run the mutation and paste the new output.
+  art <- paste(readLines(file.path(root, "vignettes", "articles",
+                                   "adding-a-selectivity-form.Rmd"), warn = FALSE),
+               collapse = "\n")
+  cited <- function(file) {
+    m <- regmatches(art, regexpr(paste0(file, ":\\d+"), art))
+    testthat::expect_length(m, 1L)
+    as.integer(sub(".*:", "", m))
+  }
+  testthat::expect_match(dispatch[cited("test-schema-cpp-dispatch.R")],
+                         "expect_setequal(setdiff(r, cpp)", fixed = TRUE)
+  testthat::expect_match(canonical[cited("test-schema-canonical.R")],
+                         "missing_from_docs", fixed = TRUE)
 })

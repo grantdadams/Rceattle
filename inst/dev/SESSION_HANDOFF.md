@@ -13,9 +13,28 @@ before tagging: the `release: published` event has silently failed to fire once 
 assertions / 0 failures / 3 skips; ecosystem sweep clean; hake `MSE_yr2024.R` identical to
 5.33.0 on all six fits; a reproducible install into a temporary library driven through them.
 
+**PR #159 is open into `dev` and must land before the release PR** (2026-09-23). It is the
+review of #158 against four questions: does the language read as AI-written, is the API
+frictionless, are the docs concise, can a developer find and change the model. Nine commits,
+full suite green (235 files, 0 failures), golden unchanged to ~1e-11.
+
+What a reviewer should go at hardest:
+
+- **The selectivity form collapse.** `NonParametricIID` (13) and `NonParametricRW` (14) became
+  one `NonParametricIntegrable` (13), with `Time_varying_sel` picking the structure. Code 14 is
+  free. **Golden does not cover it**: the four reference models use forms 0-4, so golden passing
+  only shows the new `sel_case` dispatch is inert for the other forms. What covers the merge is
+  `test-selectivity-nonparametric-integrable.R` and its independent `dnorm` oracle.
+- **Two NEWS claims were wrong and are now rewritten**: `NonParametricPM` was never affected by
+  the sub-first-bin centring defect, and `data_check()` told a `LogisticPM` fleet the form
+  normalizes when it does not normalize at all.
+- **The language sweep touches 69 files** and is isolated in one commit. It recasts clauses
+  rather than transliterating dashes; the risk to look for is a `carry` that meant *propagate*
+  being flattened to `hold`. Six such were caught in roxygen; assume more exist.
+
 **The release sequence, from here:**
 
-1. Merge whatever `inst/dev` PRs are still open (they are documentation only).
+1. Merge PR #159, then whatever `inst/dev` PRs are still open (they are documentation only).
 2. Open and merge the `dev` -> `main` release PR. Say what forces a refit, what breaks and what
    is new; do not paste `NEWS.md`.
 3. Tag the MERGE COMMIT on `main`, then publish a GitHub Release from the tag.
@@ -47,7 +66,7 @@ adversarially before commit and again by a second session before merge:
 | 5.37.0 | #147, #148 | QAR1 path removed; stored-map guard; `CONTRIBUTING.md`, the Doxygen build and `adding-a-selectivity-form.Rmd` |
 | 5.38.0 | #149 | Per-sex apical selectivity offset (`log_sel_apical`) |
 | 5.39.0 | #150 | Multispecies stock-recruit bounds and a degenerate-curve check |
-| 5.40.0 | #151 | `NonParametricIID` (13) and `NonParametricRW` (14) |
+| 5.40.0 | #151 | `NonParametricIntegrable` (13) |
 | 5.41.0 | #152 | `osa_residuals(method = "cdf")` |
 
 ## After the release, in order
