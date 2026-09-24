@@ -94,9 +94,11 @@ only \code{method = "oneStepGaussian"} returns one. It holds
 \code{method} and \code{seed} attributes, \code{method} is the string that was passed,
 or a named vector \verb{c(default = <method>, ...)} when a likelihood family was
 residualized with its own: \code{TruncatedNormal = "oneStepGeneric"} for a
-truncated index fleet under a Gaussian method, and
+truncated index fleet under a Gaussian method,
 \code{DirichletMultinomial = "oneStepGaussianOffMode"} for a D-M composition
-under \code{"cdf"}, and
+under \code{"cdf"}, and \code{DiscreteComposition = "oneStepGeneric"} for the
+composition rows under \code{discrete = TRUE}, which a Gaussian method cannot
+score because it is continuous-only, and
 (when composition types
 are present) a \code{"pearson"} attribute holding the matching Pearson residuals
 so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. The attribute uses this data

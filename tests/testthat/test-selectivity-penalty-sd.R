@@ -155,12 +155,19 @@ testthat::test_that("mode 5 does not feed sel_dev_log_sd from unestimated deviat
 })
 
 # A Sel_curve_pen slot multiplies a squared deviation, so a negative weight
-# rewards that deviation quadratically and without bound and the objective has
-# no minimum. Measured on BS2017SS fleet 1 (form 2, Sel_curve_pen2 = 12.5): a
-# linear ramp on sel_coff drives the objective to -6.6e6 at slope 256, scaling
-# 4x per doubling, while the composition likelihood saturates. Only
-# NonParametricPM branches on the sign; the AR1 forms reuse the columns as
-# logit-scale correlations, and 13 never reads slot 3.
+# rewards that deviation rather than penalizing it. Measured on BS2017SS fleet 1
+# (form 2, N_sel_bins = 8, Sel_curve_pen2 = 12.5) by ramping sel_coff down a
+# constant step per bin, the JNLL_SEL_NONPARAM row is exactly
+#   [Sel_curve_pen1 * (N_sel_bins - 1) + Sel_curve_pen2] * step^2 + 8.6
+# -- -29, -122, -502, -2032 at steps 0.5/1/2/4 with Sel_curve_pen1 = -20, and
+# the whole objective -6.6e6 at step 256. The coefficient 1 on Sel_curve_pen2 is
+# the single second difference where the ramp meets the coefficient repeated
+# past N_sel_bins, so the curvature penalty DOES bind and the objective diverges
+# only past |Sel_curve_pen1| > Sel_curve_pen2 / (N_sel_bins - 1) = 1.79: at
+# Sel_curve_pen1 = -1 the row rises (+1417, +5641, +22537 at steps 16/32/64).
+# A smaller negative weight is anti-shrinking rather than divergent, and is
+# refused too. Only NonParametricPM branches on the sign; the AR1 forms reuse
+# the columns as logit-scale correlations, and 13 never reads slot 3.
 testthat::test_that("a negative Sel_curve_pen is refused on the forms that read it as a weight", {
   d0 <- Rceattle::BS2017SS
   np <- which(d0$fleet_control$Selectivity == 2)
@@ -170,35 +177,55 @@ testthat::test_that("a negative Sel_curve_pen is refused on the forms that read 
   # reason": an expect_false on a tryCatch that swallows every error would pass
   # on a missing column just as happily as on the exemption being honoured.
   run <- function(d) tryCatch({
-    suppressMessages(Rceattle:::data_check(suppressMessages(Rceattle::switch_check(d))))
+    suppressWarnings(suppressMessages(
+      Rceattle:::data_check(suppressMessages(Rceattle::switch_check(d)))))
     ""
   }, error = function(e) conditionMessage(e))
-  refused <- function(d) grepl("not sign-aware", run(d))
+  refused <- function(d) grepl("rewards the deviation", run(d))
   allowed <- function(d) identical(run(d), "")
-  set_form <- function(form, col, val) {
+  # tv drives the slots charged on the DEVIATES rather than on the base curve;
+  # BS2017SS ships Time_varying_sel = "Off", where those terms are identically 0.
+  set_form <- function(form, col, val, tv = NULL) {
     d <- d0
     d$fleet_control$Selectivity[np]    <- form
     d$fleet_control$Sel_curve_pen1[np] <- 20
     d$fleet_control$Sel_curve_pen2[np] <- 12.5
+    if (!is.null(tv)) {
+      d$fleet_control$Time_varying_sel[np] <- tv
+      # Estimated deviations are penalized at this sd; without it data_check()
+      # stops on that instead and the case below would never be reached.
+      d$fleet_control$Time_varying_sel_sd[np] <- 0.2
+    }
     d$fleet_control[[col]][np] <- val
     d
   }
 
-  # Slot 1: refused on 2 / 11 / 13, allowed on 9, whose shape term reads the sign.
+  # Slot 1 is charged on the BASE coefficients on 2 / 13, so it is read whatever
+  # Time_varying_sel says. Allowed on 9, whose shape term reads the sign.
   testthat::expect_true(refused(set_form("NonParametric",           "Sel_curve_pen1", -20)))
   testthat::expect_true(refused(set_form("NonParametricIntegrable", "Sel_curve_pen1", -20)))
-  testthat::expect_true(refused(set_form("LogisticPM",              "Sel_curve_pen1", -20)))
   testthat::expect_true(allowed(set_form("NonParametricPM",         "Sel_curve_pen1", -20)))
 
-  # Slot 2: two-sided on every non-parametric form.
+  # Slot 2: two-sided on every non-parametric form, and also on the base curve.
   testthat::expect_true(refused(set_form("NonParametric",           "Sel_curve_pen2", -5)))
   testthat::expect_true(refused(set_form("NonParametricIntegrable", "Sel_curve_pen2", -5)))
 
-  # Slot 3 is read only by 9 and 11: 2 has no deviate term and 13 scores its
-  # deviates with Time_varying_sel_sd, so a sign check there would be noise.
-  testthat::expect_true(refused(set_form("NonParametricPM",          "Sel_curve_pen3", -5)))
-  testthat::expect_true(allowed(set_form("NonParametric",            "Sel_curve_pen3", -5)))
-  testthat::expect_true(allowed(set_form("NonParametricIntegrable",  "Sel_curve_pen3", -5)))
+  # Slot 3 is read only by 9 and 11. Forms 2 and 13 also estimate deviates, but
+  # score them with a density on Time_varying_sel_sd, so a sign check on the
+  # slot they never read would be noise.
+  testthat::expect_true(allowed(set_form("NonParametric",           "Sel_curve_pen3", -5)))
+  testthat::expect_true(allowed(set_form("NonParametricIntegrable", "Sel_curve_pen3", -5)))
+
+  # The three deviate-charged slots -- LogisticPM 1 and 3, NonParametricPM 3 --
+  # are inert under Time_varying_sel = "Off" (objective bit-identical at +w, 0
+  # and -w), so a negative weight there is allowed, and refused once the
+  # deviates are estimated.
+  # "RandomWalk" on both: it is the only time-varying structure LogisticPM
+  # accepts, and NonParametricPM takes it too.
+  testthat::expect_true(allowed(set_form("LogisticPM",      "Sel_curve_pen1", -20)))
+  testthat::expect_true(allowed(set_form("NonParametricPM", "Sel_curve_pen3",  -5)))
+  testthat::expect_true(refused(set_form("LogisticPM",      "Sel_curve_pen1", -20, tv = "RandomWalk")))
+  testthat::expect_true(refused(set_form("NonParametricPM", "Sel_curve_pen3",  -5, tv = "RandomWalk")))
 
   # An "Off" fleet is charged no selectivity penalty, so its weight is not read.
   off <- set_form("NonParametric", "Sel_curve_pen1", -20)
@@ -210,9 +237,9 @@ testthat::test_that("a negative Sel_curve_pen is refused on the forms that read 
 })
 
 testthat::test_that("Sel_devmag_sd is refused where Sel_curve_pen3 is not read", {
-  # Neither "NonParametric" (2), which has no deviate term, nor
-  # "NonParametricIntegrable" (13), whose deviates carry a density with
-  # Time_varying_sel_sd, reads the slot; converting an SD into it is a no-op.
+  # Neither "NonParametric" (2) nor "NonParametricIntegrable" (13) reads the
+  # slot: both estimate selectivity deviates, but score them with a Gaussian
+  # density on Time_varying_sel_sd. Converting an SD into it is a no-op.
   for (form in c("NonParametric", "NonParametricIntegrable")) {
     d  <- Rceattle::BS2017SS
     np <- which(d$fleet_control$Selectivity == 2)
@@ -258,6 +285,22 @@ testthat::test_that("the form-9 shape penalty charges the direction Sel_shape_di
   # one-sex fixture; the C++ loops every sex.
   testthat::expect_true(all(d$nsex == 1))
   testthat::expect_equal(dim(m0$initial_params$sel_coff)[3], nsb)
+  # It also differences every adjacent pair from bin 1 and ignores the cap, so it
+  # matches the C++ only on a fleet with no excluded leading bins, no cap and no
+  # narrowed penalty range -- and it reads JNLL_SEL_NONPARAM, which the avgsel
+  # penalty would also enter. Asserted rather than assumed: lifting this oracle
+  # to a fleet like EBS pollock (excluded age-1 bin, AMAK caps) gives a wrong
+  # answer, and these are what would make it wrong.
+  testthat::expect_equal(as.integer(d$fleet_control$Bin_first_selected[flt]), 1L)
+  testthat::expect_true(is.null(d$fleet_control$Sel_cap_bin) ||
+                          is.na(d$fleet_control$Sel_cap_bin[flt]))
+  testthat::expect_true(is.null(d$fleet_control$Sel_pen_first_bin) ||
+                          is.na(d$fleet_control$Sel_pen_first_bin[flt]))
+  testthat::expect_true(is.null(d$fleet_control$Sel_pen_last_bin) ||
+                          is.na(d$fleet_control$Sel_pen_last_bin[flt]))
+  testthat::expect_true(is.null(d$fleet_control$Sel_avgsel_pen) ||
+                          is.na(d$fleet_control$Sel_avgsel_pen[flt]) ||
+                          d$fleet_control$Sel_avgsel_pen[flt] == 0)
 
   oracle <- function(coff, w, increasing) {
     base <- coff[pmin(seq_len(nb), nsb)]        # tail-repeat past N_sel_bins
@@ -317,7 +360,7 @@ testthat::test_that("the form-9 shape penalty charges the direction Sel_shape_di
   p <- m0$initial_params
   p$sel_coff[flt, 1, ]    <- up
   p$sel_curve_pen[flt, 1] <- via_dir("Increasing")
-  testthat::expect_equal(bld(via_dir("Increasing"), p)$obj$report()$jnll_comp[5, flt],
+  testthat::expect_equal(bld(via_dir("Increasing"), p)$obj$report()$jnll_comp[.np_row, flt],
                          oracle(up, 20, TRUE), tolerance = 1e-10)
 })
 
@@ -343,7 +386,7 @@ testthat::test_that("Sel_shape_mode = 'Smooth' is not sign-aware, so it takes no
   col_run$fleet_control$Sel_curve_pen2[np] <- 12.5
   testthat::expect_error(
     suppressMessages(Rceattle:::data_check(suppressMessages(Rceattle::switch_check(col_run)))),
-    "not sign-aware")
+    "rewards the deviation")
 
   # "Directional" is unaffected: it is the branch that reads the sign.
   ok <- dir_run; ok$fleet_control$Sel_shape_mode <- "Directional"

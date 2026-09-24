@@ -90,8 +90,9 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' starting value comes from the data), and a prior on the double-normal
 #' `right_floor` is not supported.
 #' Fleets sharing a `Selectivity_index` estimate one parameter block, so place
-#' the prior on the group's lead fleet (its first non-`Off` fleet) and the block
-#' is not penalized once per sharing fleet.
+#' the prior on the group's lead fleet (its first fleet that is not `Off`); a
+#' prior on a follower would penalize the shared block once per sharing fleet.
+#' A prior on an `Off` fleet is refused: its selectivity is not estimated.
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   selectivity parameter. Coefficients are per fleet by default
@@ -222,20 +223,34 @@ build_selectivity <- function(linkages = NULL) {
         paste(fleet_control$Fleet_name[dn_flt], collapse = ", ")), call. = FALSE)
     }
 
-    # (b) Fleets sharing a Selectivity_index estimate one parameter block, so a
+    prior_flt <- unique(vapply(prior_rows$fleet, row_flt, integer(1)))
+
+    # (b) An "Off" fleet's selectivity parameters are mapped off, so a prior on
+    # one is evaluated against a fixed value: it adds a constant to the objective
+    # and informs nothing. Same reason the apical offset is refused there.
+    off_flt <- prior_flt[vapply(prior_flt, function(f)
+      identical(.canon_switch(fleet_control$Fleet_type[f], fleet_map), "Off"), logical(1))]
+    if (length(off_flt) > 0L) {
+      stop(sprintf(paste0(
+        "selectivity prior on fleet(s) %s with Fleet_type = \"Off\": that fleet's ",
+        "selectivity parameters are not estimated, so the prior would add a ",
+        "constant to the objective and constrain nothing."),
+        paste(fleet_control$Fleet_name[off_flt], collapse = ", ")), call. = FALSE)
+    }
+
+    # (c) Fleets sharing a Selectivity_index estimate one parameter block, so a
     # prior on a follower penalizes that block once per sharing fleet.
-    mir_flt <- unique(vapply(prior_rows$fleet, row_flt, integer(1)))
-    mir_lead <- vapply(mir_flt, function(f)
+    mir_lead <- vapply(prior_flt, function(f)
       .shared_block_lead(list(fleet_control = fleet_control), f, "sel"), integer(1))
     if (any(!is.na(mir_lead))) {
+      lead_nm <- paste(fleet_control$Fleet_name[mir_lead[!is.na(mir_lead)]], collapse = ", ")
       stop(sprintf(paste0(
         "selectivity prior on fleet(s) %s, which share a Selectivity_index with ",
         "fleet(s) %s and take that fleet's selectivity block: the shared block ",
-        "would be penalized once per sharing fleet. Place the prior on %s."),
-        paste(fleet_control$Fleet_name[mir_flt[!is.na(mir_lead)]], collapse = ", "),
-        paste(fleet_control$Fleet_name[mir_lead[!is.na(mir_lead)]], collapse = ", "),
-        paste(fleet_control$Fleet_name[mir_lead[!is.na(mir_lead)]], collapse = ", ")),
-        call. = FALSE)
+        "would be penalized once per sharing fleet. Place the prior on the lead ",
+        "fleet instead."),
+        paste(fleet_control$Fleet_name[prior_flt[!is.na(mir_lead)]], collapse = ", "),
+        lead_nm), call. = FALSE)
     }
 
     # (c) A prior on a limb the fleet's own curve never uses. Logistic reads only
@@ -303,8 +318,10 @@ build_selectivity <- function(linkages = NULL) {
   for (i in seq_len(nrow(ap))) {
     flts <- as.integer(ap$fleet[i])
     # Nothing is fit to an "Off" fleet, so the offset is a flat direction: a
-    # singular Hessian and a failed getsd with nothing naming the cause.
-    off <- flts[as.character(fc$Fleet_type[flts]) == "Off"]
+    # singular Hessian and a failed getsd with nothing naming the cause. An NA
+    # Fleet_type is not "Off" -- build_map_selectivity() treats it as estimated.
+    off <- flts[which(vapply(flts, function(f)
+      identical(.canon_switch(fc$Fleet_type[f], fleet_map), "Off"), logical(1)))]
     if (length(off)) refuse(paste0(
       "apical selectivity linkage on fleet(s) %s with Fleet_type = \"Off\": no ",
       "data are fit to that fleet, so nothing informs the offset."), off)
@@ -328,10 +345,9 @@ build_selectivity <- function(linkages = NULL) {
       stop(sprintf(paste0(
         "apical selectivity linkage on fleet(s) %s, which share a ",
         "Selectivity_index with fleet(s) %s and take that fleet's selectivity ",
-        "block. Place the offset on the lead fleet %s; the fleets sharing the ",
-        "index get it too."),
+        "block. Place the offset on the lead fleet instead; the fleets sharing ",
+        "the index inherit it."),
         paste(fc$Fleet_name[mirror], collapse = ", "),
-        paste(fc$Fleet_name[lead[!is.na(lead)]], collapse = ", "),
         paste(fc$Fleet_name[lead[!is.na(lead)]], collapse = ", ")), call. = FALSE)
     }
 

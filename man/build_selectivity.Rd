@@ -88,8 +88,9 @@ per-sex prior. An \code{init} on a selectivity intercept has no effect (the
 starting value comes from the data), and a prior on the double-normal
 \code{right_floor} is not supported.
 Fleets sharing a \code{Selectivity_index} estimate one parameter block, so place
-the prior on the group's lead fleet (its first non-\code{Off} fleet) and the block
-is not penalized once per sharing fleet.
+the prior on the group's lead fleet (its first fleet that is not \code{Off}); a
+prior on a follower would penalize the shared block once per sharing fleet.
+A prior on an \code{Off} fleet is refused: its selectivity is not estimated.
 }
 \examples{
 \donttest{

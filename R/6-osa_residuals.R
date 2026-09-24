@@ -194,9 +194,11 @@
 #'   `method` and `seed` attributes, `method` is the string that was passed,
 #'   or a named vector `c(default = <method>, ...)` when a likelihood family was
 #'   residualized with its own: `TruncatedNormal = "oneStepGeneric"` for a
-#'   truncated index fleet under a Gaussian method, and
+#'   truncated index fleet under a Gaussian method,
 #'   `DirichletMultinomial = "oneStepGaussianOffMode"` for a D-M composition
-#'   under `"cdf"`, and
+#'   under `"cdf"`, and `DiscreteComposition = "oneStepGeneric"` for the
+#'   composition rows under `discrete = TRUE`, which a Gaussian method cannot
+#'   score because it is continuous-only, and
 #'   (when composition types
 #'   are present) a `"pearson"` attribute holding the matching Pearson residuals
 #'   so [plot.rceattle_osa()] can show both. The attribute uses this data

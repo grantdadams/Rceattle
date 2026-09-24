@@ -197,7 +197,10 @@ three defects that review found are fixed in 5.42.0; these are what it left:
   `inits` are supplied and from the `Sel_curve_pen1/2/3` columns only otherwise. Editing the
   column and refitting from a stored fit therefore keeps the OLD weight, with no message.
   Found building the form-9 directional test in 5.42.0, where setting the column to -20 while
-  passing `inits` produced the +20 penalty. This is the same class as the known
+  passing `inits` produced the +20 penalty. 5.42.0's `fit_mod()` guard closes the SIGN only;
+  the magnitude is still silently overridden, measured on `BS2017SS` fleet 1 with the column
+  reading +20 throughout: `JNLL_SEL_NONPARAM` is 52.96 from the column and 464.39 when
+  `inits$sel_curve_pen[flt, 1]` is 200, with no message. This is the same class as the known
   `Time_varying_sel_sd`-inert-on-a-warm-start trap in `TRAPS.md`, and the fix is the same
   shape: either reseed the parameter from the column in `fit_mod()`, or warn when they
   disagree. Note this also bounds the blast radius of the sign defect 5.42.0 fixed -- a
