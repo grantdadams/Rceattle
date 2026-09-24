@@ -104,7 +104,56 @@ the constants SS3 drops from its densities, what is left as a difference in fit 
 +4.98, so `build_ss3_age_error()` closed 99.3% of that component. The growth gradient did
 **not** move (532 -> 547), so the previous note's hypothesis is refuted.
 
-**The CAAL gap, measured.** What has been ruled out, each against SS3's own Report.sso:
+**The CAAL gap is SOLVED — a CAAL row is a RANGE of population length bins, and the
+range is one bin below its written label.** Read out of the SS3 source and confirmed
+numerically on both stocks:
+
+- `SS_readdata_330.tpl:2452` declares `matrix Lbin_lo` — a **double**, not an int.
+- Under `Lbin_method = 1` (both cod files) the values are population **bin indices**, used
+  with no conversion (`:2594-2600`). Case 3 is the one that converts lengths to bins.
+- `:2687-2688` does `Lbin_filter(f,j) = 0.; Lbin_filter(f,j)(Lbin_lo, Lbin_hi) = 1;` — an
+  ADMB **inclusive** index range, with the doubles truncated to int.
+- `SS_expval.tpl:642` then forms the cell as `age_exp = exp_AL * Lbin_filter(f,i)`, i.e. the
+  joint age x length expectation **summed over every bin in that range**.
+
+Both cod data files write **lengths** (x.5) where `Lbin_method = 1` expects bin indices, and
+SS3 truncates them silently. With population bins 0.5, 1.5, ..., a row labelled `L` uses the
+bin at `L - 1`. `condbase` confirms it by writing the cell back out as
+`len_bins(trunc(Lbin_lo))`: every GOA data `Lbin_lo` is exactly 1 cm above its `condbase`
+label (21 of 21 bins), and AI the same.
+
+| stock | `Lbin_hi - Lbin_lo` | bins SS3 actually uses |
+|---|---|---|
+| AI cod | 1 | **two**: `L - 1` and `L`; adjacent rows overlap by one bin |
+| GOA cod | 0 | **one**: `L - 1`, not `L` |
+
+The converter maps `Lbin_lo` to the nearest length bin
+(`ss3_to_rceattle.R:730-733`), i.e. treats it as a length, and Rceattle's `caal_data` holds
+one `Length` per row. Rebuilding AI's cells as `trunc(Lbin_lo)..trunc(Lbin_hi)` takes the
+predicted CAAL from **1.18e-1 to <= 1.8e-6 on 1159 of the 1160 rows** — Report.sso print
+precision. That is the whole +4.98 and the whole 547 gradient on `log_growth_pars`.
+
+The one row left is **2002, `Lbin_lo` 100.5, the only AI CAAL observation at month 1 rather
+than month 7** (0.062). Rceattle takes a CAAL row's month from its fleet — `caal_data` has
+no `Month` column — so a row at its own month cannot be represented. GOA has a real mix of
+months 1 and 7, so this is not an AI curiosity.
+
+**Needs a decision before it can be fixed** (hard rule 9; the plan's rule that every new
+column is confirmed first):
+1. Give `caal_data` a length range (a `Length_hi`-style column) and sum the C++ prediction
+   over the span — matches SS3 as written, and is the only option that reproduces AI's
+   two-bin cells. New column, so `/new-column` and a schema round-trip.
+2. Or treat the two data files as mis-specified (they are: lengths under `Lbin_method = 1`)
+   and regenerate the SS3 targets with `Lbin_method = 3`, one bin per row as intended. This
+   changes which data the reference run fits, so it moves the target NLL and is **outside**
+   the plan's "estimation-method choices only" rule for target adjustments.
+3. Either way `caal_data` needs a per-row `Month` for GOA.
+
+Under (1) the converter must also shift GOA's rows down one bin; under (2) its current
+behaviour is correct. So the converter is left unchanged until this is decided.
+
+**What was ruled out first**, each against SS3's own Report.sso — kept because it is what
+bounds the answer:
 
 - Observed CAAL is exact. `caal_data` is row-for-row with SS3's `agecomp` (same order,
   same keys) and the proportions agree to 0 (max |diff| over 1157 x 13 cells).
@@ -120,20 +169,18 @@ the constants SS3 drops from its densities, what is left as a difference in fit 
 - No ageing-error matrix can close it. Solving for the matrix that maps Rceattle's reported
   `pred_CAAL` onto SS3's `condbase` (a linear, well-posed fit, since every row sums to 1)
   leaves 0.1148 against 0.1176 for the converter's. The error is in the joint, not the smear.
-- It is not the length axis: CAAL rows are single 1-cm bins (`Lbin_hi - Lbin_lo` = 1 for all
-  1160), and SS3's population bins are the data bins (143, 1 cm, 0.5-142.5).
+- SS3's population bins are the data bins (143, 1 cm, 0.5-142.5), so the two models share a
+  length axis. **`Lbin_hi - Lbin_lo` = 1 is a two-bin span, not one bin** — reading it as one
+  bin was the wrong turn that made this look unexplainable.
 
-What is left: the predicted **length marginal** is exact to 1.3e-7 while the **age split
-within a length bin** is out by up to 0.118. The residual is concentrated at 23.5-26.5 cm
-(ages 1 v 2) and 36.5-40.5 cm (ages 2 v 3) -- where adjacent ages overlap -- and at 25.5 cm
-reads Rceattle 0.5705/0.4225 against SS3 0.4529/0.5377. **SS3's `condbase` expectation is
-not reproducible from SS3's own printed ALK and N-at-age**: that reconstruction gives
-0.5704, i.e. Rceattle's answer, not SS3's. Two one-parameter fits close most of it and are
-confounded on a ridge -- a growth timing of 0.465 yr instead of 0.5 (RMSE 0.0018 against
-0.0124) or a +0.5 cm shift of the length axis (0.0026) -- and neither reaches 1e-5, so
-neither is the cause. **Do not implement either.** The next step is to read SS3's source
-for how the conditional age-at-length expectation is formed for a survey at month 7,
-because the printed pieces do not compose into the printed answer.
+The symptom that bounded it: the predicted **length marginal** is exact to 1.3e-7 while the
+**age split within a length bin** is out by up to 0.118, concentrated at 23.5-26.5 cm
+(ages 1 v 2) and 36.5-40.5 cm (ages 2 v 3), where adjacent ages overlap. Summing a
+neighbouring bin into the cell moves the split without moving the marginal, which is exactly
+the shape of the multi-bin cell above. Two one-parameter fits also closed most of it and
+were confounded on a ridge — a growth timing of 0.465 yr instead of 0.5, or a +0.5 cm shift
+of the length axis — and both were **artefacts** of averaging bin `L - 1` with bin `L`;
+neither is a real effect, and neither should be implemented.
 
 ## Known flags (cod bridge)
 
@@ -144,6 +191,10 @@ because the printed pieces do not compose into the printed answer.
   0; SS3's ageing error sends true age 0 into bin 1. The converter's `build_ss3_age_error()`
   does the same (age-0 obs column empty). Run and verified 2026-09-23: it took AI CAAL from
   +725 to +4.98. It is **not** the growth gradient, which did not move.
+- **A CAAL row's `Lbin_lo`/`Lbin_hi` are population bin INDICES under `Lbin_method = 1`,
+  truncated, and the cell spans them inclusive.** Both cod files write lengths there, so
+  every row sits one bin low, and AI's rows span two bins. `condbase` echoes the truncated
+  bin, so it reads 1 cm below the data file — account for that when joining the two.
 - **Rceattle keeps one age-length key per fleet, not per data row**: `growth_matrix` is
   indexed `nspp * 2 + flt`, and both the length-comp block and the CAAL block read it at
   `flt_month(flt)`. `caal_data` carries no `Month` column, so a CAAL row's timing comes from
@@ -208,12 +259,12 @@ because the printed pieces do not compose into the printed answer.
 ## Resume here
 
 **Cod bridge** (`git checkout cod-bridge` and `git pull`; pull `../Rceattle-models` master too):
-1. **The one open question is the predicted CAAL** (G1 fails at 1.2e-1, CAAL NLL +4.98,
-   `log_growth_pars` gradient 547). Everything it is built from has been checked against
-   Report.sso and is exact — see "The CAAL gap" above for what is ruled out and with what
-   numbers. Read SS3's source for how a survey's conditional age-at-length expectation is
-   formed; do not fit the timing or the length axis, both of which close most of the gap
-   and are confounded.
+1. **The predicted CAAL is diagnosed and waiting on Grant's decision** — see "The CAAL gap
+   is SOLVED" above. A CAAL row is a *range* of population bins, one bin below its written
+   label; honouring that takes AI from 1.2e-1 to 1.8e-6 on 1159 of 1160 rows and removes
+   the +4.98 and the 547 gradient. The choice is (1) a length range on `caal_data` plus a
+   per-row `Month`, or (2) regenerate both SS3 targets with `Lbin_method = 3`. Nothing in
+   `R/`, `src/` or the converter has been changed for it.
 2. The rest of G2 is within 0.35 nats of SS3 once the densities' constants are netted off
    (`parity_report()` prints the residual column). Two blocks have no SS3 counterpart:
    `init_dev` (+12.87) and the linkage-table prior (-2.54). `rec_pars` (-26) and
