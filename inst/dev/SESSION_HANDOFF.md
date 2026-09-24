@@ -164,6 +164,25 @@ month-1 workaround row, which Rceattle cannot represent.
 (`growth_log_sd`, 98.8). `parity_g2(fixed_in_ss3 = ...)` now tests only what SS3 estimated
 and prints the rest marked `fixed`; the stock's forward pass declares the list.
 
+**SS3's survey q floats.** `Q_setup`'s `float` column decides whether q is solved analytically
+from the index each iteration, independently of the `LnQ_base` phase — M24_1 has `float = 1`,
+so its q is never a parameter and phase -2 only keeps it out of the gradient. The converter
+had hardcoded `"Estimated"`; `ss3_q_form()` now reads the flag and maps it to Rceattle's
+`"Analytical"`, the same geometric-mean solution. Rceattle solves q = 0.89188, SS3's value to
+five digits, so the forward state is unchanged — but q now responds to biomass, which took
+max |gradient| 75.3 -> 60.9, `rec_pars` -25.9 -> -18.9 and `beta_linkage` 11.3 -> 6.04.
+
+**A harness bug inflated the recruitment residual.** `.ss3_constants()` counted the deviates
+the map leaves free, but `ceattle.cpp` penalises `rec_dev` over every hindcast year and
+`init_dev` over ages 1..nages-1 **whatever the map says** — a deviate fixed at zero still costs
+a full density. The count is 47, not 44, so the residual is **+0.7342**, not the +3.4910 this
+note previously carried. Verified by recomputing both `jnll_comp` rows from the parameter
+arrays against the C++ loop bounds.
+
+**What is left as a real difference in fit**, after the densities' constants: Age_comp +0.0081,
+Catch +0.0797, Length_comp -0.0003, Recruitment +0.7342, Survey +0.0446 — about **0.87 nats**
+in total — plus the Rceattle-only linkage prior of -2.5415.
+
 **What was ruled out first**, each against SS3's own Report.sso — kept because it is what
 bounds the answer:
 
@@ -283,17 +302,29 @@ neither is a real effect, and neither should be implemented.
 ## Resume here
 
 **Cod bridge** (`git checkout cod-bridge` and `git pull`; pull `../Rceattle-models` master too):
-1. **Make the estimated parameter SETS match.** SS3 has 89 active parameters, Rceattle 102,
-   and until they agree neither the residual gradient nor G3 means much. The converter
-   should map off everything SS3 fixes — `growth_log_sd` (2; SS3's `CV_young`/`CV_old` are
-   phase -2), `index_log_q` (1; `LnQ_base_Srv` is phase -2) and 8 of the 12 `sel_dn6` slots
-   — and `init_dev` (13, worth +12.97 nats) has no SS3 counterpart at all, which is Phase 4c
-   of the plan. A quick way to enumerate them: `SS_output()$parameters` rows with `Phase < 0`.
-2. **Then chase the residual `log_growth_pars` gradient of 75.3.** Both SS3 runs converge at
-   max gradient ~4e-5, so it is a real difference between the two objectives, not SS3 noise.
-   The composition path is exact, so the suspect is the growth-to-biomass path: weight at
-   age into catch and survey biomass and SSB, and in particular the **selected body weight**
-   added on this branch, which is new and is exactly that path.
+**The parameter sets now match exactly, 89 for 89**, block for block: growth 4, selectivity 4,
+M block 1, stock-recruit 1, InitF 1, F by year 34, recruitment deviates 31, initial ages 13.
+`ss3_fix_map()` derives the fixed set from SS3's own phase column. What is left:
+
+1. **The initial age structure needs a new `initMode`, and this is a decision, not a task.**
+   Rceattle's `initMode 4` builds `mort_sum(a) = sum_{a'<a} M1(a') + Finit`, adding `Finit`
+   **once**; `initMode 3` accumulates a constant `Finit` with no selectivity. SS3 accumulates
+   `Finit * sel(a')`. Confirmed exactly: the injected `init_dev` minus SS3's `Early_InitAge`
+   is `const - Finit * cumsum(sel)` with **residual 0.00000 at all 13 ages**, and the implied
+   cumulative selectivity reproduces the real one to three decimals. It costs 1.372 nats on
+   the `init_dev` penalty, and it means Rceattle's `Finit` and SS3's `InitF` are not the same
+   quantity. No existing mode is exact, which is what the plan's Phase 4c predicted. Adding
+   one is a new switch value, so hard rule 9 applies.
+2. **Then the `log_growth_pars` gradient, now 60.9.** Attributed by perturbing each growth
+   parameter and differencing every `jnll_comp` row (column sums reproduce the gradients
+   exactly): it is **Index data and Catch data**, not composition. For `Linf`, -47.4 and
+   -39.5 against +34.0 and -22.4 from the comps. Two suspects are already ruled out — the
+   selected body weight matches SS3's per-fleet `bodywt` to five digits, and the growth
+   linkage priors contribute nothing to the gradient, sitting at their mode.
+3. **The linkage-table priors are Rceattle-only and SS3 has none** (`Parm_priors = 0`). The
+   converter attaches normal priors to the growth rows (`K` with sd 0.01, `L1` 0.5, `Linf`
+   1.0), worth -2.5415. They do not move the gradient but they will move a cold start, so G3
+   is not meaningful until they are off or SS3 grows the same priors.
 2. The rest of G2 is within 0.35 nats of SS3 once the densities' constants are netted off
    (`parity_report()` prints the residual column). Two blocks have no SS3 counterpart:
    `init_dev` (+12.87) and the linkage-table prior (-2.54). `rec_pars` (-26) and
