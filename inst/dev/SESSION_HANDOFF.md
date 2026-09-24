@@ -331,6 +331,31 @@ M block 1, stock-recruit 1, InitF 1, F by year 34, recruitment deviates 31, init
 
    Survey residual fell 0.0446 -> **0.0001** with it, and catch 0.0797 -> 0.0667.
 
+**G3 has been run, and it makes the `initMode` case concrete.**
+`SS3-bridge/run_g3.R` fits from two starts. **Warm** (start at SS3's MLE) converges cleanly,
+max |gradient| **5.1e-11**, and lands **1.34 nats below** SS3's MLE at 517.8151. Against SS3:
+SSB terminal 0.39% and max 3.33%, recruitment median 1.5% and max 15.4% (2022, a terminal
+year). The parameter blocks move by:
+
+| block | how far it moves |
+|---|---|
+| `log_growth_pars` | 0.0016 abs — growth is essentially identical |
+| `sel_dn6` | 0.30 abs but 0.3% rel (SS3 scales, peak near 100 cm) |
+| `rec_pars` | 0.14 abs, 1.3% rel |
+| `log_F` | 0.05 abs |
+| `init_dev` | 0.47 abs |
+| **`log_Finit`** | **2.02 abs on the log scale — a factor of 7.5** |
+
+Everything agrees closely **except the initial-state block**, which is the `initMode` difference
+above, now demonstrated at the optimum rather than inferred from the injected values. Rceattle's
+`Finit` is not SS3's `InitF`, so it has no anchor and runs off.
+
+**Cold does not converge.** Without phasing it stops at 380 iterations with a gradient of 67.9
+(the `fit_control` defaults are `rel_tol = 1`, `newtonsteps = 0`); with phasing and Newton steps
+it diverges outright, objective 14585 and SSB out by 1e8. That is a starting-value problem, not
+an SS3 agreement one, and `log_Finit` being ill-determined is the likely reason a cold start has
+nothing holding it. Retry after the `initMode` fix.
+
 **The growth priors are gone.** The forward pass carried tight normals on K, L1 and Linf,
 justified by SS3 having its own (`ctl PR_SD` K 0.021, Linf 2) and by the comps being
 Francis-down-weighted about 25x. Both premises were stale: SS3 reports `Pr_type = No_prior`
