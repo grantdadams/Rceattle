@@ -92,13 +92,15 @@ whitened (\code{L^-1}) scale for an
 conditional mode (see above). \code{sd} is \code{NA} under the default method too,
 only \code{method = "oneStepGaussian"} returns one. It holds
 \code{method} and \code{seed} attributes, \code{method} is the string that was passed,
-or a named vector \verb{c(default = <method>, ...)} when a likelihood family was
-residualized with its own: \code{TruncatedNormal = "oneStepGeneric"} for a
-truncated index fleet under a Gaussian method,
-\code{DirichletMultinomial = "oneStepGaussianOffMode"} for a D-M composition
-under \code{"cdf"}, and \code{DiscreteComposition = "oneStepGeneric"} for the
-composition rows under \code{discrete = TRUE}, which a Gaussian method cannot
-score because it is continuous-only, and
+or a named vector \verb{c(default = <method>, ...)} when a group of rows was
+residualized with its own. Two names are likelihood families:
+\code{TruncatedNormal = "oneStepGeneric"} for a truncated index fleet under a
+Gaussian method, and \code{DirichletMultinomial = "oneStepGaussianOffMode"} for
+a D-M composition under \code{"cdf"}. The third is not a family but the rows
+\code{discrete = TRUE} selects: \code{DiscreteComposition = "oneStepGeneric"},
+written only under a Gaussian \code{method}, which cannot score a discrete
+observation because it is continuous-only (\code{"cdf"} already is a CDF method,
+so it needs no override and writes no entry). It also holds
 (when composition types
 are present) a \code{"pearson"} attribute holding the matching Pearson residuals
 so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. The attribute uses this data

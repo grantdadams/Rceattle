@@ -37,8 +37,11 @@ to the integrable forms.
   Slot 3 is checked only on `"NonParametricPM"` (9) and `"LogisticPM"` (11):
   `"NonParametric"` (2) and `"NonParametricIntegrable"` (13) also estimate
   selectivity deviates, but score them with a Gaussian density on
-  `Time_varying_sel_sd`, so neither reads the slot. A `Fleet_type = "Off"` fleet
-  is skipped, the template gating the whole penalty block on `flt_type > 0`.
+  `Time_varying_sel_sd`, so neither reads the slot. The rule throughout is to
+  refuse a weight only where the fleet's own wiring reaches it: the template
+  gates the penalty block on `flt_type(flt) > 0 && flt_sel_lead(flt) == 1`, so a
+  `Fleet_type = "Off"` fleet is skipped, and so is one that follows another
+  fleet's `Selectivity_index` -- the group is charged once, on its lead.
 
   Measured on `BS2017SS` fleet 1 (`NonParametric`, `N_sel_bins = 8`, with the
   shipped `Sel_curve_pen2 = 12.5` active): ramping the fleet's `sel_coff`
@@ -60,14 +63,17 @@ to the integrable forms.
   `"NonParametricPM"` (9) under `Sel_shape_mode = "Directional"`.** It used to
   negate `Sel_curve_pen1` on every non-parametric form. `"NonParametric"` (2)
   and `"NonParametricIntegrable"` (13) have no increasing-direction penalty at
-  all -- the template hard-codes `max(d, 0)^2` -- so `"Increasing"` never did
-  what it said there; it fitted the reward above. There is no like-for-like
-  migration: only 9 in `"Directional"` mode implements the direction, and it is
-  not a drop-in (it charges its average-selectivity term only when
-  `Sel_avgsel_pen > 0`, defaults its penalty range to `Bin_first_selected`
-  rather than the first bin, reads `Sel_curve_pen3`, and refuses
-  `Time_varying_sel = "IID"`). If you did not mean an increasing penalty, drop
-  the column -- the default is `"Decreasing"` -- and rebuild.
+  all -- the template hard-codes `max(d, 0)^2`, `d` being the log-selectivity
+  drop from one bin to the next -- so `"Increasing"` never did what it said
+  there; it fitted the reward above. There is no like-for-like migration: only 9
+  in `"Directional"` mode implements the direction, and it is not a drop-in (it
+  charges its average-selectivity term only when `Sel_avgsel_pen > 0`, defaults
+  its penalty range to `Bin_first_selected` rather than the first bin, reads
+  `Sel_curve_pen3`, and refuses `Time_varying_sel = "IID"`). If you did not mean
+  an increasing penalty, drop the column -- the default is `"Decreasing"`.
+  Unlike the sign check above, this one is not waived on a `Fleet_type = "Off"`
+  fleet: the direction states what the form can express, and `write_data()`
+  persists the weight it sets.
 
 * **`Sel_devmag_sd` is refused on `"NonParametric"` (2) and
   `"NonParametricIntegrable"` (13).** It writes `Sel_curve_pen3`, which neither
@@ -112,7 +118,8 @@ to the integrable forms.
 
 * **`data_check()` no longer requires `Sel_curve_pen2` on a time-varying
   `LogisticPM` fleet.** The template says in as many words that
-  `sel_curve_pen(flt,1)` is unused in that branch, so the column was required and
+  `sel_curve_pen(flt,1)` -- the 0-based C++ spelling of the same column -- is
+  unused in that branch, so the column was required and
   then ignored -- and the schema, `?BS2017SS` and
   `vignette("model-parameterizations")` all say `LogisticPM` does not use it. The
   two weights it does read, `Sel_curve_pen1` (the random walk on realized
@@ -125,8 +132,9 @@ to the integrable forms.
   `"Off"`, and a group of one shares nothing. The check compared the key to
   `Fleet_code`, which both refused offsets that were perfectly identifiable
   (`GOAatf` fleet 3 and `GOA2018SS` fleet 11, each the sole member of its group,
-  and `GOA2018SS` fleet 9, the lead of the group `{9, 10}`) and, where a group's key equalled its *second* member's code, let the
-  follower through: `build_map_selectivity()` freed the cell and
+  and `GOA2018SS` fleet 9, the lead of the group `{9, 10}`) and, where a
+  group's key equalled its *second* member's code, let the follower
+  through: `build_map_selectivity()` freed the cell and
   `adjust_map_shared_params()` then mapped it off, pinning the offset at
   `exp(0) = 1` with the fit converging and nothing reported. Both now follow
   `.shared_block_lead()`, the rule the map itself applies, and the error names
@@ -143,12 +151,16 @@ to the integrable forms.
   nor written to the returned object's `method` attribute, so the attribute --
   and `print()` -- named a method no composition row had used.
 
-* **The non-finite-residual messages no longer misattribute the cause.** Both
-  the headline warning and `.osa_retry_tail()`'s message sent the analyst to
-  re-check convergence and sample sizes, contradicting the measurement recorded
-  in the same file: on a random-effects fit with a large composition data set
-  the Laplace inner problem fails on the depth of conditioning, and the retry
-  recovers nothing (1879 before, 1879 after). They now name that limitation.
+* **The non-finite-residual messages now name the `"cdf"` limitation where it
+  applies.** Both the headline warning and `.osa_retry_tail()`'s message sent
+  the analyst to re-check convergence and sample sizes without mentioning the
+  measurement recorded in the same file: on a random-effects fit with a large
+  composition data set the Laplace inner problem fails on the depth of
+  conditioning, and the retry recovers nothing (1879 before, 1879 after). Both
+  now add that reading, and only where it can hold -- the headline warning shows
+  it under `method = "cdf"` on a fit with random effects, since a Gaussian
+  method returns every residual finite on the same fit. Convergence and the
+  sparsest compositions remain the first thing to check otherwise.
 
 * **`plot()` on an `rceattle_osa` object warns when it drops residuals.** It
   filtered to the finite ones and warned only when *every* residual was
@@ -161,16 +173,18 @@ to the integrable forms.
   checks all return nothing, and the battery reported `"OK"` --
   `report_tables()$model$converged` then printed `OK` into a SAFE table.
   Nothing distinguished "every check passed" from "the strongest checks never
-  ran". The fit itself is unchanged, and the diagnostic refits are not affected:
-  `retrospective()`, `jitter()`, `self_test()` and `profile()` take `getsd` from
-  the source fit, and `run_mse()`'s refits never run the battery. The one place
-  the new status shows up by default is `reweight()`, which refits with
-  `getsd = FALSE` and returns that fit, so a reweighted model now reads `NOTE`
-  rather than `OK` until it is refit with `getsd = TRUE`.
+  ran". The fit is unchanged. Only `estimateMode` `"Estimate"` and `"Hindcast"`
+  run the battery, and each refitting diagnostic resolves its own `getsd`:
+  `retrospective()`, `jitter()`, `self_test()` and `profile()` follow whether
+  the source fit kept an `sdreport`; `reweight()` follows that fit's
+  `fit_control$getsd`, so a default fit still reads `OK`; `run_mse()` refits at
+  `getsd = FALSE`, so an MSE's estimation fits now read `NOTE` -- a status only,
+  changing no result.
 
 * **The `"NonParametricPM"` (9) directional shape penalty now has a
-  limiting-case and specification check.** Nothing verified that `Sel_shape_dir = "Increasing"` penalizes
-  an increasing curve on the one form that implements it; the existing tests
+  limiting-case and specification check.** Nothing verified that
+  `Sel_shape_dir = "Increasing"` penalizes an increasing curve on the one form
+  that implements it; the existing tests
   covered the `weight = 1/(2*sd^2)` arithmetic and one `"Decreasing"` fit. On a
   strictly increasing curve the decreasing direction now charges 0 and the
   increasing direction 5.6, mirrored on a strictly decreasing curve, and all

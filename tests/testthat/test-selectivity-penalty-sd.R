@@ -232,6 +232,18 @@ testthat::test_that("a negative Sel_curve_pen is refused on the forms that read 
   off$fleet_control$Fleet_type[np] <- "Off"
   testthat::expect_true(allowed(off))
 
+  # The other half of the template's gate: flt_sel_lead == 1. Fleets sharing a
+  # Selectivity_index are charged the penalty once, on the group's lead, so a
+  # FOLLOWER's weight is never read and a negative one there is inert. The lead's
+  # is read, so it is still refused.
+  grp <- set_form("NonParametric", "Sel_curve_pen1", 20)
+  two <- np[1:2]
+  grp$fleet_control$Selectivity_index[two] <- grp$fleet_control$Fleet_code[two[1]]
+  follower <- grp; follower$fleet_control$Sel_curve_pen1[two[2]] <- -20
+  testthat::expect_true(allowed(follower))
+  leader <- grp; leader$fleet_control$Sel_curve_pen1[two[1]] <- -20
+  testthat::expect_true(refused(leader))
+
   # Positive weights are untouched.
   testthat::expect_true(allowed(set_form("NonParametric",           "Sel_curve_pen1", 20)))
 })

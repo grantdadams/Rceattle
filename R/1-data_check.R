@@ -1025,7 +1025,7 @@ data_check <- function(data_list) {
 
       # LogisticPM: Sel_curve_pen1 weights the random walk on the REALIZED
       # log-selectivity and Sel_curve_pen3 the walk on the free age-1 deviates
-      # (ADMB ctrl_flag(26) and 8). Sel_curve_pen2 is not read on this form, so
+      # (ADMB ctrl_flag(26) and the literal weight 8). Sel_curve_pen2 is not read on this form, so
       # it is not required. Require the two that are numeric when time-varying,
       # so a stray mode string is caught early.
       if(!is.na(fc$Selectivity[flt]) && !is.na(fc$Time_varying_sel[flt]) &&

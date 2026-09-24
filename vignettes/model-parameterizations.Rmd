@@ -154,9 +154,16 @@ Which form reads which slot, and what it charges:
 
 | Slot | SD column | Reads the sign? | `NonParametric` (2) | `NonParametricPM` (9) | `NonParametricIntegrable` (13) | `LogisticPM` (11) |
 |---|---|---|---|---|---|---|
-| `Sel_curve_pen1` | `Sel_shape_sd` | only on 9 under `Sel_shape_mode = "Directional"` | shape, on the base curve | shape, on the base curve | shape, on the base curve | random walk on realized log-selectivity |
-| `Sel_curve_pen2` | `Sel_curvature_sd` | no | 2nd-difference curvature | 2nd-difference curvature | 2nd-difference curvature | not read |
+| `Sel_curve_pen1` | `Sel_shape_sd` | only on 9 under `Sel_shape_mode = "Directional"` | shape, on the realized curve | shape, on the realized curve | shape, on the base curve | random walk on realized log-selectivity |
+| `Sel_curve_pen2` | `Sel_curvature_sd` | no | 2nd-difference curvature, on the realized curve | 2nd-difference curvature, on the realized curve | 2nd-difference curvature, on the base curve | not read |
 | `Sel_curve_pen3` | `Sel_devmag_sd` | no | not read | deviation magnitude | not read | random walk on the age-1 deviates |
+
+**Realized or base.** Forms 2 and 9 charge the shape and curvature penalties on
+the *realized* curve, accumulated over sexes and years (form 2 under `"IID"` or
+`"RandomWalk"`, form 9 from `Sel_start_year` under `"RandomWalk"`; 9 refuses
+`"IID"`). Form 13 charges them once per sex on the *base* coefficients. The same
+weight therefore bites harder on a time-varying 2 or 9 -- retune rather than
+copy one across forms.
 
 Three points that decide whether a value you set does anything:
 
@@ -168,16 +175,19 @@ Three points that decide whether a value you set does anything:
   rather than silently negating it.
 - **The sign.** A weight multiplies a squared deviation, so a negative one
   *rewards* that deviation. `data_check()` refuses a negative `Sel_curve_pen`
-  wherever the template reads it as a weight, the directional case above being
-  the one exemption.
-- **Whether the deviates exist.** The three slots marked as random walks or
-  deviation magnitude are charged on the time-varying deviates, so under
+  wherever the template reads it as a weight -- which leaves three cases it does
+  not refuse: the directional case above, a `Fleet_type = "Off"` fleet (charged
+  no selectivity penalty at all), and a slot charged on deviates the fleet does
+  not estimate, per the next point.
+- **Whether the deviates exist.** The three cells above marked as random walks
+  or deviation magnitude are charged on the time-varying deviates, so under
   `Time_varying_sel = "Off"` they are identically zero and the weight is never
   read. Forms 2 and 13 do estimate deviates, but score them with a Gaussian
   density on `Time_varying_sel_sd`, which is why they never read slot 3.
 
 The 2D/3D-AR1 forms (6/7) reuse `Sel_curve_pen1/2/3` for logit-scale
-correlations, not weights, and keep those columns.
+correlations, not weights, and keep those columns. The `Hake` form (5) reads no
+`Sel_curve_pen` slot.
 
 ### Fixed selectivity
 Input:
@@ -187,7 +197,7 @@ Input:
 Input:
 `Selectivity = 2 or "NonParametric"`, `N_sel_bins = 6`, `Sel_curve_pen1 = 12.5`, `Sel_curve_pen2 = 200`, and `Bin_first_selected = 1`
 
-See **Selectivity penalty weights** below for `Sel_curve_pen1/2/3` and the
+See **Selectivity penalty weights** above for `Sel_curve_pen1/2/3` and the
 standard-deviation columns that set them.
 
 Equation:

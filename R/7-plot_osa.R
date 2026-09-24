@@ -87,11 +87,15 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
     return(invisible(NULL))
   }
   if (n_dropped > 0) {
-    warning(n_dropped, " of ", n_all, " residual(s) are non-finite and are not ",
-            "plotted, so the panel's SDNR and quantiles describe only the ",
-            nrow(x), " shown.",
+    # Counts the OSA rows only. A Pearson panel drawn beside these is a
+    # different population -- composition sources alone, with its own exclusions
+    # and its own finite filter below -- so it is not described here.
+    warning(n_dropped, " of ", n_all, " OSA residual(s) are non-finite and are ",
+            "not plotted, so the OSA panel's SDNR and quantiles describe only ",
+            "the ", nrow(x), " shown.",
             if ("cdf" %in% as.character(osa_method))
-              " Under method = \"cdf\" these fail in a contiguous tail, making the survivors a time-biased subset."
+              paste0(" Under method = \"cdf\" these fail in a contiguous tail, ",
+                     "making the survivors a time-biased subset.")
             else "")
   }
 

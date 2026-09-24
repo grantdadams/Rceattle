@@ -192,13 +192,15 @@
 #'   conditional mode (see above). `sd` is `NA` under the default method too,
 #'   only `method = "oneStepGaussian"` returns one. It holds
 #'   `method` and `seed` attributes, `method` is the string that was passed,
-#'   or a named vector `c(default = <method>, ...)` when a likelihood family was
-#'   residualized with its own: `TruncatedNormal = "oneStepGeneric"` for a
-#'   truncated index fleet under a Gaussian method,
-#'   `DirichletMultinomial = "oneStepGaussianOffMode"` for a D-M composition
-#'   under `"cdf"`, and `DiscreteComposition = "oneStepGeneric"` for the
-#'   composition rows under `discrete = TRUE`, which a Gaussian method cannot
-#'   score because it is continuous-only, and
+#'   or a named vector `c(default = <method>, ...)` when a group of rows was
+#'   residualized with its own. Two names are likelihood families:
+#'   `TruncatedNormal = "oneStepGeneric"` for a truncated index fleet under a
+#'   Gaussian method, and `DirichletMultinomial = "oneStepGaussianOffMode"` for
+#'   a D-M composition under `"cdf"`. The third is not a family but the rows
+#'   `discrete = TRUE` selects: `DiscreteComposition = "oneStepGeneric"`,
+#'   written only under a Gaussian `method`, which cannot score a discrete
+#'   observation because it is continuous-only (`"cdf"` already is a CDF method,
+#'   so it needs no override and writes no entry). It also holds
 #'   (when composition types
 #'   are present) a `"pearson"` attribute holding the matching Pearson residuals
 #'   so [plot.rceattle_osa()] can show both. The attribute uses this data
@@ -1049,13 +1051,22 @@ osa_residuals <- function(object = NULL,
 
   n_bad <- sum(!is.finite(out$residual))
   if (n_bad > 0) {
-    warning(n_bad, " of ", nrow(out), " OSA residual(s) are non-finite. On a ",
-            "random-effects fit with a large composition data set under ",
-            "method = \"cdf\" this is the documented limitation of the method ",
-            "-- the Laplace inner problem fails on the depth of conditioning ",
-            "-- and says nothing about the fit. Otherwise it points to very ",
-            "sparse or degenerate compositions (common for conditional ",
-            "age-at-length), or to a poorly converged fit. See ?osa_residuals.")
+    # The "cdf" clause is shown only where it can apply. Under a Gaussian method
+    # the same fit returns every residual finite, so leading with it there would
+    # explain away a result that does point at the data or the fit.
+    warning(n_bad, " of ", nrow(out), " OSA residual(s) are non-finite. Check ",
+            "model convergence and the sparsest compositions before ",
+            "interpreting the residuals: non-finite values usually point to ",
+            "very sparse or degenerate compositions (common for conditional ",
+            "age-at-length), or to a poorly converged fit.",
+            if (identical(method, "cdf") && length(object$obj$env$random))
+              paste0(" On a random-effects fit with a large composition data ",
+                     "set this can instead be the documented limitation of ",
+                     "method = \"cdf\" -- the Laplace inner problem fails on ",
+                     "the depth of conditioning -- which says nothing about ",
+                     "the fit.")
+            else "",
+            " See ?osa_residuals.")
   }
 
   # A composition `predicted` is an expected bin count, so it cannot be
@@ -1144,13 +1155,16 @@ osa_residuals <- function(object = NULL,
             " observation(s)",
             if (n_left) paste0("; ", n_left, " remain non-finite") else "", ".")
   } else {
+    # Recovering none rules out a poisoned warm start: the failure is in the
+    # solve itself, not in the sequence. On a large composition data set that is
+    # the known "cdf" limitation; on a small one it still points at the fit.
     message("osa_residuals(): ", n_bad0, " observation(s) are non-finite and ",
-            "recomputing the block from the first one recovered none, which is ",
-            "the measured behaviour on a random-effects fit with a large ",
-            "composition data set: the Laplace inner problem fails on the depth ",
-            "of conditioning itself, not on a poisoned warm start and not on ",
-            "the observations. This is a known limitation of method = \"cdf\" ",
-            "there rather than a sign of a bad fit; see ?osa_residuals.")
+            "recomputing the block from the first one recovered none, so the ",
+            "Laplace inner problem fails on the conditioning itself rather than ",
+            "on a poisoned warm start. On a random-effects fit with a large ",
+            "composition data set that is the measured limitation of ",
+            "method = \"cdf\" rather than a sign of a bad fit; on a small one, ",
+            "check convergence and the sparsest compositions. See ?osa_residuals.")
   }
   res
 }

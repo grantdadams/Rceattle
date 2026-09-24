@@ -243,14 +243,18 @@ build_selectivity <- function(linkages = NULL) {
     mir_lead <- vapply(prior_flt, function(f)
       .shared_block_lead(list(fleet_control = fleet_control), f, "sel"), integer(1))
     if (any(!is.na(mir_lead))) {
-      lead_nm <- paste(fleet_control$Fleet_name[mir_lead[!is.na(mir_lead)]], collapse = ", ")
+      # Name each follower with its own lead: two followers of one lead would
+      # otherwise print that lead twice, in a list nothing pairs to the first.
+      .bad <- !is.na(mir_lead)
       stop(sprintf(paste0(
-        "selectivity prior on fleet(s) %s, which share a Selectivity_index with ",
-        "fleet(s) %s and take that fleet's selectivity block: the shared block ",
-        "would be penalized once per sharing fleet. Place the prior on the lead ",
-        "fleet instead."),
-        paste(fleet_control$Fleet_name[prior_flt[!is.na(mir_lead)]], collapse = ", "),
-        lead_nm), call. = FALSE)
+        "selectivity prior on %s, which share a Selectivity_index with the lead ",
+        "fleet named and take its selectivity block: the shared block would be ",
+        "penalized once per sharing fleet. Place the prior on the lead fleet ",
+        "instead."),
+        paste(sprintf("'%s' (lead: '%s')",
+                      fleet_control$Fleet_name[prior_flt[.bad]],
+                      fleet_control$Fleet_name[mir_lead[.bad]]),
+              collapse = ", ")), call. = FALSE)
     }
 
     # (c) A prior on a limb the fleet's own curve never uses. Logistic reads only
@@ -341,14 +345,15 @@ build_selectivity <- function(linkages = NULL) {
     lead <- vapply(flts, function(f) .shared_block_lead(list(fleet_control = fc), f, "sel"),
                    integer(1))
     if (any(!is.na(lead))) {
-      mirror <- flts[!is.na(lead)]
+      # `flts` is one fleet here (ap is read row by row), so name it with its
+      # lead rather than printing two lists to be paired up by position.
+      .bad <- !is.na(lead)
       stop(sprintf(paste0(
-        "apical selectivity linkage on fleet(s) %s, which share a ",
-        "Selectivity_index with fleet(s) %s and take that fleet's selectivity ",
-        "block. Place the offset on the lead fleet instead; the fleets sharing ",
-        "the index inherit it."),
-        paste(fc$Fleet_name[mirror], collapse = ", "),
-        paste(fc$Fleet_name[lead[!is.na(lead)]], collapse = ", ")), call. = FALSE)
+        "apical selectivity linkage on %s, which shares a Selectivity_index with ",
+        "the lead fleet named and takes its selectivity block. Place the offset ",
+        "on the lead fleet instead; the fleets sharing the index inherit it."),
+        paste(sprintf("'%s' (lead: '%s')", fc$Fleet_name[flts[.bad]],
+                      fc$Fleet_name[lead[.bad]]), collapse = ", ")), call. = FALSE)
     }
 
     if (!is.null(nsex)) {

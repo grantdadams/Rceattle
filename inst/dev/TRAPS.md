@@ -177,6 +177,16 @@ than switch on `estimateMode`.
 
 ## Silent-wrong-number traps
 
+**Which fleet leads a `Selectivity_index` group is row-order dependent, so a group's penalty
+weights can change meaning when rows move.** `.group_lead()` picks the group's first fleet that
+is not `Off`, and `Fleet_code` must equal the row number, so inserting or reordering a fleet —
+or switching the lead `Off` — promotes a different row. Only the lead's `Sel_curve_pen1/2/3` are
+read (`ceattle.cpp:4051` gates on `flt_sel_lead(flt) == 1`), and a follower's are neither read
+nor checked against the lead's: `.sel_shaping_cols` deliberately excludes them, and the negative-
+weight refusal skips followers for the same reason. So a stale or wrong weight sitting on a
+follower is inert until a reordering makes that fleet the lead, at which point it is charged
+silently. Keep the whole group's penalty columns in agreement even though nothing enforces it.
+
 **A `NonParametricPM` (9) `RandomWalk` fleet at the default `Sel_curve_pen3 = 0` has an exactly
 flat direction.** Slot 3 is the only term charged on the RAW `sel_coff_dev`
 (`ceattle.cpp:4233`); every other term — shape, curvature, the random walk, and the data —
