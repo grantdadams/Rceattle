@@ -148,6 +148,29 @@ test_that("the switch codes and modes the recipe quotes still hold", {
   testthat::expect_false(grepl("RandomWalkAscending", block))
 })
 
+# A schema `doc` string is written verbatim into meta_data_names.xlsx, so a
+# selectivity code named there is a code an assessment author will try to use.
+# Retiring form 14 left six of them advertising it, caught only by hand while
+# reviewing the 5.34.0-5.41.0 release PR.
+test_that("no schema description names a selectivity code sel_map does not accept", {
+  schema <- .rce_column_schema()
+  sel_cols <- c("N_sel_bins", "Sel_curve_pen1", "Sel_curve_pen2", "Sel_curve_pen3",
+                "Sel_shape_sd", "Sel_curvature_sd", "Sel_devmag_sd", "Selectivity")
+  docs <- vapply(schema[names(schema) %in% sel_cols], function(r) r$doc, character(1))
+  testthat::expect_gt(length(docs), 0)
+  for (nm in names(docs)) {
+    # Bare integers in a slash- or comma-separated run of codes, e.g. "2/9/13"
+    # or "2, 5, 6, 7, 9, or 13". Years and sd values are not in that shape.
+    runs <- unlist(regmatches(docs[[nm]],
+                              gregexpr("\\b\\d{1,2}(\\s*[/]\\s*\\d{1,2})+", docs[[nm]])))
+    codes <- unique(as.numeric(unlist(strsplit(runs, "\\s*/\\s*"))))
+    testthat::expect_true(all(codes %in% sel_map),
+                          info = paste0(nm, " names selectivity code(s) ",
+                                        paste(setdiff(codes, sel_map), collapse = ", "),
+                                        ", which sel_map does not accept"))
+  }
+})
+
 test_that("the two test lines whose failures the recipe pastes still carry those assertions", {
   root <- .docs_root()
   dispatch  <- readLines(file.path(root, "tests", "testthat", "test-schema-cpp-dispatch.R"),

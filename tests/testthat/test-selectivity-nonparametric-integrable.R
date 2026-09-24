@@ -131,13 +131,13 @@ testthat::test_that("NonParametricIntegrable keeps the base, fixes the first inc
   testthat::expect_equal(np_rows(m2)[["Non-parametric selectivity"]], np_rows(m)[["Non-parametric selectivity"]])
 })
 
-testthat::test_that("random_sel = TRUE is accepted for the new forms and still refused for NonParametric", {
+testthat::test_that("random_sel = TRUE is accepted for the new form and still refused for NonParametric", {
   testthat::skip_on_cran()
   m13 <- np_build(np_data("NonParametricIntegrable", "IID"), random_sel = TRUE)
   testthat::expect_identical(sum(names(m13$obj$par) == "sel_dev_log_sd"), 1L)
   testthat::expect_true("sel_coff_dev" %in% m13$obj$env$.random)
-  m14 <- np_build(np_data("NonParametricIntegrable", "RandomWalk"), random_sel = TRUE)
-  testthat::expect_identical(sum(names(m14$obj$par) == "sel_dev_log_sd"), 1L)
+  m13_walk <- np_build(np_data("NonParametricIntegrable", "RandomWalk"), random_sel = TRUE)
+  testthat::expect_identical(sum(names(m13_walk$obj$par) == "sel_dev_log_sd"), 1L)
   testthat::expect_error(np_build(np_data("NonParametric", "IID"), random_sel = TRUE),
                          "NonParametricIntegrable")
   testthat::expect_error(np_build(np_data("NonParametric", "RandomWalk"), random_sel = TRUE),

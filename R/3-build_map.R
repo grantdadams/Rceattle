@@ -701,7 +701,7 @@ build_map_predation <- function(map_list, data_list) {
 #'     `log_sel_slp[1]` = log(sigma_asc); `log_sel_slp[2]` = log(sigma_desc).
 #'     right_floor->0: dome-shaped; right_floor->1: logistic ascending only.
 #'
-#' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
+#' \code{N_sel_bins}	Number of age/length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, 9, or 13). Not used otherwise
 #'
 #' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
 #' `0` = 'Off'
@@ -1152,7 +1152,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
       # * 2DAR1 ----
-      # ---- sel_type = 6 (age-based), 13 (length-based)
+      # ---- sel_type = 6; age- or length-based per Selectivity_dimension
       if (sel_type == "2DAR1") {
         # A 2DAR1 fleet's deviations come from the AR1 field, so "Off" asks for
         # what it already has. Only an overridden mode is reported.
@@ -1190,7 +1190,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * 3DAR1 ----
-      # ---- sel_type = 7 (age-based), 14 (length-based)
+      # ---- sel_type = 7; age- or length-based per Selectivity_dimension
       if (sel_type == "3DAR1") {
         # As for 2DAR1: "Off" agrees with the AR1 field's own deviations.
         if (!is.na(tv_sel) && tv_sel != "Off") {

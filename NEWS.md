@@ -227,7 +227,7 @@ version throughout.
   density scored it. `inits` from a fit with a lower `Bin_first_selected` hold
   such values: 0.9 in those cells moved `Atka2022`'s fishery objective by 704
   nats and year-1 selectivity by 0.21. This affected `NonParametric` (2) and the
-  new forms 13 and 14. `NonParametricPM` (9) was never affected, because its
+  new form 13. `NonParametricPM` (9) was never affected, because its
   branch already zeroed those cells before centring, so no `NonParametricPM` fit
   needs revisiting. A fit started from the build defaults, the golden fits
   included, is unchanged.
@@ -460,7 +460,7 @@ release stays a minor version.
   (about 5% of the precision low at sd 0.35, more as the sd grows). Fit with
   `random_sel = FALSE`, the penalized AMAK formulation. (From 5.40.0 the
   integrable form `NonParametricIntegrable` takes
-  `random_sel = TRUE` instead; this refusal does not apply to them.)
+  `random_sel = TRUE` instead; this refusal does not apply to it.)
 
 ## Bug fixes
 
