@@ -146,15 +146,23 @@ makes the length compare unequal to every half-integer bin edge, and SS3 stops w
 `L_bin_lo no match to poplenbins in age comp`. Confirmed by trying it. The containers were
 widened to `matrix` in commit `416bf89`, released in **v3.30.25**.
 
-**So Rceattle needs no new column.** Its `caal_data` holds one `Length` per row, which is
-correct for a correctly-specified file. Two follow-ups remain:
-1. The converter maps `Lbin_lo` to the nearest length bin (`ss3_to_rceattle.R:730-733`),
-   i.e. treats it as a length. It must instead honour `Lbin_method`, and **refuse**
-   `Lbin_method = 1` or `2` with non-integer values, which is always an authoring error.
-2. GOA's CAAL is on 5 cm data bins over a 1 cm population grid. That is the ordinary
-   coarse-CAAL case and Phase 1a already handles it: `pop_to_data_bin` accumulates the ALK
-   into the data bins (`growth.hpp:76`), so build GOA with `pop_lengths` = the 1 cm grid and
-   `lengths` = the 21 5 cm bins. Not yet run, so this is read off the code, not measured.
+**So Rceattle needed no new column**, and both follow-ups are done:
+- `ss3_caal_length()` in the converter now resolves both columns per `Lbin_method`, refuses
+  non-integer values under methods 1 and 2, and refuses a row whose population-bin range is
+  not exactly one data bin. Verified on all four files: both as-written models are refused
+  with the reason, both corrected ones convert.
+- GOA's coarse CAAL is the ordinary case Phase 1a already handles — `pop_to_data_bin`
+  accumulates the ALK into the data bins (`growth.hpp:76`). Still read off the code for GOA,
+  which has not been run through the bridge.
+
+**AI now bridges against `Data/M24_1_caal_bins_fixed`** (SS3 total 532.903): predicted CAAL
+6.09e-2 with **1159 of 1160 rows at <= 2.0e-6**, CAAL likelihood residual **+0.0081**, and
+max |gradient| over SS3-estimated parameters **75.3** (was 547). The one row left is the
+month-1 workaround row, which Rceattle cannot represent.
+
+**G2 was testing parameters SS3 holds fixed**, and one of them carried the largest gradient
+(`growth_log_sd`, 98.8). `parity_g2(fixed_in_ss3 = ...)` now tests only what SS3 estimated
+and prints the rest marked `fixed`; the stock's forward pass declares the list.
 
 **What was ruled out first**, each against SS3's own Report.sso — kept because it is what
 bounds the answer:
@@ -275,12 +283,17 @@ neither is a real effect, and neither should be implemented.
 ## Resume here
 
 **Cod bridge** (`git checkout cod-bridge` and `git pull`; pull `../Rceattle-models` master too):
-1. **Point the AI bridge at `Data/M24_1_caal_bins_fixed`** (new target, total NLL 532.903)
-   instead of `M24_1_adjusted`, and rerun the parity gates. The CAAL defect is solved and
-   needs no Rceattle change — see "The CAAL gap is SOLVED" above and
-   `SS3-bridge/CAAL-length-bin-defect.md`. Then teach the converter to honour `Lbin_method`
-   and to refuse non-integer values under methods 1 and 2. Nothing in `R/`, `src/` or the
-   converter has been changed yet.
+1. **Make the estimated parameter SETS match.** SS3 has 89 active parameters, Rceattle 102,
+   and until they agree neither the residual gradient nor G3 means much. The converter
+   should map off everything SS3 fixes — `growth_log_sd` (2; SS3's `CV_young`/`CV_old` are
+   phase -2), `index_log_q` (1; `LnQ_base_Srv` is phase -2) and 8 of the 12 `sel_dn6` slots
+   — and `init_dev` (13, worth +12.97 nats) has no SS3 counterpart at all, which is Phase 4c
+   of the plan. A quick way to enumerate them: `SS_output()$parameters` rows with `Phase < 0`.
+2. **Then chase the residual `log_growth_pars` gradient of 75.3.** Both SS3 runs converge at
+   max gradient ~4e-5, so it is a real difference between the two objectives, not SS3 noise.
+   The composition path is exact, so the suspect is the growth-to-biomass path: weight at
+   age into catch and survey biomass and SSB, and in particular the **selected body weight**
+   added on this branch, which is new and is exactly that path.
 2. The rest of G2 is within 0.35 nats of SS3 once the densities' constants are netted off
    (`parity_report()` prints the residual column). Two blocks have no SS3 counterpart:
    `init_dev` (+12.87) and the linkage-table prior (-2.54). `rec_pars` (-26) and
