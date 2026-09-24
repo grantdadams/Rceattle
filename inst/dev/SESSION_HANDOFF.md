@@ -104,53 +104,57 @@ the constants SS3 drops from its densities, what is left as a difference in fit 
 +4.98, so `build_ss3_age_error()` closed 99.3% of that component. The growth gradient did
 **not** move (532 -> 547), so the previous note's hypothesis is refuted.
 
-**The CAAL gap is SOLVED — a CAAL row is a RANGE of population length bins, and the
-range is one bin below its written label.** Read out of the SS3 source and confirmed
-numerically on both stocks:
+**The CAAL gap is SOLVED, and it is a defect in the two SS3 data files, not in Rceattle.**
+Full write-up, with the source citations and the measured effect on the AI assessment, is
+`Rceattle-models/SS3-bridge/CAAL-length-bin-defect.md` — read that before touching this.
+In short, at **v3.30.22.1** (the version both models were run with, and the tag the line
+numbers below refer to — `main` differs):
 
-- `SS_readdata_330.tpl:2452` declares `matrix Lbin_lo` — a **double**, not an int.
-- Under `Lbin_method = 1` (both cod files) the values are population **bin indices**, used
-  with no conversion (`:2594-2600`). Case 3 is the one that converts lengths to bins.
-- `:2687-2688` does `Lbin_filter(f,j) = 0.; Lbin_filter(f,j)(Lbin_lo, Lbin_hi) = 1;` — an
-  ADMB **inclusive** index range, with the doubles truncated to int.
-- `SS_expval.tpl:642` then forms the cell as `age_exp = exp_AL * Lbin_filter(f,i)`, i.e. the
-  joint age x length expectation **summed over every bin in that range**.
+- `SS_readdata_330.tpl:2448-2449` declares `imatrix Lbin_lo` / `Lbin_hi`, **integers**, so
+  `:2586-2587` truncates a written `24.5` to `24` on assignment.
+- Under `Lbin_method = 1` (both cod files) the values are population **bin numbers**, used as
+  written (`:2589-2600`).
+- `:2681-2684` sets `Lbin_filter` over the **inclusive** bin-index range, and
+  `SS_expval.tpl:631` builds the cell as `age_exp = exp_AL * Lbin_filter(f,i)` — the joint
+  age x length expectation summed over every bin the filter marks.
+- `Report.sso` echoes `len_bins(Lbin_lo)` (`SS_write_report.tpl:2398`, `:4105`), which is how
+  the truncation shows up: all 21 GOA CAAL bins read 1 cm below the data file, AI likewise.
 
-Both cod data files write **lengths** (x.5) where `Lbin_method = 1` expects bin indices, and
-SS3 truncates them silently. With population bins 0.5, 1.5, ..., a row labelled `L` uses the
-bin at `L - 1`. `condbase` confirms it by writing the cell back out as
-`len_bins(trunc(Lbin_lo))`: every GOA data `Lbin_lo` is exactly 1 cm above its `condbase`
-label (21 of 21 bins), and AI the same.
+Both files write **lengths** where `Lbin_method = 1` wants bin numbers. Population bins are
+0.5, 1.5, ..., so bin index *k* has lower edge *k* - 0.5 and a row labelled `L` is fitted at
+`L - 1`:
 
 | stock | `Lbin_hi - Lbin_lo` | bins SS3 actually uses |
 |---|---|---|
 | AI cod | 1 | **two**: `L - 1` and `L`; adjacent rows overlap by one bin |
-| GOA cod | 0 | **one**: `L - 1`, not `L` |
+| GOA cod | 0 | **one** 1 cm bin at `L - 1`, for a row holding a 5 cm data bin |
 
-The converter maps `Lbin_lo` to the nearest length bin
-(`ss3_to_rceattle.R:730-733`), i.e. treats it as a length, and Rceattle's `caal_data` holds
-one `Length` per row. Rebuilding AI's cells as `trunc(Lbin_lo)..trunc(Lbin_hi)` takes the
-predicted CAAL from **1.18e-1 to <= 1.8e-6 on 1159 of the 1160 rows** — Report.sso print
-precision. That is the whole +4.98 and the whole 547 gradient on `log_growth_pars`.
+Rebuilding AI's cells as `trunc(Lbin_lo)..trunc(Lbin_hi)` takes the predicted CAAL from
+**1.18e-1 to <= 1.8e-6 on 1159 of the 1160 rows**. That is the whole +4.98 and the whole 547
+gradient on `log_growth_pars`. The one row left is 2002 `Lbin_lo` 100.5, the only AI CAAL
+observation at month 1 rather than month 7 (0.062) — see "CAAL month" below.
 
-The one row left is **2002, `Lbin_lo` 100.5, the only AI CAAL observation at month 1 rather
-than month 7** (0.062). Rceattle takes a CAAL row's month from its fleet — `caal_data` has
-no `Month` column — so a row at its own month cannot be represented. GOA has a real mix of
-months 1 and 7, so this is not an AI curiosity.
+**`Data/M24_1_caal_bins_fixed`** is the corrected AI run: `M24_1_adjusted` with only the two
+CAAL columns changed to population bin numbers, one bin per row (1160 lines, nothing else,
+same executable). A Mac v3.30.22.1 build reproduces the archived `M24_1_adjusted` at
+531.003 exactly, so the comparison is clean; the corrected run is 532.903. Growth moves
+(length at age +0.2 to +0.5 cm, K -1.66%, q +1.34%), status barely does (B/B0 -0.30%), and
+the 2025 OFL falls 1.25%. `SS3-bridge/compare_caal_bin_fix.R` regenerates the table.
 
-**Needs a decision before it can be fixed** (hard rule 9; the plan's rule that every new
-column is confirmed first):
-1. Give `caal_data` a length range (a `Length_hi`-style column) and sum the C++ prediction
-   over the span — matches SS3 as written, and is the only option that reproduces AI's
-   two-bin cells. New column, so `/new-column` and a schema round-trip.
-2. Or treat the two data files as mis-specified (they are: lengths under `Lbin_method = 1`)
-   and regenerate the SS3 targets with `Lbin_method = 3`, one bin per row as intended. This
-   changes which data the reference run fits, so it moves the target NLL and is **outside**
-   the plan's "estimation-method choices only" rule for target adjustments.
-3. Either way `caal_data` needs a per-row `Month` for GOA.
+**`Lbin_method = 3` is not available as a fix on this SS3 version.** The integer truncation
+makes the length compare unequal to every half-integer bin edge, and SS3 stops with
+`L_bin_lo no match to poplenbins in age comp`. Confirmed by trying it. The containers were
+widened to `matrix` in commit `416bf89`, released in **v3.30.25**.
 
-Under (1) the converter must also shift GOA's rows down one bin; under (2) its current
-behaviour is correct. So the converter is left unchanged until this is decided.
+**So Rceattle needs no new column.** Its `caal_data` holds one `Length` per row, which is
+correct for a correctly-specified file. Two follow-ups remain:
+1. The converter maps `Lbin_lo` to the nearest length bin (`ss3_to_rceattle.R:730-733`),
+   i.e. treats it as a length. It must instead honour `Lbin_method`, and **refuse**
+   `Lbin_method = 1` or `2` with non-integer values, which is always an authoring error.
+2. GOA's CAAL is on 5 cm data bins over a 1 cm population grid. That is the ordinary
+   coarse-CAAL case and Phase 1a already handles it: `pop_to_data_bin` accumulates the ALK
+   into the data bins (`growth.hpp:76`), so build GOA with `pop_lengths` = the 1 cm grid and
+   `lengths` = the 21 5 cm bins. Not yet run, so this is read off the code, not measured.
 
 **What was ruled out first**, each against SS3's own Report.sso — kept because it is what
 bounds the answer:
@@ -191,14 +195,26 @@ neither is a real effect, and neither should be implemented.
   0; SS3's ageing error sends true age 0 into bin 1. The converter's `build_ss3_age_error()`
   does the same (age-0 obs column empty). Run and verified 2026-09-23: it took AI CAAL from
   +725 to +4.98. It is **not** the growth gradient, which did not move.
-- **A CAAL row's `Lbin_lo`/`Lbin_hi` are population bin INDICES under `Lbin_method = 1`,
-  truncated, and the cell spans them inclusive.** Both cod files write lengths there, so
-  every row sits one bin low, and AI's rows span two bins. `condbase` echoes the truncated
+- **A CAAL row's `Lbin_lo`/`Lbin_hi` are population bin NUMBERS under `Lbin_method = 1`,
+  truncated to int, and the cell spans them inclusive.** Both cod files write lengths there,
+  so every row sits one bin low, and AI's rows span two bins. `condbase` echoes the truncated
   bin, so it reads 1 cm below the data file — account for that when joining the two.
 - **Rceattle keeps one age-length key per fleet, not per data row**: `growth_matrix` is
   indexed `nspp * 2 + flt`, and both the length-comp block and the CAAL block read it at
   `flt_month(flt)`. `caal_data` carries no `Month` column, so a CAAL row's timing comes from
   its fleet. That is right for SS3, whose sub-season ALKs these reproduce to 4.4e-7.
+- **CAAL month: per-fleet is enough for both stocks, and `fleet_control$Month` cannot be
+  removed.** Every GOA fleet is single-month (1-3 at month 1, 4 at month 7) for CAAL, length
+  comps and indices alike; AI is too, bar one CAAL row. The fleet slot
+  `nspp * 2 + flt` of `weight_hat` also carries selected body weight for **catch and survey
+  biomass** (`ceattle.cpp:1305, 2774, 2845`), which no data row owns, so the fleet keeps its
+  month regardless. `comp_data` already has a per-row `Month` (`comp_n` column 1) but it is
+  read **only when `growth_model == 0`** (`ceattle.cpp:2874`); under estimated growth the
+  fleet's month wins, because the ALK exists per fleet and not per month. Letting a row
+  override its fleet would mean dimensioning `growth_matrix` / `weight_hat` by distinct
+  **(fleet, month)** pairs — which is `n_flt` slots for every current model, so shapes and
+  numbers would not move — plus a `Month` column on `caal_data`. Not worth it for one row;
+  the converter should refuse a fleet whose rows carry mixed months instead.
 - SS3 multinomial = `MultinomialAFSC` x 1/(1 + n_SS3bins x min_comp); the converter sets
   `comp_offset = addtocomp` and divides `Sample_size` by that factor. A `MultinomialSS3`
   family was written and **reverted at Grant's request** (2026-09-23). Tail compression is
@@ -259,12 +275,12 @@ neither is a real effect, and neither should be implemented.
 ## Resume here
 
 **Cod bridge** (`git checkout cod-bridge` and `git pull`; pull `../Rceattle-models` master too):
-1. **The predicted CAAL is diagnosed and waiting on Grant's decision** — see "The CAAL gap
-   is SOLVED" above. A CAAL row is a *range* of population bins, one bin below its written
-   label; honouring that takes AI from 1.2e-1 to 1.8e-6 on 1159 of 1160 rows and removes
-   the +4.98 and the 547 gradient. The choice is (1) a length range on `caal_data` plus a
-   per-row `Month`, or (2) regenerate both SS3 targets with `Lbin_method = 3`. Nothing in
-   `R/`, `src/` or the converter has been changed for it.
+1. **Point the AI bridge at `Data/M24_1_caal_bins_fixed`** (new target, total NLL 532.903)
+   instead of `M24_1_adjusted`, and rerun the parity gates. The CAAL defect is solved and
+   needs no Rceattle change — see "The CAAL gap is SOLVED" above and
+   `SS3-bridge/CAAL-length-bin-defect.md`. Then teach the converter to honour `Lbin_method`
+   and to refuse non-integer values under methods 1 and 2. Nothing in `R/`, `src/` or the
+   converter has been changed yet.
 2. The rest of G2 is within 0.35 nats of SS3 once the densities' constants are netted off
    (`parity_report()` prints the residual column). Two blocks have no SS3 counterpart:
    `init_dev` (+12.87) and the linkage-table prior (-2.54). `rec_pars` (-26) and
