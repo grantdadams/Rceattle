@@ -290,7 +290,7 @@ validate_linkage_table <- function(x) {
 #'   `NA` = fixed.
 #' @param est_phase estimation phase ordinal; `0` = fix at `init`.
 #' @param re_index,sigma_index,re_time random-effect registry fields filled by
-#'   [pool_linkages()]; `NA` on fixed rows. `re_index` is the 0-based slot in
+#'   `pool_linkages()`; `NA` on fixed rows. `re_index` is the 0-based slot in
 #'   `beta_linkage_re`, `sigma_index` the 0-based slot in `log_sigma_linkage`,
 #'   and `re_time` the numeric grouping value used to order `rw()`/`ar1()`
 #'   deviations in real elapsed time.

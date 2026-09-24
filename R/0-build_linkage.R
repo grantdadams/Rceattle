@@ -8,7 +8,7 @@
 #'   1. an `Rceattle_linkage_spec` object that captures the user's
 #'      intent (formula + grouping) without committing to a global
 #'      column index, and
-#'   2. a [materialize_linkage()] step that, given the env data and
+#'   2. a `materialize_linkage()` step that, given the env data and
 #'      stratum levels, expands the spec into the canonical long-format
 #'      linkage-table rows consumed by TMB.
 #'
@@ -663,8 +663,8 @@ linkage_spec <- function(formula,
 #' Resolve a spec's `species` / `fleet` names against the strata labels.
 #'
 #' @param spec an `Rceattle_linkage_spec`.
-#' @param strata the `strata` list passed to [materialize_linkage()]; its
-#'   `species` / `fleet` elements may hold names (see [pool_linkages()]).
+#' @param strata the `strata` list passed to `materialize_linkage()`; its
+#'   `species` / `fleet` elements may hold names (see `pool_linkages()`).
 #' @return `spec`, with `species` / `fleet` as 1-based integer ids.
 #' @keywords internal
 #' @noRd

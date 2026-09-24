@@ -1118,7 +1118,7 @@ NULL
 
 #' Truncate residuals onto the fixed bubble-size scale
 #'
-#' `plot_comp()` and [.osa_bubble_plot()] both draw residual bubbles on a fixed
+#' `plot_comp()` and `.osa_bubble_plot()` both draw residual bubbles on a fixed
 #' `[0, .RCE_BUBBLE_MAX]` size scale so two figures compare by eye. Truncation
 #' has to happen here rather than being left to the scale's `limits`, because
 #' `scale_size_continuous()` sets an out-of-bounds value to `NA` and drops the
