@@ -179,10 +179,9 @@ a full density. The count is 47, not 44, so the residual is **+0.7342**, not the
 note previously carried. Verified by recomputing both `jnll_comp` rows from the parameter
 arrays against the C++ loop bounds.
 
-**What is left as a real difference in fit**, after the densities' constants: Age_comp +0.0081,
-Catch +0.0797, Length_comp -0.0003, Recruitment +0.7342, Survey +0.0446 — about **0.87 nats**
-in total, and no Rceattle-only terms remain. Rceattle's total is 519.2103 against SS3's
-532.9030, and that gap is the constants (-14.5558) plus those residuals, to 3e-3.
+**What is left as a real difference in fit**, after the densities' constants: Recruitment
++0.7342, Catch +0.0667, Age_comp +0.0081, Length_comp -0.0003, Survey +0.0001 — about
+**0.81 nats**, nearly all of it recruitment, and no Rceattle-only terms remain.
 
 **What was ruled out first**, each against SS3's own Report.sso — kept because it is what
 bounds the answer:
@@ -316,26 +315,21 @@ M block 1, stock-recruit 1, InitF 1, F by year 34, recruitment deviates 31, init
    the `init_dev` penalty, and it means Rceattle's `Finit` and SS3's `InitF` are not the same
    quantity. No existing mode is exact, which is what the plan's Phase 4c predicted. Adding
    one is a new switch value, so hard rule 9 applies.
-2. **The `log_growth_pars` gradient is the CATCH likelihood, not growth.** Decomposed on both
-   sides — `SS3-bridge/attribute_gradient.R` perturbs each growth parameter and differences
-   every `jnll_comp` row, and the same finite difference run on SS3 itself
-   (`init_values_src = 1`, perturb `MGparm[3]`, `-maxfn 0 -phase 50`) gives its side. On
-   `d(NLL)/d(log Linf)`:
+2. **The gradient is now 3.15 and no longer dominated by any one block** — `beta_linkage`
+   -3.15, `log_growth_pars` 2.02, `rec_pars` -1.95, `sel_dn6` 1.54, then `rec_dev` and
+   `init_dev` below 1.2. It was 547 when this work started.
 
-   | component | SS3 | Rceattle |
-   |---|---|---|
-   | Survey / Index | -30.37 | -33.06 |
-   | Length comp | +29.77 | +34.03 |
-   | Age comp / CAAL | -23.57 | -22.42 |
-   | **Catch** | **+17.78** | **-39.49** |
-   | Equil_catch | +6.63 | none |
-   | TOTAL | 0.00 | -60.94 |
+   What closed it was **`bias_adjust_obs = FALSE`**. SS3 bias-corrects *recruitment*
+   (`max_bias_adj -1`, which is `bias_adjust_proc` and stays on) but applies no bias
+   correction to the catch or index observation likelihoods; Rceattle shifts both means by
+   -sigma^2/2 (`ceattle.cpp:3366` index, `:3686` catch). Found by finite-differencing both
+   models, not just Rceattle: predicted catch matched SS3 to 4.17e-6, its sensitivity to
+   `Linf` matched (mean 3.69 against 3.68) and the residuals matched to five decimals, yet
+   the catch gradient was +17.78 in SS3 and -39.49 here — so the likelihood had to differ,
+   not the prediction. `SS3-bridge/attribute_gradient.R` does the Rceattle side; the SS3 side
+   is `init_values_src = 1`, perturb `MGparm[3]`, `-maxfn 0 -phase 50`.
 
-   Three of the four agree within a few units. **The catch term differs in sign** and carries
-   essentially the whole gradient, and SS3 has an `Equil_catch` component Rceattle has no
-   counterpart for. Start there. Ruled out already: the predicted catch itself matches SS3 to
-   4.17e-6 and the predicted index to 4.50e-6 (both now G1 rows), the selected body weight
-   matches SS3's per-fleet `bodywt` to five digits, and the growth priors sat at their mode.
+   Survey residual fell 0.0446 -> **0.0001** with it, and catch 0.0797 -> 0.0667.
 
 **The growth priors are gone.** The forward pass carried tight normals on K, L1 and Linf,
 justified by SS3 having its own (`ctl PR_SD` K 0.021, Linf 2) and by the comps being
