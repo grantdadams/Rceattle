@@ -181,7 +181,8 @@ arrays against the C++ loop bounds.
 
 **What is left as a real difference in fit**, after the densities' constants: Age_comp +0.0081,
 Catch +0.0797, Length_comp -0.0003, Recruitment +0.7342, Survey +0.0446 — about **0.87 nats**
-in total — plus the Rceattle-only linkage prior of -2.5415.
+in total, and no Rceattle-only terms remain. Rceattle's total is 519.2103 against SS3's
+532.9030, and that gap is the constants (-14.5558) plus those residuals, to 3e-3.
 
 **What was ruled out first**, each against SS3's own Report.sso — kept because it is what
 bounds the answer:
@@ -315,16 +316,34 @@ M block 1, stock-recruit 1, InitF 1, F by year 34, recruitment deviates 31, init
    the `init_dev` penalty, and it means Rceattle's `Finit` and SS3's `InitF` are not the same
    quantity. No existing mode is exact, which is what the plan's Phase 4c predicted. Adding
    one is a new switch value, so hard rule 9 applies.
-2. **Then the `log_growth_pars` gradient, now 60.9.** Attributed by perturbing each growth
-   parameter and differencing every `jnll_comp` row (column sums reproduce the gradients
-   exactly): it is **Index data and Catch data**, not composition. For `Linf`, -47.4 and
-   -39.5 against +34.0 and -22.4 from the comps. Two suspects are already ruled out — the
-   selected body weight matches SS3's per-fleet `bodywt` to five digits, and the growth
-   linkage priors contribute nothing to the gradient, sitting at their mode.
-3. **The linkage-table priors are Rceattle-only and SS3 has none** (`Parm_priors = 0`). The
-   converter attaches normal priors to the growth rows (`K` with sd 0.01, `L1` 0.5, `Linf`
-   1.0), worth -2.5415. They do not move the gradient but they will move a cold start, so G3
-   is not meaningful until they are off or SS3 grows the same priors.
+2. **The `log_growth_pars` gradient is the CATCH likelihood, not growth.** Decomposed on both
+   sides — `SS3-bridge/attribute_gradient.R` perturbs each growth parameter and differences
+   every `jnll_comp` row, and the same finite difference run on SS3 itself
+   (`init_values_src = 1`, perturb `MGparm[3]`, `-maxfn 0 -phase 50`) gives its side. On
+   `d(NLL)/d(log Linf)`:
+
+   | component | SS3 | Rceattle |
+   |---|---|---|
+   | Survey / Index | -30.37 | -33.06 |
+   | Length comp | +29.77 | +34.03 |
+   | Age comp / CAAL | -23.57 | -22.42 |
+   | **Catch** | **+17.78** | **-39.49** |
+   | Equil_catch | +6.63 | none |
+   | TOTAL | 0.00 | -60.94 |
+
+   Three of the four agree within a few units. **The catch term differs in sign** and carries
+   essentially the whole gradient, and SS3 has an `Equil_catch` component Rceattle has no
+   counterpart for. Start there. Ruled out already: the predicted catch itself matches SS3 to
+   4.17e-6 and the predicted index to 4.50e-6 (both now G1 rows), the selected body weight
+   matches SS3's per-fleet `bodywt` to five digits, and the growth priors sat at their mode.
+
+**The growth priors are gone.** The forward pass carried tight normals on K, L1 and Linf,
+justified by SS3 having its own (`ctl PR_SD` K 0.021, Linf 2) and by the comps being
+Francis-down-weighted about 25x. Both premises were stale: SS3 reports `Pr_type = No_prior`
+on all four growth parameters with `Parm_priors = 0` — that PR_SD column is a placeholder SS3
+ignores — and the comps now agree to 3e-4. Removing them took the Rceattle-only linkage row
+off the table entirely and moved the total by exactly the 2.5415 it was worth, leaving the
+gradient unchanged. **Every row of the component table is now an SS3 component.**
 2. The rest of G2 is within 0.35 nats of SS3 once the densities' constants are netted off
    (`parity_report()` prints the residual column). Two blocks have no SS3 counterpart:
    `init_dev` (+12.87) and the linkage-table prior (-2.54). `rec_pars` (-26) and
