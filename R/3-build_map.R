@@ -1549,7 +1549,8 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
 
   # -- Map out initial F if starting at equilibrium
-  if(!(data_list$initMode %in% c("FishedNonEquilibrium", "FishedNonEquilibriumScaled"))){
+  if(!(data_list$initMode %in% c("FishedNonEquilibrium", "FishedNonEquilibriumScaled",
+                                 "FishedNonEquilibriumSelected"))){
     map_list$log_Finit <- rep(NA, data_list$nspp)
   }
 

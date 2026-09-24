@@ -558,6 +558,10 @@ Type objective_function<Type>::operator() () {
   vector<Type>  avg_R(nspp); avg_R.setZero();                                       // Mean recruitment of hindcast
   matrix<Type>  R_hat(nspp, nyrs); R_hat.setZero();                                 // Expected recruitment given SR curve
   matrix<Type>  mort_sum(nspp, max_age); mort_sum.setZero();
+  // Fishery selectivity at age used by initMode 6 to spread Finit over ages.
+  // Filled in section 6.5 from the species' fisheries in the first hindcast
+  // year; 1 everywhere for every other mode, which leaves them unchanged.
+  array<Type>   sel_init(nspp, max_sex, max_age); sel_init.setZero();
   matrix<Type>  R0(nspp, nyrs); R0.setZero();                                       // Equilibrium recruitment at F = 0.
   matrix<Type>  alpha(nspp, nyrs); alpha.setZero();                                 // Stock recruit alpha
   matrix<Type>  Beta(nspp, nyrs); Beta.setZero();                                   // Stock recruit beta
@@ -1445,6 +1449,50 @@ Type objective_function<Type>::operator() () {
   }
 
 
+  // 5.12.1. FISHERY SELECTIVITY AT AGE FOR THE INITIAL STATE (initMode 6 only)
+  //
+  // SS3 decays the initial equilibrium with InitF weighted by the fleet's
+  // selectivity, so a size-selective fishery leaves the young ages nearly
+  // untouched. This is the mean over the species' FISHERY fleets in the first
+  // hindcast year: exact for the single-fishery case, which is what SS3's
+  // per-fleet InitF reduces to here, and the mean shape otherwise, because
+  // Rceattle carries one Finit per species rather than one per fleet.
+  //
+  // Every other mode leaves this at 1, so their initial numbers and their
+  // SPRFinit are exactly what they were before this mode existed. It has to be
+  // filled HERE, after selectivity is complete and before section 6.3 reads it
+  // for SPRFinit -- filling it later leaves zeros in that block, which moves
+  // R_init for any model with a stock-recruit curve and a non-zero Finit.
+  for(sp = 0; sp < nspp; sp++){
+    for(sex = 0; sex < nsex(sp); sex++){
+      for(age = 0; age < nages(sp); age++){
+        sel_init(sp, sex, age) = 1.0;
+      }
+    }
+  }
+  if(initMode == 6){
+    for(sp = 0; sp < nspp; sp++){
+      int n_fsh = 0;
+      for(flt = 0; flt < n_flt; flt++){
+        if((flt_type(flt) == 1) && (flt_spp(flt) == sp)) n_fsh++;
+      }
+      if(n_fsh > 0){
+        for(sex = 0; sex < nsex(sp); sex++){
+          for(age = 0; age < nages(sp); age++){
+            Type acc = 0.0;
+            for(flt = 0; flt < n_flt; flt++){
+              if((flt_type(flt) == 1) && (flt_spp(flt) == sp)){
+                acc += sel_at_age(flt, sex, age, 0);
+              }
+            }
+            sel_init(sp, sex, age) = acc / Type(n_fsh);
+          }
+        }
+      }
+    }
+  }
+
+
   // 5.13. SIMULATE PROCESS ERROR (sim_mod(simulate = TRUE), simulate_state)
   // Drawn before the dynamics consume the deviations, so the dynamics and every
   // observation draw downstream are automatically consistent with the simulated
@@ -1679,7 +1727,7 @@ Type objective_function<Type>::operator() () {
           Z_unfished(age) = M_at_age(sp, 0, age, term_yr);
           Z_limit(age)    = M_at_age(sp, 0, age, term_yr) + Flimit_at_age(sp, 0, age, term_yr);
           Z_target(age)   = M_at_age(sp, 0, age, term_yr) + Ftarget_at_age(sp, 0, age, term_yr);
-          Z_init(age)     = M_at_age(sp, 0, age, 0) + Finit(sp);
+          Z_init(age)     = M_at_age(sp, 0, age, 0) + Finit(sp) * sel_init(sp, 0, age);
 
           // Spawning output per TOTAL recruit, so the female fraction enters once:
           // spawn_output (5.7) carries maturity and the age-varying ratio for a
@@ -1865,6 +1913,7 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.4. INITIAL ABUNDANCE AT AGE, BIOMASS, AND SSB (YEAR 1)
+    //
     biomass.setZero();
     ssb.setZero();
     for(sp = 0; sp < nspp; sp++) {
@@ -1927,6 +1976,17 @@ Type objective_function<Type>::operator() () {
                 mort_sum(sp, age) = 0;
                 for(int age_tmp = 0; age_tmp < age; age_tmp++){
                   mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp, 0) + Finit(sp);
+                }
+              }
+
+              // SS3's InitF convention: the initial F is spread over ages by
+              // the fishery's selectivity before it accumulates, so an
+              // unselected young age carries almost none of it.
+              if(initMode == 6){
+                mort_sum(sp, age) = 0;
+                for(int age_tmp = 0; age_tmp < age; age_tmp++){
+                  mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp, 0)
+                                     + Finit(sp) * sel_init(sp, sex, age_tmp);
                 }
               }
 

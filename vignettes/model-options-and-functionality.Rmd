@@ -68,6 +68,7 @@ Codes (also accept the string aliases listed):
 | `3` | `"FishedNonEquilibrium"` | Fished non-equilibrium with init devs; F<sub>init</sub> is added to M inside geometric series |
 | `4` | `"FishedNonEquilibriumScaled"` | Fished non-equilibrium with init devs and R<sub>0</sub>-scaled by F<sub>init</sub>|
 | `5` | `"OffsetEquilibrium"` | Unfished equilibrium, F<sub>init</sub> = 0, displaced by the year-1 recruitment deviation instead of sitting at R<sub>init</sub>; init devs off, no init-dev penalty (Cole Monnahan / AFSC GOA pollock convention) |
+| `6` | `"FishedNonEquilibriumSelected"` | As `3`, but F<sub>init</sub> is weighted by the fishery's selectivity at age before it accumulates, so the first year decays with &sum;(M1 + F<sub>init</sub> s<sub>a</sub>). Stock Synthesis's InitF convention; F<sub>init</sub> is the apical initial F. Use this where the fishery is size-selective, since `3` charges unselected young ages the full F<sub>init</sub> and `4` applies it once |
 
 ### `estimateMode` — what does `fit_mod()` actually do?
 

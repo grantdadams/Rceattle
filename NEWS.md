@@ -14,6 +14,31 @@ version throughout.
 
 # Rceattle 5.42.0
 
+## `initMode = "FishedNonEquilibriumSelected"` (6)
+
+A sixth initial-age-structure mode, in which the initial fishing mortality is weighted
+by the fishery's selectivity at age before it accumulates, so the first year decays
+with \eqn{\sum_{a' < a}(M1_{a'} + F_{init} s_{a'})}. This is Stock Synthesis's InitF
+convention, and \eqn{F_{init}} is the apical initial F because selectivity is
+normalized to a maximum of 1.
+
+The existing fished modes are neither of these: `3` charges every age the same
+\eqn{F_{init}}, and `4` applies it once rather than accumulating it. Under a
+size-selective fishery neither is an equilibrium -- `3` kills barely-selected young
+ages at the full initial F, and `4` does not decay the older ages with it at all.
+
+The selectivity is the mean over the species' fishery fleets in the first hindcast
+year. That is exact for a single fishery, which is what SS3's per-fleet `InitF`
+reduces to here; Rceattle carries one \eqn{F_{init}} per species where SS3 carries one
+per fleet, so a multi-fishery stock gets the mean shape.
+
+Every other mode leaves the weight at 1 and is bit-for-bit unchanged, including
+`SPRFinit` and therefore \eqn{R_{init}} under a stock-recruit curve.
+
+Found while bridging the 2024 AI Pacific cod SS3 assessment: injecting SS3's MLE and
+inverting mode 4 left the initial deviates differing from SS3's `Early_InitAge` by
+exactly `const - Finit * cumsum(sel)`, with residual 0.00000 at all 13 ages.
+
 ## Stock Synthesis growth, maturity and length-bin options
 
 Four options that let an estimated-growth model reproduce Stock Synthesis 3.30's
