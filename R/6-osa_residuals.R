@@ -570,10 +570,10 @@ osa_residuals <- function(object = NULL,
   sel_discrete <- ifelse(is_comp, isTRUE(discrete), FALSE)
 
   # ---- The method each observation is actually residualized with --------------
-  # Everything runs under `method`. Two likelihood families cannot, because the
-  # method the caller passed does not describe them, and each is split into its
-  # own oneStepPredict() call. Both overrides are announced and recorded on the
-  # returned object's `method` attribute.
+  # Everything runs under `method`. Three groups cannot, because the method the
+  # caller passed does not describe them, and each is split into its own
+  # oneStepPredict() call. All three are announced and recorded on the returned
+  # object's `method` attribute.
   fc_osa   <- object$data_list$fleet_control
   dat_osa  <- object$obj$env$data
   ill_osa  <- dat_osa$index_ll_type
@@ -638,7 +638,14 @@ osa_residuals <- function(object = NULL,
   # (b) Discrete compositions. The Gaussian methods are continuous-only, so
   # `discrete = TRUE` needs a CDF-based method: "cdf" already is one, and any
   # Gaussian choice falls back to the generic (numerically integrated) one.
-  sel_method[sel_discrete & sel_method %in% .OSA_GAUSSIAN_METHODS] <- "oneStepGeneric"
+  sel_gauss_disc <- sel_discrete & sel_method %in% .OSA_GAUSSIAN_METHODS
+  if (any(sel_gauss_disc)) {
+    message("osa_residuals(): discrete = TRUE cannot be scored by a Gaussian ",
+            "method, which is continuous-only. Those ", sum(sel_gauss_disc),
+            " composition observation(s) are residualized with method = ",
+            "\"oneStepGeneric\" instead of \"", method, "\". See ?osa_residuals.")
+  }
+  sel_method[sel_gauss_disc] <- "oneStepGeneric"
 
   # (c) `Index_distribution = "TruncatedNormal"` under a Gaussian method is
   # residualized on its own, with oneStepGeneric over a (0, Inf) range. That
@@ -949,14 +956,15 @@ osa_residuals <- function(object = NULL,
 
   rownames(out) <- NULL
   class(out) <- c("rceattle_osa", "data.frame")
-  # Record what was actually used, not what was asked for: two likelihood
-  # families are residualized with their own method regardless of `method`, so a
-  # single string would misdescribe those rows. Stays a plain string when nothing
-  # was overridden.
-  attr(out, "method") <- if (any(sel_trunc) || any(sel_dm)) {
+  # Record what was actually used, not what was asked for: three groups are
+  # residualized with their own method regardless of `method`, so a single
+  # string would misdescribe those rows. Stays a plain string when nothing was
+  # overridden.
+  attr(out, "method") <- if (any(sel_trunc) || any(sel_dm) || any(sel_gauss_disc)) {
     c(default = method,
-      if (any(sel_trunc)) c(TruncatedNormal = "oneStepGeneric"),
-      if (any(sel_dm))    c(DirichletMultinomial = .OSA_CDF_FALLBACK))
+      if (any(sel_trunc))     c(TruncatedNormal = "oneStepGeneric"),
+      if (any(sel_dm))        c(DirichletMultinomial = .OSA_CDF_FALLBACK),
+      if (any(sel_gauss_disc)) c(DiscreteComposition = "oneStepGeneric"))
   } else method
   attr(out, "seed")   <- seed
   # Randomized composition residuals carry a draw, so whether they were
@@ -1039,10 +1047,13 @@ osa_residuals <- function(object = NULL,
 
   n_bad <- sum(!is.finite(out$residual))
   if (n_bad > 0) {
-    warning(n_bad, " of ", nrow(out), " OSA residual(s) are non-finite. This ",
-            "usually indicates a poorly converged fit or very sparse / ",
-            "degenerate compositions (common for conditional age-at-length); ",
-            "check model convergence before interpreting the residuals.")
+    warning(n_bad, " of ", nrow(out), " OSA residual(s) are non-finite. On a ",
+            "random-effects fit with a large composition data set under ",
+            "method = \"cdf\" this is the documented limitation of the method ",
+            "-- the Laplace inner problem fails on the depth of conditioning ",
+            "-- and says nothing about the fit. Otherwise it points to very ",
+            "sparse or degenerate compositions (common for conditional ",
+            "age-at-length), or to a poorly converged fit. See ?osa_residuals.")
   }
 
   # A composition `predicted` is an expected bin count, so it cannot be
@@ -1132,9 +1143,12 @@ osa_residuals <- function(object = NULL,
             if (n_left) paste0("; ", n_left, " remain non-finite") else "", ".")
   } else {
     message("osa_residuals(): ", n_bad0, " observation(s) are non-finite and ",
-            "recomputing the block from the first one did not help, so the ",
-            "failure is in those observations rather than in the sequence. ",
-            "Check model convergence and the sparsest compositions.")
+            "recomputing the block from the first one recovered none, which is ",
+            "the measured behaviour on a random-effects fit with a large ",
+            "composition data set: the Laplace inner problem fails on the depth ",
+            "of conditioning itself, not on a poisoned warm start and not on ",
+            "the observations. This is a known limitation of method = \"cdf\" ",
+            "there rather than a sign of a bad fit; see ?osa_residuals.")
   }
   res
 }

@@ -1053,6 +1053,10 @@ data_check <- function(data_list) {
       }
     }
 
+    # A negative penalty weight rewards the deviation it names, without bound.
+    # fit_mod() repeats this on the parameter in use, which `inits` can override.
+    errors <- c(errors, .rce_sel_pen_sign_errors(fc))
+
     # emp_sel presence required when any fleet has Selectivity = "Fixed"
     # (declarative requirement table).
     errors <- c(errors, .rce_check_presence(data_list, "emp_sel"))

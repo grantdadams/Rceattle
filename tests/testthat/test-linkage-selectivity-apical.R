@@ -10,7 +10,6 @@ apical_data <- function(flt = 3L, form = "Logistic", scope = "AcrossSexes",
                         norm_bin = "Max") {
   d <- Rceattle::GOAatf
   d$fleet_control$Selectivity[flt]       <- form
-  d$fleet_control$Selectivity_index[flt] <- flt     # own block, not a mirror
   d$fleet_control$Sel_norm_scope[flt]    <- scope
   d$fleet_control$Sel_norm_bin[flt]      <- norm_bin
   d
@@ -118,7 +117,6 @@ testthat::test_that("an apical linkage the model cannot identify is refused", {
   # A one-sex species: the offset is the common level log_F already carries.
   d1 <- Rceattle::GOApollock
   d1$fleet_control$Time_varying_sel[8]  <- "Off"
-  d1$fleet_control$Selectivity_index[8] <- 8L   # the fishery ships as a mirror
   one <- Rceattle::build_selectivity(linkages = list(
     apical = Rceattle::linkage_spec(~ 1, by = ~ fleet + sex, fleet = 8L, sex = 1L)))
   testthat::expect_error(apical_build(d1, one), "one-sex")
@@ -149,6 +147,47 @@ testthat::test_that("mirrored fleets share one apical offset", {
   testthat::expect_identical(sum(names(m$obj$par) == "log_sel_apical"), 1L)
   # On the mirror itself the block is the lead's, so the linkage is refused.
   testthat::expect_error(apical_build(d, male_offset(flt = 2L)), "lead fleet")
+})
+
+# Selectivity_index is a group key, not a fleet code. The lead is the group's
+# first fleet that is not "Off", and a group of one shares nothing -- so the
+# refusal must follow .shared_block_lead(), not `Selectivity_index != Fleet_code`.
+# Reading it as a fleet code refused GOAatf fleet 3 (a group of one keyed 2) and,
+# worse, passed the follower of a group keyed on its second member while
+# adjust_map_shared_params() then mapped the offset off, pinning it at 1 unscored.
+testthat::test_that("the apical refusal follows the group lead, not the index value", {
+  testthat::skip_on_cran()
+
+  # A group of one whose key is not its own Fleet_code owns its block.
+  d <- Rceattle::GOAatf
+  testthat::expect_identical(d$fleet_control$Selectivity_index[3], 2)
+  testthat::expect_silent(
+    Rceattle:::.check_sel_apical_rows(
+      data.frame(fleet = 3L, sex = 2L, link = "log", est_phase = NA_integer_),
+      suppressMessages(Rceattle::switch_check(d))$fleet_control, nsex = d$nsex))
+
+  # A group of two keyed on its SECOND member: fleet 1 leads, fleet 2 follows.
+  d2 <- Rceattle::GOAatf
+  d2$fleet_control$Selectivity_index[1:2] <- 2
+  fc <- suppressMessages(Rceattle::switch_check(d2))$fleet_control
+  row <- function(f) data.frame(fleet = f, sex = 2L, link = "log", est_phase = NA_integer_)
+  testthat::expect_silent(Rceattle:::.check_sel_apical_rows(row(1L), fc, nsex = d2$nsex))
+  testthat::expect_error(Rceattle:::.check_sel_apical_rows(row(2L), fc, nsex = d2$nsex),
+                         "lead fleet")
+})
+
+testthat::test_that("an apical offset on an Off fleet is refused", {
+  testthat::skip_on_cran()
+  # Nothing is fit to an "Off" fleet, so the offset is a flat direction: the
+  # Hessian is singular and getsd fails with nothing naming the cause.
+  d <- Rceattle::GOAatf
+  d$fleet_control$Fleet_type[3] <- "Off"
+  fc <- suppressMessages(Rceattle::switch_check(d))$fleet_control
+  testthat::expect_error(
+    Rceattle:::.check_sel_apical_rows(
+      data.frame(fleet = 3L, sex = 2L, link = "log", est_phase = NA_integer_),
+      fc, nsex = d$nsex),
+    "Fleet_type")
 })
 
 testthat::test_that("inits and a stored map that predate log_sel_apical still refit", {

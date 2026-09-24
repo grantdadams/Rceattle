@@ -536,7 +536,7 @@ testthat::test_that("a failed Laplace solve does not cost every observation afte
       n_call <<- n_call + 1L
       mk(rep(NaN, 4 - from))
     }),
-    "did not help")            # and it must NOT claim to have recovered anything
+    "recovered none")          # and it must NOT claim to have recovered anything
   testthat::expect_equal(n_call, 1L)
   testthat::expect_equal(sum(!is.finite(got$residual)), 2L)
 

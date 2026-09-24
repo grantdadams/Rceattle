@@ -58,6 +58,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   pearson  <- attr(x, "pearson")
   nages    <- attr(x, "nages")      # per-species, for joint-sex bin rebasing
   nlengths <- attr(x, "nlengths")
+  osa_method <- attr(x, "method")   # captured here: subsetting x drops it
 
   # ---- Subset by data source and species (like residuals.Rceattle()) ----
   # TODO(review): process-residual objects (from process_residuals()) carry
@@ -76,10 +77,22 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
     }
   }
 
+  # Dropping the non-finite ones silently would draw a clean panel on a subset:
+  # under "cdf" they fail in a contiguous tail, so the survivors are time-biased.
+  n_all <- nrow(x)
   x <- x[is.finite(x$residual), , drop = FALSE]
+  n_dropped <- n_all - nrow(x)
   if (nrow(x) == 0) {
     warning("No finite residuals to plot for the requested source / species.")
     return(invisible(NULL))
+  }
+  if (n_dropped > 0) {
+    warning(n_dropped, " of ", n_all, " residual(s) are non-finite and are not ",
+            "plotted, so the panel's SDNR and quantiles describe only the ",
+            nrow(x), " shown.",
+            if ("cdf" %in% as.character(osa_method))
+              " Under method = \"cdf\" these fail in a contiguous tail, making the survivors a time-biased subset."
+            else "")
   }
 
   agg  <- x[x$source %in% c("index", "catch"), , drop = FALSE]

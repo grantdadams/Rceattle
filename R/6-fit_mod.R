@@ -1158,6 +1158,21 @@ fit_mod <-
       }
       rm(.weight_blocks)
     }
+
+    # sel_curve_pen is a parameter, so a supplied `inits` supersedes the
+    # Sel_curve_pen columns; check the weight actually in use.
+    if (!is.null(inits) && !is.null(start_par$sel_curve_pen)) {
+      .pen_err <- .rce_sel_pen_sign_errors(
+        data_list$fleet_control, pen = start_par$sel_curve_pen,
+        source = "in the supplied `inits`")
+      if (length(.pen_err)) {
+        stop(paste(c(.pen_err,
+          paste0("Set `inits$sel_curve_pen` to the weight you mean, or rebuild ",
+                 "from the workbook with `inits = NULL`.")), collapse = "\n"),
+          call. = FALSE)
+      }
+    }
+
     # Proportion of projected F to each fleet
     start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     # Fixed fishing mortality for projections for each species

@@ -88,6 +88,99 @@ sel_map <- c(
   "NonParametricIntegrable" = 13
 )
 
+# Which selectivity forms read each Sel_curve_pen slot as a WEIGHT, with the sd
+# column that sets the same weight safely. A weight multiplies a squared
+# deviation, so a negative one rewards it without bound. "2DAR1" (6) and
+# "3DAR1" (7) are absent: they reuse these columns as AR1 correlations.
+.RCE_SEL_PEN_POSITIVE <- list(
+  Sel_curve_pen1 = list(sd_col = "Sel_shape_sd",
+                        forms  = c("NonParametric", "NonParametricPM", "LogisticPM",
+                                   "NonParametricIntegrable")),
+  Sel_curve_pen2 = list(sd_col = "Sel_curvature_sd",
+                        forms  = c("NonParametric", "NonParametricPM", "NonParametricIntegrable")),
+  Sel_curve_pen3 = list(sd_col = "Sel_devmag_sd",
+                        forms  = c("NonParametricPM", "LogisticPM"))
+)
+
+#' Canonical name of a switch value that may still be its integer code
+#'
+#' switch_check() canonicalizes late, so a check running inside it sees whatever
+#' the workbook holds. Reads the code through its own map rather than a second
+#' hand-written list of spellings.
+#'
+#' @param x one switch value.
+#' @param map the switch map (`sel_map`, `fleet_map`, ...).
+#' @return the canonical name, or `x` unchanged when it matches nothing.
+#' @keywords internal
+#' @noRd
+.rce_switch_name <- function(x, map) {
+  v <- as.character(x)
+  if (length(v) != 1L || is.na(v)) return(NA_character_)
+  if (v %in% names(map)) return(v)
+  hit <- names(map)[match(v, as.character(map))]
+  if (is.na(hit)) v else hit
+}
+
+#' Whether a fleet's Sel_curve_pen1 may legitimately be negative
+#'
+#' "NonParametricPM" (9) is the one form whose shape term branches on the sign
+#' of slot 1, and only under Sel_shape_mode = "Directional". Its "Smooth" mode
+#' applies the weight two-sided, so a negative one rewards the shape there as it
+#' would anywhere else. An unset Sel_shape_mode is "Directional", as in
+#' rearrange_data().
+#'
+#' @param fleet_control the fleet control table.
+#' @param flt the fleet's row index.
+#' @return TRUE when a negative Sel_curve_pen1 is meaningful on that fleet.
+#' @keywords internal
+#' @noRd
+.rce_sel_pen1_sign_aware <- function(fleet_control, flt) {
+  if (!identical(.rce_switch_name(fleet_control$Selectivity[flt], sel_map),
+                 "NonParametricPM")) return(FALSE)
+  mode <- if (is.null(fleet_control$Sel_shape_mode)) NA else
+    as.character(fleet_control$Sel_shape_mode[flt])
+  !(!is.na(mode) && mode %in% c("1", "Smooth", "smooth"))
+}
+
+#' Report Sel_curve_pen weights that are negative where the template reads them
+#'
+#' One rule, two callers: `data_check()` passes the `fleet_control` columns and
+#' `fit_mod()` the `sel_curve_pen` parameter actually in use. The second matters
+#' because `sel_curve_pen` is a PARAMETER, so `inits` from a stored fit override
+#' the columns and would otherwise carry a negative weight past the column check.
+#'
+#' @param fleet_control the fleet control table.
+#' @param pen optional `[nrow(fleet_control), 3]` matrix of the weights in use;
+#'   the `Sel_curve_pen1/2/3` columns are read when it is NULL.
+#' @param source one clause naming where the offending value came from.
+#' @return a character vector of error messages, empty when every weight is fine.
+#' @keywords internal
+#' @noRd
+.rce_sel_pen_sign_errors <- function(fleet_control, pen = NULL, source = NULL) {
+  errs <- character(0)
+  if (!is.null(pen) && !is.matrix(pen)) return(errs)
+  for (flt in seq_len(nrow(fleet_control))) {
+    # The template charges no selectivity penalty for an "Off" fleet.
+    if (identical(.rce_switch_name(fleet_control$Fleet_type[flt], fleet_map), "Off")) next
+    form <- .rce_switch_name(fleet_control$Selectivity[flt], sel_map)
+    for (col in names(.RCE_SEL_PEN_POSITIVE)) {
+      # Slot read by name, so reordering the registry cannot silently shift it.
+      slot <- as.integer(sub("^Sel_curve_pen", "", col))
+      val  <- if (is.null(pen)) suppressWarnings(as.numeric(fleet_control[[col]][flt])) else
+        pen[flt, slot]
+      if (length(val) != 1L || is.na(val) || val >= 0) next
+      if (!form %in% .RCE_SEL_PEN_POSITIVE[[col]]$forms) next
+      if (col == "Sel_curve_pen1" && .rce_sel_pen1_sign_aware(fleet_control, flt)) next
+      errs <- c(errs, sprintf(
+        "Fleet '%s' has Selectivity = '%s' and %s = %s%s. On this form that penalty term is not sign-aware, so a negative weight rewards the deviation it is meant to penalize, without bound, and the fit has no minimum. Use a positive weight, or set '%s' instead, which is a standard deviation and cannot go negative.",
+        fleet_control$Fleet_name[flt], form, col, format(val),
+        if (is.null(source)) "" else paste0(" ", source),
+        .RCE_SEL_PEN_POSITIVE[[col]]$sd_col))
+    }
+  }
+  errs
+}
+
 # Whether selectivity normalization pools its reference across sexes. Orthogonal
 # to WHERE the reference is taken (Sel_norm_bin: a named bin, or the max), so the
 # two combine rather than multiply into more columns.
@@ -810,10 +903,17 @@ switch_check <- function(data_list){
   # NonParametric (2/9) and LogisticPM (11) use pen1 (shape) and pen3 (dev-mag) as
   # Gaussian weights; only NonParametric uses pen2 (curvature) -- LogisticPM leaves
   # it unused.
+  # Slot 3 is the deviation-magnitude weight. "NonParametric" (2) has no deviate
+  # term and "NonParametricIntegrable" (13) scores its deviates with
+  # Time_varying_sel_sd, so Sel_devmag_sd is inert on both.
+  .np_pen3 <- c(9, "NonParametricPM")
   .sd_specs <- list(
-    Sel_shape_sd     = list(pen = "Sel_curve_pen1", forms = c(.np, .lpm)),
-    Sel_curvature_sd = list(pen = "Sel_curve_pen2", forms = .np),
-    Sel_devmag_sd    = list(pen = "Sel_curve_pen3", forms = c(.np, .lpm))
+    Sel_shape_sd     = list(pen = "Sel_curve_pen1", forms = c(.np, .lpm),
+                            label = "NonParametric/NonParametricPM/NonParametricIntegrable/LogisticPM"),
+    Sel_curvature_sd = list(pen = "Sel_curve_pen2", forms = .np,
+                            label = "NonParametric/NonParametricPM/NonParametricIntegrable"),
+    Sel_devmag_sd    = list(pen = "Sel_curve_pen3", forms = c(.np_pen3, .lpm),
+                            label = "NonParametricPM/LogisticPM")
   )
   .pen <- list(Sel_curve_pen1 = .col("Sel_curve_pen1"),
                Sel_curve_pen2 = .col("Sel_curve_pen2"),
@@ -830,8 +930,7 @@ switch_check <- function(data_list){
         "'%s' (a penalty-SD column) is set on fleet(s) %s whose Selectivity does ",
         "not use that penalty slot as a weight; it applies to %s only (use ",
         "Sel_curve_pen for other forms)."), nm, paste(bad_form, collapse = ", "),
-        if (identical(spec$forms, .np)) "NonParametric/NonParametricPM"
-        else "NonParametric/NonParametricPM/LogisticPM"), call. = FALSE)
+        spec$label), call. = FALSE)
     }
     bad_val <- which(!is.na(v) & !(is.finite(v) & v > 0))
     if (length(bad_val) > 0) {
@@ -840,19 +939,29 @@ switch_check <- function(data_list){
         "or non-finite."), nm, paste(bad_val, collapse = ", ")), call. = FALSE)
     }
     w <- 1 / (2 * v^2)
-    # The shape penalty is DIRECTIONAL for the non-parametric forms only (the sign
-    # of pen1 sets penalize-decreasing vs -increasing); LogisticPM's shape term is
-    # two-sided (d^2), so its weight must stay positive.
+    # The sign of pen1 sets penalize-decreasing vs -increasing on
+    # "NonParametricPM" alone, which is the only form whose shape term branches
+    # on it. On every other form the term is applied as written, so a negative
+    # weight would reward the shape without bound rather than penalize it.
     if (nm == "Sel_shape_sd") {
-      np_here <- .fc$Selectivity %in% .np
-      bad_dir <- which(!is.na(v) & !np_here & .is_incr)
+      # Only "NonParametricPM" (9) under Sel_shape_mode = "Directional" branches
+      # on the sign; its "Smooth" mode is two-sided, like every other form.
+      dir_ok  <- vapply(seq_len(nrow(.fc)), function(i) .rce_sel_pen1_sign_aware(.fc, i),
+                        logical(1))
+      off     <- vapply(seq_len(nrow(.fc)), function(i)
+        identical(.rce_switch_name(.fc$Fleet_type[i], fleet_map), "Off"), logical(1))
+      bad_dir <- which(!is.na(v) & !dir_ok & !off & .is_incr)
       if (length(bad_dir) > 0) {
         stop(sprintf(paste0(
-          "Sel_shape_dir = 'Increasing' on fleet(s) %s, but their (LogisticPM) ",
-          "shape penalty is two-sided -- the weight must be positive."),
-          paste(bad_dir, collapse = ", ")), call. = FALSE)
+          "Sel_shape_dir = 'Increasing' on fleet(s) %s with Selectivity = %s, ",
+          "whose shape penalty does not read the sign: an increasing direction ",
+          "would reward a decreasing curve without bound. Only ",
+          "'NonParametricPM' with Sel_shape_mode = \"Directional\" penalizes the ",
+          "increasing direction."),
+          paste(bad_dir, collapse = ", "),
+          paste(unique(.fc$Selectivity[bad_dir]), collapse = ", ")), call. = FALSE)
       }
-      w <- ifelse(np_here & .is_incr, -w, w)
+      w <- ifelse(dir_ok & .is_incr, -w, w)
     }
     u <- !is.na(v) & is.na(.pen[[spec$pen]])
     .pen[[spec$pen]][u] <- w[u]
