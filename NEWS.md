@@ -31,8 +31,10 @@ corrections to 5.42.0's own guard and to documentation it left behind.
   weight there reached `ceattle.cpp` and rewarded the deviation it names,
   without bound, with `data_check()` reporting clean. The check now reads the
   lead the same way the template does. No bundled data set and no workbook in
-  the consumer repositories has a group of mixed form (11 bundled data sets,
-  183 workbooks with a `fleet_control` sheet), so no existing model changes;
+  the consumer repositories has a group of mixed form (every bundled
+  `fleet_control`, including the three carried inside fitted example objects,
+  and 183 workbooks with a `fleet_control` sheet; the answer is the same read
+  raw or canonicalized through `sel_map`), so no existing model changes;
   this closes the guard rather than moving a number.
 
 * **`test-docs-anchors.R` now checks the schema column that shipped the stale

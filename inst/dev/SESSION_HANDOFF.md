@@ -14,25 +14,37 @@ review of #158 (5.42.1) both landed after the release PR was written.
 **Checklist state at 5.42.1.** Two of the four measurements have been re-taken at this head,
 and the other two are argued rather than re-run:
 
-- **Full suite, re-run at 5.42.1** (`NOT_CRAN=true TESTTHAT_PARALLEL=false`, serial):
-  **9,608 assertions / 0 failures / 0 errors / 3 skips**, 223 warnings. This supersedes the
-  9,506 figure measured 2026-09-21.
+- **Full suite, re-run at 5.42.1** (`NOT_CRAN=true TESTTHAT_PARALLEL=false`, serial, R 4.5.1
+  on macOS with every Suggests installed): **9,608 assertions / 0 failures / 0 errors**, 223
+  warnings, 3 skips. Supersedes the 9,506 figure measured 2026-09-21. The failure count is
+  the load-bearing number; **the skip count is environment-specific** -- 459 `skip_on_cran()`,
+  763 `skip_if_not_installed()` and 93 `skip_if()` guards mean a clean machine will skip far
+  more, so do not treat 3 as a target.
 - **Ecosystem sweep, re-run and widened to the 5.42.0 refusals**: 375 workbooks across the
-  four consumer repos, 183 with a `fleet_control` sheet. One negative `Sel_curve_pen1`
-  anywhere -- EBS pollock 2024's ATS/AVO fleets, `NonParametricPM` with no `Sel_shape_mode`
-  column, which the directional exemption keeps legal. No workbook sets `Sel_shape_dir` or
-  `Sel_devmag_sd`. No selectivity prior or apical linkage sits on an `Off` fleet or a
-  shared-block follower -- the GOA pollock 2025 prior fleets are each their group's lead, and
-  GOA cod bridging builds double-normal linkages with no priors. No group anywhere mixes
-  selectivity forms.
+  four consumer repos, 183 with a `fleet_control` sheet (the count excludes `~$` Excel lock
+  files; including them gives 423). Exactly one workbook, one column, two fleets carries a
+  negative weight: EBS pollock 2024's `Sel_curve_pen1` on AVO and ATS, `NonParametricPM` with
+  no `Sel_shape_mode` column at all, which the directional exemption keeps legal -- and ATS
+  additionally follows AVO's `Selectivity_index`, so the template never reads its weight.
+  `Sel_curve_pen1`/`2` exist in only 20 of the 183 workbooks and `pen3` in 1. No workbook
+  sets `Sel_shape_dir` or `Sel_devmag_sd` -- those columns are absent everywhere, so the
+  present-but-NA case never arises. No selectivity prior or apical linkage sits on an `Off`
+  fleet or a shared-block follower -- the GOA pollock 2025 prior fleets are each their
+  group's lead, and GOA cod bridging builds double-normal linkages with no priors. No
+  group anywhere mixes selectivity forms, read raw or canonicalized through `sel_map`.
 - **Hake `MSE_yr2024.R`: the 2026-09-23 run still stands**, and re-running it would prove
-  nothing new. `MSE_hake_yr24_final.xlsx` is two fleets, both `Selectivity = 5` (`Hake`), on
-  separate `Selectivity_index` values, with no negative penalty weight and no `Sel_shape_dir`
-  or `Sel_devmag_sd` column. Form 5 appears in **no** slot of `.RCE_SEL_PEN_POSITIVE`, so no
+  nothing new. `MSE_hake_yr24_final.xlsx` is **`nspp = 4`** (Hake, ATF, Sablefish, CSL) with
+  only two fleets, both `Selectivity = 5` (`Hake`), on separate `Selectivity_index` values,
+  with no negative penalty weight and no `Sel_shape_dir` or `Sel_devmag_sd` column.
+  Form 5 appears in **no** slot of `.RCE_SEL_PEN_POSITIVE`, so no
   5.42.0 refusal can fire on it, and with no shared group the 5.42.1 lead rule is a no-op
   there. Nothing in 5.42.0 or 5.42.1 touches predation, suitability, the DM likelihood,
   `sim_mod()` or `run_mse()`'s numerics (rule 15); the only MSE-visible change is that the
   estimation fits now report `NOTE` instead of `OK` under `getsd = FALSE`, a status.
+  Do not read the two-row `fleet_control` as a single-species model: only hake has fishery and
+  survey data, the other three are diet-only predators, so the script's four-element
+  `suitMode` / `suit_styr` / `suit_endyr` vectors and `msmMode = "MSVPA"` are correct. A review
+  pass misread this as a stale script; it is not.
 - **Reproducible install: still owed at this head.** It was driven at 5.41.0. Run it as part
   of checklist section 4 once the tag is pushed.
 
@@ -93,7 +105,14 @@ signature below, because that is the only thing separating a known red from a ne
 - **`R-CMD-check` fails intermittently, and it is mostly macOS, not Windows.** Over the last 100
   runs: 79 completed, 8 failures, of which 7 were macOS-only and 2 touched Windows. The Windows
   access violation is real and reproduces on `main` (the file the framework names carries no
-  information, see `TRAPS.md`), but it is ~2 in 79, not 2 in 30.
+  information, see `TRAPS.md`), but it is ~2 in 79, not 2 in 30. **It shows up as a dead
+  testthat worker** (`parallel_event_loop_chunky` -> `handle_error` -> `cli_abort`), and the
+  log then dumps whatever that worker had printed. In the 2026-09-25 run on #158 that was
+  `test-convergence.R`'s `[FAIL] max_gradient = 4e+12 (largest on 'sel_inf')` and
+  `[FAIL] pdHess` -- which are `print()` output from a deliberately non-converged synthetic
+  fixture (`make_fake_fit()`; the file runs no TMB fit and passes 46/0/0). **Those lines are
+  not a convergence regression.** Check for the dead worker before reading a Windows red as
+  one.
 
 macOS was red 2026-09-20 to 09-22 for two unrelated upstream reasons and recovered on its own;
 branch `ci/macos-libomp` holds an unmerged remedy if the OpenMP one recurs.
