@@ -15,7 +15,7 @@ review of #158 (5.42.1) both landed after the release PR was written.
 and the other two are argued rather than re-run:
 
 - **Full suite, re-run at 5.42.1** (`NOT_CRAN=true TESTTHAT_PARALLEL=false`, serial, R 4.5.1
-  on macOS with every Suggests installed): **9,608 assertions / 0 failures / 0 errors**, 223
+  on macOS with every Suggests installed): **9,613 assertions / 0 failures / 0 errors**, 223
   warnings, 3 skips. Supersedes the 9,506 figure measured 2026-09-21. The failure count is
   the load-bearing number; **the skip count is environment-specific** -- 459 `skip_on_cran()`,
   763 `skip_if_not_installed()` and 93 `skip_if()` guards mean a clean machine will skip far
