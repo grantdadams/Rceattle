@@ -382,6 +382,31 @@ to the integrable forms.
   `vignette("model-parameterizations")`. All three described the directional
   sign as working on every non-parametric form.
 
+## Convergence messages name the quantity and the coordinate
+
+* **`fit$convergence` names what a flagged parameter estimates.** The
+  `max_gradient` message, the `hessian_conditioning` loadings, and the
+  per-coordinate lines under `hessian_conditioning`, `parameters_on_bounds` and
+  `estimability` now follow each block name with the natural-scale quantity
+  from `parameter_dictionary()`: `log_M1 (M1)`, `rec_dev (recruitment
+  deviations)`, `log_F (F)`. The block name stays first, since it is what
+  `map` and the parameter list are keyed on.
+* **`max_gradient` says where the largest gradient sits.** It gave the block
+  alone (`'log_M1'`); it now gives the species, fleet, sex, age or year from
+  `parameter_index()`, the way `estimability`, `parameters_on_bounds` and
+  `hessian_conditioning` already did. The coordinate is resolved only when the
+  check is not `OK`, so a clean fit still skips building the index.
+* **`max_gradient` reports the distance to the optimum in standard errors**,
+  as `$data$newton_step_se` and in the message. A quadratic approximation puts
+  the optimum a Newton step `cov.fixed %*% gradient` away; dividing each
+  element by its standard error makes the size comparable across log, logit
+  and natural-scale parameters. It is reported only when the `sdreport`
+  describes the hindcast parameters (not under an estimating HCR), and the
+  severity is still read on the gradient, so no fit changes status.
+* **Scattered years and ages read as a count against their span**: "38 years in
+  1980-2021" rather than "38 of 1980-2021", and the `hessian_conditioning`
+  count reads "(38 of 44 parameters; 67% of the direction)".
+
 # Rceattle 5.41.0
 
 ## One-step-ahead residuals from the conditional CDF

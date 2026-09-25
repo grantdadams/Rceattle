@@ -54,7 +54,9 @@
   worst <- NULL
   gg <- NULL
   if (!is.null(diag) && !is.null(diag$final_gradient)) {
-    gg <- diag$final_gradient
+    # Named by block so the index can say where the largest gradient sits.
+    gg <- stats::setNames(as.numeric(diag$final_gradient),
+                          as.character(diag$Param))
     i <- which.max(abs(diag$final_gradient))
     if (length(i) == 1L) {
       worst <- list(param = as.character(diag$Param[i]),
@@ -346,10 +348,44 @@
 
 # --- checks ------------------------------------------------------------------
 
+# Where one parameter of a named vector sits: "log_M1 (M1): age 1", or the
+# display name alone when no index matches the vector.
+.conv_par_where <- function(i, nms, index) {
+  txt <- .rce_par_display(nms[i])
+  idx <- .conv_index_for(index, nms)
+  if (!is.null(idx)) {
+    lab <- idx$label[match(i, idx$par_index)]
+    if (length(lab) == 1L && !is.na(lab) && nzchar(lab)) {
+      txt <- paste0(txt, ": ", lab)
+    }
+  }
+  txt
+}
+
+# How far the estimates still are from the optimum, in standard errors. A
+# quadratic approximation puts the optimum a Newton step cov %*% gradient away;
+# dividing each element by its own SE makes the size comparable across log,
+# logit and natural-scale parameters, which the raw gradient is not. NULL
+# unless cov.fixed describes the same parameter vector as the hindcast gradient
+# (under an estimating HCR the sdreport is the projection's).
+.conv_newton_step_se <- function(object, gg) {
+  cov <- tryCatch(object$sdrep$cov.fixed, error = function(e) NULL)
+  if (is.null(cov) || !is.matrix(cov) || is.null(gg) || is.null(names(gg)) ||
+      nrow(cov) != length(gg)) return(NULL)
+  nm <- rownames(cov)
+  if (is.null(nm)) nm <- names(object$sdrep$par.fixed)
+  if (!identical(unname(as.character(nm)), names(gg))) return(NULL)
+  se   <- unname(sqrt(diag(cov)))
+  step <- as.numeric(cov %*% gg) / se
+  if (!any(is.finite(step))) return(NULL)
+  i <- which.max(abs(replace(step, !is.finite(step), NA)))
+  list(max = abs(step[i]), i = i, step_se = stats::setNames(step, names(gg)))
+}
+
 # Optimizer convergence: max |gradient| (+ the parameter carrying it) and
 # Hessian positive-definiteness. Reads the hindcast snapshot so the result is
 # not clobbered by the projection re-optimization.
-.check_optimizer <- function(object) {
+.check_optimizer <- function(object, index = NULL) {
   ch <- object$.conv_hindcast
   out <- list()
   if (is.null(ch)) return(out)
@@ -357,13 +393,24 @@
   mg <- ch$max_gradient
   if (!is.null(mg) && is.finite(mg)) {
     sev <- if (mg > 1) "FAIL" else if (mg > 1e-3) "WARN" else "OK"
-    worst_txt <- if (!is.null(ch$worst)) {
-      sprintf(" (largest on '%s')", ch$worst$param)
+    gg  <- ch$gradient
+    # Coordinates cost a parList() pass, so a clean gradient does not force them.
+    if (sev == "OK") index <- NULL
+    worst_txt <- if (!is.null(gg) && !is.null(names(gg)) && any(is.finite(gg))) {
+      sprintf(" on %s", .conv_par_where(which.max(abs(gg)), names(gg), index))
+    } else if (!is.null(ch$worst)) {
+      sprintf(" on %s", .rce_par_display(ch$worst$param))
+    } else ""
+    step <- .conv_newton_step_se(object, gg)
+    step_txt <- if (!is.null(step)) {
+      sprintf(" Reaching the optimum would move the estimates by at most %.2g standard errors (%s).",
+              step$max, .conv_par_where(step$i, names(gg), index))
     } else ""
     out$max_gradient <- .conv_record(
       "max_gradient", "fit", sev,
-      sprintf("Maximum absolute marginal gradient = %.3g%s.", mg, worst_txt),
-      ch)
+      sprintf("Maximum absolute marginal gradient = %.3g%s.%s",
+              mg, worst_txt, step_txt),
+      c(ch, list(newton_step_se = step$max, step_se = step$step_se)))
   }
 
   if (!is.null(ch$pdHess) && !is.na(ch$pdHess)) {
@@ -436,7 +483,7 @@
   ntop  <- which(cum >= 0.90)[1]                          # blocks explaining >=90%
   if (is.na(ntop)) ntop <- length(share)
   ntop  <- max(1L, min(ntop, 5L))                         # always name >=1, cap at 5
-  combo <- paste(sprintf("%s (%.0f%%)", names(share)[seq_len(ntop)],
+  combo <- paste(sprintf("%s: %.0f%%", .rce_par_display(names(share)[seq_len(ntop)]),
                          100 * as.numeric(share)[seq_len(ntop)]),
                  collapse = " + ")
   top   <- data.frame(param = names(share), share = round(as.numeric(share), 3))
@@ -466,7 +513,7 @@
         s <- .rce_par_summary(keep_i[keep], idx, max_lines = 2L)
         if (length(s) > 0) {
           lines <- c(lines, sub("\\((\\d+)\\)$",
-                                sprintf("(\\1 of %d, %.0f%% of the direction)",
+                                sprintf("(\\1 of %d parameters; %.0f%% of the direction)",
                                         length(inb), 100 * share[[b]]), s))
         }
       }
@@ -893,14 +940,14 @@
 #'   records).
 #' @export
 convergence_diagnostics <- function(object, ...) {
-  # Three checks name their parameters by coordinate. The hindcast index was
+  # Four checks name their parameters by coordinate. The hindcast index was
   # stored by fit_mod(); the one for the fit's final parameter vector means
   # pushing a tagged vector through TMB's parList(), so a promise builds the pair
   # at most once, and not at all on a fit where every check passes.
   delayedAssign("index", .conv_par_index(object))
   checks <- c(
     .check_phasing(object),
-    .check_optimizer(object),
+    .check_optimizer(object, index),
     .check_sdreport_failed(object),
     .check_hessian_not_run(object),
     .check_hessian_eigen(object, index),

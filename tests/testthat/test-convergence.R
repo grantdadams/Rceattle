@@ -21,6 +21,68 @@ test_that("high gradient and non-PD Hessian are flagged", {
   expect_match(cv$checks$max_gradient$message, "sel_inf")
 })
 
+test_that("parameters print with the quantity they estimate", {
+  expect_equal(.rce_par_display(c("log_M1", "rec_dev", "not_a_block")),
+               c("log_M1 (M1)", "rec_dev (recruitment deviations)",
+                 "not_a_block"))
+})
+
+# A hindcast snapshot whose gradient and index agree, so the checks can say
+# where a parameter sits. Three parameters: M1 at ages 1-2 and one F.
+.fake_located_fit <- function(gradient, cov = NULL) {
+  nm  <- c("log_M1", "log_M1", "log_F")
+  idx <- data.frame(par_index = 1:3, block = nm,
+                    label = c("age 1", "age 2", "1990"),
+                    stringsAsFactors = FALSE)
+  fit <- make_fake_fit(max_gradient = max(abs(gradient)))
+  fit$.conv_hindcast$gradient <- stats::setNames(gradient, nm)
+  fit$.conv_hindcast$index    <- idx
+  if (!is.null(cov)) {
+    dimnames(cov) <- list(nm, nm)
+    fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE)
+  }
+  fit
+}
+
+test_that("the largest gradient is named by quantity and coordinate", {
+  fit <- .fake_located_fit(c(1e-4, 2.2e-3, -5e-4))
+  mg  <- convergence_diagnostics(fit)$checks$max_gradient
+  expect_equal(mg$severity, "WARN")
+  expect_match(mg$message, "on log_M1 (M1): age 2.", fixed = TRUE)
+})
+
+test_that("the distance to the optimum is reported in standard errors", {
+  # The Newton step is cov %*% gradient = (0.04, 0.002, 0); over SEs (2, 1, 1)
+  # that is (0.02, 0.002, 0), largest on the first parameter.
+  fit <- .fake_located_fit(c(0.01, 0.002, 0), cov = diag(c(4, 1, 1)))
+  mg  <- convergence_diagnostics(fit)$checks$max_gradient
+  expect_equal(mg$data$newton_step_se, 0.02)
+  expect_match(mg$message,
+               "at most 0.02 standard errors (log_M1 (M1): age 1)", fixed = TRUE)
+})
+
+test_that("no step is reported when the sdreport is for another parameter vector", {
+  # Under an estimating HCR the sdreport holds the projection's parameters.
+  fit <- .fake_located_fit(c(0.01, 0.002, 0))
+  fit$sdrep <- list(cov.fixed = matrix(1, 1, 1,
+                                       dimnames = list("log_Ftarget", "log_Ftarget")),
+                    pdHess = TRUE)
+  mg <- convergence_diagnostics(fit)$checks$max_gradient
+  expect_null(mg$data$newton_step_se)
+  expect_false(grepl("standard errors", mg$message))
+})
+
+test_that("a scattered year set is counted against its span", {
+  yrs <- c(1980:1985, 1990, 1995:1998, 2021)            # 12 years, not a run
+  idx <- data.frame(par_index = seq_along(yrs), block = "log_F",
+                    species = NA, fleet = "Hake_fishery", sex = NA, age = NA,
+                    bin = NA, year = as.character(yrs), slot = NA,
+                    stringsAsFactors = FALSE)
+  out <- .rce_par_summary(idx$par_index, idx)
+  expect_match(out, "log_F (F)", fixed = TRUE)
+  expect_match(out, "12 years in 1980-2021  (12)", fixed = TRUE)
+})
+
 test_that("a converged fit is OK", {
   fit <- make_fake_fit(max_gradient = 1e-5, pdHess = TRUE)
   cv <- convergence_diagnostics(fit)
@@ -118,7 +180,7 @@ test_that("Hessian eigen check falls back to par.fixed names without dimnames", 
   fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE,
                     par.fixed = stats::setNames(c(0, 0, 0), nm))
   hc  <- convergence_diagnostics(fit)$checks$hessian_conditioning
-  expect_match(hc$message, "loads on: [ab] ")      # named from par.fixed, ...
+  expect_match(hc$message, "loads on: [ab]: ")     # named from par.fixed, ...
   expect_false(grepl("p1", hc$message))            # ... not the "p1" placeholder
 })
 
