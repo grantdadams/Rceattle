@@ -47,6 +47,13 @@ and the other two are argued rather than re-run:
   pass misread this as a stale script; it is not.
 - **Reproducible install: still owed at this head.** It was driven at 5.41.0. Run it as part
   of checklist section 4 once the tag is pushed.
+- **`urlchecker::url_check()` and `devtools::spell_check()`: run 2026-09-24, both clear.**
+  Neither is run by CI, so they are only ever done by hand. `url_check()` reports exactly one
+  404, the `adding-a-selectivity-form.html` canary in step 4 below, which is the stale
+  published site rather than a bad link and resolves when pkgdown rebuilds. `spell_check()`
+  returns several hundred domain terms (`acf`, `ADMB`, `ADREPORT`, `al`, `Ageing`); there is
+  no `inst/WORDLIST`, so it is advisory noise, not a gate. Adding a WORDLIST so this becomes
+  a real check is a `CLEANUP_BACKLOG.md`-sized job, not a release one.
 
 **PR #159 merged into `dev` on 2026-09-24**, #160 on 2026-09-25 (`dev` head `c01ea717`), and
 the review of #158 after it. #159 asked four questions of #158: does the language read as
@@ -71,14 +78,25 @@ What a reviewer should still go at hardest:
 
 **The release sequence, from here:**
 
-1. Merge the 5.42.1 review branch, then whatever `inst/dev` PRs are still open (they are
-   documentation only). `fix/release-doc-corrections` is already in.
+1. Merge the 5.42.1 review branch. `fix/release-doc-corrections` and #162 are already in.
+   **#161 is open and is NOT documentation only** -- it changes `R/0-convergence.R`,
+   `R/0-parameter_index.R`, a vignette and `DESCRIPTION`, and its bump is **5.41.0 -> 5.42.0**,
+   which `dev` passed two versions ago. Either renumber it and merge it into this release, or
+   hold it for the next one; do not merge it as written. Note 5.42.2 is already spoken for by
+   the `golden` robustness fix.
 2. Merge the `dev` -> `main` release PR #158. Its body must say what forces a refit, what
    breaks and what is new, and must cover 5.42.0 and 5.42.1; do not paste `NEWS.md`. Suite and
    sweep are already re-taken at this head (above); the install is checklist section 4.
 3. Tag the MERGE COMMIT on `main` with the DESCRIPTION version, then publish a GitHub Release
    from the tag.
-4. Confirm pkgdown actually rebuilt, then `gh workflow run deep-checks.yaml --ref main`.
+4. **Confirm pkgdown rebuilt with the canary, not by eye**, then
+   `gh workflow run deep-checks.yaml --ref main`. The canary is
+   `https://grantdadams.github.io/Rceattle/articles/adding-a-selectivity-form.html`, which
+   **404s today** and must return 200 after the Release is published. It 404s because that
+   article landed at 5.37.0 on `dev` and does not exist on `main`, which is what pkgdown
+   builds from -- so it is a live test of the exact silent failure the checklist warns about,
+   with a known-bad starting state. Still 404 after publishing means the `release: published`
+   event did not fire: `gh workflow run pkgdown.yaml --ref main`.
 5. Tell the consumer repos to pin the tag rather than track `main`.
 
 **The last installable tag is `5.28.0`, not 5.33.0.** `main` carried 5.29.0, 5.30.0, 5.31.0,
@@ -177,15 +195,60 @@ the hake `MSE_yr2024.R` run. Both are recorded above with their results.
   Stage B is this release. **B3 is the `golden` robustness fix**, to ship as 5.42.2 if it lands
   after the tag.
 
+## Tagged snapshots of the DSEM lines (2026-09-24)
+
+Neither line is a release, and both report a version that must not be mistaken for one. Pin
+the tag, never the branch: the branches move, and an assessment refit from a moving branch
+does not reproduce.
+
+- **`dsem-v5-2026-08-27`** -> `95153bbc`, annotated. The `dsem-v5-integration` snapshot the
+  **GOA arrowtooth 2026 assessment** runs against. 121 commits divergent from `dev` and
+  missing 5.24.0 through 5.42.1, so it does **not** carry that range's silent-wrong-number
+  fixes. Pinning makes that run reproducible, not current; whether it should run on this line
+  at all is a scientific call, not a tooling one.
+  The branch previously declared `Version: 5.23.0`, which is a **published release tag**, so
+  an install from it reported `packageVersion("Rceattle") == "5.23.0"` and any provenance
+  record built from it named the wrong Rceattle. Bumped to `5.23.0.9000` in `95153bbc`.
+- **`dev-DSEM-v4.5-archive`** -> `a82c99f5`, lightweight, and **already equal to
+  `dev-DSEM`'s head**, so it needs no new tag. Declares `Version: 4.5.0`, and no `4.5.0`
+  release tag exists (the line goes 4.4.1 -> 4.6.0), so there is no collision here. 796
+  commits behind `dev`; superseded by `dsem-v5-integration`.
+
+**Outside this repo, and still owed:** `GOA-ATF-ESP/R/2026 assessment model-DSEM.R` was
+repointed from `@dsem-v5-integration` to `@dsem-v5-2026-08-27` but **the edit is uncommitted
+in that repo**. Until it is committed, that assessment still installs from the moving branch.
+The `@dev-DSEM` pins in `Rceattle-models` (GOA pollock 2025, EBS pollock 2024 and its
+README), the 2025 ATF script and `GOA_circlulation_study` are all commented out, so they bite
+only whoever uncomments one; they would each need a `dev-DSEM` tag, which is a different and
+older line.
+
 ## Parked branches
 
 - `sel-penalty-form` (`Sel_penalty_form`, 5 commits) — parked by decision, not by defect.
-- `dsem-v5-integration` — PR #111 closed unmerged 2026-09-09.
+- `dsem-v5-integration` — PR #111 closed unmerged 2026-09-09. Head `95153bbc`, tagged
+  `dsem-v5-2026-08-27`; see the snapshots section above. Grant's plan is to bring `dev`'s
+  updates onto it later.
 - `reporting-tables` — **local only, never pushed**, so it is not on the remote to triage. Its
   one stray doc commit, `4716968c`, reached `dev` as `3255fb49` via PR #132 (which merged from
   `docs/minfraction`, so the content was re-applied rather than merged from this branch).
 
 ## Resume here
 
-Read `inst/RELEASE-CHECKLIST.md` and start the release, or pick from `SIMPLIFY-LOG.md` first.
-Both are Grant's call.
+**Finish the release.** Grant is doing it in a session after this one, so this is where to
+start rather than `SIMPLIFY-LOG.md`.
+
+1. **Decide #161** -- renumber and include, or hold. It is code, not docs, and its bump is
+   stale (see the release sequence, step 1). Nothing else blocks the merge.
+2. **Merge PR #158.** As of 2026-09-25 it is `CLEAN` / `MERGEABLE`, and CI is green on all
+   five platforms -- Windows passed on both runs, which is worth noting given the intermittent
+   access violation. Re-check before merging; the branch has moved since.
+3. **Tag the merge commit `5.42.1`**, bare, no `v` prefix, then publish a GitHub Release from
+   it. **This is the step that has silently not happened five times** (5.29.0 through 5.33.0
+   are all untagged), so do not defer it or hand it on.
+4. **Run the canary** (release sequence, step 4). It 404s now and must return 200 after.
+5. **Dispatch `deep-checks` on `main`** and read `golden` against the 52.9 signature above
+   before concluding anything from it.
+6. **Then 5.42.2: make `golden` robust**, which gates the NOAA transfer.
+
+Two loose ends that are not release-blocking: commit the `GOA-ATF-ESP` pin change in that
+repo, and the `deep-checks` `suite` 5h timeout, which belongs with the 5.42.2 work.
