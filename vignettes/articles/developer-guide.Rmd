@@ -149,7 +149,7 @@ file):
 | `helper_functions.hpp` | Shared utilities. |
 | `comp_osa.hpp` | Composition likelihoods and the one-step-ahead (OSA) decomposition. |
 | `growth.hpp` | Growth (von Bertalanffy / Richards); weight- and length-at-age. |
-| `selectivity.hpp` | Selectivity forms, dispatched by the integer case of the `switch` on `Selectivity`: logistic (1), double logistic (3), Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7), double normal (8), NonParametricPM (9), LogisticPM (11), NonParametricIntegrable (13). |
+| `selectivity.hpp` | Selectivity forms, dispatched by the integer case of the `switch` on `Selectivity`: logistic (1), Ianelli non-parametric (2), double logistic (3), descending logistic (4), Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7), double normal (8), NonParametricPM (9), LogisticPM (11), NonParametricIntegrable (13). |
 | `recruitment.hpp` | Stock–recruitment functions. |
 | `bioenergetics.hpp` | Temperature-dependent ration / consumption (`Ceq`). |
 | `predation.hpp` | Prey suitability and predation mortality (MSVPA type-2, estimated iteratively). |
@@ -423,7 +423,7 @@ tidier numbering, so these stay as they are:
 
 * `estimateMode` 0 = "Estimate" but 1 = "Hindcast", which reads backwards.
 * `srr_fun`'s valid set is non-contiguous: 0/2/4 are live, 1/3/5 soft-deprecated.
-* `sel_map` skips 10.
+* `sel_map` skips 10, 12 and 14.
 * `initMode` 1 (`Equilibrium`) and 5 (`OffsetEquilibrium`) differ by one term.
 * `msmMode` accepts 3–9, then `data_check()` rejects them.
 
@@ -436,8 +436,8 @@ refusal) all exempt those fleets. A check that forgets it rejects a working
 model for a value the assessor never set as a mode.
 
 `Sel_curve_pen1` is a penalty weight for
-selectivity 2/9/11 and `Sel_curve_pen2` a curvature penalty for 2/9, while for
-6/7 both are logit-scale AR1 correlations. Re-encoding either
+selectivity 2/9/11/13 and `Sel_curve_pen2` a curvature penalty for 2/9/13, while
+for 6/7 both are logit-scale AR1 correlations. Re-encoding either
 would break existing workbooks; they are documented in the column schema
 instead.
 

@@ -158,12 +158,30 @@ test_that("no schema description names a selectivity code sel_map does not accep
                 "Sel_shape_sd", "Sel_curvature_sd", "Sel_devmag_sd", "Selectivity")
   docs <- vapply(schema[names(schema) %in% sel_cols], function(r) r$doc, character(1))
   testthat::expect_gt(length(docs), 0)
+  # The three shapes a schema description writes a code in. A slash run alone
+  # misses the column that matters most: `Selectivity` enumerates every code one
+  # per line, so it was the one column shipping code 14 and the only one this
+  # check never looked at. Years and sd values are in none of these shapes.
+  .named_codes <- function(txt) {
+    grab <- function(rx) {
+      runs <- unlist(regmatches(txt, gregexpr(rx, txt, perl = TRUE)))
+      if (!length(runs)) return(numeric(0))
+      as.numeric(unlist(regmatches(runs, gregexpr("\\d{1,2}", runs))))
+    }
+    # A code parenthesized after a form name, quoted or not -- the schema writes
+    # both ("NonParametricPM" (9), and LogisticPM (11) in the same sentence as
+    # "type 2/9/13"). Taken in two steps because "2DAR1" and "3DAR1" carry a
+    # digit in the name itself, and only the parenthesized number is the code.
+    named <- unlist(regmatches(txt, gregexpr(
+      "(\"[^\"]+\"|[A-Za-z][A-Za-z0-9_.-]*)\\s*\\(\\d{1,2}\\)", txt, perl = TRUE)))
+    paren <- if (length(named)) as.numeric(sub(".*\\((\\d{1,2})\\)$", "\\1", named)) else numeric(0)
+    unique(c(grab("\\b\\d{1,2}(\\s*/\\s*\\d{1,2})+"),            # "2/9/13"
+             grab("\\b\\d{1,2}(\\s*,\\s*(?:or\\s+)?\\d{1,2})+"), # "2, 5, 6, 7, 9, or 13"
+             grab("(?m)^\\s*\\d{1,2}(?=\\s*=)"),                 # "13 = non-parametric ..."
+             paren))                                             # "\"NonParametricPM\" (9)"
+  }
   for (nm in names(docs)) {
-    # Bare integers in a slash- or comma-separated run of codes, e.g. "2/9/13"
-    # or "2, 5, 6, 7, 9, or 13". Years and sd values are not in that shape.
-    runs <- unlist(regmatches(docs[[nm]],
-                              gregexpr("\\b\\d{1,2}(\\s*[/]\\s*\\d{1,2})+", docs[[nm]])))
-    codes <- unique(as.numeric(unlist(strsplit(runs, "\\s*/\\s*"))))
+    codes <- .named_codes(docs[[nm]])
     testthat::expect_true(all(codes %in% sel_map),
                           info = paste0(nm, " names selectivity code(s) ",
                                         paste(setdiff(codes, sel_map), collapse = ", "),

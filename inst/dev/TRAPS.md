@@ -81,6 +81,30 @@ they are counted once per sharing fleet.
 **Worked example: GOA2018SS.** Fleets 1 and 7 share selectivity; fleets 9 and 10 share
 selectivity *and* q.
 
+**There are TWO lead rules and they do not agree.** Which one is right depends on whether you
+are asking about the parameter block or about the penalty:
+
+| rule | grouping key | who uses it |
+|---|---|---|
+| `.shared_block_lead()` (`R/0-linkage_table.R`) | `Selectivity_index` **alone** | the map — `adjust_map_shared_params()` shares on this, so it is the rule for "does a linkage or prior here free anything?" |
+| `flt_sel_lead` (`R/5-rearrange_data.R`, via `.group_lead()`) | `Selectivity_index` **and** `Selectivity` | the template — `ceattle.cpp` gates the penalty block on it, so it is the rule for "does this fleet's penalty weight get read?" |
+
+They coincide on every group that shares one form, which is every group in every bundled data
+set and in all 375 consumer-repo workbooks, so the divergence hides. It opens when two live
+fleets share an index with **different** forms: the template makes them two groups and charges
+both, while the map still copies one block over both. `data_check()` only *warns* about that
+(`R/1-data_check.R`, the `.sel_shaping_cols` check), so the configuration reaches a fit.
+
+5.42.0's negative-`Sel_curve_pen` guard borrowed the map's rule to decide which fleets to
+check, and so skipped a fleet whose weight `ceattle.cpp` does read — a negative weight there
+rewarded the deviation without bound while `data_check()` reported clean. Fixed at 5.42.1 with
+`.rce_sel_pen_lead()`. **If you write anything that predicts the template's behaviour, group
+by index AND form; if you write anything about the map, group by index alone.**
+
+Still open, and pre-existing: in that same mixed-form state the one shared `sel_coff` block is
+penalized **twice**, once per group, because the map shares more widely than the penalty gate
+groups. `CLEANUP_BACKLOG.md` carries it.
+
 **A fixed-width parameter slot does not have a fixed meaning.** Several blocks are declared
 `[…, 2]` or `[…, 3]`, and what the slot holds depends on a switch, so a static label names the
 wrong quantity:

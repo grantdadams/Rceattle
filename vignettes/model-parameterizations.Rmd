@@ -175,9 +175,11 @@ Three points that decide whether a value you set does anything:
   rather than silently negating it.
 - **The sign.** A weight multiplies a squared deviation, so a negative one
   *rewards* that deviation. `data_check()` refuses a negative `Sel_curve_pen`
-  wherever the template reads it as a weight -- which leaves three cases it does
+  wherever the template reads it as a weight -- which leaves four cases it does
   not refuse: the directional case above, a `Fleet_type = "Off"` fleet (charged
-  no selectivity penalty at all), and a slot charged on deviates the fleet does
+  no selectivity penalty at all), a fleet that follows another's
+  `Selectivity_index` *and* shares its selectivity form (the group's penalty is
+  charged once, on the lead), and a slot charged on deviates the fleet does
   not estimate, per the next point.
 - **Whether the deviates exist.** The three cells above marked as random walks
   or deviation magnitude are charged on the time-varying deviates, so under
