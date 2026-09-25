@@ -177,6 +177,26 @@ than switch on `estimateMode`.
 
 ## Silent-wrong-number traps
 
+**Which fleet leads a `Selectivity_index` group is row-order dependent, so a group's penalty
+weights can change meaning when rows move.** `.group_lead()` picks the group's first fleet that
+is not `Off`, and `Fleet_code` must equal the row number, so inserting or reordering a fleet —
+or switching the lead `Off` — promotes a different row. Only the lead's `Sel_curve_pen1/2/3` are
+read (`ceattle.cpp:4051` gates on `flt_sel_lead(flt) == 1`), and a follower's are neither read
+nor checked against the lead's: `.sel_shaping_cols` deliberately excludes them, and the negative-
+weight refusal skips followers for the same reason. So a stale or wrong weight sitting on a
+follower is inert until a reordering makes that fleet the lead, at which point it is charged
+silently. Keep the whole group's penalty columns in agreement even though nothing enforces it.
+
+**A `NonParametricPM` (9) `RandomWalk` fleet at the default `Sel_curve_pen3 = 0` has an exactly
+flat direction.** Slot 3 is the only term charged on the RAW `sel_coff_dev`
+(`ceattle.cpp:4233`); every other term — shape, curvature, the random walk, and the data —
+reads `log_non_par_sel`, which `selectivity.hpp:449-459` mean-centres per year. A shift common
+to all bins in a year is therefore invisible everywhere except slot 3, verified by objectives
+bit-identical across `Time_varying_sel_sd` of 0.1, 0.2, 1 and 3 while the deviates moved. With
+the schema default of 0 nothing scores that direction at all, so under `random_sel = TRUE` the
+Laplace inner Hessian is singular. Set `Sel_curve_pen3` (or `Sel_devmag_sd`) on a form-9
+random-walk fleet. Pre-existing; found reviewing 5.42.0.
+
 **A single-species PFMC fit's `Flimit` depends on the `log_Ftarget` start value, a parameter
 PFMC never estimates.** Measured 2026-09-14 on `make_test_data()`, `HCR = "PFMC"`,
 `estimateMode = 2`: fitted `Flimit` is 0.4812 from the `build_params()` start of 0, 0.5853 from

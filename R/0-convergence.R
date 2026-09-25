@@ -504,6 +504,24 @@
     list(penalty = pen, excursion = excursion)))
 }
 
+# getsd = FALSE leaves sdrep NULL, so the Hessian eigenvalue, sdreport, pdHess
+# and estimability checks all return nothing. Without this record the battery
+# reports "OK" and report_tables() prints it into a SAFE table, which reads as
+# "every check passed" rather than "the strongest checks never ran".
+.check_hessian_not_run <- function(object) {
+  ch <- object$.conv_hindcast
+  # fit_mod() always records sd_requested as a logical, so a positive FALSE is
+  # what marks getsd = FALSE. An absent field is an older or synthetic fit
+  # object and says nothing either way, so it earns no record.
+  if (is.null(ch) || !identical(ch$sd_requested, FALSE)) return(list())
+  list(hessian_not_run = .conv_record(
+    "hessian_not_run", "fit", "NOTE",
+    paste0("Hessian checks not run: the fit was made with getsd = FALSE, so ",
+           "the positive-definite Hessian, condition-number, sdreport and ",
+           "estimability checks were all skipped. Refit with getsd = TRUE ",
+           "before reading this status as convergence.")))
+}
+
 # sdreport failed: requested but did not return (Hessian not invertible). A
 # strong non-convergence signal even when no gradient is available.
 .check_sdreport_failed <- function(object) {
@@ -861,10 +879,11 @@
 #' \code{fit_mod()} runs this automatically and attaches the result as
 #' \code{fit$convergence}; call \code{convergence_diagnostics()} directly to
 #' re-run it on any fit. Checks cover the optimizer gradient, a requested
-#' \code{sdreport} that did not return, Hessian positive-definiteness and
-#' conditioning, parameters on bounds, a deviation variance estimated to zero,
-#' phasing, parameter estimability, a numbers-at-age, Ricker-intercept or
-#' recruitment floor that was reached, and the stock-recruit curve.
+#' \code{sdreport} that did not return, an \code{sdreport} that was never
+#' requested, Hessian positive-definiteness and conditioning, parameters on
+#' bounds, a deviation variance estimated to zero, phasing, parameter
+#' estimability, a numbers-at-age, Ricker-intercept or recruitment floor that
+#' was reached, and the stock-recruit curve.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param ... Currently unused.
@@ -883,6 +902,7 @@ convergence_diagnostics <- function(object, ...) {
     .check_phasing(object),
     .check_optimizer(object),
     .check_sdreport_failed(object),
+    .check_hessian_not_run(object),
     .check_hessian_eigen(object, index),
     .check_bounds(object, index),
     .check_variance_collapse(object),

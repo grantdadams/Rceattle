@@ -12,6 +12,198 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.42.0
+
+Found reviewing the 5.34.0-5.41.0 release (`# Rceattle 5.41.0` and the versions
+below it). The negative-weight defect is much older than that review: the
+one-sided shape penalty has had no sign branch since it landed in December 2024,
+and 4.10.0 added a second way in through `Sel_shape_dir`. 5.40.0 only extended it
+to the integrable forms.
+
+## Breaking changes
+
+* **A negative `Sel_curve_pen1`/`2`/`3` is refused wherever the template reads
+  it as a weight.** A penalty slot multiplies a squared deviation, so a negative
+  weight rewards the deviation it names instead of penalizing it. Use a positive
+  weight, or the matching `Sel_shape_sd` / `Sel_curvature_sd` / `Sel_devmag_sd`
+  column, which is a standard deviation and cannot go negative. The one
+  exemption is `"NonParametricPM"` (9) under `Sel_shape_mode = "Directional"`,
+  the only branch in the template that reads a sign -- there it switches the
+  penalty from the decreasing side to the increasing one rather than negating
+  it. That form's `"Smooth"` mode applies the weight two-sided and is refused
+  like the rest. `"2DAR1"` (6) and `"3DAR1"` (7) reuse these columns as AR1
+  correlations and are untouched.
+
+  Slot 3 is checked only on `"NonParametricPM"` (9) and `"LogisticPM"` (11):
+  `"NonParametric"` (2) and `"NonParametricIntegrable"` (13) also estimate
+  selectivity deviates, but score them with a Gaussian density on
+  `Time_varying_sel_sd`, so neither reads the slot. The rule throughout is to
+  refuse a weight only where the fleet's own wiring reaches it: the template
+  gates the penalty block on `flt_type(flt) > 0 && flt_sel_lead(flt) == 1`, so a
+  `Fleet_type = "Off"` fleet is skipped, and so is one that follows another
+  fleet's `Selectivity_index` -- the group is charged once, on its lead.
+
+  Measured on `BS2017SS` fleet 1 (`NonParametric`, `N_sel_bins = 8`, with the
+  shipped `Sel_curve_pen2 = 12.5` active): ramping the fleet's `sel_coff`
+  downward by a constant step per bin takes the `JNLL_SEL_NONPARAM` row to -29,
+  -122, -502 and -2032 at steps of 0.5, 1, 2 and 4, and the whole objective to
+  -6.6e6 at a step of 256 -- quadratic, and falling without bound, while the
+  composition likelihood flattens and cannot counteract it. The row is exactly
+  `[Sel_curve_pen1 * (N_sel_bins - 1) + Sel_curve_pen2] * step^2` up to a
+  constant, so the **curvature penalty does bind** -- on the single second
+  difference where the ramp meets the coefficient repeated past `N_sel_bins` --
+  and the objective diverges only once `|Sel_curve_pen1|` exceeds
+  `Sel_curve_pen2 / (N_sel_bins - 1)`, 1.79 here. A smaller negative weight is
+  merely anti-shrinking rather than divergent; it is refused too, because
+  rewarding a deviation is wrong at any magnitude. `data_check()` now stops,
+  naming the fleet, the slot and the standard-deviation column that sets the
+  same weight safely.
+
+* **`Sel_shape_dir = "Increasing"` is refused on every form but
+  `"NonParametricPM"` (9) under `Sel_shape_mode = "Directional"`.** It used to
+  negate `Sel_curve_pen1` on every non-parametric form. `"NonParametric"` (2)
+  and `"NonParametricIntegrable"` (13) have no increasing-direction penalty at
+  all -- the template hard-codes `max(d, 0)^2`, `d` being the log-selectivity
+  drop from one bin to the next -- so `"Increasing"` never did what it said
+  there; it fitted the reward above. There is no like-for-like migration: only 9
+  in `"Directional"` mode implements the direction, and it is not a drop-in (it
+  charges its average-selectivity term only when `Sel_avgsel_pen > 0`, defaults
+  its penalty range to `Bin_first_selected` rather than the first bin, reads
+  `Sel_curve_pen3`, and refuses `Time_varying_sel = "IID"`). If you did not mean
+  an increasing penalty, drop the column -- the default is `"Decreasing"`.
+  Unlike the sign check above, this one is not waived on a `Fleet_type = "Off"`
+  fleet: the direction states what the form can express, and `write_data()`
+  persists the weight it sets.
+
+* **`Sel_devmag_sd` is refused on `"NonParametric"` (2) and
+  `"NonParametricIntegrable"` (13).** It writes `Sel_curve_pen3`, which neither
+  form reads: both estimate selectivity deviates, but score them with a Gaussian
+  density on `Time_varying_sel_sd`. The column was a silent no-op on both.
+
+* **A negative `sel_curve_pen` carried in `inits` is refused too.**
+  `sel_curve_pen` is a parameter, not data, so `inits` from a stored fit
+  override the `Sel_curve_pen` columns. Without this a fit saved before 5.42.0
+  would keep its negative weight through `retrospective()`, `profile()`,
+  `run_mse()` and `self_test()` on a workbook the user had already corrected --
+  measured at -3.81 on a decreasing ramp and -28.99 at three times that ramp,
+  with the column reading a valid +20. `fit_mod()` now applies the same rule to
+  the parameter actually in use and names `inits` as the source. This closes the
+  **sign** only: a stored `inits$sel_curve_pen` still supersedes an edited
+  `Sel_curve_pen` column at any magnitude, silently (a column retuned from 200
+  to 20 keeps 200 on a refit). That is tracked in `inst/dev/CLEANUP_BACKLOG.md`.
+
+* **An `apical` selectivity linkage on a fleet with `Fleet_type = "Off"` is
+  refused.** No data are fit to such a fleet, so `log_sel_apical` was a free
+  parameter in a flat direction: a singular Hessian and a failed `getsd` with
+  nothing naming the cause. It was the only selectivity parameter `build_map()`
+  freed without a `Fleet_type` gate.
+
+* **A selectivity *prior* on a fleet with `Fleet_type = "Off"` is refused**, for
+  the same reason: `build_map_selectivity()` maps that fleet's `log_sel_slp` and
+  `sel_inf` off, so the prior was evaluated against a fixed value and added a
+  constant to the objective while constraining nothing. The apical linkage was
+  given this gate above; the prior path had been left without one.
+
+## Bug fixes
+
+* **The negative-weight refusal no longer fires on a slot the fleet's
+  configuration makes inert.** `LogisticPM`'s slots 1 and 3 and
+  `"NonParametricPM"`'s slot 3 are charged on the time-varying deviates, so
+  under `Time_varying_sel = "Off"` the term is identically zero and the weight is
+  never read -- verified by objectives bit-identical at `+w`, `0` and `-w` on
+  `BS2017SS`. A negative value there is inert rather than wrong, and is now
+  allowed; it is still refused once the deviates are estimated. The slots charged
+  on the base curve (1 and 2 on the non-parametric forms) are checked whatever
+  `Time_varying_sel` says.
+
+* **`data_check()` no longer requires `Sel_curve_pen2` on a time-varying
+  `LogisticPM` fleet.** The template says in as many words that
+  `sel_curve_pen(flt,1)` -- the 0-based C++ spelling of the same column -- is
+  unused in that branch, so the column was required and
+  then ignored -- and the schema, `?BS2017SS` and
+  `vignette("model-parameterizations")` all say `LogisticPM` does not use it. The
+  two weights it does read, `Sel_curve_pen1` (the random walk on realized
+  log-selectivity) and `Sel_curve_pen3` (the walk on the age-1 deviates), are
+  still required, and the message now names what each one weights.
+
+* **An `apical` selectivity linkage is now refused on the fleets that actually
+  share a block, and allowed on the ones that do not.** `Selectivity_index` is a
+  group key, not a fleet code: the lead is the group's first fleet that is not
+  `"Off"`, and a group of one shares nothing. The check compared the key to
+  `Fleet_code`, which both refused offsets that were perfectly identifiable
+  (`GOAatf` fleet 3 and `GOA2018SS` fleet 11, each the sole member of its group,
+  and `GOA2018SS` fleet 9, the lead of the group `{9, 10}`) and, where a
+  group's key equalled its *second* member's code, let the follower
+  through: `build_map_selectivity()` freed the cell and
+  `adjust_map_shared_params()` then mapped it off, pinning the offset at
+  `exp(0) = 1` with the fit converging and nothing reported. Both now follow
+  `.shared_block_lead()`, the rule the map itself applies, and the error names
+  the lead fleet. The same comparison governed selectivity **priors** and is
+  fixed with it. This tightens as well as loosens: a fleet whose `Fleet_code`
+  happened to equal its group's key was always allowed before, so an `apical`
+  linkage or selectivity prior on one that a lower-numbered fleet leads (group
+  `{2, 5}` keyed 5, say) now stops. That block was the lead's, so the linkage
+  was freeing nothing.
+
+* **`osa_residuals()` records the `discrete = TRUE` method override.** A
+  Gaussian method cannot score a discrete observation, so those composition rows
+  fall back to `oneStepGeneric`. The fallback happened but was neither announced
+  nor written to the returned object's `method` attribute, so the attribute --
+  and `print()` -- named a method no composition row had used.
+
+* **The non-finite-residual messages now name the `"cdf"` limitation where it
+  applies.** Both the headline warning and `.osa_retry_tail()`'s message sent
+  the analyst to re-check convergence and sample sizes without mentioning the
+  measurement recorded in the same file: on a random-effects fit with a large
+  composition data set the Laplace inner problem fails on the depth of
+  conditioning, and the retry recovers nothing (1879 before, 1879 after). Both
+  now add that reading, and only where it can hold -- the headline warning shows
+  it under `method = "cdf"` on a fit with random effects, since a Gaussian
+  method returns every residual finite on the same fit. Convergence and the
+  sparsest compositions remain the first thing to check otherwise.
+
+* **`plot()` on an `rceattle_osa` object warns when it drops residuals.** It
+  filtered to the finite ones and warned only when *every* residual was
+  non-finite. Under `method = "cdf"` the failures are a contiguous tail, so the
+  survivors are a time-biased subset -- at the documented 1879-of-4538 loss the
+  figure drew a clean Q-Q panel, with an SDNR annotation, and said nothing.
+
+* **`convergence_diagnostics()` reports a `NOTE` under `getsd = FALSE`.** With
+  no `sdreport` the Hessian eigenvalue, `pdHess`, sdreport and estimability
+  checks all return nothing, and the battery reported `"OK"` --
+  `report_tables()$model$converged` then printed `OK` into a SAFE table.
+  Nothing distinguished "every check passed" from "the strongest checks never
+  ran". The fit is unchanged. Only `estimateMode` `"Estimate"` and `"Hindcast"`
+  run the battery, and each refitting diagnostic resolves its own `getsd`:
+  `retrospective()`, `jitter()`, `self_test()` and `profile()` follow whether
+  the source fit kept an `sdreport`; `reweight()` follows that fit's
+  `fit_control$getsd`, so a default fit still reads `OK`; `run_mse()` refits at
+  `getsd = FALSE`, so an MSE's estimation fits now read `NOTE` -- a status only,
+  changing no result.
+
+* **The `"NonParametricPM"` (9) directional shape penalty now has a
+  limiting-case and specification check.** Nothing verified that
+  `Sel_shape_dir = "Increasing"` penalizes an increasing curve on the one form
+  that implements it; the existing tests
+  covered the `weight = 1/(2*sd^2)` arithmetic and one `"Decreasing"` fit. On a
+  strictly increasing curve the decreasing direction now charges 0 and the
+  increasing direction 5.6, mirrored on a strictly decreasing curve, and all
+  three shapes tested match the ADMB/AMAK `sel_like(1)` one-sided SSQ recomputed
+  from `sel_coff` to 1e-10, driven both through `Sel_curve_pen1` and through the
+  `Sel_shape_dir` column a user actually writes. This is why the direction is
+  refused elsewhere rather than implemented there: on 9 it is now checked.
+
+## Documentation
+
+* The `estDynamics` list in `vignette("data-without-excel")` still offered code
+  `3`, retired in 5.35.0 and refused by `switch_check()` since. The same file
+  listed the codes correctly 344 lines earlier.
+
+* `Sel_shape_dir` is documented as `NonParametricPM`-only in the column schema
+  (which ships verbatim into `meta_data_names.xlsx`), in `?BS2017SS` and in
+  `vignette("model-parameterizations")`. All three described the directional
+  sign as working on every non-parametric form.
+
 # Rceattle 5.41.0
 
 ## One-step-ahead residuals from the conditional CDF

@@ -474,7 +474,6 @@ Used when `estDynamics > 0`:
 
 - `1` = numbers-at-age fixed exactly to these values
 - `2` = numbers-at-age scaled by a single estimated scalar per species
-- `3` = numbers-at-age scaled by age-specific estimated scalars per species
 
 **Required** when `any(estDynamics > 0)`. Skip if you're estimating population dynamics from scratch (the default `estDynamics = 0`).
 

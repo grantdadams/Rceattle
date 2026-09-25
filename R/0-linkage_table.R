@@ -459,8 +459,9 @@ linkage_row <- function(process, param, X_col,
 #' A group of one is not shared, whatever its key happens to be, a survey
 #' catchability counter runs 1..n_survey and rarely matches the fleet code.
 #'
-#' @return `NA_integer_` if `flt` is not a follower, otherwise the fleet code of
-#'   the donor whose value would win.
+#' @return `NA_integer_` if `flt` is not a follower, otherwise the fleet_control
+#'   ROW of the donor whose value would win. `data_check()` requires `Fleet_code`
+#'   to equal the row number, so the two coincide, but this is a row index.
 #' @keywords internal
 #' @noRd
 .shared_block_lead <- function(data_list, flt, process) {
@@ -473,7 +474,10 @@ linkage_row <- function(process, param, X_col,
   rows <- which(!is.na(idx) & idx == idx[flt])
   if (length(rows) < 2L) return(NA_integer_)
 
-  off  <- if (is.null(fc$Fleet_type)) rep(FALSE, nrow(fc)) else fc$Fleet_type == "Off"
+  # Read through the map: a workbook that has not been through switch_check()
+  # still holds the integer code, and 0 == "Off" is FALSE.
+  off  <- if (is.null(fc$Fleet_type)) rep(FALSE, nrow(fc)) else
+    vapply(fc$Fleet_type, function(x) identical(.canon_switch(x, fleet_map), "Off"), logical(1))
   est  <- rows[!off[rows]]
   lead <- if (length(est)) est[1] else rows[1]
   if (identical(as.integer(lead), as.integer(flt))) NA_integer_ else as.integer(lead)

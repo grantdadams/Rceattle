@@ -133,6 +133,89 @@ than fixing.
 Cleared in 5.14.0 except where noted. As in Tier 0, three of these were not what their marker
 said, so each struck row records what it actually turned out to be.
 
+Found reviewing the 5.34.0-5.41.0 release (PR #158) and recorded rather than fixed. The
+three defects that review found are fixed in 5.42.0; these are what it left:
+
+- **`log_sel_apical` is unbounded.** `build_parameter_bounds()` gives it the default
+  `+-Inf`, while `.check_sel_apical_rows()` only *warns* when a fleet has neither
+  joint-sex composition nor a prior -- i.e. when nothing informs the sexes' ratio and the
+  estimate is "whatever the optimizer leaves". That is the flat ridge `rec_pars[, 2:3]`
+  got `+-30` for in 5.39.0. A `+-10` bound costs nothing: `exp(10)` is already absurd for
+  a selectivity multiplier. So the package now bounds some blocks and not this one --
+  the same inconsistency the `log_Ftarget` note above records.
+
+- **Four shape-penalty columns are form-9-only and silently inert on forms 2 and 13.**
+  `Sel_shape_mode`, `Sel_pen_first_bin`, `Sel_pen_last_bin` and `Sel_avgsel_pen` are read
+  only inside `if(flt_sel_type(flt) == 9)` in `ceattle.cpp`, but `data_check()`
+  range-validates all four on every fleet and the schema `doc` strings -- which ship
+  verbatim into `meta_data_names.xlsx` -- say "non-parametric" without qualification. A
+  user narrowing the shape penalty on a `NonParametricIntegrable` fleet gets the full
+  range with no message. 5.40.0 added `test-selectivity-norm-scope-inert-forms.R` for
+  exactly this class on `Sel_norm_scope`; these four are owed the same treatment.
+  (5.42.0 fixed the fifth member of the set, `Sel_devmag_sd`, because that one was being
+  actively converted rather than merely accepted.)
+
+- **`.check_stock_recruit_msm()` reports a false clean when `spnames` is `NULL`.** It
+  falls back to `paste0("Species", seq_len(...))` while `parameter_index()` falls back to
+  `as.character(idx)` -- `"1"`, `"2"`. The two disagree, so `pos_of()` matches nothing for
+  every species, `fixed_curve()` returns `TRUE`, and the check reports "Stock-recruit
+  curve held at its inputs for Species1; nothing to check" on a curve that is in fact
+  being estimated. One fallback should call the other.
+
+- **The Dirichlet-multinomial OSA fallback is announced with `message()`.** Substituting
+  a method documented as failing the package's own KS self-test on composition data is
+  the most consequential of the four announcements in `osa_residuals()`, and it is the
+  only one that is not a `warning()`. A `message()` is erased by `suppressMessages()`, by
+  a knitr chunk with `message = FALSE` (how the vignettes and most assessment scripts
+  run), and by any log that keeps only warnings.
+
+- **`discrete = TRUE` feeds fractional composition counts into TMB's integer lattice.**
+  Counts enter as `(proportion + comp_offset) * N` with `comp_offset = 1e-5`, so none is
+  an integer, while TMB's `discrete = TRUE` path replaces `integrate()` with a sum over
+  `ceiling(lower):floor(upper)`. For `obs = 10.001` the observation's own mass is in
+  neither tail sum and the mass at 11 is dropped, yet `px` is still the density at the
+  fractional `obs`. It returns a finite, plausible residual rather than erroring.
+  Pre-existing; 5.41.0 re-documented and re-defaulted around it.
+
+- **`.rce_sel_norm_code(allow_all = )` is called two ways.** `R/0-build_selectivity.R`
+  passes `allow_all = TRUE` unconditionally; `R/1-data_check.R` passes
+  `fc$Selectivity[rows] %in% c(11, "LogisticPM")`. The two therefore disagree on what
+  counts as "normalization is on" for a non-`LogisticPM` fleet, which can flip the
+  `WithinSex` apical refusal the wrong way. They should share one rule.
+
+- **The non-parametric form set is a literal in five places** (`R/6-fit_mod.R`,
+  `R/1-data_check.R` twice, `R/3-build_map.R`, `R/0-switches.R`) with no predicate on
+  `sel_map`. All five are correct today, and a sixth site omits
+  `NonParametricIntegrable` deliberately. But 5.40.0 -> 5.41.0 churned this set twice
+  inside one release, and the `fit_mod()` copy failing silently would mean coefficients
+  below `Bin_first_selected` quietly stop being held at 0 -- a selectivity change, so an
+  SSB change. 5.42.0 added `.RCE_SEL_PEN_POSITIVE` beside `sel_map` as a start; the form
+  sets themselves are still literals.
+
+- **A warm start silently overrides a changed `Sel_curve_pen` column.** `sel_curve_pen` is a
+  `PARAMETER_MATRIX` mapped off, not a `DATA_` object, so its value comes from `inits` when
+  `inits` are supplied and from the `Sel_curve_pen1/2/3` columns only otherwise. Editing the
+  column and refitting from a stored fit therefore keeps the OLD weight, with no message.
+  Found building the form-9 directional test in 5.42.0, where setting the column to -20 while
+  passing `inits` produced the +20 penalty. 5.42.0's `fit_mod()` guard closes the SIGN only;
+  the magnitude is still silently overridden, measured on `BS2017SS` fleet 1 with the column
+  reading +20 throughout: `JNLL_SEL_NONPARAM` is 52.96 from the column and 464.39 when
+  `inits$sel_curve_pen[flt, 1]` is 200, with no message. This is the same class as the known
+  `Time_varying_sel_sd`-inert-on-a-warm-start trap in `TRAPS.md`, and the fix is the same
+  shape: either reseed the parameter from the column in `fit_mod()`, or warn when they
+  disagree. Note this also bounds the blast radius of the sign defect 5.42.0 fixed -- a
+  refit from a stored fit kept whatever weight was taped.
+
+- **`Sel_shape_dir = "Increasing"` has no FITTED recovery check.** 5.42.0 closed the
+  specification half: `test-selectivity-penalty-sd.R` pins the limiting cases (a strictly
+  increasing curve charges 0 under `"Decreasing"` and the mirror under `"Increasing"`)
+  and matches three shapes against the ADMB/AMAK `sel_like(1)` SSQ recomputed from
+  `sel_coff`, driven through the `Sel_shape_dir` column itself. What is still open is
+  simulation self-consistency: nobody has simulated from an increasing-selectivity stock
+  and checked the penalized fit returns that shape. That gap is why 5.42.0 refused the
+  direction on the forms that do not read the sign rather than teaching them the branch
+  `"NonParametricPM"` (9) has.
+
 Found during the 5.34.0-5.41.0 batch and recorded rather than fixed:
 
 - **An estimated `log_Ftarget` is a single unbounded `nlminb` start.** The single-species

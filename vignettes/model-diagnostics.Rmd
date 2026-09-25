@@ -160,6 +160,12 @@ The checks cover:
 - **`pdHess`**: whether the Hessian is positive definite (`FAIL` if not).
 - **`sdreport_failed`**: `FAIL` when an `sdreport` was requested but the
   Hessian could not be inverted.
+- **`hessian_not_run`**: `NOTE` when the fit was made with `getsd = FALSE`, so
+  `pdHess`, `hessian_conditioning`, `sdreport_failed` and `estimability` had
+  nothing to read and never ran. It separates "every check passed" from "the
+  strongest checks were skipped"; refit with `getsd = TRUE` before reading the
+  status as convergence. Each refitting diagnostic resolves its own `getsd`, so
+  `run_mse()`'s refits carry the note and a reweighted default fit does not.
 - **`zero_n_penalty`**: the "Zero n-at-age penalty" likelihood row is non-zero
   for a species: its numbers-at-age, Ricker intercept or (under an identity-link
   recruitment linkage) recruitment sat on the 0.001 floor, so the fit is of a

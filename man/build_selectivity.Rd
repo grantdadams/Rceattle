@@ -56,7 +56,8 @@ it as the multiplier on that sex's curve and take the peak ratio from
 \code{fit$quantities$sel_at_age}. Only the contrast between the sexes is
 identified (the common level is \code{log_F}), so one sex holds it and the fit
 is refused if both do, if no fleet or no sex is named, if the species has
-one sex, on a \code{Fixed}, AR1 or mirror fleet, or under \code{link = "identity"},
+one sex, on a \code{Fixed}, AR1 or \code{Fleet_type = "Off"} fleet, on a fleet that
+shares another's \code{Selectivity_index} block, or under \code{link = "identity"},
 which could drive the multiplier negative; use the default \code{link = "log"}.
 It is also refused where
 \code{Sel_norm_scope = "WithinSex"} normalization would divide it straight back
@@ -86,9 +87,10 @@ unstratified \code{~ 1} prior constrains sex 1 only, use \code{by = ~ sex} for a
 per-sex prior. An \code{init} on a selectivity intercept has no effect (the
 starting value comes from the data), and a prior on the double-normal
 \code{right_floor} is not supported.
-For a fleet that mirrors another fleet's selectivity (shared
-\code{Selectivity_index}), place the prior on the lead fleet so the shared
-parameter block is not penalized more than once.
+Fleets sharing a \code{Selectivity_index} estimate one parameter block, so place
+the prior on the group's lead fleet (its first fleet that is not \code{Off}); a
+prior on a follower would penalize the shared block once per sharing fleet.
+A prior on an \code{Off} fleet is refused: its selectivity is not estimated.
 }
 \examples{
 \donttest{
