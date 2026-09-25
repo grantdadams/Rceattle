@@ -11,17 +11,30 @@ before tagging: the `release: published` event has silently failed to fire once 
 **The tag is the DESCRIPTION version, so it is 5.42.1, not 5.41.0** -- #160 (5.42.0) and the
 review of #158 (5.42.1) both landed after the release PR was written.
 
-**The pre-tag measurements are older than this head.** The checklist run recorded 2026-09-23 --
-ecosystem sweep clean, hake `MSE_yr2024.R` identical to 5.33.0 on all six fits, a reproducible
-install into a temporary library driven through them -- predates 5.42.0 and 5.42.1 entirely,
-and the 9,506-assertion suite figure was measured 2026-09-21. **Re-run all four before
-tagging.** What HAS been re-done at 5.42.1: the ecosystem sweep, widened to the 5.42.0
-refusals (375 workbooks, 183 with a `fleet_control` sheet, across the four consumer repos) --
-one negative `Sel_curve_pen1` anywhere, EBS pollock 2024's ATS/AVO fleets, `NonParametricPM`
-with no `Sel_shape_mode` column, which the directional exemption keeps legal; no workbook sets
-`Sel_shape_dir` or `Sel_devmag_sd`; no selectivity prior or apical linkage sits on an `Off`
-fleet or a shared-block follower (the GOA pollock 2025 prior fleets are each their group's
-lead); and no group anywhere mixes selectivity forms.
+**Checklist state at 5.42.1.** Two of the four measurements have been re-taken at this head,
+and the other two are argued rather than re-run:
+
+- **Full suite, re-run at 5.42.1** (`NOT_CRAN=true TESTTHAT_PARALLEL=false`, serial):
+  **9,608 assertions / 0 failures / 0 errors / 3 skips**, 223 warnings. This supersedes the
+  9,506 figure measured 2026-09-21.
+- **Ecosystem sweep, re-run and widened to the 5.42.0 refusals**: 375 workbooks across the
+  four consumer repos, 183 with a `fleet_control` sheet. One negative `Sel_curve_pen1`
+  anywhere -- EBS pollock 2024's ATS/AVO fleets, `NonParametricPM` with no `Sel_shape_mode`
+  column, which the directional exemption keeps legal. No workbook sets `Sel_shape_dir` or
+  `Sel_devmag_sd`. No selectivity prior or apical linkage sits on an `Off` fleet or a
+  shared-block follower -- the GOA pollock 2025 prior fleets are each their group's lead, and
+  GOA cod bridging builds double-normal linkages with no priors. No group anywhere mixes
+  selectivity forms.
+- **Hake `MSE_yr2024.R`: the 2026-09-23 run still stands**, and re-running it would prove
+  nothing new. `MSE_hake_yr24_final.xlsx` is two fleets, both `Selectivity = 5` (`Hake`), on
+  separate `Selectivity_index` values, with no negative penalty weight and no `Sel_shape_dir`
+  or `Sel_devmag_sd` column. Form 5 appears in **no** slot of `.RCE_SEL_PEN_POSITIVE`, so no
+  5.42.0 refusal can fire on it, and with no shared group the 5.42.1 lead rule is a no-op
+  there. Nothing in 5.42.0 or 5.42.1 touches predation, suitability, the DM likelihood,
+  `sim_mod()` or `run_mse()`'s numerics (rule 15); the only MSE-visible change is that the
+  estimation fits now report `NOTE` instead of `OK` under `getsd = FALSE`, a status.
+- **Reproducible install: still owed at this head.** It was driven at 5.41.0. Run it as part
+  of checklist section 4 once the tag is pushed.
 
 **PR #159 merged into `dev` on 2026-09-24**, #160 on 2026-09-25 (`dev` head `c01ea717`), and
 the review of #158 after it. #159 asked four questions of #158: does the language read as
@@ -48,10 +61,9 @@ What a reviewer should still go at hardest:
 
 1. Merge the 5.42.1 review branch, then whatever `inst/dev` PRs are still open (they are
    documentation only). `fix/release-doc-corrections` is already in.
-2. Re-run the four checklist measurements at the merge head (suite, sweep, hake MSE, install):
-   the recorded ones predate 5.42.0. Then merge the `dev` -> `main` release PR #158. Its body
-   must say what forces a refit, what breaks and what is new, and must cover 5.42.0 and 5.42.1;
-   do not paste `NEWS.md`.
+2. Merge the `dev` -> `main` release PR #158. Its body must say what forces a refit, what
+   breaks and what is new, and must cover 5.42.0 and 5.42.1; do not paste `NEWS.md`. Suite and
+   sweep are already re-taken at this head (above); the install is checklist section 4.
 3. Tag the MERGE COMMIT on `main` with the DESCRIPTION version, then publish a GitHub Release
    from the tag.
 4. Confirm pkgdown actually rebuilt, then `gh workflow run deep-checks.yaml --ref main`.
