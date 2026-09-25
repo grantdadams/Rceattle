@@ -490,8 +490,25 @@ testthat::test_that("the penalty lead follows the template's grouping, not the m
       is.na(Rceattle:::.shared_block_lead(list(fleet_control = x), 5L, "sel")))
   }
 
-  # An Off fleet still leads nothing, and a group of one still leads itself.
+  # BS2017SS gives every fleet its own Selectivity_index, so every fleet leads.
   testthat::expect_true(all(Rceattle:::.rce_sel_pen_lead(fc)))
+
+  # The lead of a group is its first fleet that is NOT Off: an Off fleet
+  # estimates nothing, and the template gates on flt_type as well, so leading
+  # with one would drop the group's penalty entirely. Asserted here because
+  # .rce_sel_pen_sign_errors() has its own Off skip, so without this the `off`
+  # argument to .group_lead() could be dropped and this file would stay green.
+  off_fc <- fc
+  off_fc$Selectivity_index[5] <- off_fc$Selectivity_index[4]
+  off_fc$Fleet_type[4] <- "Off"
+  testthat::expect_false(Rceattle:::.rce_sel_pen_lead(off_fc)[4])  # Off, never leads
+  testthat::expect_true(Rceattle:::.rce_sel_pen_lead(off_fc)[5])   # so fleet 5 does
+
+  # And it matches what rearrange_data() hands the template for the same table.
+  dl <- Rceattle::BS2017SS; dl$fleet_control <- off_fc
+  lead_tmb <- suppressMessages(suppressWarnings(
+    Rceattle:::rearrange_data(Rceattle:::switch_check(dl))))$flt_sel_lead
+  testthat::expect_identical(as.integer(Rceattle:::.rce_sel_pen_lead(off_fc)), lead_tmb)
 })
 
 # .canon_switch() trims and rearrange_data()'s .pull_int() does not, so a

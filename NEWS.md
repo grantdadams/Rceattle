@@ -14,8 +14,9 @@ version throughout.
 
 # Rceattle 5.42.1
 
-Found reviewing the release PR that carries 5.34.0 through 5.42.0 (#158). Three
-corrections to 5.42.0's own guard and to documentation it left behind.
+Found reviewing the release PR that carries 5.34.0 through 5.42.0 (#158), over
+several adversarial passes. Corrections to 5.42.0's own guard, to the tests
+meant to hold it, and to documentation it left behind.
 
 ## Bug fixes
 
@@ -60,6 +61,22 @@ corrections to 5.42.0's own guard and to documentation it left behind.
   the four patterns covers (`14 - ...`, `forms 2 and 14`) still slips, so it
   narrows the gap rather than closing it.
 
+* **A refusal test that passed for the wrong reason.** The check that an
+  `apical` linkage is refused on an AR1 selectivity form matched the string
+  `"AR1"`, and `GOAatf` ships `Sel_curve_pen2 = 200` on the fleet the fixture
+  switches: on the AR1 forms that slot is a correlation, so `data_check()`
+  stopped first with its own out-of-range message, which also contains `"AR1"`.
+  Deleting the refusal left the suite green. The fixture now zeroes that column
+  and the assertion matches the apical clause, so removing the refusal fails the
+  test.
+
+* **`.rce_sel_pen_lead()`'s `Off` handling was untested.** Replacing its `off`
+  argument with `rep(FALSE, n)` left `test-selectivity-penalty-sd.R` green,
+  because the sign check has its own independent `Off` skip. The file now pins
+  that an `Off` fleet never leads its group, that the next fleet leads instead,
+  and that the result is `identical()` to the `flt_sel_lead` `rearrange_data()
+  hands the template for the same table.
+
 ## Documentation
 
 * `README.md`'s operational pinning example named 5.41.0, a version this line
@@ -73,6 +90,18 @@ corrections to 5.42.0's own guard and to documentation it left behind.
   refusal does not catch; there are four. The fleet following another's
   `Selectivity_index` was added to the check and to `NEWS.md` at 5.42.0 but not
   to the reference table.
+
+* `vignette("adding-a-selectivity-form")` said code 14 was free and the next
+  form should take 15, in a paragraph whose own rule is that a retired code is
+  not free. 14 was advertised as a second integrable form in
+  `meta_data_names.xlsx` -- the template every workbook is built from -- before
+  being collapsed into 13, so a `Selectivity` column written in that window
+  holds it. It is now listed with 10 and 12 as taken. The same article named
+  three R sites that key on the selectivity form when there are at least eight,
+  attributed two of them to the wrong check, and described
+  `.RCE_SEL_PEN_POSITIVE` as driving the penalty-SD conversion; that conversion
+  is a separate registry, `.sd_specs`, which fails closed where
+  `.RCE_SEL_PEN_POSITIVE` fails open.
 
 * `vignette("developer-guide")` gave three switch-code facts the code does not
   support: the `selectivity.hpp` dispatch list omitted the Ianelli
@@ -114,6 +143,10 @@ to the integrable forms.
   gates the penalty block on `flt_type(flt) > 0 && flt_sel_lead(flt) == 1`, so a
   `Fleet_type = "Off"` fleet is skipped, and so is one that follows another
   fleet's `Selectivity_index` -- the group is charged once, on its lead.
+  (**Narrowed in 5.42.1**: the template groups by `Selectivity_index` *and*
+  selectivity form, so only a follower sharing the lead's form is skipped. A
+  follower with a different form leads its own group, is charged, and is
+  refused. Read that entry, not this sentence, for the rule in force.)
 
   Measured on `BS2017SS` fleet 1 (`NonParametric`, `N_sel_bins = 8`, with the
   shipped `Sel_curve_pen2 = 12.5` active): ramping the fleet's `sel_coff`
