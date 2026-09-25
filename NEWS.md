@@ -12,6 +12,59 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.42.1
+
+Found reviewing the release PR that carries 5.34.0 through 5.42.0 (#158). Three
+corrections to 5.42.0's own guard and to documentation it left behind.
+
+## Bug fixes
+
+* **The negative-`Sel_curve_pen` refusal no longer skips a fleet whose penalty
+  the template does charge.** The check skipped any fleet that followed another
+  fleet's `Selectivity_index`, on the grounds that a shared block is penalized
+  once, on its lead. But the template's lead (`flt_sel_lead`, built in
+  `rearrange_data()`) groups fleets by `Selectivity_index` **and** selectivity
+  form, while the rule the check borrowed -- the one the parameter map shares
+  on -- groups by the index alone. Two live fleets sharing an index with
+  different forms are therefore two groups to the template, each charged, and
+  the check called the second one a follower and passed over it: a negative
+  weight there reached `ceattle.cpp` and rewarded the deviation it names,
+  without bound, with `data_check()` reporting clean. The check now reads the
+  lead the same way the template does. No bundled data set and no workbook in
+  the consumer repositories has a group of mixed form (11 bundled data sets,
+  183 workbooks with a `fleet_control` sheet), so no existing model changes;
+  this closes the guard rather than moving a number.
+
+* **`test-docs-anchors.R` now checks the schema column that shipped the stale
+  code.** The guard added at 5.42.0, so that no schema description names a
+  selectivity code `sel_map` does not accept, matched only a slash-separated
+  run (`2/9/13`). Of the eight columns it names, four matched nothing at all --
+  including `Selectivity` itself, which enumerates every code one per line and
+  is the column form 14 was advertised in. It now also reads a comma-or-`or`
+  list, a per-line `13 = ...` enumeration, and a code parenthesized after a
+  quoted form name, and all eight columns are covered.
+
+## Documentation
+
+* `README.md`'s operational pinning example named a tag that was never cut. The
+  last pushed tag is 5.28.0, so the line sent an assessor pinning a version for
+  management advice to a reference `install_github()` cannot resolve.
+
+* `vignette("model-parameterizations")` listed three cases the negative-weight
+  refusal does not catch; there are four. The fleet following another's
+  `Selectivity_index` was added to the check and to `NEWS.md` at 5.42.0 but not
+  to the reference table.
+
+* `vignette("developer-guide")` gave three switch-code facts the code does not
+  support: the `selectivity.hpp` dispatch list omitted the Ianelli
+  non-parametric form (2), which every bundled reference model uses, and
+  descending logistic (4); `sel_map` skips 10, 12 and 14, not 10 alone; and the
+  `Sel_curve_pen1` / `Sel_curve_pen2` slot map omitted form 13.
+
+* The 5.39.0 entry now says the stock-recruit bound is unconditional. Predation
+  is why it was added, and it sits under a predation heading, but
+  `build_bounds()` applies +/-30 to every model.
+
 # Rceattle 5.42.0
 
 Found reviewing the 5.34.0-5.41.0 release (`# Rceattle 5.41.0` and the versions
@@ -446,6 +499,10 @@ to the integrable forms.
   log alpha has reached 702, next to the double-precision limit; +/-30 is 13
   orders of magnitude either side of any stock's scale, so it never binds a
   determined estimate. A linkage bound on alpha or beta overrides it.
+  Predation is the reason the bound was added, but the bound itself is
+  unconditional: `build_bounds()` applies it to every model, single-species
+  included, and the refit stop below reaches any fit whose `rec_pars` sit
+  outside it, estimated or fixed.
   **A fit saved on the old unbounded ridge, with log alpha or log beta beyond
   +/-30, no longer refits**: `build_bounds()` stops because its starting values
   are outside the bounds, which takes `retrospective()`, `profile()` and

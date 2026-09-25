@@ -450,3 +450,46 @@ testthat::test_that("a negative Sel_curve_pen in `inits` is refused, not silentl
   # column check, which still sees a valid +20.
   testthat::expect_error(bld(bad), "in the supplied `inits`", fixed = TRUE)
 })
+
+# The check skips a fleet that follows another's Selectivity_index, because the
+# shared block's penalty is charged once, on its lead. Which fleet leads is the
+# question: ceattle.cpp reads flt_sel_lead, which rearrange_data() groups by
+# Selectivity_index AND selectivity form, while the parameter map shares on the
+# index alone. Borrowing the map's rule let a negative weight through on a fleet
+# the template charges. Found reviewing the 5.34.0-5.42.0 release PR (#158).
+testthat::test_that("the penalty lead follows the template's grouping, not the map's", {
+  d  <- Rceattle::BS2017SS
+  fc <- d$fleet_control
+  # Fleet 5 is made to follow fleet 4's Selectivity_index and carry the negative
+  # weight; only the FORM differs between the two cases.
+  mk <- function(same_form) {
+    x <- fc
+    x$Selectivity_index[5] <- x$Selectivity_index[4]
+    if (!same_form) x$Selectivity[5] <- 2
+    x$Sel_curve_pen1[5] <- -20
+    x
+  }
+
+  # Same form: one group, charged once on fleet 4. Fleet 5's weight is never
+  # read, so a negative one there is inert and stays allowed.
+  same <- mk(TRUE)
+  testthat::expect_false(Rceattle:::.rce_sel_pen_lead(same)[5])
+  testthat::expect_length(Rceattle:::.rce_sel_pen_sign_errors(same), 0L)
+
+  # Different form: two groups to the template, and fleet 5 leads its own. The
+  # weight IS read, so it must be refused. This is the case that slipped through.
+  mixed <- mk(FALSE)
+  testthat::expect_true(Rceattle:::.rce_sel_pen_lead(mixed)[5])
+  testthat::expect_match(Rceattle:::.rce_sel_pen_sign_errors(mixed),
+                         "Sel_curve_pen1 is negative", all = FALSE)
+
+  # The rule the check used to borrow calls fleet 5 a follower in BOTH cases --
+  # this is the divergence itself, asserted so a revert is loud.
+  for (x in list(same, mixed)) {
+    testthat::expect_false(
+      is.na(Rceattle:::.shared_block_lead(list(fleet_control = x), 5L, "sel")))
+  }
+
+  # An Off fleet still leads nothing, and a group of one still leads itself.
+  testthat::expect_true(all(Rceattle:::.rce_sel_pen_lead(fc)))
+})

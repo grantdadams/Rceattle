@@ -104,7 +104,9 @@ sel_map <- c(
 # The rule throughout: refuse a negative weight only where THIS fleet's wiring
 # reaches it. The template gates the whole penalty block on
 # `flt_type(flt) > 0 && flt_sel_lead(flt) == 1`, so an "Off" fleet and a fleet
-# following another's Selectivity_index are both skipped as well.
+# following another's Selectivity_index are both skipped as well. The lead is
+# read through .rce_sel_pen_lead(), which groups the way flt_sel_lead does --
+# by index AND form -- not the index-only rule the parameter map shares on.
 .RCE_SEL_PEN_POSITIVE <- list(
   # "Non-parametric" is the legacy spelling of 2 that switch_check() still
   # accepts; it is not in sel_map, so it has to be listed alongside the canonical
@@ -171,8 +173,36 @@ sel_map <- c(
 #'   every weight is fine.
 #' @keywords internal
 #' @noRd
+#' Which fleets carry their selectivity group's penalty, as the template counts it
+#'
+#' `ceattle.cpp` gates the penalty block on `flt_sel_lead`, which
+#' `rearrange_data()` groups by `Selectivity_index` AND the selectivity form: two
+#' fleets sharing an index but not a form are two groups, and each is charged.
+#' The map's donor rule (`adjust_map_shared_params()`, and `.shared_block_lead()`
+#' with it) groups by the index alone, so it is the wrong rule to predict the
+#' penalty with -- it would call the second fleet a follower and skip a weight
+#' the template does read.
+#'
+#' @param fleet_control the fleet control table.
+#' @return a logical vector, TRUE where the template charges that fleet's penalty.
+#' @keywords internal
+#' @noRd
+.rce_sel_pen_lead <- function(fleet_control) {
+  n <- nrow(fleet_control)
+  # Without the index column there is no group to share, so every fleet leads.
+  if (is.null(fleet_control$Selectivity_index)) return(rep(TRUE, n))
+  off  <- vapply(seq_len(n), function(i)
+    identical(.canon_switch(fleet_control$Fleet_type[i], fleet_map), "Off"), logical(1))
+  # The canonical name stands in for the integer code rearrange_data() pastes;
+  # the map between them is one-to-one, so the grouping is the same.
+  form <- vapply(seq_len(n), function(i)
+    .canon_switch(fleet_control$Selectivity[i], sel_map), character(1))
+  .group_lead(paste(fleet_control$Selectivity_index, form), off) == 1L
+}
+
 .rce_sel_pen_sign_errors <- function(fleet_control, pen = NULL, source = NULL) {
   errs <- character(0)
+  pen_lead <- .rce_sel_pen_lead(fleet_control)
   # A `pen` that is not the expected matrix cannot be checked, and returning
   # clean would pass a negative weight through. Refuse rather than fail open.
   if (!is.null(pen) && !identical(dim(pen), c(nrow(fleet_control), 3L))) stop(
@@ -196,7 +226,7 @@ sel_map <- c(
           identical(.canon_switch(fleet_control$Time_varying_sel[flt], tv_sel_map), "Off")) next
       # The group's penalty is charged once, on the lead, so a follower's weight
       # is never read (ceattle.cpp gates on flt_sel_lead == 1 as well as flt_type).
-      if (!is.na(.shared_block_lead(list(fleet_control = fleet_control), flt, "sel"))) next
+      if (!pen_lead[flt]) next
       bad <- c(bad, flt)
     }
     if (!length(bad)) next
