@@ -185,7 +185,32 @@ the hake `MSE_yr2024.R` run. Both are recorded above with their results.
   one stray doc commit, `4716968c`, reached `dev` as `3255fb49` via PR #132 (which merged from
   `docs/minfraction`, so the content was re-applied rather than merged from this branch).
 
-## Resume here
+## Resume here — finish the release
 
-Read `inst/RELEASE-CHECKLIST.md` and start the release, or pick from `SIMPLIFY-LOG.md` first.
-Both are Grant's call.
+**PR #158 (`dev` -> `main`) is open and reviewed.** Grant is finishing it from a fresh session.
+Everything the checklist asks for before tagging is done and recorded above. The task is the
+merge and the steps after it, in this order:
+
+1. Merge #158.
+2. **Re-read `DESCRIPTION` on the merge commit and tag THAT version.** Do not tag from memory
+   or from this file: the target has already moved twice while #158 was open (5.41.0 ->
+   5.42.0 -> 5.42.1), and a tag naming the wrong version cannot be quietly fixed.
+   `git tag -a X.Y.Z origin/main -m "Rceattle X.Y.Z"` on the merge commit, then push it.
+3. Publish a GitHub Release from the tag. Drafting one is not enough -- the pkgdown workflow
+   fires on `release: published`, and that event has silently failed to fire before. **Confirm
+   a pkgdown run actually started**; if not, `gh workflow run pkgdown.yaml --ref main`.
+4. `gh workflow run deep-checks.yaml --ref main`. Expect `golden` red and `suite` cancelled for
+   the reasons above; neither is a verdict on the tag. Read the `safebounds` job, which is the
+   part that can tell you something new.
+5. Tell the consumer repos to pin the new tag rather than track `main`, and note in that message
+   that the last installable tag was `5.28.0`, so they may be jumping further than they think.
+
+**Freeze `dev` until the tag is pushed.** Anything merged into `dev` while #158 is open lands in
+the release and moves the version again, which is exactly how the target moved twice already.
+**PR #161 is the live case**: it is open into `dev`, was branched when `dev` was 5.41.0, and
+bumps `DESCRIPTION` to 5.42.0 -- a version `dev` has already passed. It needs rebasing and a
+fresh bump whatever happens, so it is not a candidate for slipping in first.
+
+After the tag, work `## After the release, in order` above. `golden` robustness is first for a
+reason: until it lands, `deep-checks` cannot gate anything, so the next release has no more
+coverage than this one.
