@@ -178,10 +178,17 @@ sel_map <- c(
   if (is.null(fleet_control$Selectivity_index)) return(rep(TRUE, n))
   off  <- vapply(seq_len(n), function(i)
     identical(.canon_switch(fleet_control$Fleet_type[i], fleet_map), "Off"), logical(1))
-  # The canonical name stands in for the integer code rearrange_data() pastes;
-  # the map between them is one-to-one, so the grouping is the same.
-  form <- vapply(seq_len(n), function(i)
+  # The canonical name stands in for the integer code rearrange_data() pastes.
+  # That is not quite a one-to-one substitution: .canon_switch() trims, while
+  # rearrange_data()'s .pull_int() does not, so " NonParametric" resolves here
+  # and reaches the template as NA -- a different group there, and the fleet
+  # would lead. A value that does not resolve the way the template resolves it
+  # gets a key of its own, so it leads here too and its weight is checked.
+  raw   <- as.character(fleet_control$Selectivity)
+  clean <- raw %in% names(sel_map) | !is.na(suppressWarnings(as.integer(raw)))
+  form  <- vapply(seq_len(n), function(i)
     .canon_switch(fleet_control$Selectivity[i], sel_map), character(1))
+  form[!clean] <- paste0("<unresolved ", which(!clean), ">")
   .group_lead(paste(fleet_control$Selectivity_index, form), off) == 1L
 }
 
@@ -202,12 +209,14 @@ sel_map <- c(
 #' @noRd
 .rce_sel_pen_sign_errors <- function(fleet_control, pen = NULL, source = NULL) {
   errs <- character(0)
-  pen_lead <- .rce_sel_pen_lead(fleet_control)
   # A `pen` that is not the expected matrix cannot be checked, and returning
   # clean would pass a negative weight through. Refuse rather than fail open.
+  # Checked before the lead is resolved, so a malformed `pen` still gets this
+  # message rather than one about a fleet_control column.
   if (!is.null(pen) && !identical(dim(pen), c(nrow(fleet_control), 3L))) stop(
     "`inits$sel_curve_pen` must be a ", nrow(fleet_control), " x 3 matrix, one ",
     "row per fleet and one column per Sel_curve_pen slot.", call. = FALSE)
+  pen_lead <- .rce_sel_pen_lead(fleet_control)
   for (col in names(.RCE_SEL_PEN_POSITIVE)) {
     # Slot read by name, so reordering the registry cannot silently shift it.
     slot <- as.integer(sub("^Sel_curve_pen", "", col))

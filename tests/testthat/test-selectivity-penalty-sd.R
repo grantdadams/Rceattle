@@ -493,3 +493,29 @@ testthat::test_that("the penalty lead follows the template's grouping, not the m
   # An Off fleet still leads nothing, and a group of one still leads itself.
   testthat::expect_true(all(Rceattle:::.rce_sel_pen_lead(fc)))
 })
+
+# .canon_switch() trims and rearrange_data()'s .pull_int() does not, so a
+# Selectivity the R side resolves and the template does not would group the
+# fleet here and leave it leading there -- the guard would skip a weight
+# ceattle.cpp charges. Such a value gets a key of its own, so the fleet leads
+# here too. switch_check() normalizes the spelling first, so this guards a
+# hand-built fleet_control rather than a workbook path.
+testthat::test_that("a Selectivity the template cannot read leads, so its weight is checked", {
+  fc <- Rceattle::BS2017SS$fleet_control
+  fc$Selectivity <- as.character(fc$Selectivity)
+  fc$Selectivity[4] <- " NonParametric"          # resolves here, NA to the template
+  fc$Selectivity[5] <- "NonParametric"
+  fc$Selectivity_index[5] <- fc$Selectivity_index[4]
+  fc$Sel_curve_pen1[5] <- -20
+
+  testthat::expect_true(Rceattle:::.rce_sel_pen_lead(fc)[5])
+  testthat::expect_match(Rceattle:::.rce_sel_pen_sign_errors(fc),
+                         "Sel_curve_pen1 is negative", all = FALSE)
+
+  # Trailing whitespace is the same case, and a clean spelling still groups.
+  fc$Selectivity[4] <- "NonParametric "
+  testthat::expect_true(Rceattle:::.rce_sel_pen_lead(fc)[5])
+  fc$Selectivity[4] <- "NonParametric"
+  testthat::expect_false(Rceattle:::.rce_sel_pen_lead(fc)[5])
+  testthat::expect_length(Rceattle:::.rce_sel_pen_sign_errors(fc), 0L)
+})

@@ -37,6 +37,15 @@ corrections to 5.42.0's own guard and to documentation it left behind.
   raw or canonicalized through `sel_map`), so no existing model changes;
   this closes the guard rather than moving a number.
 
+  The lead it builds also **fails closed on a `Selectivity` the template cannot
+  read.** `.canon_switch()` trims and `rearrange_data()`'s `.pull_int()` does
+  not, so `" NonParametric"` resolves here and reaches the template as `NA` --
+  a group of its own there, with the fleet leading and its weight charged.
+  Such a value now gets a key of its own here too, so the fleet leads and is
+  checked. `switch_check()` normalizes the spelling before either is reached,
+  so this is a guard against a hand-built `fleet_control`, not a path a
+  workbook takes.
+
 * **`test-docs-anchors.R` now checks the schema column that shipped the stale
   code.** The guard added at 5.42.0, so that no schema description names a
   selectivity code `sel_map` does not accept, matched only a slash-separated
@@ -44,13 +53,21 @@ corrections to 5.42.0's own guard and to documentation it left behind.
   including `Selectivity` itself, which enumerates every code one per line and
   is the column form 14 was advertised in. It now also reads a comma-or-`or`
   list, a per-line `13 = ...` enumeration, and a code parenthesized after a
-  quoted form name, and all eight columns are covered.
+  form name, quoted or not -- `Sel_curve_pen1` writes `"type 2/9/13"` and
+  `LogisticPM (11)` in one sentence, so requiring the quotes missed 11 and
+  would have missed a stale code in that position. All eight columns now yield
+  codes. It is a shape-matcher, not a parser: a code written in a shape none of
+  the four patterns covers (`14 - ...`, `forms 2 and 14`) still slips, so it
+  narrows the gap rather than closing it.
 
 ## Documentation
 
-* `README.md`'s operational pinning example named a tag that was never cut. The
-  last pushed tag is 5.28.0, so the line sent an assessor pinning a version for
-  management advice to a reference `install_github()` cannot resolve.
+* `README.md`'s operational pinning example named 5.41.0, a version this line
+  never releases, so an assessor pinning a version for management advice was
+  sent to a reference `install_github()` can never resolve. It now names the
+  version this release tags. Like every version named there it resolves only
+  once that tag is pushed -- checklist section 3, and `TODO-pre-transfer.md`
+  B5 says to re-check the line whenever the version moves.
 
 * `vignette("model-parameterizations")` listed three cases the negative-weight
   refusal does not catch; there are four. The fleet following another's
