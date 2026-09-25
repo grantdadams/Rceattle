@@ -158,21 +158,6 @@ sel_map <- c(
   !(!is.na(mode) && mode %in% c("1", "Smooth", "smooth"))
 }
 
-#' Report Sel_curve_pen weights that are negative where the template reads them
-#'
-#' One rule, two callers: `data_check()` passes the `fleet_control` columns and
-#' `fit_mod()` the `sel_curve_pen` parameter actually in use. The second matters
-#' because `sel_curve_pen` is a PARAMETER, so `inits` from a stored fit override
-#' the columns and would otherwise carry a negative weight past the column check.
-#'
-#' @param fleet_control the fleet control table.
-#' @param pen optional `[nrow(fleet_control), 3]` matrix of the weights in use;
-#'   the `Sel_curve_pen1/2/3` columns are read when it is NULL.
-#' @param source one clause naming where the offending value came from.
-#' @return a character vector of error messages, one per penalty slot, empty when
-#'   every weight is fine.
-#' @keywords internal
-#' @noRd
 #' Which fleets carry their selectivity group's penalty, as the template counts it
 #'
 #' `ceattle.cpp` gates the penalty block on `flt_sel_lead`, which
@@ -200,6 +185,21 @@ sel_map <- c(
   .group_lead(paste(fleet_control$Selectivity_index, form), off) == 1L
 }
 
+#' Report Sel_curve_pen weights that are negative where the template reads them
+#'
+#' One rule, two callers: `data_check()` passes the `fleet_control` columns and
+#' `fit_mod()` the `sel_curve_pen` parameter actually in use. The second matters
+#' because `sel_curve_pen` is a PARAMETER, so `inits` from a stored fit override
+#' the columns and would otherwise carry a negative weight past the column check.
+#'
+#' @param fleet_control the fleet control table.
+#' @param pen optional `[nrow(fleet_control), 3]` matrix of the weights in use;
+#'   the `Sel_curve_pen1/2/3` columns are read when it is NULL.
+#' @param source one clause naming where the offending value came from.
+#' @return a character vector of error messages, one per penalty slot, empty when
+#'   every weight is fine.
+#' @keywords internal
+#' @noRd
 .rce_sel_pen_sign_errors <- function(fleet_control, pen = NULL, source = NULL) {
   errs <- character(0)
   pen_lead <- .rce_sel_pen_lead(fleet_control)
