@@ -195,6 +195,10 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # A Fixed curve is read from emp_sel_obs and never normalized, so its value is
   # allowed to be stale -- the same fleets switch_check() leaves alone.
   .norm_hi[data_list$flt_sel_type == 0] <- NA_real_
+  # Refused here too: rearrange_data() is exported and switch_check() does not
+  # run on every path in, so a blank would otherwise reach TMB as flt_type = NA.
+  .rce_stop_blank_fleet_type(data_list$fleet_control)
+
   .is_pm <- data_list$fleet_control$Selectivity %in% c(11, "LogisticPM")
 
   # Resolve the word first, so only a real bin is shifted to the 0-based index:
