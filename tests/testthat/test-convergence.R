@@ -212,3 +212,25 @@ test_that("print method runs and is non-erroring", {
   expect_output(print(cv), "status: FAIL")
   expect_invisible(print(cv))
 })
+
+# getsd = FALSE leaves sdrep NULL, so the Hessian eigenvalue, sdreport, pdHess
+# and estimability checks all return nothing and the battery used to report
+# "OK" -- which report_tables() prints into a SAFE table as `converged`. A NOTE
+# separates "every check passed" from "the strongest checks never ran".
+test_that("getsd = FALSE is reported rather than passing silently", {
+  fit <- make_fake_fit(max_gradient = 1e-5, pdHess = TRUE)
+  fit$.conv_hindcast$sd_requested <- FALSE
+  cv <- convergence_diagnostics(fit)
+  expect_equal(cv$checks$hessian_not_run$severity, "NOTE")
+  expect_match(cv$checks$hessian_not_run$message, "getsd = FALSE", fixed = TRUE)
+  expect_equal(cv$status, "NOTE")
+
+  # With an sdreport requested the record is absent, so a real battery is unchanged.
+  fit$.conv_hindcast$sd_requested <- TRUE
+  expect_null(convergence_diagnostics(fit)$checks$hessian_not_run)
+
+  # A fit object that never recorded the flag says nothing either way.
+  fit$.conv_hindcast$sd_requested <- NULL
+  expect_null(convergence_diagnostics(fit)$checks$hessian_not_run)
+  expect_equal(convergence_diagnostics(fit)$status, "OK")
+})

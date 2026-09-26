@@ -5,6 +5,8 @@
 ^\.claude$
 ^\.mcp\.json$
 ^CLAUDE\.md$
+^CONTRIBUTING\.md$
+^Doxyfile$
 ^doc$
 ^Meta$
 ^examples$
@@ -36,4 +38,3 @@
 ^fims\.log$
 ^inst/dev/SESSION_HANDOFF\.md$
 ^figure$
-^inst/dev/TODO-iphc-requests\.md$

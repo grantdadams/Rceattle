@@ -445,7 +445,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
 #'   turns on the parameters it uses.
 #'
 #'   Time-varying growth comes from the linkage grammar
-#'   (\code{build_growth(linkages = )}), whose random effects carry their own
+#'   (\code{build_growth(linkages = )}), whose random effects hold their own
 #'   density and map.
 #'
 #' @param map_list The current TMB map list.
@@ -613,19 +613,17 @@ build_map_predation <- function(map_list, data_list) {
 #'
 #' `RandomWalk` is scored on the realized log-selectivity, which is renormalized
 #' to mean 1 within each year, so the density never touches the level of a year's
-#' coefficients -- those directions are improper, not merely weakly identified,
+#' coefficients, those directions are improper, not merely weakly identified,
 #' and the deviation sd collapses (2.7e-8 on Atka2022).
 #'
-#' `IID` is scored on the deviates themselves and is proper, but the AMAK shape
-#' penalty beside it is one-sided (`max(d, 0)^2`), whose second derivative is a
-#' step. The Laplace correction is a log-determinant of that second derivative,
-#' so the marginal objective is only piecewise smooth and the optimizer halts at
-#' a kink: on Atka2022 it stops with a maximum gradient of 6.8 and reports an sd
-#' 27% away from the value the same model reaches with `Sel_curve_pen1 = 0`
-#' (maximum gradient 4e-4). A fleet that turns that penalty off is integrable.
-#' The kink is half the `IID` story. The shape penalty holds no `sel_dev_sd`
-#' either, so the sd absorbs a normalizing constant even where the objective is
-#' smooth. `inst/dev/TODO-nonparametric-iid-integrable.md` has the fix.
+#' `IID` (`NonParametric` only; `NonParametricPM` cannot take it) is scored on
+#' the deviates themselves and is proper, but the AMAK shape penalties
+#' (`Sel_curve_pen1`, one-sided, so the Laplace objective is only piecewise
+#' smooth; `Sel_curve_pen2`) and the always-on average-selectivity penalty are
+#' charged on each year's realized curve and hold no `sel_dev_sd`, so the
+#' reported sd is biased low whatever the penalty weights are. Refused at every
+#' setting; charging the penalties once on the base curve is the fix
+#' (`inst/dev/TODO-selectivity.md`).
 #'
 #' @param fleet_control The `fleet_control` table, with canonical switch strings.
 #' @return A data frame of the `Fleet_code`s affected and the reason for each.
@@ -633,22 +631,24 @@ build_map_predation <- function(map_list, data_list) {
 .rce_np_unintegrable_fleets <- function(fleet_control) {
   sel  <- fleet_control$Selectivity
   tv   <- fleet_control$Time_varying_sel
-  pen1 <- suppressWarnings(as.numeric(fleet_control$Sel_curve_pen1))
   np   <- fleet_control$Fleet_type != "Off" &
     !is.na(sel) & sel %in% c("NonParametric", "NonParametricPM")
 
   walk <- np & !is.na(tv) & tv == "RandomWalk"
-  kink <- np & !is.na(tv) & tv == "IID" & !is.na(pen1) & pen1 != 0
+  # NonParametric + IID is refused at every Sel_curve_pen setting: the always-on
+  # average-selectivity penalty tilts the integrated density (NonParametricPM
+  # cannot take IID at all; data_check() refuses it).
+  iid  <- np & sel == "NonParametric" & !is.na(tv) & tv == "IID"
   data.frame(
-    fleet  = c(fleet_control$Fleet_code[walk], fleet_control$Fleet_code[kink]),
-    reason = c(rep("RandomWalk", sum(walk)), rep("IID", sum(kink))),
+    fleet  = c(fleet_control$Fleet_code[walk], fleet_control$Fleet_code[iid]),
+    reason = c(rep("RandomWalk", sum(walk)), rep("IID", sum(iid))),
     stringsAsFactors = FALSE)
 }
 
-#' Fleets whose selectivity deviates are estimated but carry no density
+#' Fleets whose selectivity deviates are estimated but hold no density
 #'
 #' `Time_varying_sel = "Block"` estimates one deviate per block and the model
-#' scores none of them -- a block is a fixed effect, and "time blocks with no
+#' scores none of them, a block is a fixed effect, and "time blocks with no
 #' penalty" is what the switch means. Every other time-varying mode that
 #' estimates a deviate also defines a term for it, so this is the one
 #' configuration that has nothing to integrate against. `fit_mod()` reads this
@@ -701,7 +701,7 @@ build_map_predation <- function(map_list, data_list) {
 #'     `log_sel_slp[1]` = log(sigma_asc); `log_sel_slp[2]` = log(sigma_desc).
 #'     right_floor->0: dome-shaped; right_floor->1: logistic ascending only.
 #'
-#' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
+#' \code{N_sel_bins}	Number of age/length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, 9, or 13). Not used otherwise
 #'
 #' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
 #' `0` = 'Off'
@@ -717,8 +717,31 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
   # -- Map out parameters (then turned on)
   sel_params <- c("sel_coff", "sel_coff_dev", "log_sel_slp", "sel_inf",
-                  "log_sel_slp_dev", "sel_inf_dev", "sel_dev_log_sd", "sel_curve_pen")
+                  "log_sel_slp_dev", "sel_inf_dev", "sel_dev_log_sd", "sel_curve_pen",
+                  "log_sel_apical")
   map_list[sel_params] <- lapply(map_list[sel_params], function(x) replace(x, values = NA))
+
+  # The per-sex apical height is estimated only where a selectivity linkage on
+  # `apical` carries an estimable intercept; every other cell stays at 0 (no
+  # offset). A slope-only spec leaves the base at 0 and the covariate carries
+  # the whole effect, as for the other selectivity parameters.
+  tbl <- data_list$linkage_table
+  if (!is.null(tbl) && nrow(tbl) > 0L) {
+    ap <- tbl[tbl$process == "sel" & tbl$param == "apical" &
+                tbl$design_col == "(Intercept)" & as.integer(tbl$est_phase) != 0L, ,
+              drop = FALSE]
+    ind_ap <- 1L
+    for (i in seq_len(nrow(ap))) {
+      idx <- .linkage_row_indices(ap[i, , drop = FALSE], data_list)
+      for (f in idx$fleet) {
+        sp <- data_list$fleet_control$Species[f]
+        for (s in idx$per_sp[[as.character(sp)]]$sex) {
+          map_list$log_sel_apical[f, s] <- ind_ap
+          ind_ap <- ind_ap + 1L
+        }
+      }
+    }
+  }
 
   # -- Selectivity  indices
   ind_coff <- 1
@@ -877,14 +900,17 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # ---- sel_type = 2 (Ianelli penalty), 9 (NonParametricPM, ADMB AMAK penalty).
       #      Both share identical parameters / mapping; they differ only in the
       #      selectivity penalty form (see ceattle.cpp).
-      if (sel_type %in% c("NonParametric", "NonParametricPM")) {
-        # "IID" is scored for NonParametric only. NonParametricPM builds its
-        # curve as a cumulative walk (each year's coefficients are the previous
-        # year's plus sel_coff_dev, see selectivity.hpp case 9), so a deviate
-        # there IS a random-walk increment and an independent-deviate reading of
-        # it would not describe the curve the model draws.
-        .np_modes <- if (sel_type == "NonParametric") c("Off", "IID", "RandomWalk")
-                     else c("Off", "RandomWalk")
+      if (sel_type %in% c("NonParametric", "NonParametricPM",
+                          "NonParametricIntegrable")) {
+        # NonParametricPM builds its curve as a cumulative walk (each year's
+        # coefficients are the previous year's plus sel_coff_dev, see
+        # selectivity.hpp case 9), so a deviate there IS a random-walk increment
+        # and an independent-deviate reading of it would not describe the curve
+        # the model draws; it therefore takes no "IID".
+        .np_modes <- switch(sel_type,
+                            NonParametric    = c("Off", "IID", "RandomWalk"),
+                            NonParametricPM  = c("Off", "RandomWalk"),
+                            NonParametricIntegrable = c("Off", "IID", "RandomWalk"))
         if (!is.na(tv_sel) && !tv_sel %in% .np_modes) {
           stop(paste0("'Time_varying_sel' for fleet ", flt, " with '", sel_type,
                       "' selectivity must be ",
@@ -911,18 +937,26 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           }
 
           if (tv_sel == "RandomWalk") {
-            map_list$sel_coff[flt, , ] <- NA # Must turn off mean parameter
-
-            # Fix the deviates BEFORE the start year. The mean parameter
-            # (sel_coff) is mapped off for a random walk, so the deviate AT the
-            # start year carries the base shape and stays estimated; only the
-            # earlier ones are dropped, having neither data nor a penalty (all
-            # NonParametricPM penalties begin at start_yr).
             sel_start_yr <- sel_start_yr_grp[i]  # group-resolved (mirrored fleets share one block)
             start_idx <- if (is.null(sel_start_yr) || is.na(sel_start_yr)) 1L else
               max(1L, min(nyrs_hind, as.integer(sel_start_yr) - data_list$styr + 1L))
-            if (start_idx > 1L) {
-              map_list$sel_coff_dev[flt, sex, bins_on, 1:(start_idx - 1L)] <- NA
+            if (sel_type == "NonParametricIntegrable") {
+              # The base curve (sel_coff) carries the shape and stays estimated;
+              # the increments are pure changes, so the one at the start year is
+              # fixed at 0 and the earlier ones, with neither data nor a density,
+              # are dropped.
+              map_list$sel_coff_dev[flt, sex, bins_on, 1:start_idx] <- NA
+            } else {
+              map_list$sel_coff[flt, , ] <- NA # Must turn off mean parameter
+
+              # Fix the deviates BEFORE the start year. The mean parameter
+              # (sel_coff) is mapped off for a random walk, so the deviate AT the
+              # start year carries the base shape and stays estimated; only the
+              # earlier ones are dropped, having neither data nor a penalty (all
+              # NonParametricPM penalties begin at start_yr).
+              if (start_idx > 1L) {
+                map_list$sel_coff_dev[flt, sex, bins_on, 1:(start_idx - 1L)] <- NA
+              }
             }
           }
 
@@ -1118,7 +1152,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
       # * 2DAR1 ----
-      # ---- sel_type = 6 (age-based), 13 (length-based)
+      # ---- sel_type = 6; age- or length-based per Selectivity_dimension
       if (sel_type == "2DAR1") {
         # A 2DAR1 fleet's deviations come from the AR1 field, so "Off" asks for
         # what it already has. Only an overridden mode is reported.
@@ -1156,7 +1190,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * 3DAR1 ----
-      # ---- sel_type = 7 (age-based), 14 (length-based)
+      # ---- sel_type = 7; age- or length-based per Selectivity_dimension
       if (sel_type == "3DAR1") {
         # As for 2DAR1: "Off" agrees with the AR1 field's own deviations.
         if (!is.na(tv_sel) && tv_sel != "Off") {
@@ -1202,8 +1236,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 #'
 #' @description Maps catchability base parameters (\code{index_log_q}),
 #'   time-varying deviations (\code{index_q_dev}), and environmental linkages
-#'   (\code{index_q_beta}, \code{index_q_rho}) for every fleet that carries
-#'   fitted \code{index_data} -- a fishery with a CPUE series as much as a
+#'   (\code{index_q_beta}) for every fleet that holds
+#'   fitted \code{index_data}, a fishery with a CPUE series as much as a
 #'   survey. A fleet with no index rows gets none of them, whatever its
 #'   \code{Catchability} says, since a q with no index to inform it is a flat
 #'   direction. Sharing overrides this: \code{adjust_map_shared_params()} then
@@ -1224,7 +1258,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind, random_q = FA
   yrs_hind <- 1:nyrs_hind
 
 
-  catchability_params <- c("index_log_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_log_sd", "index_q_dev_log_sd", "index_log_sd") # "index_q_pow"
+  catchability_params <- c("index_log_q", "index_q_beta", "index_q_dev", "index_q_log_sd", "index_q_dev_log_sd", "index_log_sd") # "index_q_pow"
   map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
   # Fleets whose catchability block is estimable: those carrying fitted index
@@ -1425,6 +1459,7 @@ adjust_map_shared_params <- function(map_list, data_list) {
         map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
         map_list$sel_dev_log_sd[flt] <- map_list$sel_dev_log_sd[sel_duplicate]
         map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
+        map_list$log_sel_apical[flt,] <- map_list$log_sel_apical[sel_duplicate,]
       }
     }
 
@@ -1459,7 +1494,6 @@ adjust_map_shared_params <- function(map_list, data_list) {
       if(!is.na(q_duplicate)){
         map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
         # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
-        map_list$index_q_rho[flt] <- map_list$index_q_rho[q_duplicate]
         map_list$index_q_beta[flt,] <- map_list$index_q_beta[q_duplicate,]
         map_list$index_q_dev[flt,] <- map_list$index_q_dev[q_duplicate,]
         map_list$index_q_log_sd[flt] <- map_list$index_q_log_sd[q_duplicate]
@@ -1615,21 +1649,10 @@ build_map_fixed_natage <- function(map_list, data_list) {
       map_list$caal_weights[flts] <- NA
     }
 
-    # Don't estimate the scalar
-    if(data_list$estDynamics[sp] < 2 | data_list$msmMode == 0){
-      map_list$log_pop_scalar[sp,] <- NA
-    }
-
-    # Age-independent scalar
-    if(data_list$estDynamics[sp] == 2 | data_list$msmMode != 0){
-      map_list$log_pop_scalar[sp,2:ncol(map_list$log_pop_scalar)] <- NA # Only estimate first parameter
-    }
-
-    # Age-dependent scalar
-    if(data_list$estDynamics[sp] == 3 | data_list$msmMode != 0){
-      if(data_list$nages[sp] < ncol(map_list$log_pop_scalar)){ # Map out ages beyond maxage of the species
-        map_list$log_pop_scalar[sp,(data_list$nages[sp]+1):ncol(map_list$log_pop_scalar)] <- NA # Only estimate parameters for each age of species
-      }
+    # The multiplier on input numbers-at-age is estimated for estDynamics = 2 under
+    # predation only; in single-species mode it is fixed at 1 (data_check() says so).
+    if(data_list$estDynamics[sp] != 2 | data_list$msmMode == 0){
+      map_list$log_pop_scalar[sp] <- NA
     }
   }
   return(map_list)
@@ -1661,7 +1684,7 @@ build_map_debug <- function(map_list, debug) {
 #' @description Maps `beta_linkage` (one entry per row of
 #'   `data_list$linkage_table`). Rows whose `est_phase == 0` are fixed
 #'   at their initial values via `NA`; `(Intercept)` rows are also
-#'   fixed (their value stays at 0 -- the base parameter carries the
+#'   fixed (their value stays at 0, the base parameter holds the
 #'   level). Everything else is estimated.  Phased estimation honoring
 #'   nonzero phase ordinals can layer on later via the `phase` argument
 #'   to [fit_control()].
@@ -1755,7 +1778,7 @@ build_map_linkages <- function(map_list, data_list) {
 #'
 #' @description Maps the base parameter (`rec_pars`, `log_M1`,
 #'   `log_growth_pars`) out of estimation only for stratum groups
-#'   whose linkage formula carries *no* intercept. With an intercept
+#'   whose linkage formula holds *no* intercept. With an intercept
 #'   in the formula (`~ 1`, `~ temp`, ...) and a nonzero `est_phase` the
 #'   base parameter holds the level and stays estimable; the linkage
 #'   `(Intercept)` row is fixed at 0 instead. When an intercept row has
@@ -1858,6 +1881,8 @@ map_linkage_adjuster <- function(map_list, data_list) {
             map_list$sel_inf[m$slot, idx$fleet, sx(map_list$sel_inf, 3L)] <- NA
           } else if (m$arr == "sel_coff") {
             map_list$sel_coff[idx$fleet, sx(map_list$sel_coff, 2L), ] <- NA
+          } else if (m$arr == "log_sel_apical") {
+            map_list$log_sel_apical[idx$fleet, sx(map_list$log_sel_apical, 2L)] <- NA
           }
         }
       }
