@@ -17,7 +17,7 @@ waiting on other people.
 
 ## Where things stand (2026-09-23)
 
-- `dev` is at 5.42.1. `main` is at 5.33.0.
+- `dev` is at 5.43.0. `main` is at 5.33.0.
 - **The newest tag is 5.28.0.** `main` sits 42 commits past it and is untagged.
 - `golden` (the `deep-checks` workflow) fails on `main`. Windows `R-CMD-check` fails
   intermittently. Both are recorded in `SESSION_HANDOFF.md` and `TRAPS.md`.
@@ -78,11 +78,11 @@ clean pin that works on both sides of the move.
 - [ ] **B1. Land the in-flight work [either].**
   - Finish, merge, or park `review/pr158-tier0` and any open PRs into `dev`.
   - Do not start the release from a dirty tree.
-- [ ] **B2. Ship the 5.34.0–5.42.1 release [either, Grant publishes]**, following
+- [ ] **B2. Ship the 5.34.0–5.43.0 release [either, Grant publishes]**, following
   `inst/RELEASE-CHECKLIST.md` exactly:
   1. Open and merge the `dev` -> `main` PR.
   2. Tag **the merge commit** with the bare version, which is the DESCRIPTION version --
-     `5.42.1`, **no `v`** (checklist section 3). It is not 5.41.0: #160 and the review of
+     `5.43.0`, **no `v`** (checklist section 3). It is not 5.41.0: #160 and the review of
      #158 both landed after the release PR was written.
   3. Publish the GitHub Release. The site rebuilds only on `release: published`.
   4. **Confirm pkgdown actually ran.** The event has failed to fire before; if it did not, run
@@ -98,14 +98,14 @@ clean pin that works on both sides of the move.
   - This is a harness change only. It must not move any pinned objective.
   - **Done when:** `deep-checks` `golden` is green on `main`.
 
-  Ship it as a patch release (5.42.2) if it lands after B2, so the version being transferred
+  Ship it as a patch release (5.43.1) if it lands after B2, so the version being transferred
   has a green release gate.
 - [x] **B4. Apply the tag convention everywhere [agent].** Already satisfied, verified
   2026-09-23: `R/0-rceattle_class.R:12` and `man/print.Rceattle.Rd:28` read `@X.Y.Z`, and
-  `README.md:43` reads `@5.42.1`. Both are bare, per the convention.
+  `README.md:43` reads `@5.43.0`. Both are bare, per the convention.
 - [x] **B5. Check the other install lines [agent].** Verified with `git grep -n
   "install_github"`: every install command in the README, the vignettes, `examples/` and the Rd
-  files is either untagged or uses the bare convention. `README.md:43` names `5.42.1`, which
+  files is either untagged or uses the bare convention. `README.md:43` names `5.43.0`, which
   becomes valid the moment B2's tag is pushed — so **push the tag, or that line is wrong.**
   It read `5.41.0` until the review of #158; that version is never tagged, so the line named a
   reference `install_github()` could not resolve. Re-check it whenever the version moves

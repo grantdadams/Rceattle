@@ -12,6 +12,40 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.43.0
+
+## Breaking changes
+
+* **A blank `Fleet_type` is refused.** The column has no schema default, so
+  nothing filled it, and a blank one is not "unset, take the default" -- it is
+  a fleet whose role in the likelihood nobody stated. `switch_check()` now
+  stops, naming the fleet and the values to choose from, and
+  `rearrange_data()` does the same: it is exported and reachable without
+  `switch_check()`, and a blank reaching it was handed to the template as
+  `flt_type = NA`.
+
+  `NA` was the damaging case, and the two halves of the package read it
+  differently. `Fleet_type != "Off"` is `NA` rather than `FALSE`, so
+  `data_check()`'s estimated-selectivity subset kept an all-`NA` row and died
+  inside its `vapply` on `missing value where TRUE/FALSE needed`, naming no
+  fleet and no column -- measured on `Atka2022` with `Fleet_type[1] <- NA` --
+  while `build_map_selectivity()` treated `NA` as estimated
+  (`.on[is.na(.on)] <- TRUE`). An empty string or whitespace already produced
+  a correctly named error from `validate_switches()`; those are refused here
+  too, earlier and from one rule, rather than because they were broken in the
+  same way.
+
+  Every spelling of a stated type -- canonical name, integer code, character
+  code, and `Off` -- is accepted exactly as before. No bundled data set and
+  none of the 183 consumer-repository workbooks carrying a `Fleet_type` column
+  has a blank one, so nothing that fits today stops fitting.
+
+  Still open, and tracked in `inst/dev/CLEANUP_BACKLOG.md`: an
+  **integer-coded** `Fleet_type` read before `switch_check()` canonicalizes it
+  reads as live at every bare `!= "Off"` comparison, because `0 != "Off"` is
+  `TRUE`. `validate_switches()` documents the trap and canonicalizes first;
+  fourteen other raw comparisons in `R/` do not.
+
 # Rceattle 5.42.1
 
 Found reviewing the release PR that carries 5.34.0 through 5.42.0 (#158), over

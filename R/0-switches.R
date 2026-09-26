@@ -735,12 +735,41 @@ msmMode_map <- c(
 }
 
 
+#' Refuse a blank Fleet_type, naming the fleets
+#'
+#' `Fleet_type` has no schema default, so a blank one is not "unset, take the
+#' default" -- it is a fleet whose role in the likelihood nobody stated, and the
+#' package's two halves read it differently. Called from `switch_check()` and
+#' again from `rearrange_data()`, which is exported and reachable without it.
+#'
+#' @param fleet_control the fleet control table.
+#' @return `invisible(NULL)`; stops when any Fleet_type is blank.
+#' @keywords internal
+#' @noRd
+.rce_stop_blank_fleet_type <- function(fleet_control) {
+  if (is.null(fleet_control) || is.null(fleet_control$Fleet_type)) return(invisible(NULL))
+  bad <- which(is.na(fleet_control$Fleet_type) |
+                 trimws(as.character(fleet_control$Fleet_type)) == "")
+  if (!length(bad)) return(invisible(NULL))
+  # Name the row when Fleet_name is itself blank -- it has no default either.
+  who <- paste("row", bad)
+  if (!is.null(fleet_control$Fleet_name)) {
+    nm <- as.character(fleet_control$Fleet_name)[bad]
+    who[!is.na(nm) & trimws(nm) != ""] <- nm[!is.na(nm) & trimws(nm) != ""]
+  }
+  stop("'Fleet_type' is blank for fleet(s) ", paste(who, collapse = ", "),
+       ". It has no default: set it to one of ", paste(names(fleet_map), collapse = ", "),
+       " (or the integer codes ", paste(fleet_map, collapse = ", "),
+       "). Use \"Off\" for a fleet the model should carry but not fit.", call. = FALSE)
+}
+
 #' Function to check for missing switches for map and parameter functions
 #'
 #' @param data_list Rceattle data list
 #'
 #' @export
 #'
+
 switch_check <- function(data_list){
 
   # Helper to set defaults and notify. Pass msg = NULL to fill the default
@@ -762,6 +791,11 @@ switch_check <- function(data_list){
   # Estimate_q, Estimate_survey_sd, Age_first_selected, Age_max_selected(_upper).
   data_list$fleet_control <-
     .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
+
+  # Whether a fleet is fit at all is not a thing to infer, and the two halves of
+  # the package disagree about a blank: `Fleet_type != "Off"` is NA, while
+  # build_map_selectivity() reads NA as estimated. Refuse before either runs.
+  .rce_stop_blank_fleet_type(data_list$fleet_control)
   # ...and the deprecated control / bioenergetics element names (e.g.
   # `sigma_rec_prior` -> `sigma_rec`, `Diet_loglike` -> `Diet_distribution`).
   data_list <- .rce_upgrade_data_list_aliases(data_list)
