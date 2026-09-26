@@ -272,7 +272,12 @@ test_that("print method runs and is non-erroring", {
   fit <- make_fake_fit(max_gradient = 4e12, worst = "sel_inf", pdHess = FALSE)
   cv <- convergence_diagnostics(fit)
   expect_output(print(cv), "status: FAIL")
-  expect_invisible(print(cv))
+  # Captured, not printed. expect_invisible() does not sink output, so this
+  # line used to write the fixture's "[FAIL] max_gradient ..." to stdout -- and
+  # when a Windows testthat worker dies, R CMD check dumps whatever that file
+  # had printed, which has been read as a real convergence regression three
+  # times. The fixture is deliberately non-converged; it should stay quiet.
+  invisible(capture.output(expect_invisible(print(cv))))
 })
 
 # getsd = FALSE leaves sdrep NULL, so the Hessian eigenvalue, sdreport, pdHess
