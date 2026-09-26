@@ -76,7 +76,7 @@ follows is the summary. In this order:
    it: bare `X.Y.Z` with no `v`, where only the first tag, `v4.3.0`, differs. The docs don't
    follow it: `R/0-rceattle_class.R:12` tells users `@vX.Y.Z`. Nothing tagged sits above 5.28.0
    while `main` is 5.33.0.
-4. **Fix the pin in the README.** `remotes::install_github("grantdadams/Rceattle@4.3.0")` fails,
+4. **Fix the pin in the README.** `remotes::install_github("afsc-assessments/Rceattle@4.3.0")` fails,
    because the tag is `v4.3.0`, and it is also years out of date. Point it at the release from
    step 1.
 5. **Add `LICENSE`** (decision 2) and **`.github/CODEOWNERS`** listing Grant and the
@@ -115,18 +115,18 @@ needs permission to create repositories in that organization.
 - issues, PRs, wiki, stars, watchers
 - releases and tags
 - Actions secrets, including `CODECOV_TOKEN`
-- web and git redirects: `remotes::install_github("grantdadams/Rceattle")` and existing clones
+- web and git redirects: `remotes::install_github("afsc-assessments/Rceattle")` and existing clones
   keep working through the redirect
 
 **Breaks:**
 
-- **The GitHub Pages site is not redirected.** `grantdadams.github.io/Rceattle` stops serving,
+- **The GitHub Pages site is not redirected.** `afsc-assessments.github.io/Rceattle` stops serving,
   and the site moves to `<org>.github.io/Rceattle`.
 - **Codecov** needs the Codecov app installed on the organization, and possibly a new token.
 - **Organization Actions policy** may block the third-party Actions (decision 1). If the deploy
   action is blocked, `actions/deploy-pages` is the first-party replacement.
 
-**Trap: never create a repository or fork named `grantdadams/Rceattle` after the move.** GitHub
+**Trap: never create a repository or fork named `afsc-assessments/Rceattle` after the move.** GitHub
 permanently deletes the redirects when that name is reused. Anyone forking back to a personal
 account for PR work must rename the fork (for example `Rceattle-fork`), or better, use branches
 in the organization repo.

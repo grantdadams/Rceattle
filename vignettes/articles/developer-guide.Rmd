@@ -17,7 +17,7 @@ articles ([Introduction](introduction.html) and
 [Model options and functionality](model-options-and-functionality.html)).
 
 It consolidates and updates the developer notes on the
-[GitHub wiki](https://github.com/grantdadams/Rceattle/wiki).
+[GitHub wiki](https://github.com/afsc-assessments/Rceattle/wiki).
 
 ## Repository layout
 
@@ -381,7 +381,7 @@ merges `dev` into `main` as a release, following `inst/RELEASE-CHECKLIST.md`.
 Operational assessments pin a tagged release. What a pull request holds
 (`NEWS.md`, the `DESCRIPTION` version, the affected vignette), the commit-message
 convention and what CI runs where are stated once, in
-[`CONTRIBUTING.md`](https://github.com/grantdadams/Rceattle/blob/main/CONTRIBUTING.md).
+[`CONTRIBUTING.md`](https://github.com/afsc-assessments/Rceattle/blob/main/CONTRIBUTING.md).
 
 ## Debugging tips
 
@@ -459,7 +459,7 @@ default. Worth knowing when reading a profile that looks flatter than expected.
 
 ## See also
 
-* [GitHub wiki](https://github.com/grantdadams/Rceattle/wiki), the original
+* [GitHub wiki](https://github.com/afsc-assessments/Rceattle/wiki), the original
   developer notes this page consolidates.
 * [Model parameterizations](model-parameterizations.html), equation-level
   detail on selectivity, catchability, and predation.

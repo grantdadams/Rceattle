@@ -146,7 +146,8 @@ organization.
 
 Build this once A1 is settled. Merge it only after the transfer (PLAN section 3).
 
-- [ ] **D1. Create branch `chore/move-to-<org>` from `dev`** and change every `grantdadams`
+- [x] **D1. DONE at 5.43.0** (done in the release branch, not a separate `chore/` branch).
+      Changed every `grantdadams`
   reference to the new owner, in these files:
   - `DESCRIPTION`: `URL:` and `BugReports:`
   - `_pkgdown.yml`: `url:` (the new Pages address) and the three navbar and home links
@@ -161,7 +162,10 @@ Build this once A1 is settled. Merge it only after the transfer (PLAN section 3)
   - `examples/Install_Rceattle.R`
 
   Leave `NEWS.md` alone; it is history.
-- [ ] **D2. Check it is complete:** `git grep -n grantdadams -- . ':!NEWS.md'` should return
+- [x] **D2. DONE at 5.43.0.** Only this file and `PLAN-adoption-and-NOAA-transfer.md`
+      still say `grantdadams`, and both do so to describe the move. All four rewritten
+      URLs return 200; `grantdadams.github.io/Rceattle` returns 404, so the old
+      website link was already dead when this shipped. Original check: `git grep -n grantdadams -- . ':!NEWS.md'` should return
   nothing, or only lines deliberately kept, each with a comment explaining why.
 - [ ] **D3. Record the matching edits in the other repositories**, but do not make them yet:
   - `../Rceattle-models/Rceattle install.R` and its README
@@ -231,7 +235,7 @@ These are GitHub settings; no code changes.
   - anyone who has opened an issue
   - Melissa (FYI)
 - [ ] **G3. Note for the day of the transfer:** never fork the organization repo back to
-  `grantdadams/Rceattle`. Reusing that name permanently deletes GitHub's redirects. Use
+  `afsc-assessments/Rceattle`. Reusing that name permanently deletes GitHub's redirects. Use
   branches in the organization repo, or rename any fork.
 
 ---

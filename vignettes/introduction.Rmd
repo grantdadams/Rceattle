@@ -48,7 +48,7 @@ This vignette fits a sequence of five single- and multi-species models with `Rce
 # executing it in CI would reinstall mid-render.
 # Rceattle (pulls CRAN dependencies automatically; e.g. TMB, Matrix, dplyr)
 install.packages("remotes")
-remotes::install_github("grantdadams/Rceattle")
+remotes::install_github("afsc-assessments/Rceattle")
 
 # Optional: TMBhelper provides richer optimization diagnostics.
 # Rceattle falls back to plain nlminb + sdreport if it's not installed.
