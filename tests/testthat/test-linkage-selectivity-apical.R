@@ -12,6 +12,11 @@ apical_data <- function(flt = 3L, form = "Logistic", scope = "AcrossSexes",
   d$fleet_control$Selectivity[flt]       <- form
   d$fleet_control$Sel_norm_scope[flt]    <- scope
   d$fleet_control$Sel_norm_bin[flt]      <- norm_bin
+  # GOAatf ships Sel_curve_pen2 = 200 on this fleet. On the AR1 forms that slot
+  # is a correlation, not a weight, and data_check() stops on a magnitude above
+  # 10 -- with "AR1" in the message, which is the string the AR1 refusal below
+  # matches. Zeroing it makes that test fail for its own reason.
+  d$fleet_control$Sel_curve_pen2[flt]    <- 0
   d
 }
 
@@ -110,9 +115,12 @@ testthat::test_that("an apical linkage the model cannot identify is refused", {
 
   # The AR1 forms estimate a per-sex level in sel_coff already. Through
   # fit_mod(), so the refusal is proven on the path a user takes rather than
-  # against the helper alone.
+  # against the helper alone. Matched on the apical clause, not on "AR1":
+  # data_check() also says "AR1" when it rejects Sel_curve_pen2 as an
+  # out-of-range correlation on these forms, and that message would satisfy a
+  # looser pattern whether or not this refusal existed.
   testthat::expect_error(apical_build(apical_data(form = "2DAR1"), male_offset()),
-                         "AR1")
+                         "apical selectivity linkage on fleet\\(s\\) .* with an AR1")
 
   # A one-sex species: the offset is the common level log_F already carries.
   d1 <- Rceattle::GOApollock

@@ -184,6 +184,11 @@ sel_map <- c(
   # and reaches the template as NA -- a different group there, and the fleet
   # would lead. A value that does not resolve the way the template resolves it
   # gets a key of its own, so it leads here too and its weight is checked.
+  # Every out-of-range integer canonicalizes to "<blank>" and so shares one key.
+  # data_check() does reach this with such a value -- it accumulates errors and
+  # refuses the code later in the same pass -- but "<blank>" is in no
+  # .RCE_SEL_PEN_POSITIVE form list, so those fleets are skipped on the form
+  # test above and the lead never decides anything for them.
   raw   <- as.character(fleet_control$Selectivity)
   clean <- raw %in% names(sel_map) | !is.na(suppressWarnings(as.integer(raw)))
   form  <- vapply(seq_len(n), function(i)
