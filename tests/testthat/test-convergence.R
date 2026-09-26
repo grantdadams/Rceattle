@@ -296,3 +296,41 @@ test_that("getsd = FALSE is reported rather than passing silently", {
   expect_null(convergence_diagnostics(fit)$checks$hessian_not_run)
   expect_equal(convergence_diagnostics(fit)$status, "OK")
 })
+
+# The two claims the Newton-step report rests on, neither of which had a test:
+# that it changes no severity, and that it is withheld when the covariance
+# cannot support it. Added reviewing PR #161 for the 5.43.0 release.
+test_that("the Newton step reports without changing any severity", {
+  g <- c(0.01, 0.002, 0)
+  with_cov    <- convergence_diagnostics(.fake_located_fit(g, cov = diag(c(4, 1, 1))))
+  without_cov <- convergence_diagnostics(.fake_located_fit(g))
+
+  # The step is reported in one and absent from the other ...
+  expect_false(is.null(with_cov$checks$max_gradient$data$newton_step_se))
+  expect_null(without_cov$checks$max_gradient$data$newton_step_se)
+  # ... and the severity is the same either way: it is read on the gradient.
+  expect_identical(with_cov$checks$max_gradient$severity,
+                   without_cov$checks$max_gradient$severity)
+})
+
+test_that("the Newton step is withheld when the covariance cannot carry it", {
+  cov <- diag(c(4, 1, 1))
+
+  # On a positive-definite Hessian it is reported.
+  pd <- convergence_diagnostics(.fake_located_fit(c(0.01, 0.002, 0), cov = cov))
+  expect_equal(pd$checks$max_gradient$data$newton_step_se, 0.02)
+
+  # Not on a saddle: cov %*% gradient is the distance to a minimum only if cov
+  # inverts one, and the sentence would read as reassurance beside the pdHess
+  # check that just failed.
+  saddle <- .fake_located_fit(c(0.01, 0.002, 0), cov = cov)
+  saddle$sdrep$pdHess <- FALSE
+  mg <- convergence_diagnostics(saddle)$checks$max_gradient
+  expect_null(mg$data$newton_step_se)
+  expect_false(grepl("standard errors", mg$message, fixed = TRUE))
+
+  # A negative variance is dropped rather than square-rooted: this battery
+  # reports through message() and must not emit "NaNs produced" from sqrt().
+  neg <- cov; neg[3, 3] <- -1
+  expect_no_warning(convergence_diagnostics(.fake_located_fit(c(0.01, 0.002, 0), cov = neg)))
+})

@@ -55,6 +55,28 @@ version throughout.
   canonicalize first; the fix is to enforce the schema once on entry rather
   than to convert them one at a time.
 
+* **The distance-to-optimum report is withheld when the covariance cannot
+  carry it.** `max_gradient` reports the Newton step `cov.fixed %*% gradient`
+  in standard errors, which measures the distance to a minimum only if
+  `cov.fixed` inverts a positive-definite Hessian. On a saddle the step points
+  away from one, so "reaching the optimum would move the estimates by at most
+  0.0009 standard errors" read as reassurance printed directly beside a failing
+  `pdHess`. It is reported only when `pdHess` is `TRUE`. Severity is still read
+  on the gradient, so no fit changes status -- now asserted, where neither that
+  claim nor the laziness of the coordinate lookup had a test.
+
+  A negative variance no longer escapes as `NaNs produced`. Three sites took
+  `sqrt(diag(cov))` unguarded, in a battery documented never to raise; they now
+  share `.conv_se_from_cov()`. The callers already dropped non-finite entries --
+  it was the `sqrt()` itself that warned.
+
+  `hessian_conditioning`'s coordinates line up again. The column width was
+  computed inside `.rce_par_summary()`, which `.check_hessian_eigen()` calls
+  once per block, so each line sized to its own block name and the aligned
+  output `vignette("model-diagnostics")` illustrates was unreachable. The caller
+  now passes one width, and the vignette's example is regenerated from the
+  format `print()` emits rather than hand-written.
+
 * **A blank `Fleet_type` is refused.** The column has no schema default, so
   nothing filled it, and a blank one is not "unset, take the default" -- it is
   a fleet whose role in the likelihood nobody stated. `switch_check()` now

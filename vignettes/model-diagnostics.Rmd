@@ -241,9 +241,8 @@ TMB names every element of `obj$par` after its parameter block, so on their own
 estimates, from [`parameter_dictionary()`]:
 
 ```
-[WARN] max_gradient: Maximum absolute marginal gradient = 0.00222 on log_M1 (M1): age 1.
-[WARN] hessian_conditioning: Condition number = 2.4e+06: ...; loads on:
-       log_F (F): 67% + rec_dev (recruitment deviations): 26%.
+  [WARN] max_gradient     Maximum absolute marginal gradient = 0.00222 on log_M1 (M1): Pollock, age 1.
+  [WARN] hessian_conditioning Condition number = 2.4e+06; loads on: log_F (F): 67% + rec_dev (recruitment deviations): 26%.
   log_F (F)                        Hake_fishery, 38 years in 1980-2021  (38 of 44 parameters; 67% of the direction)
   rec_dev (recruitment deviations) 24 years in 1981-2013  (24 of 44 parameters; 26% of the direction)
 ```

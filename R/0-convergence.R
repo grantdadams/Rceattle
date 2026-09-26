@@ -126,7 +126,7 @@
   se_fixed <- NULL
   if (!is.null(opt$SD) && !is.null(opt$SD$cov.fixed)) {
     se_fixed <- tryCatch(
-      stats::setNames(sqrt(diag(opt$SD$cov.fixed)), names(opt$SD$par.fixed)),
+      stats::setNames(.conv_se_from_cov(opt$SD$cov.fixed), names(opt$SD$par.fixed)),
       error = function(e) NULL)
   }
 
@@ -368,14 +368,32 @@
 # logit and natural-scale parameters, which the raw gradient is not. NULL
 # unless cov.fixed describes the same parameter vector as the hindcast gradient
 # (under an estimating HCR the sdreport is the projection's).
+# Standard errors from a covariance diagonal, without warning on a negative
+# variance. An indefinite Hessian gives one, and this battery reports through
+# message() and must not emit "NaNs produced" from inside a diagnostic; the
+# callers already drop non-finite entries.
+.conv_se_from_cov <- function(cov) {
+  v <- diag(cov)
+  v[!is.finite(v) | v < 0] <- NA_real_
+  sqrt(v)
+}
+
 .conv_newton_step_se <- function(object, gg) {
   cov <- tryCatch(object$sdrep$cov.fixed, error = function(e) NULL)
   if (is.null(cov) || !is.matrix(cov) || is.null(gg) || is.null(names(gg)) ||
       nrow(cov) != length(gg)) return(NULL)
+  # Only reported on a positive-definite Hessian. The step is the distance to a
+  # minimum only if `cov` inverts one; on a saddle it points away from it, and
+  # "the optimum is a fraction of a standard error away" would read as
+  # reassurance beside the pdHess check that just failed.
+  if (!isTRUE(object$sdrep$pdHess)) return(NULL)
   nm <- rownames(cov)
   if (is.null(nm)) nm <- names(object$sdrep$par.fixed)
   if (!identical(unname(as.character(nm)), names(gg))) return(NULL)
-  se   <- unname(sqrt(diag(cov)))
+  # A negative variance is dropped rather than square-rooted: this battery
+  # reports through message() and never raises, and sqrt() would emit "NaNs
+  # produced" from inside a diagnostic.
+  se   <- unname(.conv_se_from_cov(cov))
   step <- as.numeric(cov %*% gg) / se
   if (!any(is.finite(step))) return(NULL)
   i <- which.max(abs(replace(step, !is.finite(step), NA)))
@@ -439,7 +457,7 @@
   # leaves a measure of how nearly linearly dependent the estimates are.
   # The covariance number is still reported, as the numerical cost of inverting
   # the Hessian; see inst/dev/TRAPS.md for the measured values.
-  se <- sqrt(diag(cov))
+  se <- .conv_se_from_cov(cov)
   ok <- is.finite(se) & se > 0
   if (sum(ok) < 2L) return(out)
   keep_i <- which(ok)
@@ -504,13 +522,15 @@
     idx <- .conv_index_for(index, nm_full)
     if (!is.null(idx)) {
       lines <- character(0)
+      # One width for every block printed below, so the coordinates align.
+      .w <- max(16L, nchar(.rce_par_display(names(share)[seq_len(ntop)])))
       for (b in names(share)[seq_len(ntop)]) {
         inb <- which(nm == b)
         o   <- inb[order(v[inb]^2, decreasing = TRUE)]
         keep <- o[seq_len(max(1L, which(cumsum(v[o]^2) / sum(v[o]^2) >= 0.90)[1]))]
         # `v` and `nm` index the parameters kept above, so map back before
         # asking parameter_index() where they are.
-        s <- .rce_par_summary(keep_i[keep], idx, max_lines = 2L)
+        s <- .rce_par_summary(keep_i[keep], idx, max_lines = 2L, width = .w)
         if (length(s) > 0) {
           lines <- c(lines, sub("\\((\\d+)\\)$",
                                 sprintf("(\\1 of %d parameters; %.0f%% of the direction)",

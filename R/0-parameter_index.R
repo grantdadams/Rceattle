@@ -377,7 +377,7 @@ parameter_index <- function(object) {
 #' the ordinal axes collapsed to ranges. 49 rows of `sel_coff_dev` become the
 #' fleet, sex, bins and years they occupy.
 #' @noRd
-.rce_par_summary <- function(par_idx, index, max_lines = 8L) {
+.rce_par_summary <- function(par_idx, index, max_lines = 8L, width = NULL) {
   if (is.null(index) || nrow(index) == 0 || length(par_idx) == 0) {
     return(character(0))
   }
@@ -416,7 +416,10 @@ parameter_index <- function(object) {
   groups <- split(seq_len(nrow(df)), key)
   shown  <- vapply(groups, function(i) .rce_par_display(df$block[i[1]]),
                    character(1))
-  width  <- max(16L, nchar(shown))
+  # Taken from the caller when it prints several blocks in a loop: a width
+  # computed here would size each line to its own block name, and the column
+  # would not line up down the printed check.
+  width  <- if (is.null(width)) max(16L, nchar(shown)) else width
   lines <- vapply(seq_along(groups), function(g) {
     i <- groups[[g]]
     r <- df[i, , drop = FALSE]
