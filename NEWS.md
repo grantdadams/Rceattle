@@ -15,6 +15,45 @@ version throughout.
 # Rceattle 5.43.0
 
 ## Breaking changes
+* **The package moved to `afsc-assessments/Rceattle`, and every link follows
+  it.** `DESCRIPTION`'s `URL` and `BugReports`, `_pkgdown.yml`'s `url` and
+  navbar, the README's install commands and badges, `?print.Rceattle`'s install
+  hint, `CONTRIBUTING.md`, `examples/Install_Rceattle.R` and two vignettes all
+  named `grantdadams`. GitHub redirects the repository path, so the install
+  commands kept working -- but **the documented website did not**:
+  `https://grantdadams.github.io/Rceattle/` returns 404 and
+  `https://afsc-assessments.github.io/Rceattle/` returns 200, so `URL`,
+  `_pkgdown.yml` and the README all pointed users at a dead page. Pin
+  `afsc-assessments/Rceattle@5.43.0`: a redirect is not a permanent address, and
+  it breaks the moment anything is created at the old path.
+
+
+* **An integer-coded `Fleet_type` no longer reads as estimated in
+  `data_check()`.** `data_check()` is callable on a list straight from
+  `read_data()`, where the switch columns are still the integer codes the
+  workbook stores -- and every bundled data set that carries a `fleet_control`
+  stores them that way (`GOA2018SS` is `2, 2, 2, 2, 2, 2, 0, 1, ...`), so the
+  integer is the shipped representation. `0 != "Off"` coerces to
+  `"0" != "Off"`, which is `TRUE`, so an `Off` fleet read as estimated: on
+  `GOA2018SS` with fleet 7 given its own `Selectivity_index`, it was named in
+  the "estimated Selectivity but no `comp_data`" error, and is not now. The
+  subset reads the column through `.canon_switch()`, as the same file already
+  did eleven lines further down, rather than through a fourth spelling of the
+  test -- `.canon_switch()` also resolves `" 0 "`, `"0.0"` and `"00"`, which a
+  `%in%` list does not.
+
+  **No fitted number moves.** `fit_mod()`, `build_map()` and `build_params()`
+  each call `switch_check()` first, and on the canonical strings the old and
+  new readings are `identical()` -- asserted for five bundled data sets. Only
+  the un-canonicalized path changes.
+
+  The rest of the class is open, in `inst/dev/CLEANUP_BACKLOG.md`: the schema
+  types thirteen columns as `switch` with an `allowed` map, but nothing
+  enforces that at the boundary, so any comparison written against the
+  canonical spelling is wrong for a `fleet_control` that has not been through
+  `switch_check()`. Those sites are unreachable today because their callers
+  canonicalize first; the fix is to enforce the schema once on entry rather
+  than to convert them one at a time.
 
 * **A blank `Fleet_type` is refused.** The column has no schema default, so
   nothing filled it, and a blank one is not "unset, take the default" -- it is

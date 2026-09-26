@@ -1063,7 +1063,9 @@ data_check <- function(data_list) {
     # (declarative requirement table).
     errors <- c(errors, .rce_check_presence(data_list, "emp_sel"))
 
-    # Estimated selectivity (Selectivity != "Fixed" and Fleet_type != "Off")
+    # Estimated selectivity. Fleet_type is read through .canon_switch(): this
+    # function is callable on a list straight from read_data(), where the column
+    # is still the integer code, and `0 != "Off"` is TRUE.
     # requires comp or CAAL data with Year > 0 to be identifiable. Otherwise
     # the selectivity parameters are unconstrained and the optimizer wanders.
     # EXCEPTION: a fleet whose Selectivity_index is shared (mirrored) with
@@ -1251,7 +1253,8 @@ data_check <- function(data_list) {
 
     est_sel_flts <- fc[!is.na(fc$Selectivity) &
                          fc$Selectivity != "Fixed" &
-                         (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
+                         (!"Fleet_type" %in% colnames(fc) |
+                            .canon_switch(fc$Fleet_type, fleet_map) != "Off"),
                        , drop = FALSE]
     # Selectivity_index values that have active age data in ANY sharing fleet
     sel_idx_has_data <- if ("Selectivity_index" %in% colnames(fc)) {

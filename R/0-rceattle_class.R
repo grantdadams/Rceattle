@@ -9,7 +9,7 @@
 #' For operational use, the package version line is meant to make it
 #' obvious which version of `Rceattle` produced an archived fit so that
 #' results can be reproduced even if `main` has moved on. Tag a
-#' release (`devtools::install_github("grantdadams/Rceattle@X.Y.Z")`,
+#' release (`devtools::install_github("afsc-assessments/Rceattle@X.Y.Z")`,
 #' bare version, no leading `v`)
 #' and the same version string will reappear here on a fresh run.
 #'

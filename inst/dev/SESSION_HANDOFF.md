@@ -91,7 +91,7 @@ What a reviewer should still go at hardest:
    from the tag.
 4. **Confirm pkgdown rebuilt with the canary, not by eye**, then
    `gh workflow run deep-checks.yaml --ref main`. The canary is
-   `https://grantdadams.github.io/Rceattle/articles/adding-a-selectivity-form.html`, which
+   `https://afsc-assessments.github.io/Rceattle/articles/adding-a-selectivity-form.html`, which
    **404s today** and must return 200 after the Release is published. It 404s because that
    article landed at 5.37.0 on `dev` and does not exist on `main`, which is what pkgdown
    builds from -- so it is a live test of the exact silent failure the checklist warns about,

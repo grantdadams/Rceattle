@@ -120,5 +120,5 @@ C++ header to emulate.
 
 ## Getting help
 
-Open an issue at <https://github.com/grantdadams/Rceattle/issues> so the answer is
+Open an issue at <https://github.com/afsc-assessments/Rceattle/issues> so the answer is
 searchable. The maintainer address in `DESCRIPTION` is the fallback.
