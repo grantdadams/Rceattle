@@ -211,6 +211,14 @@ solve propagates it into the objective. **A delta of that size on stage 2 alone 
 result of an SPR change, not a numeric regression.** Any of the other three moving is. Stage 2
 still carries the largest delta at 5.48.0, for the same reason.
 
+`[[VERIFY]]` **Two attributions are on record for this same stage-2 move, and they disagree.**
+The paragraph above credits 5.24.1's reordering of the SPR sum. A note carried on
+`dsem-v5-integration` credited PR #116 / #117's reference-point recruitment arms (measured
+2026-08-24 on `dev` `319ead30`), from the same 2134.4713926593 baseline to the same
+2134.4713944220. Both are the one stage that reads `SB0` as its depletion reference, so either
+is plausible and only one was measured against the other's commit. Neither changes whether the
+table is reproducing; it decides which change to suspect next time stage 2 alone moves.
+
 **The vulnerability quantity is `fit$quantities$vulnerability[predator, prey]`**, a 3x3 matrix,
 which answers the question this note used to leave open. On the stage-4 fit at 5.48.0 it is 0.8189
 (arrowtooth to hake, `[2, 1]`) and 0.7717 (sablefish to hake, `[3, 1]`); `exp(log_phi)` on the same
@@ -259,34 +267,6 @@ the hindcast's. `ss_run_DM_hcr_CSL` differs because its HCR does estimate.
 
 Its linkage table is **composition-only** — 6 rows, all `process = "comp"`, none carrying a sex
 stratum — so a selectivity or per-sex linkage change cannot reach it.
-
-<!-- MERGE 5.49.1 <- dsem-v5-integration: the block below came from the
-     branch side of this file. Both sides had real content; it was unioned
-     rather than picked, so some entries may restate a main-side entry in
-     different words. Dedup pass wanted. -->
-
-Its four fits take ~3.5 min together on an M-series Mac, plus ~2 min for `nsim = 2, cores = 2`.
-Reference objectives, re-measured 2026-08-24 on `dev` at `319ead30` and on
-`dsem-v5-integration`, which agree to the last digit:
-
-| Stage | -log L |
-|---|---|
-| single-species | 2133.8207228717 |
-| single-species + category-1 HCR | 2134.4713944220 |
-| MSVPA, estimated M | 2137.4433306648 |
-| estimated suitability | 2260.7063099135 |
-
-**The category-1 HCR value moved `+1.763e-06` when PR #116 / #117 landed** (2026-08-23), from
-the 2134.4713926593 pinned here on 2026-08-22. It is the one stage that reads `SB0` as its
-depletion reference, which is what #117's reference-point recruitment arms rewrote. The shift is
-deterministic on both branches, so it is that change and not optimizer noise; the other three
-stages are unmoved. Re-measure this table after a dev merge rather than treating a difference at
-this size as a failure.
-
-The vulnerability matrix is 0.8172 (arrowtooth to hake) and 0.7686 (sablefish to hake). The
-script's own inline comments give the first three ~5 higher and the fourth as 2262.318: those are
-Rceattle 5.6.1 numbers that still carried the `theta_diet` prior constants. `README.md` in that
-folder records the "clean" values, which are what the current package reproduces.
 
 Traps:
 

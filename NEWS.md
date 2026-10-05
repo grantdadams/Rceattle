@@ -120,6 +120,21 @@ number of its own.
 
 ## Bug fixes
 
+* **`save_config()` / `load_config()` now round-trip a DSEM in both directions, so a reloaded
+  config refits the model it described.** `dsem` is the one `model_config()` field whose default
+  is absence rather than its builder's output, and the writer drops every field equal to its
+  default -- so `dsem = NULL` and an all-default `dsem = build_DSEM()` both serialized to the same
+  empty `dsem:` block, and the distinction was destroyed on the way to disk. Whichever way the
+  reader then resolved it, one of the two reloaded as the wrong model: materializing the empty
+  block gave a config with no DSEM a GMRF on its recruitment deviations, and skipping it took the
+  GMRF away from a config that asked for one. Either way `fit_mod()` declares a different block
+  random -- `dsem_x_tj` instead of `rec_dev` -- so the deviations are integrated out differently
+  and the objective is not comparable. The writer now records the error family for a DSEM that is
+  present, which keeps the two cases apart on disk, and an empty block means no DSEM and nothing
+  else. A fitted object was never exposed, because `fit_mod()` always materializes
+  `dsem_settings$sem`; a hand-built `model_config()`, which is the route `save_config()`'s own
+  examples take, was.
+
 * **A one-bin population length grid no longer reads outside the array in the age-length key.**
   5.49.0 guarded the bin MIDPOINT but not the bin PROBABILITY three lines above it: with one
   population length bin, `lp == 0` is also the last bin, and the `lp == 0` branch is tested first,

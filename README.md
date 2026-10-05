@@ -8,10 +8,11 @@
 
 Rceattle: an R package for fitting climate-linked, single- and multi-species age-structured stock assessment models and testing via diagnostics, simulation, and management strategy evaluation.
 
-NOTE: this is the DSEM integration branch. It is current with `dev`, and it carries the
-Dynamic Structural Equation Model source (`R/0-build_DSEM.R`, `src/TMB/dsem.hpp`), but that
-code is **not yet wired into the model** — `fit_mod()` has no `dsem` argument here. To fit a
-DSEM model today, use the `dev-DSEM` branch. See `dev/PLAN-dsem-integration.md`.
+NOTE: this is the DSEM integration branch, current with `main`. The Dynamic Structural Equation
+Model is wired into the model here: specify it with `build_DSEM()` and pass it through
+`model_config(dsem = ...)`, which makes the recruitment deviations the latent states of a GMRF.
+It is not on `main` or `dev`, and the older `dev-DSEM` branch is superseded — do not fit from it.
+See `inst/dev/SESSION_HANDOFF.md` for what is verified.
 
 `Rceattle` implements models in R using Template Model Builder (`TMB`; Kristensen et al., 2015). Data can be supplied via the bundled Excel template or constructed programmatically as an R list (see *Building a data object without Excel* vignette). Capabilities include:
 

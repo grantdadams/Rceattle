@@ -210,6 +210,15 @@ print.Rceattle_run_config <- function(x, ...) {
   for (nm in .RCE_MODEL_CONFIG_FIELDS) {
     if (nm %in% names(.RCE_CONFIG_BUILDERS)) {
       b <- .rce_build_to_list(mc[[nm]], unname(.RCE_CONFIG_BUILDERS[nm]))
+      # `dsem` is the one builder field whose default is absence, so an empty
+      # block has to mean no DSEM on reload. Every field of an all-default
+      # build_DSEM() would otherwise be dropped as a default and serialize to
+      # the same empty block as no DSEM at all, reloading as a model whose
+      # recruitment deviations are not the latent states of a GMRF. Writing the
+      # error family keeps the two apart; `family` is never NULL.
+      if (identical(nm, "dsem") && !length(b) && !is.null(mc[[nm]])) {
+        b <- list(family = mc[[nm]][["family"]])
+      }
       if (length(b) > 0 || nm %in% set) model[[nm]] <- b
     } else if (nm %in% set || !identical(mc[[nm]], mc_def[[nm]])) {
       model[nm] <- list(mc[[nm]])   # a set field at NULL is written as null

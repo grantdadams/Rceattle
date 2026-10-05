@@ -6094,13 +6094,13 @@ Type objective_function<Type>::operator() () {
   //   ar1 (AR1)        : stationary AR1 with MARGINAL SD sigma and correlation
   //                      rho = rho_trans(trans_rho_linkage), the glmmTMB /
   //                      Rogers-QAR1 convention SCALE(AR1(rho), sigma).
-  // Guarded on size so row 20 stays exactly 0 for every model without a random
+  // Guarded on size so JNLL_LINKAGE_RE stays exactly 0 for a model with no random
   // linkage. Placed before REPORT(jnll_comp) so the reported matrix reflects
   // the density that jnll_comp.sum() also carries.
 
   // The DSEM GMRF density, computed back in section 5.5b. Routed through
   // jnll_comp rather than added straight to jnll so it appears in the reported
-  // breakdown like every other component; row 21 stays exactly 0 without a DSEM.
+  // breakdown like every other component; JNLL_DSEM stays exactly 0 without one.
   // Column 0 because the density is joint over all species, not separable.
   if (dsem_on == 1) {
     jnll_comp(JNLL_DSEM, 0) += jnll_dsem;

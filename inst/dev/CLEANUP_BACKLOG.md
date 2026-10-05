@@ -49,19 +49,6 @@ whatever tier they sit in.
 comment.** One entry named the wrong switch (`Time_varying_q` instead of `Catchability`) for a
 whole session, and the source comment goes out of its way to warn about that confusion.
 
-<!-- MERGE 5.49.1 <- dsem-v5-integration: the block below came from the
-     branch side of this file. Both sides had real content; it was unioned
-     rather than picked, so some entries may restate a main-side entry in
-     different words. Dedup pass wanted. -->
-
-65 remain after Tier 0 and Tier 2. Counts by area: `src/TMB/ceattle.cpp` 26 ·
-`src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 · `R/9-retro_and_jitter.R` 4 ·
-`R/10-run_mse.R` 4 · `src/TMB/growth.hpp` 3 · `R/3-build_map.R` 3 · `R/0-rceattle_class.R` 3 ·
-rest 1–2. Re-derive with `grep -rn 'TODO|FIXME' R/ src/TMB/`, excluding the `todo <-`
-variable in `R/6-process_residuals.R`.
-
----
-
 ## Tier 0 — known defects, with the input that triggers them
 
 These say, in the source, that the code is wrong under a stated condition.
@@ -474,10 +461,8 @@ under "Deliberately not changed".
   but year-specific M1 and R0), so "equilibrium M2" here means dynamic-B0 without the
   recruitment deviations.
 
-<!-- MERGE 5.49.1 <- dsem-v5-integration: the block below came from the
-     branch side of this file. Both sides had real content; it was unioned
-     rather than picked, so some entries may restate a main-side entry in
-     different words. Dedup pass wanted. -->
+<!-- The DSEM entries below are branch-only: they have no counterpart on main,
+     because main carries no DSEM. Dedup pass done 2026-10-05. -->
 
 - **A DSEM's recruitment SD has no stationarity guard.** With `constant_variance = "conditional"`
   (the default, and dsem's) a lagged self-path makes the marginal variance `sigma^2/(1-rho^2)`,
@@ -513,15 +498,18 @@ under "Deliberately not changed".
 
 ## Deliberately not changed
 
-- **`remove_F()` starts the unfished trajectory at `suit_endyr + 1`, not `endyr + 1`** —
-  decided 2026-08-24, and the behaviour is correct rather than tolerated. MSVPA suitability is
-  computed from the fitted dynamics up to `suit_endyr`, so an unfished trajectory beginning
-  earlier would alter the suitability the multispecies model was conditioned on. The
-  consequence, which is the intended one, is that when `suit_endyr < endyr` the late hindcast
-  years are unfished too: measured on BS2017SS with `suit_endyr = 2010`, F is zeroed for
-  2011-2017 and terminal SSB sits +43% / +187% / +17% above the fitted model. That is the
-  unfished counterfactual those years are meant to represent, not a bug. `run_mse()` uses this
-  for `OM_no_F`, which depletion-based HCRs 5 and 6 are scored against.
+- **`remove_F()` zeroes F from `endyr + 1`, and refuses a `styr` inside the empirical
+  suitability window.** REVERSED 2026-09-13: an earlier note here recorded the opposite, that
+  the unfished trajectory deliberately began at `suit_endyr + 1`, and that is no longer the
+  behaviour — do not restore it. Starting at `suit_endyr + 1` silently unfished the late
+  hindcast whenever `suit_endyr < endyr` (on BS2017SS with `suit_endyr = 2010`, F was zeroed for
+  2011-2017 and terminal SSB sat +43% / +187% / +17% above the fitted model), which is a
+  different model than the caller asked for. The window still has to be respected, because
+  MSVPA suitability (`suitMode = 0`) is derived from the fitted abundance over
+  `suit_styr:suit_endyr`; it is now enforced as an error from the caller's own `styr`
+  (`R/10-project-no-F.R`) rather than by moving the year. `run_mse()` passes the original OM's
+  `endyr + 1` for `OM_no_F`, which depletion-based HCRs 5 and 6 are scored against, and the
+  suitability window must match across every variant.
 - **Non-parametric growth** is declared and calls `error("not yet implemented")`.
 - **The `dsem_*` parameter blocks are not in `.PAR_INFO`.** The dictionary's contract is
   "every parameter `build_params()` produces", checked in both directions by

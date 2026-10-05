@@ -345,7 +345,7 @@ report_tables <- function(object,
 
 
 # The likelihood decomposition. jnll_comp's columns count FLEETS on rows 1-8
-# AND row 22, SPECIES on rows 9-20, neither on row 21, so the fleet axis is
+# AND 22, SPECIES on rows 9-20 AND 23, neither on row 21, so the fleet axis is
 # not contiguous and the column key comes from .JNLL_ROW_AXIS -- reading every
 # column as a fleet would report a species' recruitment penalty against a
 # survey, and assuming the axis stops at row 20 would miss the equilibrium
@@ -876,7 +876,7 @@ standard_output <- function(x, species = NULL, model = NULL) {
       stringsAsFactors = FALSE))
   }
 
-  # `unit` names a fleet on rows 1-8 and row 22, and a species on rows 9-20, so
+  # `unit` names a fleet on rows 1-8 and 22, and a species on rows 9-20 and 23, so
   # only species
   # rows are filtered here. Fleet rows are kept whatever the species and carried
   # in the standard's `fleet` column -- they are most of the decomposition a

@@ -6,7 +6,7 @@ session. Maintained by `/handoff`.
 ## Now
 
 **This branch is `merge/dsem-v5-main-5.49.1`: `main` 5.49.1 merged into
-`dsem-v5-integration`, at `5.49.1.9000`.** 34 conflicts, ~40 hunks, resolved by
+`dsem-v5-integration`, at `5.49.1.9001`.** 34 conflicts, ~40 hunks, resolved by
 hand. `dsem-v5-integration` itself is untouched at `326e5db2`.
 
 The resolutions worth knowing:
@@ -14,12 +14,18 @@ The resolutions worth knowing:
 * **`jnll_comp` row 21 was claimed by both sides.** `main` added
   `JNLL_EQUIL_CATCH = 21`, this branch had `JNLL_DSEM = 21`, and both set
   `JNLL_N_ROWS = 22`. Grant's call: `EQUIL_CATCH` keeps main's published 21,
-  `DSEM` moves to 22, `JNLL_N_ROWS` is 23. All three hand-synced partners
-  followed -- display names in `R/6-rename_output.R`, `.JNLL_ROW_AXIS` in
-  `R/9-profile.R`, and `test-schema-jnll-rows.R` needs no edit because it reads
-  `JNLL_N_ROWS` out of the template. **The linkage tests stopped hardcoding the
-  row**: `main` had already introduced `linkage_re_row()`, which is now required
-  rather than merely nicer.
+  `DSEM` moves to 22, `JNLL_N_ROWS` is 23. **There are FOUR hand-synced
+  references, not the three CLAUDE.md names**, and the fourth was missed on the
+  first pass: display names in `R/6-rename_output.R`, `.JNLL_ROW_AXIS` in
+  `R/9-profile.R`, `test-schema-jnll-rows.R` (which needs no edit -- it reads
+  `JNLL_N_ROWS` out of the template), and the **row numbers written in prose**
+  across `CLAUDE.md`, `inst/dev/TRAPS.md`, `R/0-quantity_dictionary.R`,
+  `R/6-report_tables.R` and two `ceattle.cpp` comments. Nothing tests the prose,
+  so it said "row 21" for the DSEM for a day. The two C++ comments now name
+  their enum constant instead of an integer, which is what CLAUDE.md asks for
+  anyway. R rows are the enum value plus one: `JNLL_DSEM = 22` is **row 23**.
+  **The linkage tests stopped hardcoding the row**: `main` had already
+  introduced `linkage_re_row()`, which is now required rather than merely nicer.
 * **`R/0-tmb_helpers.R` was a near-miss.** The conflict looked like one function
   reworded; it was two different functions at the same file end --
   `.rce_make_adfun()` (this branch) and `.rce_marginal_gap()` (main), each with
@@ -32,17 +38,54 @@ The resolutions worth knowing:
 * **`dsem = dsem` in `.refit_like()` survived** -- without it every DSEM refit
   (retrospective, jitter, self_test, profile, run_mse) would silently rebuild
   DSEM-free.
-* **`inst/dev/SIBLING-REPOS.md`, `CLEANUP_BACKLOG.md` and `TRAPS.md` are
-  UNIONS**, marked with an HTML comment at each seam. Both sides had real
-  content; nothing was dropped, so some entries may restate a main-side entry in
-  different words. **A dedup pass is wanted before this merges anywhere.**
+* **`inst/dev/SIBLING-REPOS.md`, `CLEANUP_BACKLOG.md` and `TRAPS.md` were
+  UNIONED**, and the **dedup pass is done (2026-10-05)**; no `MERGE 5.49.1` seam
+  markers remain. What it found, because a union is not a safe default here:
+  - SIBLING-REPOS carried the **three-species** hake reference table inside the
+    **four-species** section, which is exactly the mix the file's own warning
+    says shows a 300-nat regression that does not exist. Removed; every number
+    in it was already the 5.32.1 column of the right table. One fact was kept as
+    a `[[VERIFY]]`: two attributions are on record for the same stage-2 1.8e-06
+    move from the same baseline -- 5.24.1's SPR reorder, and PR #116/#117's
+    reference-point arms. Grant's call which.
+  - CLEANUP_BACKLOG claimed **65 TODO markers**; the tree has **57**, which is
+    the main-side figure, exact per file. The stale block's re-derive recipe was
+    also broken (`grep -rn 'TODO|FIXME'` with no `-E` matches a literal pipe).
+  - CLAUDE.md had **10 traps stated twice**, condensed and long-form, against
+    its own "one line each, fuller text in TRAPS.md" convention. Long forms cut;
+    the one with no condensed counterpart (a `warning()` in a
+    `.parallel_lapply()` worker is discarded) was kept, condensed.
+  - TRAPS had **two entries for the same header-rebuild trap that disagreed on
+    mechanism and remedy**. Settled from `src/TMB/compile.R`: it builds through
+    `R CMD SHLIB`, i.e. make, which compares `ceattle.o` against `ceattle.cpp`
+    and does not track headers. So the `.o`-vs-`.cpp` version was right, the
+    `.cpp`-mtime-vs-`.so` one wrong, and the old "load_all() will not rebuild
+    once the .o is gone" parenthetical was backwards -- removing the `.o` is
+    what forces the rebuild. Merged into one entry with both remedies.
 * **`NEWS.md`**: this branch's 5.23.0 notes sit immediately below main's 5.23.0
   under a title that cannot be confused with it. The development section at the
   top carries the peel work.
 
-**NOT YET VERIFIED.** The C++ changed, so nothing below has been re-measured on
-this branch: no recompile, no `/document`, no suite, no golden. Do those before
-trusting any of it.
+**Verified on this branch (2026-10-05).** Recompiled, and the full suite ran
+serially under `NOT_CRAN=true TESTTHAT_PARALLEL=false`: **FAIL 0 | WARN 235 |
+SKIP 5 | PASS 10,643**, golden included, so the four reference objectives hold
+across the enum renumber. `tools/verify/verify-refit-like.R` is bit-identical to
+its pre-merge baseline on every shared section.
+
+**Then a review of the merge found 12 things, and one was a defect this merge
+introduced.** `save_config()` drops every field equal to its builder default,
+and `dsem` is the only `model_config()` field whose default is absence -- so an
+all-default `build_DSEM()` and no DSEM at all serialized to the same empty
+block, and the distinction was destroyed at the WRITE side. The merge's
+load-side skip therefore fixed one direction by breaking the other: an
+all-default DSEM reloaded as no DSEM. `fit_mod()` then declares `rec_dev` random
+instead of `dsem_x_tj`, which is a different model, and the first version of
+this moved the objective 5.4e-08 rather than erroring. The writer now records
+the error family for a DSEM that is present, so an empty block means absence and
+nothing else; both directions are asserted in `test-save-load-config.R`. A
+fitted object was never exposed (`fit_mod()` always materializes
+`dsem_settings$sem`); a hand-built `model_config()` was, which is the route
+`save_config()`'s own examples take.
 
 
 **The length-comp joint-sex fix and the golden re-pin are IN**, merged as PR #187 (`97c19414`):

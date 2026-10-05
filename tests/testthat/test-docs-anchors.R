@@ -233,12 +233,19 @@ test_that("the README pins the version in DESCRIPTION", {
   # If the example stops naming a version there is nothing to keep in step, but
   # silently passing would retire the check without anyone deciding to.
   expect_gt(length(pins), 0)
-  # The README pins an INSTALLABLE release tag. A development version carries a
-  # fourth component (5.49.1.9000) and is not a tag, so compare against the
-  # release part; on a release there is no fourth component and this is the same
-  # exact match it has always been. Pinning the README to a .9000 would name a
-  # tag nobody can install, and dropping the suffix from DESCRIPTION would make
-  # the build claim to BE a release it is not -- see 95153bbc.
+  # The README must pin a tag that EXISTS, which is what went wrong all four
+  # times. So the test is "not newer than this package", not "equal to it":
+  # during development DESCRIPTION carries a fourth component (5.49.1.9000) and
+  # the release it names is not tagged yet, so demanding equality would require
+  # the README to point at precisely the tag nobody can install. Pinning the
+  # previous release is correct and must pass; pinning a future one must not.
+  # Dropping the .9000 from DESCRIPTION instead would make the build claim to BE
+  # a release it is not -- see 95153bbc.
   rel <- sub("^([0-9]+\\.[0-9]+\\.[0-9]+).*$", "\\1", ver)
-  expect_equal(unique(sub("^Rceattle@", "", pins)), rel)
+  pinned <- unique(sub("^Rceattle@", "", pins))
+  expect_length(pinned, 1)
+  expect_false(package_version(pinned) > package_version(rel),
+               label = paste0("README pins Rceattle@", pinned,
+                              ", which is newer than DESCRIPTION's ", rel,
+                              " -- that tag does not exist yet"))
 })

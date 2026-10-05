@@ -55,25 +55,26 @@ The bundled datasets that DO converge with a PD Hessian, measured 2026-08-30 wit
 fit that converges -- which makes it the fixture for anything sex-structured, including the
 SPR-per-recruit paths.
 
-<!-- MERGE 5.49.1 <- dsem-v5-integration: the block below came from the
-     branch side of this file. Both sides had real content; it was unioned
-     rather than picked, so some entries may restate a main-side entry in
-     different words. Dedup pass wanted. -->
+**Editing a `.hpp` alone does not rebuild the model.** `TMB::compile()` builds through
+`R CMD SHLIB`, i.e. make, which compares `ceattle.o` against `ceattle.cpp` and does not track
+header dependencies at all. A change confined to a header therefore recompiles nothing, and
+`load_all()` reports success while the loaded DLL is still the old one. Every process in this
+model lives in a header — `recruitment.hpp`, `predation.hpp`, `selectivity.hpp`, `dsem.hpp`,
+`spr.hpp` — so that is most C++ edits here. It is silent, and it reads as a change that "does
+not take effect", or as an error message you already deleted still appearing. Cost the OSA CDF
+work half an hour of debugging a fix that was already correct and had simply never been built.
 
-**Editing a `.hpp` alone does not rebuild the model.** `TMB::compile()` compares the `.o`
-against the `.cpp` and nothing else, so a change confined to a header leaves `load_all()`
-reporting success while the loaded DLL is still the old one. Every process in this model
-lives in a header — `recruitment.hpp`, `predation.hpp`, `selectivity.hpp`, `dsem.hpp` — so
-that is most C++ edits here. It reads as a change that "does not take effect", or as an
-error message you already deleted still appearing. Force it:
+Either remedy works, because both make the `.cpp` rule fire:
 
 ```sh
-rm -f src/TMB/ceattle.o src/TMB/ceattle.so src/ceattle.so
-cd src/TMB && Rscript compile.R      # load_all() will not rebuild once the .o is gone
+touch src/TMB/ceattle.cpp && Rscript -e 'pkgload::load_all(".")'   # simplest
+# or, to rebuild from nothing:
+rm -f src/TMB/ceattle.o src/TMB/ceattle.so src/ceattle.so && (cd src/TMB && Rscript compile.R)
 ```
 
-Touching `ceattle.cpp` works too. Editing a `.cpp` and a `.hpp` in the same round hides
-this, which is why it takes a while to notice.
+Confirm the `.so` mtime actually moved before trusting any measurement that follows. Editing a
+`.cpp` and a `.hpp` in the same round hides this, which is why it takes a while to notice. Same
+failure mode, and the same cause, as the `safebounds` trap below.
 
 **The parallel-test DLL failure is a toolchain failure, not a test failure.**
 `DESCRIPTION` sets `Config/testthat/parallel: true`, and the workers cannot load a freshly
@@ -81,14 +82,6 @@ rebuilt DLL, so `devtools::test()` aborts before running anything with
 `testthat subprocess failed to start … getDLLRegisteredRoutines.DLLInfo`. After a `.cpp`/`.hpp`
 edit run `pkgload::load_all(".")` first, then test with `TESTTHAT_PARALLEL=false`.
 (`test-coverage.yaml` forces serial for a related reason.)
-
-**`load_all()` does not notice a header-only edit.** TMB's `compile()` compares `ceattle.cpp`'s
-mtime against `ceattle.so`'s and nothing else, so editing only a `.hpp` — where most of the
-process logic lives — recompiles nothing and every measurement afterwards is against the old
-model. It is silent: `load_all()` reports success. Cost the OSA CDF work half an hour of
-debugging a fix that was already correct and simply had never been built. **After a `.hpp`-only
-edit, `touch src/TMB/ceattle.cpp` before `load_all()`**, and confirm the `.so` mtime moved. Same
-failure mode as the `safebounds` trap below, from the same cause.
 
 **Roxygen is pinned at 8.1.0** (`DESCRIPTION: Config/roxygen2/version`). A *different* local
 roxygen2 rewrites *every* `man/*.Rd`; an older one also swaps the key back to the legacy
@@ -514,20 +507,24 @@ model, and only shows up on the next `minage != 1` species. Write
 `max(n_flt, nspp)`, and the column index is whatever loop variable wrote the cell: rows 1-8
 (index, catch, composition, CAAL, non-parametric selectivity, selectivity deviates, catchability
 prior, catchability deviates) are written inside `for(flt = 0; flt < n_flt; flt++)`, rows 9-20 by
-`sp`/`rsp`/`slot_col`, "Linkage random effects" always into column 1, and row 22 ("Initial
-equilibrium catch", added 5.46.0) back into a FLEET column -- so the fleet axis is not
+`sp`/`rsp`/`slot_col`, "Linkage random effects" always into column 1, row 22 ("Initial
+equilibrium catch", added 5.46.0) back into a FLEET column, and row 23 ("DSEM") by `sp` for the
+recruitment-SD priors and into column 1 for the GMRF's own joint density -- so neither axis is
 contiguous and stopping an axis guess at row 20 is wrong. So `jnll_comp[3, 2]` is
 fleet 2's composition likelihood while `jnll_comp[11, 2]` is species 2's recruitment deviates,
 and `rowSums()` pools across two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the
 registry; `test-schema-jnll-rows.R` parses every `jnll_comp(JNLL_*, col)` write in the template
 and asserts each row's declared axis matches the column it is actually indexed by. Verified
 2026-08-26: 124 writes, all 21 rows covered; 133 writes at 5.41.0, same 21 rows; 134 writes at
-5.48.0 over 22 rows, the new one being the initial equilibrium catch.
+5.48.0 over 22 rows, the new one being the initial equilibrium catch. On the DSEM branch after
+the 5.49.1 merge, 23 rows, the new one being the DSEM GMRF: 110 writes to `jnll_comp` and 25 to
+`unweighted_jnll_comp` counted separately, which is the count to compare against from here --
+the earlier figures pooled the two matrices, so they are not continuous with these.
 
-**`unweighted_jnll_comp` is populated for 5 of its 22 rows.** It exists so Francis and
+**`unweighted_jnll_comp` is populated for 6 of its 23 rows.** It exists so Francis and
 McAllister-Ianelli can read a composition likelihood without its `Comp_weights` multiplier, so
-only the rows carrying such a multiplier are written: composition, CAAL, stomach content, and the
-two linkage rows. Index, catch, selectivity, catchability and every penalty are **structurally
+only the rows carrying such a multiplier are written: composition, CAAL, stomach content, the
+two linkage rows, and the DSEM GMRF. Index, catch, selectivity, catchability and every penalty are **structurally
 zero** there, not small. Anything that treats the two matrices as the same quantity at different
 weights — a reweighting diagnostic, a component profile, a "which term dominates" table — reports
 those components as absent rather than unweighted. `profile_components(weighted = FALSE)` says so
@@ -1049,11 +1046,11 @@ section above.
 - **`Index_distribution` has a second hand-synced registry** — a family added to
   `index_distribution_map` must also be classified in `.index_rows_natural_scale()`
   (`R/0-switches.R`), or it silently gets the log-scale residual formula.
-- **`jnll_comp` columns count fleets on rows 1–8 and row 22, species on rows 9–20**, so
-  `rowSums()` pools across two different axes, and the fleet axis is NOT contiguous. Row 21
-  (linkage random effects) is model-wide; row 22 is the initial equilibrium catch, by fleet.
-  `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the registry, so an axis guess that stops at row 20 is
-  wrong.
+- **`jnll_comp` columns count fleets on rows 1–8 and row 22, species on rows 9–20 and row 23**,
+  so `rowSums()` pools across different axes, and neither axis is contiguous. Row 21
+  (linkage random effects) is model-wide; row 22 is the initial equilibrium catch, by fleet;
+  row 23 is the DSEM GMRF. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the registry, so an axis guess
+  that stops at row 20 is wrong.
 - **A reference point CEATTLE never estimated is a number, not a gap** — `Ftarget`/`Flimit` sit
   at `exp(0) = 1` unless the HCR estimates them (gate on `build_hcr_map()`, never on `fit$map`),
   `SB0` under `msmMode > 0` is the 999 mt `MSSB0` placeholder until `MSSB0_derived` is TRUE, and
@@ -1066,8 +1063,8 @@ section above.
   registry, and `test-schema-quantity-dictionary.R` holds the two together.
 - **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps** — the non-PD Hessian
   check only runs when an `sdreport` exists — so Mohn's rho can differ between the two.
-- **`unweighted_jnll_comp` is written for 5 of its 22 rows** — composition, CAAL, stomach and the
-  two linkage rows. Everything else is structurally zero there, not small.
+- **`unweighted_jnll_comp` is written for 6 of its 23 rows** — composition, CAAL, stomach, the
+  two linkage rows and the DSEM GMRF. Everything else is structurally zero there, not small.
 - **`fit_mod(d, config = cfg)` replaces `d$model_config` with the config's** — a config from
   `run_config(model_config(), ...)` silently drops every linkage on `d` (57 REs → 0). Build it
   with `run_config(d, ...)`. `random_sel` never gates linkage REs.

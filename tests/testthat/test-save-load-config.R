@@ -172,3 +172,35 @@ testthat::test_that("run_config() rejects an unrecognised field name", {
   cleared <- run_config(mc, suit_styr = NULL)
   testthat::expect_identical(run_config(cleared, suit_styr = 1990)$suit_styr, 1990)
 })
+
+# `dsem` is the only model_config() field whose default is absence rather than
+# its builder's output, and the writer drops every field equal to its default.
+# So an all-default build_DSEM() and no DSEM at all once serialized to the same
+# empty block, and whichever way the reader resolved it, one of the two came
+# back as the wrong model: fit_mod() declares `dsem_x_tj` random instead of
+# `rec_dev`, so the recruitment deviations are integrated out differently and
+# the objective is not comparable. Both directions are asserted here because
+# fixing either one alone is what produced the other.
+testthat::test_that("a DSEM round-trips as present or absent, never swapped", {
+  rt <- function(mc) {
+    f <- withr::local_tempfile(fileext = ".yaml")
+    Rceattle::save_config(Rceattle:::.rce_run_config(mc = mc), f)
+    Rceattle::load_config(f)$model_config$dsem
+  }
+
+  # No DSEM must stay absent: materializing the empty block would put a GMRF on
+  # the recruitment deviations of a model that never asked for one.
+  testthat::expect_null(rt(Rceattle::model_config()))
+
+  # An all-default DSEM must survive: every one of its fields is at its default,
+  # so this is the case the writer used to flatten to nothing.
+  d <- rt(Rceattle::model_config(dsem = Rceattle::build_DSEM()))
+  testthat::expect_false(is.null(d))
+  testthat::expect_identical(d, Rceattle::build_DSEM())
+
+  # A DSEM differing from the default was never at risk, and still works.
+  d2 <- rt(Rceattle::model_config(
+    dsem = Rceattle::build_DSEM(family = "normal", bound_sd = FALSE)))
+  testthat::expect_identical(d2[["family"]], "normal")
+  testthat::expect_false(d2[["bound_sd"]])
+})
