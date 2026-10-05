@@ -13,6 +13,10 @@ data_check <- function(data_list) {
   data_list$fleet_control <-
     .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
   data_list <- .rce_upgrade_data_list_aliases(data_list)
+  # A column name that is neither canonical nor a known older spelling is read by
+  # nothing, so a typo sets nothing and says nothing. Reported here, after the
+  # rename above has taken the recognized older names out of the way.
+  .rce_warn_near_miss_columns(data_list$fleet_control)
 
   # ---- Helpers ----
   has_data <- function(df) !is.null(df) && nrow(df) > 0
@@ -84,8 +88,8 @@ data_check <- function(data_list) {
   # Note this is a DIFFERENT switch from `Time_varying_q = "AR1"`, which is also
   # removed (5.16.0) but by its own check above, with its own message. That one
   # was not an AR1 either: the model gives value 2 the same independent
-  # normal penalty as value 1 (`index_varying_q == 1 || == 2`), and index_q_rho
-  # is read only on the QAR1 path this block removes. Both redirect to the same
+  # normal penalty as value 1 (`index_varying_q == 1 || == 2`), and the QAR1
+  # correlation parameter went with that path (5.37.0). Both redirect to the same
   # place -- a q linkage, `linkage_spec(~ ar1(1 | Year))` -- but they name
   # different columns, so only this block says "QAR1".
   if(!is.null(data_list$fleet_control$Catchability) &&
@@ -176,11 +180,10 @@ data_check <- function(data_list) {
   # Time_varying_sel / Time_varying_q = "AR1" (2) are REMOVED. Neither was ever
   # an AR1. The model scores value 2 with the same independent normal penalty
   # as value 1 -- `flt_varying_sel == 1 || == 2` and `index_varying_q == 1 || ==
-  # 2` -- and neither deviation block has a correlation parameter to read:
-  # index_q_rho is used only on the QAR1 catchability path this release also
-  # removes, and there is no selectivity equivalent at all. So the name promised
-  # an autocorrelation the model does not fit, on a value the schema's own column
-  # descriptions never listed.
+  # 2` -- and neither deviation block has a correlation parameter to read (the
+  # QAR1 catchability path's went with it in 5.37.0; selectivity never had one).
+  # So the name promised an autocorrelation the model does not fit, on a value
+  # the schema's own column descriptions never listed.
   #
   # An error rather than a silent alias, and for the reason the QAR1 removal
   # above gives: a warned fit returns a summary() that looks ordinary, and
@@ -239,9 +242,8 @@ data_check <- function(data_list) {
             # Catchability = 'AR1' refusal above, and the two errors have to
             # stay distinguishable by their text -- they name different columns
             # and different fixes.
-            paste0("index_q_rho is not that correlation either: it belongs to ",
-                   "the removed Catchability = 'AR1' form, not to this ",
-                   "switch.\n"),
+            paste0("No correlation parameter exists for this switch; the one ",
+                   "that did belonged to the removed Catchability = 'AR1' form.\n"),
             exempt = .canon_switch(fc$Catchability, q_map) %in%
                      c("Environmental", "AR1")),
     .tv_ar1(fc$Time_varying_sel, "Time_varying_sel", tv_sel_map,
@@ -526,14 +528,42 @@ data_check <- function(data_list) {
       # NA `nages`, or a table too narrow: both are reported by the checks that
       # own them, and `if(NA)` here would abort before any of them are raised.
       if(is.na(n) || length(agec) < n) next
-      vals <- suppressWarnings(as.numeric(tbl[sp, agec[seq_len(n)]]))
+
+      # How many ages the model reads. `maturity` is summed over every age;
+      # `sex_ratio` too, but only for a one-sex species (5.4). A two-sex species
+      # uses `sex_ratio(sp, 0)` alone, the age-1 recruitment split.
+      nsex_sp <- if(is.null(data_list$nsex)) 1L else data_list$nsex[sp]
+      need <- if(nm == "sex_ratio" && isTRUE(nsex_sp == 2)) 1L else n
+
+      # A list-column reads as NA here however finite the number inside it, so
+      # say so rather than send the reader hunting for a gap that is not there.
+      # It happens when a table is assembled with a verb that nests (dplyr's
+      # rowwise summarise, a tibble built from a list).
+      listed <- vapply(tbl[, agec[seq_len(need)], drop = FALSE], is.list,
+                       logical(1))
+      if(any(listed)){
+        errors <- c(errors, paste0(
+          nm, " has list-columns, not numbers, in ", sum(listed), " of ", need,
+          " age column(s) (", paste(names(listed)[listed][seq_len(min(3L, sum(listed)))],
+                                    collapse = ", "),
+          if(sum(listed) > 3L) ", ..." else "", "). The values inside may be ",
+          "fine; the model reads the column as NA either way. Flatten with ",
+          "`unlist()` per column."))
+        next
+      }
+
+      vals <- suppressWarnings(as.numeric(tbl[sp, agec[seq_len(need)]]))
       gaps <- which(!is.finite(vals))
       if(length(gaps)){
         errors <- c(errors, paste0(
           nm, " is missing values for species ", sp, ", age",
           if(length(gaps) > 1L) "s " else " ", fmt_ages(gaps),
-          " of ", n, ". Spawning biomass and spawner-per-recruit both sum over ",
-          "every age, so a gap leaves SSB or SPR0 NA."))
+          " of ", need, ". ",
+          if(need == 1L)
+            "A two-sex species reads sex_ratio only at age 1, to split recruitment."
+          else
+            paste0("Spawning biomass and spawner-per-recruit both sum over ",
+                   "every age, so a gap leaves SSB or SPR0 NA.")))
       }
     }
   }
@@ -548,15 +578,51 @@ data_check <- function(data_list) {
     errors <- c(errors, "sex_ratio values must be in [0, 1]")
   }
 
-  # Sex consistency: max Sex in M1_base / weight / ration_data must be <= nsex
+  # The model has exactly two sex schedules -- index 0 (females, or the single
+  # combined sex) and index 1 (males) -- and reads `nsex` straight into loop
+  # bounds and array dimensions, so anything outside {1, 2} reads out of range.
+  n_expected <- data_list$nspp
+  if(is.null(data_list$nsex)){
+    errors <- c(errors, "'nsex' is missing. Give 1 (sex-combined) or 2 (females and males) per species.")
+  } else {
+    # Guarded together: with `nspp` missing, `!is.na(n_expected)` is zero-length
+    # and `&&` rejects it, so the count check is skipped and the missing `nspp`
+    # is reported by its own check.
+    if(length(n_expected) == 1L && !is.na(n_expected) &&
+       length(data_list$nsex) != n_expected){
+      errors <- c(errors, paste0(
+        "'nsex' has ", length(data_list$nsex), " value(s) for ", n_expected,
+        " species. It is read by position, so species ",
+        length(data_list$nsex) + 1L, " onwards would be read past the end."))
+    }
+    bad_nsex <- which(is.na(data_list$nsex) | !(data_list$nsex %in% c(1L, 2L)))
+    if(length(bad_nsex)){
+      errors <- c(errors, paste0(
+        "'nsex' must be 1 (sex-combined) or 2 (females and males). Species ",
+        paste(bad_nsex, collapse = ", "), " have ",
+        paste(data_list$nsex[bad_nsex], collapse = ", "), "."))
+    }
+  }
+
+  # Sex consistency: max Sex in M1_base / weight / ration_data must be <= nsex.
+  # `nsex` is looked up by the table's own Species code rather than by row
+  # position, so a table listing a subset of species compares against the right
+  # one; na.rm keeps an unusable `nsex`, reported by its own check just above,
+  # from aborting this one before the accumulated errors are raised.
+  nsex_for <- function(sp) {
+    if(is.null(data_list$nsex)) return(NA_integer_)
+    sp <- suppressWarnings(as.integer(sp))
+    sp[is.na(sp) | sp < 1L | sp > length(data_list$nsex)] <- NA_integer_
+    data_list$nsex[sp]
+  }
   m1_sex <- data_list$M1_base |> dplyr::group_by(Species) |>
     dplyr::summarise(max_sex = max(Sex)) |> dplyr::arrange(Species)
-  if(any(m1_sex$max_sex > data_list$nsex)){
+  if(any(m1_sex$max_sex > nsex_for(m1_sex$Species), na.rm = TRUE)){
     errors <- c(errors, "'M1_base' has more sexes than specified in 'nsex'")
   }
   wt_sex <- data_list$weight |> dplyr::group_by(Species) |>
     dplyr::summarise(max_sex = max(Sex)) |> dplyr::arrange(Species)
-  if(any(wt_sex$max_sex > data_list$nsex)){
+  if(any(wt_sex$max_sex > nsex_for(wt_sex$Species), na.rm = TRUE)){
     errors <- c(errors, "'weight' has more sexes than specified in 'nsex'")
   }
 
@@ -589,7 +655,7 @@ data_check <- function(data_list) {
     }
     ration_sex <- data_list$ration_data |> dplyr::group_by(Species) |>
       dplyr::summarise(max_sex = max(Sex)) |> dplyr::arrange(Species)
-    if(any(ration_sex$max_sex > data_list$nsex)){
+    if(any(ration_sex$max_sex > nsex_for(ration_sex$Species), na.rm = TRUE)){
       errors <- c(errors, "'ration_data' has more sexes than specified in 'nsex'")
     }
   }
@@ -607,14 +673,18 @@ data_check <- function(data_list) {
     errors <- c(errors, "`age_trans_matrix` data does not span range of lengths")
   }
 
-  # Age error matrix: observed-age column count
-  if(any(data_list$age_error |>
-         as.data.frame() |>
-         dplyr::select(-c(Species, True_age)) |>
-         ncol() < data_list$nages, na.rm = TRUE)){
-    errors <- c(errors, "`age_error` observed ages do not span range of ages")
+  # Age error matrix: observed-age column count. The metadata is named, not
+  # counted off the front: with Ageing_error_index present, "everything but
+  # Species and True_age" counts one column too many and a table one observed
+  # age short passes.
+  if(has_data(data_list$age_error)){
+    .ae_ncol <- length(setdiff(colnames(as.data.frame(data_list$age_error)),
+                               .RCE_AGE_ERROR_META))
+    if(any(.ae_ncol < data_list$nages, na.rm = TRUE)){
+      errors <- c(errors, "`age_error` observed ages do not span range of ages")
+    }
   }
-  # ALK & age_error: per-species age coverage (fillable with 0s downstream -- message-level)
+  # ALK: per-species age coverage (fillable with 0s downstream -- message-level)
   for(sp in 1:data_list$nspp){
     expected_ages <- data_list$minage[sp]:(data_list$minage[sp] + data_list$nages[sp] - 1)
 
@@ -623,16 +693,43 @@ data_check <- function(data_list) {
     if(!all(expected_ages %in% atm_ages)){
       message(paste("`age_trans_matrix` data does not span range of age for species", sp, "will fill with 0s"))
     }
-
-    ae_ages <- data_list$age_error |> as.data.frame() |>
-      dplyr::filter(Species == sp) |> dplyr::pull(True_age)
-    if(!all(expected_ages %in% ae_ages)){
-      message(paste("`age_error` data does not span range of true ages for species", sp, "will fill with 0s"))
+  }
+  # age_error: coverage per MATRIX, not per species. One species can carry
+  # several matrices, and each is read on its own, so a complete matrix would
+  # otherwise vouch for an incomplete sibling whose missing true ages are left
+  # at 0 and renormalized away.
+  if(has_data(data_list$age_error)){
+    .ae <- as.data.frame(data_list$age_error)
+    .ae_idx <- .rce_ageing_error_index(.ae)   # absent index = the row's species
+    .ae_sp <- suppressWarnings(as.integer(as.character(.ae[["Species"]])))
+    for(ix in sort(unique(.ae_idx[!is.na(.ae_idx)]))){
+      rows <- which(.ae_idx == ix)
+      # A matrix's rows are sized and offset by its species' nages / minage, so
+      # one matrix cannot span two of them.
+      sp_ix <- unique(.ae_sp[rows])
+      sp_ix <- sp_ix[!is.na(sp_ix)]
+      if(length(sp_ix) > 1){
+        errors <- c(errors, paste0(
+          "`age_error` matrix ", ix, " gives more than one Species (",
+          paste(sp_ix, collapse = ", "), "). A matrix is read on one species' ",
+          "ages, so each Ageing_error_index belongs to a single species."))
+        next
+      }
+      if(!length(sp_ix) || sp_ix < 1 || sp_ix > data_list$nspp) next
+      expected_ages <- data_list$minage[sp_ix]:
+        (data_list$minage[sp_ix] + data_list$nages[sp_ix] - 1)
+      if(!all(expected_ages %in% suppressWarnings(as.integer(.ae$True_age[rows])))){
+        message(paste("`age_error` matrix", ix, "does not span range of true ages for species",
+                      sp_ix, "will fill with 0s"))
+      }
     }
   }
   # ALK / age_error: row sums (warning -- rearrange may renormalize)
   if(has_data(data_list$age_error)){
-    ae_cols <- setdiff(colnames(data_list$age_error), c("Species", "True_age"))
+    # Name the metadata, as rearrange_data() does. Taking "everything but
+    # Species and True_age" summed Ageing_error_index as if it were a
+    # probability once that column existed.
+    ae_cols <- setdiff(colnames(data_list$age_error), .RCE_AGE_ERROR_META)
     if(length(ae_cols) > 0){
       ae_sums <- rowSums(data_list$age_error[, ae_cols, drop = FALSE], na.rm = TRUE)
       if(any(ae_sums > 0 & abs(ae_sums - 1) > 1e-3)){
@@ -653,6 +750,14 @@ data_check <- function(data_list) {
     }
   }
 
+  # The multiplier on input numbers-at-age is estimated only under predation.
+  .ed2 <- which(data_list$estDynamics %in% 2)
+  if(length(.ed2) && isTRUE(as.integer(data_list$msmMode %||% 0L)[1] == 0L)){
+    message("estDynamics = 2 for ", paste(data_list$spnames[.ed2], collapse = ", "),
+            ": the multiplier on input numbers-at-age is estimated only under ",
+            "predation (msmMode > 0); in single-species mode it is fixed at 1, so ",
+            "this fits as estDynamics = 1.")
+  }
   # NByageFixed: presence required when estDynamics > 0 (declarative requirement
   # table); the column-count adequacy check stays imperative below.
   errors <- c(errors, .rce_check_presence(data_list, "NByageFixed"))
@@ -669,24 +774,68 @@ data_check <- function(data_list) {
     }
   }
 
-  # Bioenergetics: temperature-dependent consumption requires environmental driver
+  # Bioenergetics: Ceq 1 (exponential, Stewart et al. 1983), 2 (warm-water,
+  # Kitchell et al. 1977) and 3 (cool/cold-water, Thornton and Lessem 1979) each
+  # read env_index(year, Cindex); only Ceq 4 (constant, fT = 1) reads nothing.
+  # Cindex is 1-based and counts the covariate columns of env_data, the Year
+  # column not being one. The messages below say how each case is reported.
   if(!is.null(data_list$Ceq)){
+    # Absent or unrecognized msmMode takes the multispecies (error) branch: the
+    # warning is only safe where consumption provably cannot reach the fit, and
+    # a mode we cannot read is not that.
+    .msm <- is.null(data_list$msmMode) ||
+      !identical(unname(.canon_switch(data_list$msmMode[1], msmMode_map)),
+                 "SingleSpecies")
     # NA reaches here from a workbook whose bioenergetics columns were left
-    # blank. Report it rather than letting `if (NA > 1)` throw R's bare
-    # "missing value where TRUE/FALSE needed", which names nothing.
+    # blank. Report it rather than letting `if (NA %in% 1:3)` fall through
+    # silently to the out-of-range read this check exists to prevent.
     .ceq_na <- which(is.na(data_list$Ceq[1:data_list$nspp]))
     if(length(.ceq_na)){
       errors <- c(errors, paste0("`Ceq` is missing for species ",
                                  paste(.ceq_na, collapse = ", "),
-                                 ". Set the consumption equation (1 = temperature-independent) for every species."))
+                                 ". Set the consumption equation (4 = constant, no temperature effect) for every species."))
     }
-    for(sp in setdiff(1:data_list$nspp, .ceq_na)){
-      if(data_list$Ceq[sp] > 1){
-        if(is.null(data_list$env_data) || ncol(data_list$env_data) < (data_list$Cindex[sp] + 1)){
-          errors <- c(errors, paste0("Species ", sp, " uses temperature-dependent consumption (Ceq = ",
-                                     data_list$Ceq[sp], ") but Cindex (", data_list$Cindex[sp],
-                                     ") exceeds available environmental indices"))
+    # Only 1-4 name an equation. The template switches on Ceq with no other
+    # branch, so an unrecognized value would leave the temperature function at
+    # its initial value and zero consumption for that species -- and under
+    # multispecies, its predation mortality with it.
+    .ceq_bad <- setdiff(which(!data_list$Ceq[1:data_list$nspp] %in% 1:4), .ceq_na)
+    if(length(.ceq_bad)){
+      errors <- c(errors, paste0(
+        "`Ceq` is ", paste(unique(data_list$Ceq[.ceq_bad]), collapse = ", "),
+        " for species ", paste(.ceq_bad, collapse = ", "),
+        ". It must be 1 (exponential, Stewart et al. 1983), 2 (warm-water, ",
+        "Kitchell et al. 1977), 3 (cool/cold-water, Thornton and Lessem 1979) ",
+        "or 4 (constant, no temperature effect)."))
+    }
+    .n_env <- if(is.null(data_list$env_data)) 0L else max(0L, ncol(data_list$env_data) - 1L)
+    .no_env <- integer(0)
+    for(sp in setdiff(1:data_list$nspp, c(.ceq_na, .ceq_bad))){
+      if(data_list$Ceq[sp] %in% 1:3){
+        # Cindex may be absent entirely, which indexes to NULL rather than NA.
+        .ci <- data_list$Cindex[sp]
+        if(length(.ci) != 1L || is.na(.ci) || .ci < 1 || .ci > .n_env){
+          .no_env <- c(.no_env, sp)
         }
+      }
+    }
+    if(length(.no_env)){
+      .msg <- paste0(
+        "Species ", paste(.no_env, collapse = ", "),
+        " use temperature-dependent consumption (Ceq 1-3) but their Cindex is not ",
+        "one of the ", .n_env, " environmental index column(s) in `env_data`. ",
+        "Cindex counts env_data columns from 1, excluding Year.")
+      if(.msm){
+        errors <- c(errors, paste0(
+          .msg, " Under multispecies mode consumption drives predation mortality, ",
+          "so this changes M2 and everything downstream of it. Supply the index, ",
+          "or set Ceq = 4 for consumption with no temperature effect."))
+      } else {
+        warning(paste0(
+          .msg, " Consumption uses a constant temperature effect (fT = 1, as ",
+          "Ceq = 4) for them. Single-species mode fits nothing to consumption, so ",
+          "the fit is unaffected; the reported `ration` and `consumption_at_age` ",
+          "carry no temperature signal."), call. = FALSE)
       }
     }
   }
@@ -769,6 +918,26 @@ data_check <- function(data_list) {
         errors <- c(errors, paste0("Fleet '", flt_name, "': N_sel_bins (", nsb, ") must be in 1:", max_bin))
       }
 
+      # A coefficient-per-bin fleet estimates one coefficient over
+      # Bin_first_selected:N_sel_bins, so N_sel_bins below the first selected bin
+      # leaves it none. Hake starts one bin later -- its first coefficient is not
+      # identifiable and build_map() drops it -- so it needs a strictly wider
+      # range. Only the forms that read N_sel_bins are checked; a logistic fleet
+      # ignores both columns.
+      .sel_form <- if("Selectivity" %in% colnames(fc)) .canon_switch(fc$Selectivity[flt], sel_map) else NA_character_
+      reads_nsb <- isTRUE(.sel_form %in% c("NonParametric", "NonParametricPM",
+                                           "NonParametricIntegrable",
+                                           "Hake", "2DAR1", "3DAR1"))
+      .lowest_nsb <- if(isTRUE(.sel_form == "Hake")) bfs + 1L else bfs
+      if(reads_nsb && !is.na(bfs) && !is.na(nsb) && .lowest_nsb > nsb){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': Bin_first_selected (", bfs,
+                                   ") leaves no estimated selectivity coefficients below ",
+                                   "N_sel_bins (", nsb, "); it must be at most ",
+                                   nsb - (.lowest_nsb - bfs),
+                                   if(isTRUE(.sel_form == "Hake"))
+                                     " ('Hake' does not estimate its first selected bin)" else ""))
+      }
+
       # Non-parametric shape-penalty range and cap, given on the fleet's own
       # selectivity dimension: an age (from minage) for age-based fleets, a
       # 1-based length-bin ordinal for length-based. Out-of-range values would
@@ -836,22 +1005,63 @@ data_check <- function(data_list) {
       }
 
       # Time-varying form is selectivity-type specific:
-      #  - NonParametric (Ianelli, type 2) / NonParametricPM (type 9): the cpp
-      #    penalizes year-to-year log selectivity-at-age, i.e. a RANDOM WALK ->
-      #    allow only "Off"/"RandomWalk".
+      #  - NonParametric (Ianelli, type 2): "RandomWalk" penalizes year-to-year
+      #    log selectivity-at-age; "IID" scores each annual coefficient
+      #    deviation about the base curve -> allow "Off"/"IID"/"RandomWalk".
+      #  - NonParametricPM (type 9): its deviates ARE the walk increments, so an
+      #    independent-deviate reading of them describes a different curve than
+      #    the one selectivity.hpp builds -> allow only "Off"/"RandomWalk".
       #  - Hake (Taylor, type 5): IID coefficient deviates -> allow only "Off"/"IID".
-      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM") &&
-         !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
-        errors <- c(errors, "For 'NonParametric'/'NonParametricPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'")
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "NonParametric" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "IID", "RandomWalk")){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametric' selectivity, 'Time_varying_sel' must be 'Off', 'IID' or 'RandomWalk'"))
       }
-      if(fc$Selectivity[flt] == "Hake" &&
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "NonParametricPM" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametricPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'. Its deviates are random-walk increments, so 'IID' would not describe the curve the model builds; 'NonParametric' supports 'IID'."))
+      }
+      #  - NonParametricIntegrable (13) gives its deviations a proper density;
+      #    Time_varying_sel says which structure, and "Off" estimates none.
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "NonParametricIntegrable" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "IID", "RandomWalk")){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametricIntegrable' selectivity, 'Time_varying_sel' must be 'Off', 'IID' or 'RandomWalk'"))
+      }
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "Hake" &&
          !fc$Time_varying_sel[flt] %in% c("Off", "IID")){
         errors <- c(errors, "For 'Hake' selectivity, 'Time_varying_sel' must be 'Off' or 'IID'")
       }
+      # Sel_norm_scope is read only by the shared normalizer. Hake normalizes each
+      # sex by its own maximum and LogisticPM reads Sel_norm_bin as a penalty
+      # range, so on a two-sex fleet of either form the column changes nothing.
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] %in% c("Hake", "LogisticPM") &&
+         isTRUE(data_list$nsex[fc$Species[flt]] == 2) &&
+         isTRUE(fc$Sel_norm_scope[flt] %in% c("AcrossSexes", sel_norm_scope_map[["AcrossSexes"]]))){
+        why <- if(fc$Selectivity[flt] == "Hake"){
+          paste0("normalizes each sex to its own maximum in its own block, so 'Sel_norm_scope' ",
+                 "is not read and the sexes cannot differ in selectivity level with this form")
+        } else {
+          paste0("does not normalize at all and reads 'Sel_norm_bin' as a penalty bin range, ",
+                 "so 'Sel_norm_scope' is not read")
+        }
+        message("Fleet '", flt_name, "': Selectivity = '", fc$Selectivity[flt], "' ", why, ".")
+      }
+      # Read by [[ with an absent-column fallback: `$Time_varying_sel` on a
+      # legacy workbook without the column partial-matches
+      # `Time_varying_sel_sd`, so these two forms would be refused over a
+      # deviation sd that is not what either rule is about.
+      tvs <- if("Time_varying_sel" %in% colnames(fc)) fc[["Time_varying_sel"]][flt] else "Off"
+      sel_form <- fc[["Selectivity"]][flt]
+      #  - DoubleNormalSS3 (type 15): time variation is through selectivity
+      #    linkages on its six parameters (blocks as ~ cut(Year, ...), annual
+      #    devs as a random-effect term), so Time_varying_sel must be "Off".
+      if(!is.na(sel_form) && sel_form == "DoubleNormalSS3" &&
+         !tvs %in% c("Off", 0)){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': for 'DoubleNormalSS3' selectivity, 'Time_varying_sel' must be 'Off'; vary its parameters with build_selectivity(linkages = ...)."))
+      }
       #  - LogisticPM (ADMB AMAK "pm" BTS, type 11): random-walk deviates on
       #    slope/inflection/age-1 -> allow only "Off"/"RandomWalk".
-      if(fc$Selectivity[flt] == "LogisticPM" &&
-         !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
+      if(!is.na(sel_form) && sel_form == "LogisticPM" &&
+         !tvs %in% c("Off", "RandomWalk")){
         errors <- c(errors, "For 'LogisticPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'")
       }
 
@@ -861,7 +1071,8 @@ data_check <- function(data_list) {
       # missing / non-numeric (e.g. a Time_varying_sel mode string accidentally
       # written into Sel_curve_pen) before it surfaces as a cryptic
       # "inits not within bounds" error in build_bounds.
-      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM")){
+      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM",
+                                    "NonParametricIntegrable")){
         cp1 <- suppressWarnings(as.numeric(fc$Sel_curve_pen1[flt]))
         cp2 <- suppressWarnings(as.numeric(fc$Sel_curve_pen2[flt]))
         if(is.na(cp1) || is.na(cp2)){
@@ -873,16 +1084,19 @@ data_check <- function(data_list) {
         }
       }
 
-      # LogisticPM: Sel_curve_pen1/2/3 are the random-walk weights on the
-      # slope / inflection / age-1 deviates (ADMB 50 / 50 / 8). Require numeric
-      # when time-varying so a stray mode string is caught early.
-      if(fc$Selectivity[flt] == "LogisticPM" && fc$Time_varying_sel[flt] == "RandomWalk"){
-        cps <- suppressWarnings(as.numeric(c(fc$Sel_curve_pen1[flt], fc$Sel_curve_pen2[flt], fc$Sel_curve_pen3[flt])))
+      # LogisticPM: Sel_curve_pen1 weights the random walk on the REALIZED
+      # log-selectivity and Sel_curve_pen3 the walk on the free age-1 deviates
+      # (ADMB ctrl_flag(26) and the literal weight 8). Sel_curve_pen2 is not read on this form, so
+      # it is not required. Require the two that are numeric when time-varying,
+      # so a stray mode string is caught early.
+      if(!is.na(fc$Selectivity[flt]) && !is.na(fc$Time_varying_sel[flt]) &&
+         fc$Selectivity[flt] == "LogisticPM" && fc$Time_varying_sel[flt] == "RandomWalk"){
+        cps <- suppressWarnings(as.numeric(c(fc$Sel_curve_pen1[flt], fc$Sel_curve_pen3[flt])))
         if(any(is.na(cps))){
           errors <- c(errors, paste0(
             "Fleet '", fc$Fleet_name[flt], "' has Selectivity = 'LogisticPM' with time-varying ",
-            "selectivity but 'Sel_curve_pen1'/'Sel_curve_pen2'/'Sel_curve_pen3' (slope/inflection/age-1 ",
-            "random-walk weights) are missing or non-numeric."))
+            "selectivity but 'Sel_curve_pen1' (the random walk on realized log-selectivity) or ",
+            "'Sel_curve_pen3' (the walk on the age-1 deviates) is missing or non-numeric."))
         }
       }
 
@@ -902,11 +1116,17 @@ data_check <- function(data_list) {
       }
     }
 
+    # A negative penalty weight rewards the deviation it names, without bound.
+    # fit_mod() repeats this on the parameter in use, which `inits` can override.
+    errors <- c(errors, .rce_sel_pen_sign_errors(fc))
+
     # emp_sel presence required when any fleet has Selectivity = "Fixed"
     # (declarative requirement table).
     errors <- c(errors, .rce_check_presence(data_list, "emp_sel"))
 
-    # Estimated selectivity (Selectivity != "Fixed" and Fleet_type != "Off")
+    # Estimated selectivity. Fleet_type is read through .canon_switch(): this
+    # function is callable on a list straight from read_data(), where the column
+    # is still the integer code, and `0 != "Off"` is TRUE.
     # requires comp or CAAL data with Year > 0 to be identifiable. Otherwise
     # the selectivity parameters are unconstrained and the optimizer wanders.
     # EXCEPTION: a fleet whose Selectivity_index is shared (mirrored) with
@@ -949,7 +1169,7 @@ data_check <- function(data_list) {
     # settings are discarded. NA there really is "unset", so it is skipped.
     # Sel_norm_scope and Sel_cap_bin belong here too: both are per-fleet
     # DATA_IVECTORs read inside the curve builder (selectivity.hpp: the
-    # across-sex normalization reference, and the NonParametricRPM bin cap),
+    # across-sex normalization reference, and the NonParametricPM bin cap),
     # not behind a flt_sel_lead gate.
     .sel_shaping_cols <- c("Selectivity", "Selectivity_dimension",
                            "Bin_first_selected", "N_sel_bins",
@@ -964,7 +1184,22 @@ data_check <- function(data_list) {
         if (length(rows) < 2) next
         .differs <- function(col, na_is_a_value) {
           if (!col %in% colnames(fc)) return(FALSE)
-          v <- as.character(fc[[col]][rows])
+          # The normalization columns take a word or a bin, so "Max" and -1 are
+          # the same instruction; compare what they resolve to, not how they
+          # were typed.
+          v <- if (col %in% c("Sel_norm_bin", "Sel_norm_bin_upper")) {
+            # Resolved against each fleet's own first selected bin, as the model
+            # will resolve it; lo = 1 would call equivalent settings different.
+            lo <- vapply(rows, function(i) {
+              age <- isTRUE(fc$Selectivity_dimension[i] == "Age")
+              nb  <- if (age) data_list$nages[fc$Species[i]]
+                     else data_list$nlengths[fc$Species[i]]
+              as.numeric(.rce_sel_norm_bounds(data_list, i, age, nb)$lo)
+            }, numeric(1))
+            as.character(.rce_sel_norm_code(
+              fc[[col]][rows], lo = lo,
+              allow_all = fc$Selectivity[rows] %in% c(11, "LogisticPM")))
+          } else as.character(fc[[col]][rows])
           if (na_is_a_value) v[is.na(v)] <- "<blank>" else v <- v[!is.na(v)]
           length(unique(v)) > 1
         }
@@ -1079,7 +1314,8 @@ data_check <- function(data_list) {
 
     est_sel_flts <- fc[!is.na(fc$Selectivity) &
                          fc$Selectivity != "Fixed" &
-                         (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
+                         (!"Fleet_type" %in% colnames(fc) |
+                            .canon_switch(fc$Fleet_type, fleet_map) != "Off"),
                        , drop = FALSE]
     # Selectivity_index values that have active age data in ANY sharing fleet
     sel_idx_has_data <- if ("Selectivity_index" %in% colnames(fc)) {
@@ -1194,6 +1430,31 @@ data_check <- function(data_list) {
   if(has_data(catch_df) && "Catch" %in% colnames(catch_df) &&
      any(is.na(catch_df$Catch) | catch_df$Catch < 0)){
     errors <- c(errors, "catch_data$Catch must be >= 0")
+  }
+
+  # Initial equilibrium catch ----
+  errors <- c(errors, .check_equil_catch(data_list))
+
+  # Finit is per species but SS3's InitF is per fleet, so under mode 6 a species
+  # with more than one fishery decays its initial age structure at the MEAN
+  # fishery selectivity. Finit is then not the apical initial F of any one
+  # fishery, and the initial state sets the SSB scale, so say so.
+  # any(), not isTRUE(): isTRUE is FALSE for anything but a length-1 TRUE, so a
+  # two-element initMode would skip the warning rather than raise it.
+  if (has_data(data_list$fleet_control) &&
+      any(.canon_switch(data_list$initMode, initMode_map) ==
+            "FishedNonEquilibriumSelected", na.rm = TRUE)) {
+    fsh <- .canon_switch(data_list$fleet_control[["Fleet_type"]], fleet_map) == "Fishery"
+    n_fishery <- table(data_list$fleet_control[["Species"]][fsh])
+    if (any(n_fishery > 1L)) {
+      warning(paste0(
+        "initMode 'FishedNonEquilibriumSelected' on species ",
+        paste(names(n_fishery)[n_fishery > 1L], collapse = ", "),
+        ", which have more than one fishery. Finit is estimated per species and ",
+        "is applied at the MEAN selectivity of those fisheries, so it is not ",
+        "the apical initial F of any one of them. Mirror the fisheries onto one ",
+        "Selectivity_index if they should share a shape."), call. = FALSE)
+    }
   }
 
   # MVN survey covariance requirement ----
@@ -1479,7 +1740,7 @@ data_check <- function(data_list) {
   # log(Time_varying_sel_sd) exactly as it takes log(Time_varying_q_sd), so a
   # blank or non-positive value is the same -Inf/NaN start with the same
   # unattributable TMB error -- and it additionally makes the geometric mean
-  # .warn_shared_dev_sd() reports for a shared Selectivity_index group NaN.
+  # .warn_shared_block_start() reports for a shared Selectivity_index group NaN.
   #
   # Required only where the TEMPLATE actually reads sel_dev_sd, which is a
   # property of the (Selectivity, Time_varying_sel) pair rather than of either
@@ -1491,8 +1752,11 @@ data_check <- function(data_list) {
   #                        IID scores dnorm(dev, 0, sd); RandomWalk and
   #                        RandomWalkAscending score the first difference at it.
   #   Hake                 IID only.
-  #   NonParametric(PM)    RandomWalk only -- the walk on realized log-selectivity
-  #                        divides by 2*sd^2. build_map() refuses the other modes.
+  #   NonParametric        IID scores dnorm(sel_coff_dev, 0, sd) on each
+  #                        estimated coefficient; RandomWalk scores the walk on
+  #                        realized log-selectivity at the same sd.
+  #   NonParametricPM      RandomWalk only -- its deviates ARE walk increments.
+  #                        build_map() refuses the other modes on it.
   #   LogisticPM           never: its two walks are weighted by Sel_curve_pen1
   #                        and Sel_curve_pen3, and the model's own conditions
   #                        exclude type 11 from every sel_dev_sd site.
@@ -1501,11 +1765,13 @@ data_check <- function(data_list) {
   #                        sd through sel_curve_pen.
   #
   # `Block` is absent throughout, for the same reason it is on the q side: a
-  # time block carries no penalty. A NonParametric fleet under `Block` also has
-  # its sd deliberately moved into Sel_curve_pen2 and zeroed by
-  # revert_switches(), and is excluded with it. `AR1` is absent because it is
-  # refused above -- leaving it here would pre-empt that refusal with a complaint
-  # about a column the removed mode never reads.
+  # time block carries no penalty, and build_map() refuses `Block` on a
+  # non-parametric fleet outright. `AR1` is absent because it is refused above --
+  # leaving it here would pre-empt that refusal with a complaint about a column
+  # the removed mode never reads.
+  #
+  # A pre-4.4 non-parametric fleet arrives here with its mode already set to
+  # "Off" by switch_check()'s legacy-format upgrade.
   if (has_data(data_list$fleet_control)) {
     .fc   <- data_list$fleet_control
     .col  <- function(nm) if (nm %in% names(.fc)) .fc[[nm]] else rep(NA, nrow(.fc))
@@ -1519,8 +1785,12 @@ data_check <- function(data_list) {
     .reads_sel_sd[.logistic] <-
       .stv[.logistic] %in% c("IID", "RandomWalk", "RandomWalkAscending")
     .reads_sel_sd[.sel == "Hake"] <- .stv[.sel == "Hake"] == "IID"
-    .np <- .sel %in% c("NonParametric", "NonParametricPM")
-    .reads_sel_sd[.np] <- .stv[.np] == "RandomWalk"
+    .reads_sel_sd[.sel == "NonParametric"] <-
+      .stv[.sel == "NonParametric"] %in% c("IID", "RandomWalk")
+    .reads_sel_sd[.sel == "NonParametricPM"] <-
+      .stv[.sel == "NonParametricPM"] == "RandomWalk"
+    .reads_sel_sd[.sel == "NonParametricIntegrable"] <-
+      .stv[.sel == "NonParametricIntegrable"] %in% c("IID", "RandomWalk")
 
     .require_positive(.fc, .col, list(
       list(col = "Time_varying_sel_sd",
@@ -1565,6 +1835,32 @@ data_check <- function(data_list) {
     }
   }
 
+  # Maturity-at-length is integrated over the length distribution at spawning,
+  # which only estimated growth provides. L50 and slope come as a pair: one
+  # without the other would silently fall back to the age-based maturity sheet.
+  if(!is.null(data_list$L50_mat_len) || !is.null(data_list$slope_mat_len)){
+    L50   <- as.numeric(data_list$L50_mat_len   %||% rep(NA_real_, data_list$nspp))
+    slope <- as.numeric(data_list$slope_mat_len %||% rep(NA_real_, data_list$nspp))
+    sp_lab <- data_list$spnames %||% as.character(seq_len(data_list$nspp))
+    half <- xor(is.na(L50), is.na(slope))
+    if(any(half)){
+      errors <- c(errors, paste0("Set both L50_mat_len and slope_mat_len, or neither, for species: ",
+                                 paste(sp_lab[half], collapse = ", "), "."))
+    }
+    used <- !is.na(L50) & !is.na(slope)
+    if(any(used & !(L50 > 0 & slope > 0))){
+      errors <- c(errors, paste0("L50_mat_len (cm) and slope_mat_len (per cm) must be positive for species: ",
+                                 paste(sp_lab[used & !(L50 > 0 & slope > 0)], collapse = ", "),
+                                 ". A negative slope entered from an SS3 control file needs its sign flipped."))
+    }
+    gm <- rep_len(data_list$growth_model %||% 0, data_list$nspp)
+    if(any(used & gm == 0)){
+      errors <- c(errors, paste0("Maturity-at-length needs estimated growth (build_growth(fun = ",
+                                 "'vonBertalanffy' or 'Richards')); species with empirical growth: ",
+                                 paste(sp_lab[used & gm == 0], collapse = ", "), "."))
+    }
+  }
+
   # The sibling of the rule above, for the other reason pred_CAAL comes back
   # zero. CAAL is a composition of ages WITHIN a length bin, so the prediction is
   # selectivity-at-length convolved with the growth matrix (ceattle.cpp, section
@@ -1605,6 +1901,61 @@ data_check <- function(data_list) {
         "but inform nothing. Either set Selectivity_dimension = 'Length' for ",
         "these fleets, or drop their caal_data rows (set to empty, ",
         "Sample_size = 0, or Year < 0)."), call. = FALSE)
+    }
+  }
+
+  # Length-based selectivity on a finer population grid ----
+  errors <- c(errors, .check_pop_grid_bins(data_list))
+
+  # Ageing_error_index must name a matrix that exists and belong to the fleet's
+  # own species. Absent or NA falls back to the fleet's species number, so the
+  # FALLBACK is checked too, not just a supplied value: once 'age_error' carries
+  # its own index column those numbers are no longer species numbers, and the
+  # fallback then points at whichever matrix happens to sit at that position --
+  # another species' ageing error, over another species' age range.
+  if (has_data(data_list$fleet_control) && !is.null(data_list$age_error)) {
+    ae <- as.data.frame(data_list$age_error)
+    # The index each age_error ROW carries, under the same NA fallback the
+    # fleet side uses: a blank on an age_error row also means "this species'
+    # own matrix", which is what adding one matrix by typing an index on the
+    # new rows leaves behind.
+    ae_sp <- suppressWarnings(as.integer(as.character(ae[["Species"]])))
+    ae_ix <- .rce_ageing_error_index(ae)
+    have <- unique(ae_ix)
+    flt_sp <- suppressWarnings(as.integer(as.character(data_list$fleet_control$Species)))
+    # The effective index rearrange_data() will use (R/5-rearrange_data.R).
+    want <- .rce_ageing_error_index(data_list$fleet_control)
+    if (length(want)) {
+      bad <- which(!(want %in% have))
+      if (length(bad)) {
+        errors <- c(errors, paste0(
+          "fleet_control$Ageing_error_index names matrices that 'age_error' does ",
+          "not define, on fleet(s) ",
+          paste(as.character(data_list$fleet_control$Fleet_name[bad]), collapse = ", "),
+          ": asked for ", paste(sort(unique(want[bad])), collapse = ", "),
+          ", available ", paste(sort(have), collapse = ", "),
+          ". Give 'age_error' an 'Ageing_error_index' column naming each matrix, ",
+          "or drop the fleet_control column to use one matrix per species."))
+      }
+      # The matrix must be one of the fleet's OWN species. Without the index
+      # column the index IS the species, so "2" reads as "the second matrix" to
+      # a user and "species 2's matrix" to the model: the fleet would be fitted
+      # with another species' ageing error, over another species' age range.
+      # One species per index is enforced above, so the first row settles it.
+      idx_sp <- ae_sp[match(want, ae_ix)]
+      wrong <- which(!is.na(idx_sp) & !is.na(flt_sp) & idx_sp != flt_sp)
+      if (length(wrong)) {
+        errors <- c(errors, paste0(
+          "fleet_control$Ageing_error_index names an 'age_error' matrix ",
+          "belonging to another species, on fleet(s) ",
+          paste(as.character(data_list$fleet_control$Fleet_name[wrong]),
+                collapse = ", "), ": the fleet is on species ",
+          paste(flt_sp[wrong], collapse = ", "), " and matrix ",
+          paste(want[wrong], collapse = ", "), " is on species ",
+          paste(idx_sp[wrong], collapse = ", "),
+          ". Add an 'Ageing_error_index' column to 'age_error' naming the ",
+          "fleet's own matrix."))
+      }
     }
   }
 
@@ -1733,34 +2084,92 @@ data_check <- function(data_list) {
     errors <- c(errors, "msmMode > 0 requires other_food > 0 for all species; zero values cause divide-by-zero in suitability")
   }
 
-  # A Beverton-Holt or Ricker curve is anchored on spawning biomass per recruit:
-  # steepness, R0 and R_init all derive from SPR0 or SPRFinit. Under predation
-  # there is no such anchor -- total mortality carries M2, which scales with
-  # predator abundance, so per-recruit spawning output is not a property of the
-  # prey stock alone. The combination is refused rather than fitted.
-  #
-  # Resolve through .SRR_FUNS rather than comparing the raw value: a hand-built
-  # data_list can carry the string, and in R `"mean" >= 2` is TRUE, which would
-  # refuse a perfectly good mean-recruitment multispecies model. An unrecognised
-  # value is validate_switches()' business to report, not this check's.
-  .srr_needs_spr <- function(x) {
-    if (is.null(x) || length(x) != 1L || all(is.na(x))) return(FALSE)
-    code <- if (is.numeric(x)) as.integer(x) else unname(.SRR_FUNS[as.character(x)])
-    isTRUE(!is.na(code) && code >= 2L)
+  # SPR is undefined under predation (M2 moves with predators): a hindcast curve
+  # takes a free R_init instead, and a BH steepness prior is refused.
+  .switch_code <- function(x, map) {   # compare codes: "mean" >= 2 is TRUE in R
+    if (is.null(x) || length(x) != 1L || all(is.na(x))) return(NA_integer_)
+    if (is.numeric(x)) return(as.integer(x))
+    x <- as.character(x)
+    if (grepl("^[0-9]+$", x)) return(as.integer(x))   # a code read in as text
+    as.integer(unname(map[x]))
   }
-  if(!is.null(data_list$msmMode) && any(data_list$msmMode > 0)){
-    bad_srr <- c(if(.srr_needs_spr(data_list$srr_fun)) "srr_fun",
-                 if(.srr_needs_spr(data_list$srr_pred_fun)) "srr_pred_fun")
-    if(length(bad_srr)){
+  msm <- isTRUE(.switch_code(data_list$msmMode, msmMode_map) > 0L)
+  if(msm){
+    pred_code <- .switch_code(data_list$srr_pred_fun, .SRR_FUNS)
+    est_code  <- .switch_code(data_list$srr_est_mode, srr_est_mode_map)
+    if(isTRUE(pred_code %in% c(2L, 3L)) && isTRUE(est_code %in% c(2L, 3L))){
       errors <- c(errors, paste0(
-        "msmMode > 0 cannot be combined with a Beverton-Holt or Ricker ",
-        paste(bad_srr, collapse = " / "), ". Those curves are anchored on ",
-        "spawning biomass per recruit, which is undefined under predation: ",
-        "total mortality includes M2, so per-recruit spawning output depends on ",
-        "predator abundance rather than on the prey stock alone. SPR0 is left at ",
-        "0 and the derived steepness, R0 and R_init are meaningless. Use ",
-        "build_srr(srr_fun = 'mean', srr_pred_fun = 'mean'), or fit the ",
-        "stock-recruit curve in single-species mode."))
+        "msmMode > 0 cannot be combined with a prior on Beverton-Holt ",
+        "steepness (srr_est_mode = 'LognormalPrior' or 'BetaPrior'). Steepness ",
+        "is alpha * SPR0 / (4 + alpha * SPR0), and spawning biomass per recruit ",
+        "is undefined under predation: total mortality includes M2, so ",
+        "per-recruit spawning output depends on predator abundance rather than ",
+        "on the prey stock alone. Use srr_est_mode = 'Estimated' and put any ",
+        "prior or fixed value on alpha itself: ",
+        "build_srr(linkages = list(alpha = linkage_spec(~ 1, priors = ",
+        "list(`(Intercept)` = prior_lognormal(log(mean), sd)))))."))
+    }
+  }
+
+  # Penalty years must lie in the hindcast: past endyr the penalty would apply to projected
+  # recruitment. An empty window is allowed; a short retrospective peel has one.
+  fun_code <- .switch_code(data_list$srr_fun, .SRR_FUNS)
+  if (isTRUE(fun_code == 0L) &&
+      isTRUE(.switch_code(data_list$srr_pred_fun, .SRR_FUNS) > 0L)) {
+    yr_ok <- function(x) length(x) == 1L && !is.na(x)
+    if (yr_ok(data_list$srr_hat_styr) && yr_ok(data_list$styr) &&
+        data_list$srr_hat_styr < data_list$styr) {
+      errors <- c(errors, paste0("srr_hat_styr (", data_list$srr_hat_styr,
+                                 ") must be >= styr (", data_list$styr, "): the stock-recruit ",
+                                 "penalty has no recruitment before styr. Set it in the model's full ",
+                                 "build_srr() call or in data_list; build_srr(srr_hat_styr = ) on its own ",
+                                 "drops the penalty."))
+    }
+    if (yr_ok(data_list$srr_hat_endyr) && yr_ok(data_list$endyr) &&
+        data_list$srr_hat_endyr > data_list$endyr) {
+      errors <- c(errors, paste0("srr_hat_endyr (", data_list$srr_hat_endyr,
+                                 ") must be <= endyr (", data_list$endyr, "): ",
+                                 "the stock-recruit penalty would apply to projected recruitment. Set it in the ",
+                                 "model's full build_srr() call or in data_list; build_srr(srr_hat_endyr = ) ",
+                                 "on its own drops the penalty."))
+    }
+  }
+
+  # With minage = 0 a curve reads that year's spawning biomass before it is computed: zero
+  # recruitment in the hindcast (srr_fun), and in SB0, SBF and curve projections (srr_pred_fun).
+  srr_curve <- isTRUE(fun_code >= 2L) ||
+    isTRUE(.switch_code(data_list$srr_pred_fun, .SRR_FUNS) >= 2L)
+  age0 <- which(data_list$minage == 0)
+  if (srr_curve && length(age0) > 0L) {
+    errors <- c(errors, paste0(
+      "minage = 0 (", paste(data_list$spnames[age0] %||% age0, collapse = ", "),
+      ") cannot be combined with a Beverton-Holt or Ricker curve: age-0 recruits would ",
+      "come from spawning biomass the model has not yet computed, so the curve gives zero ",
+      "recruitment in the hindcast (srr_fun) or in SB0, the reference points and a ",
+      "proj_mean_rec = FALSE projection (srr_pred_fun). Use srr_fun = 'mean' and ",
+      "srr_pred_fun = 'mean'."))
+  }
+
+  # Beverton-Holt and Ricker use only alpha, beta and SSB, so under a hindcast curve an
+  # R0 linkage does nothing (single-species) or sets only R_init (multispecies).
+  r0_specs <- data_list$srr_linkages$R0
+  if (!is.null(r0_specs) && isTRUE(fun_code >= 2L)) {
+    if (inherits(r0_specs, "Rceattle_linkage_spec")) r0_specs <- list(r0_specs)
+    if (!msm) {
+      errors <- c(errors, paste0(
+        "An R0 linkage has no effect under a stock-recruit curve fitted in the ",
+        "hindcast (srr_fun = 'BevertonHolt' or 'Ricker'): recruitment depends on ",
+        "alpha, beta and SSB only, and R0 is derived from them. Put an ",
+        "environmental effect on productivity through an alpha linkage, or use ",
+        "srr_fun = 'mean' with the R0 linkage for an effect on recruitment level."))
+    } else if (any(vapply(r0_specs, .linkage_has_terms, logical(1)))) {
+      errors <- c(errors, paste0(
+        "Under msmMode > 0 with a stock-recruit curve fitted in the hindcast, R0 ",
+        "sets only the initial recruitment level R_init (the initial numbers-at-age ",
+        "and cohorts spawned before styr), so a covariate or random effect on it is ",
+        "unidentified. Use an intercept-only ",
+        "R0 linkage (~ 1) for a prior or fixed value on R_init, and an alpha ",
+        "linkage for an environmental effect on productivity."))
     }
   }
 
@@ -1781,6 +2190,15 @@ data_check <- function(data_list) {
   if(has_data(data_list$env_data)){
     if(!"Year" %in% colnames(data_list$env_data)){
       errors <- c(errors, "env_data is missing required 'Year' column")
+    } else {
+      # env_index is read by row position, one row per model year, so a repeated
+      # Year would feed the previous year's covariate to every year after it.
+      .dup <- unique(data_list$env_data$Year[duplicated(data_list$env_data$Year)])
+      if(length(.dup)){
+        errors <- c(errors, paste0("env_data has more than one row for year(s) ",
+                                   paste(.dup, collapse = ", "),
+                                   "; it takes one row per year."))
+      }
     }
   }
   if(any(data_list$M1_indices > ncol(data_list$env_index))){
@@ -1894,10 +2312,10 @@ data_check <- function(data_list) {
         gaps <- c(gaps, paste0(
           "  ", spnames[sp], sex_lab, " as PREDATOR: ",
           if(length(miss_pred) == length(ages)){
-            "no diet data at any age -- it exerts no predation."
+            "no diet data at any age (exerts no predation)."
           } else {
             paste0("no diet data at age ", runs(sort(miss_pred)),
-                   " -- those ages exert no predation.")
+                   " (no predation at those ages).")
           }))
       }
 
@@ -1917,22 +2335,21 @@ data_check <- function(data_list) {
       if(length(miss_prey)){
         gaps <- c(gaps, paste0(
           "  ", spnames[sp], sex_lab, " as PREY: no diet data at age ",
-          runs(sort(miss_prey)), " -- those ages are never eaten."))
+          runs(sort(miss_prey)), " (never eaten)."))
       }
     }
   }
 
   if(length(gaps)){
     warning(paste0(
-      "'diet_data' does not cover every age of a species using empirical ",
-      "suitability (suitMode = 0), and empirical suitability is read straight ",
-      "from the diet data, so an uncovered age is switched out of the ",
-      "predation calculation rather than estimated:\n",
+      "Under empirical suitability (suitMode = 0) suitability is read straight ",
+      "from 'diet_data', so an age with no diet rows drops out of predation ",
+      "rather than being estimated:\n",
       paste(gaps, collapse = "\n"),
-      "\nSupply diet rows for those ages, or pool them into the plus group. ",
-      "Rows with an age below the species' 'minage' are the aggregated diet ",
-      "formats and do not count here -- only prey-at-age-in-predator-at-age ",
-      "rows build MSVPA suitability."), call. = FALSE)
+      "\nAdd diet rows for those ages, or pool them into the plus group. Only ",
+      "prey-at-age-in-predator-at-age rows build MSVPA suitability; rows below ",
+      "'minage' are the aggregated diet formats and do not count."),
+      call. = FALSE)
   }
 
   invisible(NULL)
@@ -1945,7 +2362,7 @@ data_check <- function(data_list) {
 #' eigenvalues, because that is the operation the covariance index likelihood
 #' actually performs (`MVNORM()` / `Eigen::LLT` in `ceattle.cpp`): a matrix that
 #' factorizes here is one TMB can use. Assumes symmetry has already been
-#' checked -- `chol()` reads only the upper triangle, so it would accept an
+#' checked, `chol()` reads only the upper triangle, so it would accept an
 #' asymmetric matrix whose upper triangle happens to be positive definite.
 #'
 #' @param x A numeric matrix, assumed square and symmetric.
@@ -1970,12 +2387,12 @@ data_check <- function(data_list) {
 #' `fleet_control` still says they share one. Measured on `BS2017SS` with fleets
 #' 4 and 7 in one group and the linkage on fleet 7: fleet 4 flat at 0.035, fleet
 #' 7 running 0.087-0.537. With every fleet in the group named, and equal
-#' coefficients, they stay together -- so this fires on a strict subset only.
+#' coefficients, they stay together, so this fires on a strict subset only.
 #'
 #' Separate from `data_check()` because the linkage table does not exist yet
 #' when that runs: `fit_mod()` pools it after the check.
 #'
-#' @param data_list A `data_list` carrying `linkage_table` and `fleet_control`.
+#' @param data_list A `data_list` holding `linkage_table` and `fleet_control`.
 #' @keywords internal
 #' @noRd
 .warn_q_linkage_shared_group <- function(data_list) {
@@ -2007,4 +2424,311 @@ data_check <- function(data_list) {
     }
   }
   invisible()
+}
+
+
+#' Refuse a recruitment `R_init` linkage the initial age-structure cannot carry
+#'
+#' `R_init` is a log-scale multiplier on the initial age-structure, applied
+#' through `init_log_scalar`. Two `initMode`s cannot carry one: `FreeParams`
+#' builds the initial numbers straight from `init_dev` and never reads `R_init`,
+#' so the offset would be estimated and move nothing, and `OffsetEquilibrium`
+#' already fixes `init_log_scalar` at `rec_dev(sp, 0)`, which scales the same
+#' ages.
+#'
+#' Separate from `data_check()` because the linkage table does not exist yet when
+#' that runs: `fit_mod()` pools it after the check.
+#'
+#' @param data_list A `data_list` holding `linkage_table` and `initMode`.
+#' @keywords internal
+#' @noRd
+.check_r_init_linkage <- function(data_list) {
+  lt <- data_list[["linkage_table"]]
+  if (is.null(lt) || is.null(nrow(lt)) || !nrow(lt)) return(invisible())
+  rows <- .is_r_init_linkage_row(lt)
+  if (!any(rows)) return(invisible())
+
+  # The level is added inside the exp(), so only a log-scale offset means
+  # anything: an identity offset would add metric tons to a log multiplier.
+  bad <- setdiff(unique(as.character(lt[["link"]][rows])), "log")
+  if (length(bad)) {
+    stop(sprintf(paste0(
+      "a recruitment `R_init` linkage needs link = \"log\". The initial ",
+      "recruitment level is a log-scale multiplier on the initial ",
+      "age-structure, so link = %s has no meaning there."),
+      paste(sQuote(bad), collapse = " / ")), call. = FALSE)
+  }
+
+  # ONE coefficient per species is all the initial state can identify, and the
+  # species is the ONLY stratum that counts. Two reasons, both in linkage.hpp's
+  # `rceattle_apply_recruitment_linkages()`: it discards sex and age_bin
+  # outright (`(void)linkage_sex; (void)linkage_age_bin;`) and takes no fleet,
+  # and it ACCUMULATES every matching row onto one offset per species, with a
+  # `species = NA` row broadcasting to all of them. Since only year 0 is read,
+  # the whole linkage collapses there to sum_i beta_i * X(0, col_i) -- a single
+  # number per species. So any second row on a species is aliased against the
+  # first whatever its design column, covariate, sex or age bin, and counting
+  # within a species/sex/age_bin/fleet stratum lets `by = ~ species + age_bin`
+  # through as five coefficients with identical gradients.
+  nspp  <- as.integer(data_list[["nspp"]])
+  cols  <- as.character(lt[["design_col"]][rows])
+  sp_of <- lt[["species"]][rows]
+  per_sp <- vector("list", nspp)
+  for (k in seq_along(sp_of)) {
+    broadcast <- is.na(sp_of[k]) || as.integer(sp_of[k]) == 0L
+    for (s in if (broadcast) seq_len(nspp) else as.integer(sp_of[k])) {
+      per_sp[[s]] <- c(per_sp[[s]], cols[k])
+    }
+  }
+  bad <- which(vapply(per_sp, length, integer(1)) > 1L)
+  if (length(bad)) {
+    nm <- data_list[["spnames"]]
+    detail <- vapply(bad, function(s) sprintf(
+      "%s has %d (%s)",
+      if (!is.null(nm) && length(nm) >= s) nm[s] else paste("species", s),
+      length(per_sp[[s]]), paste(sQuote(per_sp[[s]]), collapse = ", ")),
+      character(1))
+    stop(sprintf(paste0(
+      "a recruitment `R_init` linkage must have one coefficient per species; ",
+      "%s. The initial recruitment level is read in the first year only, and ",
+      "every row on a species is summed into it, so anything more is not ",
+      "identified -- including one row per sex, per age bin or per fleet, ",
+      "which the initial state does not distinguish. Use `~ 1` for a free ",
+      "level, or `~ 0 + x` for one covariate."),
+      paste(detail, collapse = "; ")), call. = FALSE)
+  }
+
+  # initMode reaches here as the caller gave it -- a canonical string alias or
+  # its integer code (fit_mod() validates but does not convert).
+  mode <- as.character(data_list[["initMode"]])
+  if (mode %in% c("FreeParams", "0")) {
+    stop("a recruitment `R_init` linkage cannot be used with initMode = ",
+         "\"FreeParams\": that mode estimates the initial numbers-at-age ",
+         "directly as init_dev and never reads R_init, so the level would be ",
+         "estimated and change nothing.", call. = FALSE)
+  }
+  if (mode %in% c("OffsetEquilibrium", "5")) {
+    stop("a recruitment `R_init` linkage cannot be used with initMode = ",
+         "\"OffsetEquilibrium\": that mode already scales the initial ",
+         "age-structure by the first-year recruitment deviation rec_dev[, 1], ",
+         "so the two are not separable. Use initMode = \"NonEquilibrium\" to ",
+         "estimate the level instead.", call. = FALSE)
+  }
+  invisible()
+}
+
+
+#' Check an initial equilibrium catch, the `catch_data` row at `styr - 1`
+#'
+#' Returns a character vector of errors, empty where there is nothing to say,
+#' and messages whether the rows were read. The row is read only under
+#' `initMode = "FishedNonEquilibriumSelected"`; that year also holds ordinary
+#' catch history, so the fleets are named whenever the rows ARE read. SS3 pairs
+#' the observation and the parameter the same way (`SS_readcontrol_330.tpl`).
+#'
+#' @param data_list Rceattle data list.
+#' @keywords internal
+#' @noRd
+.check_equil_catch <- function(data_list) {
+  errors <- character(0)
+  rows <- .rce_equil_catch_candidates(data_list)
+  if (is.null(rows) || !nrow(rows)) return(errors)
+
+  styr_1 <- data_list$styr - 1L
+  read <- .rce_equil_catch_rows(rows, data_list$styr, data_list$initMode)
+  if (!any(read)) {
+    # Present but not read: the rows leave catch_data either way, so say so
+    # rather than let them vanish.
+    message("catch_data rows at Year ", styr_1,
+            " are catch history outside the fitted window and are not fitted; an ",
+            "initial equilibrium catch is read from that year only under ",
+            "initMode = 'FishedNonEquilibriumSelected'.")
+    return(errors)
+  }
+
+  flt <- rows[["Fleet_code"]][read]
+  nm  <- if ("Fleet_name" %in% colnames(rows)) rows[["Fleet_name"]][read] else flt
+  message("Initial equilibrium catch read from catch_data at Year ", styr_1,
+          " for fleet(s) ", paste(unique(nm), collapse = ", "),
+          ". Finit is fitted to it; remove the row to leave Finit unidentified.")
+
+  if (anyDuplicated(flt)) {
+    errors <- c(errors, paste0(
+      "More than one initial equilibrium catch at Year ", styr_1,
+      " for fleet(s) ", paste(unique(flt[duplicated(flt)]), collapse = ", "),
+      ". A fleet has one initial F and so one equilibrium catch."))
+  }
+  catch <- suppressWarnings(as.numeric(rows[["Catch"]][read]))
+  if (any(!is.finite(catch) | catch <= 0)) {
+    errors <- c(errors, paste0(
+      "An initial equilibrium catch (Year ", styr_1,
+      ") must be positive; it is the observation Finit is fitted to, and a ",
+      "zero or blank one leaves Finit with nothing to identify it."))
+  }
+  # The checks catch_data gets. These rows are held in their own element by then,
+  # so the loops over catch_data no longer see them, and the template indexes
+  # flt_type and flt_units by Fleet_code without a range test.
+  log_sd <- suppressWarnings(as.numeric(rows[["Log_sd"]][read]))
+  if (any(!is.finite(log_sd) | log_sd <= 0)) {
+    errors <- c(errors, paste0(
+      "An initial equilibrium catch needs 'Log_sd' > 0; it is fitted with ",
+      "the same lognormal as the hindcast catch."))
+  }
+  if (!.rce_has_data(data_list$fleet_control)) return(errors)
+
+  fc <- data_list$fleet_control
+  codes <- suppressWarnings(as.numeric(fc[["Fleet_code"]]))
+  unknown <- setdiff(unique(flt), codes[!is.na(codes)])
+  if (length(unknown)) {
+    return(c(errors, paste0(
+      "An initial equilibrium catch names Fleet_code(s) not in fleet_control: ",
+      paste(unknown, collapse = ", "), ".")))
+  }
+
+  row_i <- match(flt, codes)
+  if ("Species" %in% colnames(rows)) {
+    wrong_sp <- which(suppressWarnings(as.integer(rows[["Species"]][read])) !=
+                        suppressWarnings(as.integer(fc[["Species"]][row_i])))
+    if (length(wrong_sp)) {
+      errors <- c(errors, paste0(
+        "An initial equilibrium catch gives a Species its fleet does not ",
+        "belong to, on fleet(s) ", paste(flt[wrong_sp], collapse = ", "), "."))
+    }
+  }
+  # The template scores an equilibrium catch on flt_type == 1 alone, so on any
+  # other fleet the row leaves the catch history and is fitted by nothing. An Off
+  # fleet is named separately: turning a fishery off is an ordinary thing to do,
+  # and the fix is to drop the row with it.
+  type <- .canon_switch(fc[["Fleet_type"]][row_i], fleet_map)
+  off  <- which(type == "Off")
+  srv  <- which(type != "Off" & type != "Fishery")
+  if (length(srv)) {
+    errors <- c(errors, paste0(
+      "An initial equilibrium catch is on fleet(s) ",
+      paste(flt[srv], collapse = ", "),
+      ", which are not fisheries. It is the catch the stock yielded under the ",
+      "initial fishing mortality, so it belongs to a fishery."))
+  }
+  if (length(off)) {
+    errors <- c(errors, paste0(
+      "An initial equilibrium catch is on fleet(s) ",
+      paste(flt[off], collapse = ", "),
+      ", whose Fleet_type is 'Off'. An Off fleet is not fitted, so the row ",
+      "would be scored by nothing; remove it along with the fleet."))
+  }
+  # Finit is per species, and the initial age structure decays at the MEAN
+  # fishery selectivity, so on a species with more than one fishery the
+  # prediction and the population it is taken from disagree. There is no
+  # per-fleet split of a pooled Finit to fall back on.
+  n_fishery <- vapply(fc[["Species"]][row_i], function(x) sum(
+    .canon_switch(fc[["Fleet_type"]], fleet_map) == "Fishery" &
+      fc[["Species"]] == x), integer(1))
+  if (any(n_fishery > 1L)) {
+    errors <- c(errors, paste0(
+      "An initial equilibrium catch is on fleet(s) ",
+      paste(flt[n_fishery > 1L], collapse = ", "),
+      ", whose species has more than one fishery. Finit is per species and the ",
+      "initial age structure decays at the mean fishery selectivity, so the ",
+      "prediction would not match the population it is taken from."))
+  }
+  # The equilibrium age structure N_eq is built only where the numbers-at-age are
+  # estimated. Under estDynamics 1 or 2 they are read from NByageFixed, N_eq stays
+  # zero, and the Baranov prediction is 0 -- so the lognormal takes log(0) and the
+  # objective is not finite. log_Finit is mapped out on such a species as well, so
+  # the row would be fitted by nothing even if the prediction were positive.
+  est_dyn <- suppressWarnings(as.integer(data_list[["estDynamics"]]))
+  if (length(est_dyn)) {
+    sp_i <- suppressWarnings(as.integer(fc[["Species"]][row_i]))
+    fixed <- which(!is.na(sp_i) & sp_i >= 1L & sp_i <= length(est_dyn) &
+                     !is.na(est_dyn[sp_i]) & est_dyn[sp_i] > 0L)
+    if (length(fixed)) {
+      errors <- c(errors, paste0(
+        "An initial equilibrium catch is on fleet(s) ",
+        paste(flt[fixed], collapse = ", "),
+        ", whose species has estDynamics > 0. Those numbers-at-age are read ",
+        "from 'NByageFixed', so there is no estimated equilibrium age structure ",
+        "for the catch to be taken from and Finit is not estimated. Remove the ",
+        "row, or estimate the dynamics for that species."))
+    }
+  }
+  errors
+}
+
+
+#' Refuse a bin-indexed length selectivity on a finer population grid
+#'
+#' A length-based curve is built on the population bins, but every column that
+#' names a selectivity bin is a DATA bin ordinal. On a finer population grid the
+#' two cannot both be honoured, so a fleet that indexes bins -- by form, by a
+#' time-varying deviation penalty, or by naming a bin in a column -- is refused.
+#' A parametric form that names no bin is a function of length and is unaffected,
+#' which is the case the population grid exists to serve.
+#'
+#' @param data_list Rceattle data list.
+#' @keywords internal
+#' @noRd
+.check_pop_grid_bins <- function(data_list) {
+  errors <- character(0)
+  if (.rce_has_data(data_list$fleet_control) && !is.null(data_list$pop_lengths)) {
+    fc <- data_list$fleet_control
+    # nlengths_pop is built by rearrange_data(), which runs after this, so the
+    # grid is resolved here from the same helper rather than read off data_list.
+    # Report the grid's own refusal here rather than discarding it: a misaligned
+    # grid otherwise passes data_check() clean and is refused later by
+    # rearrange_data(), which is the failure data_check() exists to prevent.
+    grid <- tryCatch(.rce_pop_length_bins(data_list),
+                     error = function(e) conditionMessage(e))
+    if (is.character(grid)) return(c(errors, grid))
+    npop <- grid[["nlengths_pop"]]
+    bin_indexed_forms <- c("NonParametric", "Hake", "2DAR1", "3DAR1",
+                           "NonParametricPM", "NonParametricIntegrable")
+    # Columns read as a bin ordinal on a length fleet. Bin_first_selected is
+    # 1-based, so 1 names the first bin and needs no translation.
+    # N_sel_bins is NOT here: it is read only by the bin-indexed forms, which
+    # `np_form` already names, and on a parametric fleet it is inert.
+    bin_cols <- c("Sel_norm_bin", "Sel_norm_bin_upper",
+                  "Sel_pen_first_bin", "Sel_pen_last_bin", "Sel_cap_bin")
+    # Each flag carries one entry per fleet even where the column is absent:
+    # Bin_first_selected has no schema default, and a zero-length flag would
+    # silently drop every other fleet from the refusal below.
+    col_or_na <- function(nm) {
+      if (nm %in% names(fc)) fc[[nm]] else rep(NA, nrow(fc))
+    }
+    len_based <- !is.na(col_or_na("Selectivity_dimension")) &
+                 as.character(col_or_na("Selectivity_dimension")) == "Length"
+    np_form   <- .canon_switch(col_or_na("Selectivity"), sel_map) %in%
+                   bin_indexed_forms
+    bfs       <- suppressWarnings(as.integer(col_or_na("Bin_first_selected")))
+    names_bin <- !is.na(bfs) & bfs > 1L
+    for (cl in intersect(bin_cols, names(fc))) {
+      # Strictly positive: on every one of these columns 0 or below is a
+      # sentinel ("Off", "no cap", "normalize by the max"), not a bin.
+      v <- suppressWarnings(as.integer(fc[[cl]]))
+      names_bin <- names_bin | (!is.na(v) & v > 0)
+    }
+    coarse <- vapply(seq_len(nrow(fc)), function(i) {
+      sp <- suppressWarnings(as.integer(fc$Species[i]))
+      if (is.na(sp) || is.null(npop) || sp > length(npop)) return(FALSE)
+      isTRUE(npop[sp] != data_list$nlengths[sp])
+    }, logical(1))
+    # A parametric curve is a function of centimetres: its time-varying deviates
+    # (sel_inf_dev, log_sel_slp_dev) are added to the parameter, not to a bin, so
+    # a finer grid leaves it unchanged. Only the bin-indexed forms -- whose
+    # sel_coff_dev IS per bin -- and a column naming a data bin are refused.
+    bad <- which(len_based & coarse & (np_form | names_bin))
+    if (length(bad)) {
+      errors <- c(errors, paste0(
+        "Fleet(s) ", paste(as.character(fc$Fleet_name[bad]), collapse = ", "),
+        " have a length-based selectivity that is indexed by bin -- a ",
+        "non-parametric or AR1 form, or a ",
+        "column naming a bin (", paste(c("Bin_first_selected", bin_cols),
+                                       collapse = ", "),
+        ") -- on a species whose population length grid is finer than its data ",
+        "grid. Those bin numbers are data bins, and the curve is built on the ",
+        "population bins, so the model would not be the one the numbers ",
+        "describe. Use a parametric form that names no bin, or give the ",
+        "species one length grid (drop pop_lengths)."))
+    }
+  }
+  errors
 }

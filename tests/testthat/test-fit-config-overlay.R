@@ -66,3 +66,47 @@ testthat::test_that("load_config(save_config(fit)) reproduces a non-default fit 
   testthat::expect_identical(fit2$opt$objective, fit1$opt$objective)
   testthat::expect_identical(fit2$quantities$ssb, fit1$quantities$ssb)
 })
+
+
+# An absent DSEM must round-trip through YAML as ABSENT, not as a default one.
+#
+# Regression, and a silently-wrong-MODEL one. save_config() writes `dsem: []`
+# for a fit with no DSEM, and load_config() materializes every builder field
+# present in the YAML through its constructor. That is a no-op for the other
+# seven -- build_srr(), build_M1() and the rest return the ordinary
+# parameterization when called bare -- but build_DSEM()'s default makes the
+# recruitment deviations the latent states of a GMRF. So the empty block
+# reloaded as a REAL DSEM spec, fit_mod()'s `if (is.null(dsem))` guard never
+# fired, and the refit declared dsem_x_tj random instead of rec_dev: the
+# deviations stopped being integrated out. The objective moved only 5.4e-08 on
+# this fixture, which is why it reads as rounding rather than as a different
+# model.
+#
+# Assert the random block directly, not just the objective. A model that lands
+# in the same place by luck would pass a tolerance check.
+testthat::test_that("a fit with no DSEM does not reload as one", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  fc <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    Rceattle::BS2017SS, file = NULL, estimateMode = 1,
+    initMode = "OffsetEquilibrium", random_rec = TRUE, fit_control = fc)))
+  testthat::expect_null(fit[["dsem"]])
+  testthat::expect_identical(fit[["random_vars"]], "rec_dev")
+
+  tf <- tempfile(fileext = ".yaml")
+  suppressMessages(Rceattle::save_config(fit, tf))
+  cfg <- Rceattle::load_config(tf)
+
+  # The config itself must not carry a materialized DSEM...
+  testthat::expect_true(is.null(cfg$model_config$dsem) ||
+                        length(cfg$model_config$dsem) == 0L)
+
+  # ...and neither must the fit driven from it.
+  again <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(Rceattle::BS2017SS, file = NULL, config = cfg)))
+  testthat::expect_null(again[["dsem"]])
+  testthat::expect_null(again[["data_list"]][["dsem_settings"]])
+  testthat::expect_identical(again[["random_vars"]], "rec_dev")
+})

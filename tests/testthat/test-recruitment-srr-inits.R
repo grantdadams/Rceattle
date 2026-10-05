@@ -13,11 +13,11 @@ testthat::skip_on_cran()
 srr_dat <- function(dat, srr_fun = 2, srr_est_mode = 1, srr_prior = 4,
                     srr_prior_sd = 1,
                     srr_alpha_init = NULL, srr_beta_init = NULL) {
-  spec <- Rceattle::build_srr(srr_fun = srr_fun, srr_est_mode = srr_est_mode,
-                              srr_prior = srr_prior,
-                              srr_prior_sd = srr_prior_sd,
-                              srr_alpha_init = srr_alpha_init,
-                              srr_beta_init = srr_beta_init)
+  # Modes 0 and 2 on Ricker are deprecated (5.33.0) but still tested here.
+  spec <- suppressWarnings(Rceattle::build_srr(
+    srr_fun = srr_fun, srr_est_mode = srr_est_mode, srr_prior = srr_prior,
+    srr_prior_sd = srr_prior_sd, srr_alpha_init = srr_alpha_init,
+    srr_beta_init = srr_beta_init), classes = "rceattle_deprecated")
   dat$srr_fun        <- spec$srr_fun
   dat$srr_pred_fun   <- spec$srr_pred_fun
   dat$srr_est_mode   <- spec$srr_est_mode
@@ -90,8 +90,8 @@ testthat::test_that("srr_est_mode = 0 fixes alpha to the prior mean for every cu
     inits <- suppressMessages(Rceattle::build_params(dat))
     mod <- Rceattle::fit_mod(
       data_list = dat, inits = inits, msmMode = 0,
-      recFun = Rceattle::build_srr(srr_fun = fun, srr_est_mode = 0,
-                                   srr_prior = alpha),
+      recFun = suppressWarnings(Rceattle::build_srr(srr_fun = fun, srr_est_mode = 0,
+                                   srr_prior = alpha), classes = "rceattle_deprecated"),
       estimateMode = 3,
       fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))
     # alpha is fixed ...
@@ -110,8 +110,8 @@ testthat::test_that("srr_est_mode = 0 fixes alpha to the prior mean for every cu
   # recruitment is R0 * exp(rec_dev) in that configuration.
   mod <- Rceattle::fit_mod(
     data_list = dat, msmMode = 0,
-    recFun = Rceattle::build_srr(srr_fun = 0, srr_pred_fun = 2,
-                                 srr_est_mode = 0, srr_prior = alpha),
+    recFun = suppressWarnings(Rceattle::build_srr(srr_fun = 0, srr_pred_fun = 2,
+                                 srr_est_mode = 0, srr_prior = alpha), classes = "rceattle_deprecated"),
     estimateMode = 3,
     fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))
   map_rec <- mod$map$mapList$rec_pars[1, ]
@@ -143,10 +143,12 @@ testthat::test_that("build_srr() rejects an invalid steepness prior", {
     Rceattle::build_srr(srr_fun = 2, srr_est_mode = 3, srr_prior = 0.75,
                         srr_prior_sd = 0.2))
 
-  # Ricker takes an alpha-valued prior, so none of this applies.
-  testthat::expect_silent(
-    Rceattle::build_srr(srr_fun = 4, srr_est_mode = 2, srr_prior = 4))
-  # Neither does it for a curve that applies no prior at all.
+  # Ricker takes an alpha-valued prior, so none of this applies; that prior and
+  # srr_prior as a starting value are deprecated (5.33.0), so each warns only that.
+  testthat::expect_warning(
+    Rceattle::build_srr(srr_fun = 4, srr_est_mode = 2, srr_prior = 4), "deprecated")
+  # Neither does it for a curve that applies no prior at all. srr_prior = 4 is the
+  # default a refit passes back, so it does not warn as a deprecated starting value.
   testthat::expect_silent(
     Rceattle::build_srr(srr_fun = 2, srr_est_mode = 1, srr_prior = 4))
 })

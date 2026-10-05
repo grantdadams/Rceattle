@@ -1,3 +1,77 @@
+# The initial equilibrium catch is a catch_data row at Year == styr - 1. It is
+# Baranov at Finit * selectivity, the mortality only FishedNonEquilibriumSelected
+# builds the initial age structure with, so only that mode reads the row; under
+# any other it is catch history and is dropped. The year is the marker because a
+# negative Year cannot be -- run_mse() reserves those for spliced-in data.
+.RCE_EQUIL_CATCH_INITMODES <- "FishedNonEquilibriumSelected"
+
+# The styr - 1 rows, taken from both places they can sit: clean_data() moves them
+# out of catch_data into equil_catch_data, so a cleaned list holds them there and
+# a raw one still has them in catch_data. The union, one row per fleet, keeps
+# clean_data() idempotent and stops an already-split element hiding a row the
+# user has since added to catch_data.
+.rce_equil_catch_candidates <- function(data_list) {
+  pick <- function(d) {
+    if (is.null(d) || !nrow(d) || is.null(data_list$styr) ||
+        !"Year" %in% names(d)) return(NULL)
+    d[!is.na(d$Year) & d$Year == (data_list$styr - 1L), , drop = FALSE]
+  }
+  held <- pick(data_list$equil_catch_data)
+  fresh <- pick(data_list$catch_data)
+  if (is.null(held)) return(fresh)
+  if (!is.null(fresh) && nrow(fresh)) {
+    fresh <- fresh[!(fresh$Fleet_code %in% held$Fleet_code), , drop = FALSE]
+    if (nrow(fresh)) held <- dplyr::bind_rows(held, fresh)
+  }
+  rownames(held) <- NULL
+  held
+}
+
+# TRUE where a row is read as the initial equilibrium catch. `initMode` may be a
+# code or a name; absent, switch_check() announces NonEquilibrium, which holds
+# Finit at 0.
+.rce_equil_catch_rows <- function(catch_data, styr, initMode) {
+  if (is.null(catch_data) || !nrow(catch_data) || is.null(styr)) return(logical(0))
+  im <- if (is.null(initMode) || !length(initMode) || all(is.na(initMode))) {
+    "NonEquilibrium"
+  } else .canon_switch(initMode, initMode_map)
+  if (!isTRUE(im %in% .RCE_EQUIL_CATCH_INITMODES)) return(rep(FALSE, nrow(catch_data)))
+  !is.na(catch_data$Year) & catch_data$Year == (styr - 1L)
+}
+
+#' Metadata columns of `age_error`; every other column is an observed-age probability
+#'
+#' Read by both `data_check()` and `rearrange_data()`, which name the metadata rather
+#' than counting past the leading columns, so adding a metadata column cannot shift
+#' which columns are read as observed-age probabilities.
+#' @keywords internal
+#' @noRd
+.RCE_AGE_ERROR_META <- c("Species", "True_age", "Ageing_error_index",
+                         "Ageing_error_name")
+
+#' The ageing-error matrix a table's rows resolve to
+#'
+#' Absent or blank means the row's own species, which reproduces the behaviour
+#' from when there was one matrix per species. Read by `data_check()` and
+#' `rearrange_data()` on both the `age_error` and the `fleet_control` side, so
+#' that a fleet cannot be validated against one matrix and fitted with another:
+#' the coercion has to be identical everywhere, and `as.integer()` on a
+#' factor-typed column returns the LEVEL CODE rather than the number typed in
+#' the workbook.
+#'
+#' @param df Data frame carrying `Species` and optionally `Ageing_error_index`.
+#' @param species_col Name of the species column.
+#' @return Integer vector, one element per row of `df`.
+#' @keywords internal
+#' @noRd
+.rce_ageing_error_index <- function(df, species_col = "Species") {
+  sp <- suppressWarnings(as.integer(as.character(df[[species_col]])))
+  ix <- df[["Ageing_error_index"]]
+  if (is.null(ix) || !length(ix)) return(sp)
+  ix <- suppressWarnings(as.integer(as.character(ix)))
+  ifelse(is.na(ix), sp, ix)
+}
+
 # =============================================================================
 # Canonical workbook-column schema
 # =============================================================================
@@ -101,10 +175,15 @@
     # element order exactly, not just element values.
     .rce_col("alpha_wt_len", "control", "Alpha parameter from Weight = alpha * Length ^ beta", has_default = TRUE, default = 1e-6, default_msg = "'alpha_wt_len' not specified in data, assuming 1e-6"),
     .rce_col("beta_wt_len", "control", "Beta parameter from Weight = alpha * Length ^ beta", has_default = TRUE, default = 3, default_msg = "'beta_wt_len' not specified in data, assuming 3"),
+    # Maturity-at-length. Absent or NA leaves spawning output on the age-based
+    # maturity sheet; set, it integrates maturity x weight over the length
+    # distribution at spawning, which needs estimated growth.
+    .rce_col("L50_mat_len", "control", "Numeric: length (cm) at which half of females are mature, for maturity-at-length; set with slope_mat_len. NA uses the age-based maturity sheet. Needs estimated growth.", tmb_target = "mat_len_pars"),
+    .rce_col("slope_mat_len", "control", "Numeric: slope (per cm, positive) of logistic maturity-at-length, maturity = 1 / (1 + exp(-slope_mat_len * (length - L50_mat_len))). NA uses the age-based maturity sheet.", tmb_target = "mat_len_pars"),
     .rce_col("pop_age_transition_index", "control", "Integer: age transition matrix (e.g. growth trajectory) index to use deriving length-based predation", type = "integer"),
     .rce_col("sigma_rec", "control", "Numeric: fixed or initial value of standard deviation for recruitment deviates", aliases = "sigma_rec_prior"),
     .rce_col("other_food", "control", "Numeric: other food in the ecosystem for each species (kg)"),
-    .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient\r\n3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp)); documentation-only", tmb_target = "estDynamics"),
+    .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient, estimated under predation (msmMode > 0) and fixed at 1 otherwise.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp)); documentation-only", tmb_target = "estDynamics"),
 
     # ======================================================================
     # fleet_control sheet, in canonical column order
@@ -115,41 +194,42 @@
     .rce_col("Species", "fleet_control", "Species number", type = "integer", tmb_target = "flt_spp"),
     .rce_col("Month", "fleet_control", "Observation month for the fleet (0 = not specified).", type = "integer", meta = TRUE, has_default = TRUE, default = 0, default_msg = "'Month' not specified in 'fleet_control', assuming 0", tmb_target = "flt_month"),
     .rce_col("Selectivity_index", "fleet_control", "Index used to give fleets the SAME selectivity (otherwise, same as Fleet_code). Fleets sharing a value share one selectivity parameter block, with its penalties and priors accumulated once on the group's first non-Off fleet.\r\nSharing the parameters is not enough on its own: the columns that shape the curve are read per fleet and must agree across the group, or the fleets end up with different selectivities. data_check() reports any that differ. To mirror a fleet, copy its fleet_control row and change only the identity and catchability columns.\r\nSee vignette('model-options-and-functionality'), 'Sharing a selectivity between fleets'.", type = "integer", tmb_target = "flt_sel_lead"),
-    .rce_col("Selectivity", "fleet_control", "0 = fixed (empirical selectivity from srv_emp_sel)\r\n1 = logistic\r\n2 = non-parametric (Ianelli et al. 2018)\r\n3 = double logistic\r\n4 = descending logistic\r\n5 = non-parametric (Taylor et al. 2014, 'Hake')\r\n6 = 2D AR1 (age x year)\r\n7 = 3D AR1 (Cheng et al. 2024)\r\n8 = double normal\r\n9 = non-parametric random walk (AMAK 'pm')\r\n11 = logistic with a free age-1 selectivity (AMAK 'pm')\r\nWhether a form is age- or length-based is set by Selectivity_dimension, not by the code.", type = "switch", allowed = "sel_map", tmb_target = "flt_sel_type"),
+    .rce_col("Selectivity", "fleet_control", "0 = fixed (empirical selectivity from srv_emp_sel)\r\n1 = logistic\r\n2 = non-parametric (Ianelli et al. 2018)\r\n3 = double logistic\r\n4 = descending logistic\r\n5 = non-parametric (Taylor et al. 2014, 'Hake')\r\n6 = 2D AR1 (age x year)\r\n7 = 3D AR1 (Cheng et al. 2024)\r\n8 = double normal\r\n9 = non-parametric random walk, increments penalized (AMAK 'pm'; not integrable under random_sel)\r\n11 = logistic with a free age-1 selectivity (AMAK 'pm')\r\n13 = non-parametric base curve whose deviations have a proper density, so random_sel integrates them; Time_varying_sel picks the structure (Off, IID or RandomWalk)\r\n15 = Stock Synthesis size pattern 24 double normal (six parameters, varied through selectivity linkages)\r\nWhether a form is age- or length-based is set by Selectivity_dimension, not by the code.", type = "switch", allowed = "sel_map", tmb_target = "flt_sel_type"),
     .rce_col("Selectivity_dimension", "fleet_control", "\"Age\" or \"Length\".", type = "character", meta = TRUE, has_default = TRUE, default = "Age", default_msg = "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'", default_msg_when = "growth_estimated", tmb_target = "flt_sel_dim", allowed = "sel_dimension_map"),
-    .rce_col("N_sel_bins", "fleet_control", "Number of age or length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, or 9).", type = "integer", aliases = "Nselages", tmb_target = "flt_n_sel_bins"),
-    .rce_col("Sel_curve_pen1", "fleet_control", "Shape/smoothness penalty weight for non-parametric (type 2/9) and LogisticPM (11) selectivity (the intuitive alternative is Sel_shape_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation, across selectivity BINS (ages or length bins, per Selectivity_dimension).", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
-    .rce_col("Sel_curve_pen2", "fleet_control", "2nd-difference curvature penalty weight for non-parametric (type 2/9) selectivity (the intuitive alternative is Sel_curvature_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation, across YEARS.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
-    .rce_col("Sel_curve_pen3", "fleet_control", "Deviation-magnitude penalty weight (Sel_curve_pen3) for non-parametric / LogisticPM selectivity. The 3DAR1 form (7) reuses this column as a logit-scale AR1 correlation, across COHORTS.", meta = TRUE, has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
+    .rce_col("N_sel_bins", "fleet_control", "Number of age or length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, 9, or 13).", type = "integer", aliases = "Nselages", tmb_target = "flt_n_sel_bins"),
+    .rce_col("Sel_curve_pen1", "fleet_control", "Shape/smoothness penalty weight for non-parametric (type 2/9/13) and LogisticPM (11) selectivity (the intuitive alternative is Sel_shape_sd). On 13 it is charged once on the base coefficients, not on each year's curve. The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation, across selectivity BINS (ages or length bins, per Selectivity_dimension).", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
+    .rce_col("Sel_curve_pen2", "fleet_control", "2nd-difference curvature penalty weight for non-parametric (type 2/9/13) selectivity (the intuitive alternative is Sel_curvature_sd). On 13 it is charged once on the base coefficients, not on each year's curve. The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation, across YEARS.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
+    .rce_col("Sel_curve_pen3", "fleet_control", "Deviation-magnitude penalty weight (Sel_curve_pen3). Read only by \"NonParametricPM\" (9) and \"LogisticPM\" (11). \"NonParametric\" (2) and \"NonParametricIntegrable\" (13) do have selectivity deviates, but score them with a Gaussian density on Time_varying_sel_sd instead, so this slot is inert on both. The 3DAR1 form (7) reuses this column as a logit-scale AR1 correlation, across COHORTS.", meta = TRUE, has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
     .rce_col("Time_varying_sel", "fleet_control", "Whether to estimate time-varying selectivity for logistic, double logistic, descending logistic, or non-parametric forms.\r\n0 or \"Off\" = no\r\n1 or \"IID\" = penalized deviates given Time_varying_sel_sd (or random effects if \"random_sel\" is selected in \"fit_mod\")\r\n2 or \"AR1\" = REMOVED in 5.16.0; data_check() errors on it. It was never an AR1 -- it was scored as \"IID\" -- so use \"IID\" for the same fit, or a selectivity linkage with ar1(1 | Year) for a real one.\r\n3 or \"Block\" = time blocks with no penalty\r\n4 or \"RandomWalk\" = random walk following Dorn\r\n5 or \"RandomWalkAscending\" = random walk on the ascending portion of double logistic only.\r\nSoft-deprecated as a whole: the linkage grammar expresses the same deviations per selectivity parameter, with the deviation sd estimated or fixed. See vignette('model-options-and-functionality').", type = "switch", allowed = "tv_sel_map", tmb_target = "flt_varying_sel"),
     .rce_col("Time_varying_sel_sd", "fleet_control", "The fixed or initial sd to use for time varying selectivity if set to 1, 4, or 5.", aliases = c("Sel_sd_prior", "Time_varying_sel_sd_prior")),
     .rce_col("Sel_start_year", "fleet_control", "First year the fleet's time-varying selectivity deviations are estimated and penalized (NA -> earliest year of data across fleets sharing the Selectivity_index, bounded below by styr).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, tmb_target = "flt_sel_start_yr"),
-    .rce_col("Bin_first_selected", "fleet_control", "Age/length bin at which selectivity becomes non-zero", type = "integer", aliases = "Age_first_selected", tmb_target = "bin_first_selected"),
-    .rce_col("Sel_shape_sd", "fleet_control", "Shape/smoothness selectivity penalty expressed as a standard deviation (an intuitive alternative to Sel_curve_pen1); weight = 1/(2*sd^2). NonParametric (2/9) and LogisticPM (11).", meta = TRUE),
-    .rce_col("Sel_curvature_sd", "fleet_control", "2nd-difference curvature selectivity penalty expressed as a standard deviation (Sel_curve_pen2); NonParametric-only.", meta = TRUE),
-    .rce_col("Sel_devmag_sd", "fleet_control", "Deviation-magnitude selectivity penalty expressed as a standard deviation (Sel_curve_pen3). NonParametric (2/9) and LogisticPM (11).", meta = TRUE),
-    .rce_col("Sel_shape_dir", "fleet_control", "Direction of the (directional-mode) NonParametric shape penalty when Sel_shape_sd is used: \"Decreasing\" (default) or \"Increasing\".", type = "character", meta = TRUE, allowed = "sel_shape_dir_map"),
+    .rce_col("Bin_first_selected", "fleet_control", "First age/length bin selected; selectivity is 0 below it. \r\nA 1-based BIN ORDINAL on the fleet's 'Selectivity_dimension' -- 3 means the third bin, so on a stock with 'minage' 3 it is age 5, not age 3. This is the opposite convention to 'Sel_norm_bin', which is an absolute age. The alias 'Age_first_selected' is the older name for the same column, not a second convention.", type = "integer", aliases = "Age_first_selected", tmb_target = "bin_first_selected"),
+    .rce_col("Sel_shape_sd", "fleet_control", "Shape/smoothness selectivity penalty expressed as a standard deviation (an intuitive alternative to Sel_curve_pen1); weight = 1/(2*sd^2). NonParametric (2/9/13) and LogisticPM (11).", meta = TRUE),
+    .rce_col("Sel_curvature_sd", "fleet_control", "2nd-difference curvature selectivity penalty expressed as a standard deviation (Sel_curve_pen2); NonParametric only (2/9/13).", meta = TRUE),
+    .rce_col("Sel_devmag_sd", "fleet_control", "Deviation-magnitude selectivity penalty expressed as a standard deviation (Sel_curve_pen3). \"NonParametricPM\" (9) and \"LogisticPM\" (11) only; the slot is not read by \"NonParametric\" (2) or \"NonParametricIntegrable\" (13).", meta = TRUE),
+    .rce_col("Sel_shape_dir", "fleet_control", "Direction of the shape penalty when Sel_shape_sd is used: \"Decreasing\" (default) or \"Increasing\". Only \"NonParametricPM\" (9) with Sel_shape_mode = \"Directional\" branches on the direction; every other form, that one under \"Smooth\" included, applies the weight as written, so \"Increasing\" is refused there rather than negating it.", type = "character", meta = TRUE, allowed = "sel_shape_dir_map"),
     .rce_col("Sel_pen_first_bin", "fleet_control", "First bin (age or length) for the non-parametric shape penalty (NA -> Bin_first_selected).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_pen_first_age", tmb_target = "flt_sel_pen_first_bin"),
     .rce_col("Sel_pen_last_bin", "fleet_control", "Last (left) bin of the shape-penalty pairs (NA -> nbins-2).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_pen_last_age", tmb_target = "flt_sel_pen_last_bin"),
     .rce_col("Sel_shape_mode", "fleet_control", "Shape-penalty mode: \"Directional\" (default) or \"Smooth\" (two-sided d^2, RTMB).", type = "character", meta = TRUE, has_default = TRUE, default = NA, tmb_target = "flt_sel_shape_mode", allowed = "sel_shape_mode_map"),
     .rce_col("Sel_avgsel_pen", "fleet_control", "Weight on the AMAK avgsel base-level penalty (type 9); 0 = off (default), 10 matches AMAK.", meta = TRUE, has_default = TRUE, default = 0, tmb_target = "flt_sel_avgsel_pen"),
-    .rce_col("Sel_cap_bin", "fleet_control", "NonParametricRPM bin cap (NA -> no cap).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_cap_age", tmb_target = "flt_sel_cap_bin"),
-    .rce_col("Sel_norm_bin", "fleet_control", "Age/length bin at which selectivity = 1. An absolute AGE for an age-based fleet (6 means age 6, not the 6th bin) or a 1-based LENGTH-BIN ordinal for a length-based one, per 'Selectivity_dimension'. \r\nIf NA, it will not normalize selectivity. \r\nIf < 0, will normalize selectivity by the max. \r\nIn a two-sex model this column says only WHERE the reference is taken; whether it is pooled across the sexes is 'Sel_norm_scope'. See vignette('model-options-and-functionality'), 'Sex structure and relative selectivity'.", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin' not specified in 'fleet_control', assuming 'NA'", aliases = c("Age_max_selected", "Sel_norm_bin1"), tmb_target = "sel_norm_bin1"),
-    .rce_col("Sel_norm_bin_upper", "fleet_control", "Upper age/length bin for selectivity normalization (default = NA). If NA, does not use the age range, If not NA, uses mean selectivity between `Sel_norm_bin` and `Sel_norm_bin_upper`", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin_upper' not specified in 'fleet_control', assuming 'NA'", default_msg_when = "sel_norm_upper", aliases = c("Age_max_selected_upper", "Sel_norm_bin2"), tmb_target = "sel_norm_bin2"),
-    .rce_col("Sel_norm_scope", "fleet_control", "Whether selectivity normalization pools its reference across sexes. Orthogonal to 'Sel_norm_bin', which says WHERE the reference is taken (a named bin, or the max). \r\n\"WithinSex\" = each sex is divided by its own reference, so both reach 1 and only the SHAPE differs by sex (relative sex-specific selectivity removed). \r\n\"AcrossSexes\" (default) = one reference pooled over both sexes, so the less-selected sex stays below 1 (relative sex-specific selectivity retained). \r\nNo effect on a one-sex species, or where 'Sel_norm_bin' is NA (nothing is normalized).", type = "switch", allowed = "sel_norm_scope_map", has_default = TRUE, default = "AcrossSexes", default_msg = "'Sel_norm_scope' not specified in 'fleet_control'; assuming 'AcrossSexes'. NOTE: a two-sex fleet normalizing at a named 'Sel_norm_bin' previously used a per-sex reference -- set 'Sel_norm_scope' to 'WithinSex' to keep that behaviour.", default_msg_when = "sel_norm_scope_flip", tmb_target = "sel_norm_scope"),
+    .rce_col("Sel_cap_bin", "fleet_control", "NonParametricPM bin cap (NA -> no cap).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_cap_age", tmb_target = "flt_sel_cap_bin"),
+    .rce_col("Sel_norm_bin", "fleet_control", "Where selectivity is normalized to 1. Takes a word or a bin:\r\n\"Max\" = normalize by the largest value.\r\n\"Off\" (or \"None\", or blank) = do not normalize.\r\n\"All\" = the whole selected range; LogisticPM only, where this column is a penalty range rather than a normalization reference. On that form the model reads any non-bin the same way, so a blank and \"Off\" give the whole range too -- \"All\" is simply the word that says so.\r\nA number = an absolute AGE for an age-based fleet (6 means age 6, not the 6th bin) or a 1-based LENGTH-BIN ordinal for a length-based one, per 'Selectivity_dimension'. Note 'Bin_first_selected' beside it uses the OPPOSITE convention and is always a bin ordinal.\r\nMust fall between the fleet's first selected bin and its last: below 'Bin_first_selected' the curve is zeroed, so a reference taken there divides by nothing. A value below the first selected bin is read as \"Max\", which is what a negative has always meant.\r\nIn a two-sex model this column says only WHERE the reference is taken; whether it is pooled across the sexes is 'Sel_norm_scope'. See vignette('model-options-and-functionality'), 'Sex structure and relative selectivity'.", type = "integer", has_default = TRUE, default = "Off", default_msg = "'Sel_norm_bin' not specified in 'fleet_control', assuming 'Off' (no normalization)", aliases = c("Age_max_selected", "Sel_norm_bin1"), tmb_target = "sel_norm_bin1"),
+    .rce_col("Sel_norm_bin_upper", "fleet_control", "Upper age/length bin for selectivity normalization. \"Off\" (or blank) uses a single bin rather than a range; a number takes mean selectivity between 'Sel_norm_bin' and this bin, on the same scale and with the same bounds as 'Sel_norm_bin'.", type = "integer", has_default = TRUE, default = "Off", default_msg = "'Sel_norm_bin_upper' not specified in 'fleet_control', assuming 'Off' (a single bin, not a range)", default_msg_when = "sel_norm_upper", aliases = c("Age_max_selected_upper", "Sel_norm_bin2"), tmb_target = "sel_norm_bin2"),
+    .rce_col("Sel_norm_scope", "fleet_control", "Whether selectivity normalization pools its reference across sexes. Orthogonal to 'Sel_norm_bin', which says WHERE the reference is taken (a named bin, or the max). \r\n\"WithinSex\" = each sex is divided by its own reference, so both reach 1 and only the SHAPE differs by sex (relative sex-specific selectivity removed). \r\n\"AcrossSexes\" (default) = one reference pooled over both sexes, so the less-selected sex stays below 1 (relative sex-specific selectivity retained). \r\nNo effect on a one-sex species, where 'Sel_norm_bin' is \"Off\" (nothing is normalized), or on a Hake or LogisticPM fleet, which normalize each sex to its own maximum.", type = "switch", allowed = "sel_norm_scope_map", has_default = TRUE, default = "AcrossSexes", default_msg = "'Sel_norm_scope' not specified in 'fleet_control'; assuming 'AcrossSexes'. NOTE: a two-sex fleet normalizing at a named 'Sel_norm_bin' previously used a per-sex reference -- set 'Sel_norm_scope' to 'WithinSex' to keep that behaviour.", default_msg_when = "sel_norm_scope_flip", tmb_target = "sel_norm_scope"),
     .rce_col("Comp_distribution", "fleet_control", "Composition data distribution:\r\n-1 = AFSC multinomial\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "MultinomialAFSC", default_msg = "'Comp_distribution' not specified in 'fleet_control', assuming 'MultinomialAFSC'", aliases = "Comp_loglike", tmb_target = "comp_ll_type"),
     .rce_col("Comp_weights", "fleet_control", "Composition weight, on a scale set by 'Comp_distribution'. \r\nUnder a multinomial it is the natural-scale multiplier on the input sample size. \r\nUnder a Dirichlet-multinomial the model uses exp(Comp_weights), so the column is the LOG of the starting weight -- a value of 1 is a starting weight of e; use 0 for a weight of 1. \r\nRead when a model is built from scratch -- a refit keeps the weight it is given. \r\nSee 'Comp_weights_mcallister' for the weight a fit implies, and reweight_comps() to tune towards it."),
     .rce_col("CAAL_distribution", "fleet_control", "Composition data distribution:\r\n-1 = AFSC multinomial\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "Multinomial", default_msg = "'CAAL_distribution' not specified in 'fleet_control', assuming 'Multinomial'", default_msg_when = "has_caal", aliases = "CAAL_loglike", tmb_target = "caal_ll_type"),
     .rce_col("CAAL_weights", "fleet_control", "Conditional age-at-length composition weight, on a scale set by 'CAAL_distribution', exactly as 'Comp_weights' is. Under a Dirichlet-multinomial the column is the LOG of the starting weight, so the default of 1 is a starting weight of e.", has_default = TRUE, default = 1, default_msg = "'CAAL_weights' not specified in 'fleet_control', assuming 1", default_msg_when = "has_caal"),
-    .rce_col("Comp_accum_young", "fleet_control", "Age/length composition young-tail accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; bins below it are folded into it before the likelihood. NA or 1 = no young accumulation.", type = "integer", has_default = TRUE, default = NA, tmb_target = "comp_accum_young"),
-    .rce_col("Comp_accum_old", "fleet_control", "Age/length composition old-tail accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; bins above it are folded into it before the likelihood. NA, 0, or a value >= the number of bins = no old accumulation.", type = "integer", has_default = TRUE, default = NA, tmb_target = "comp_accum_old"),
+    .rce_col("Comp_accum_young", "fleet_control", "Age/length composition young-tail accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; bins below it are folded into it before the likelihood. NA or 1 = no young accumulation.", type = "integer", has_default = TRUE, default = NA, aliases = "Accumatation_age_lower", tmb_target = "comp_accum_young"),
+    .rce_col("Comp_accum_old", "fleet_control", "Age/length composition old-tail accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; bins above it are folded into it before the likelihood. NA, 0, or a value >= the number of bins = no old accumulation.", type = "integer", has_default = TRUE, default = NA, aliases = "Accumatation_age_upper", tmb_target = "comp_accum_old"),
     .rce_col("Observation_units", "fleet_control", "1 = catch/index is weight (mt) \r\n2 = catch/index is in numbers (thousands of fish) \r\nThe model works in mt and thousands of fish throughout: numbers-at-age are thousands and weight-at-age is kg, so their product is mt.", type = "integer", aliases = c("Weight1_Numbers2", "weight1_Numbers2"), tmb_target = "flt_units"),
     .rce_col("Weight_index", "fleet_control", "Weight index to use for calculation of derived quantities", type = "integer", tmb_target = "flt_wt_index"),
     .rce_col("Age_transition_index", "fleet_control", "Age transition matrix (e.g. growth trajectory) index to used convert age to length", type = "integer", tmb_target = "flt_age_transition_index"),
+    .rce_col("Ageing_error_index", "fleet_control", "Ageing error matrix index, matching 'Ageing_error_index' in 'age_error'. Fleets sharing a value read the same matrix. Omit the column (or leave NA) to use the fleet's own species, which is what a model with one matrix per species has always done -- valid only while 'age_error' is itself indexed by species, since the fallback is the species number; data_check() refuses it once the indices mean something else. Give a fleet its own index when its otoliths were read by a method that ages them differently -- an ageing protocol that changed part way through a series is the usual case, and the two eras are then separate fleets sharing a Selectivity_index.", type = "integer", meta = TRUE, has_default = TRUE, default = NA, tmb_target = "flt_ageing_error_index"),
     .rce_col("Catchability_index", "fleet_control", "Index used to give fleets the SAME catchability (otherwise, same as Fleet_code). Fleets sharing a value share one q parameter, so the group carries only one answer to whether q is estimated: the group's first non-Off fleet decides for all of them, regardless of fleet type. Give a fleet its own value when it should be estimated independently.\r\n'Analytical' and 'AnalyticalArith' are the exception -- they solve q from each fleet's own index observations, so a group containing one does NOT share a catchability. data_check() reports that case, a Fixed lead that leaves fleets on different inits, and a Catchability or Time_varying_q that differs within a group.\r\nSee vignette('model-options-and-functionality'), 'Which fleets get a catchability'.", type = "integer", aliases = "Q_index", tmb_target = "flt_q_lead"),
-    .rce_col("Catchability", "fleet_control", "Catchability form. Accepts integer codes or readable strings:\r\n0 or \"Fixed\" = fixed at Catchability_init\r\n1 or \"Estimated\" = estimate as a free parameter\r\n2 or \"Estimated-with-prior\" = estimate with a normal prior N(Catchability_init, Catchability_prior_sd)\r\n3 or \"Analytical\" = geometric-mean analytical q following Ludwig and Walters 1994\r\n4 or \"PowerEquation\" = power equation (NOT YET IMPLEMENTED)\r\n5 or \"Environmental\" = linear equation log(q_y) = q_mu + beta * index_y; the environmental index is specified by Time_varying_q\r\n6 or \"AR1\" = REMOVED; data_check() errors. The deviates were never estimated, so q came back constant. Express the Rogers et al. (2024) form as a q linkage with ar1(1 | Year) and 'observe'; the error gives the call.\r\n7 or \"AnalyticalArith\" = arithmetic-mean analytical q (AMAK/ebswp form, pair with the MVN survey likelihood)\r\nApplies to any fleet carrying index_data, a fishery with a CPUE series included. A fleet with NO fitted index rows gets no catchability whatever this says, unless it follows the lead of a shared Catchability_index group. See vignette('model-options-and-functionality').", type = "switch", allowed = "q_map", aliases = "Estimate_q", tmb_target = "est_index_q"),
-    .rce_col("Catchability_init", "fleet_control", "Starting value or fixed value for catchability. Must be positive on any fleet that carries index_data, whatever its Fleet_type -- it has no default, and it is logged to seed index_log_q, so a blank or zero gives a non-finite starting value. Not read under Analytical or AnalyticalArith, which solve q from the data.", aliases = c("Q_prior", "Q_init"), tmb_target = "index_log_q_prior"),
-    .rce_col("Catchability_prior_sd", "fleet_control", "Standard deviation for the q prior. Must be positive under Estimated-with-prior, where the prior is scored at it, and under AR1, where the estimated sd starts from it.", aliases = "Q_sd_prior"),
+    .rce_col("Catchability", "fleet_control", "Catchability form. Accepts integer codes or readable strings:\r\n0 or \"Fixed\" = fixed at Catchability_init\r\n1 or \"Estimated\" = estimate as a free parameter\r\n2 or \"Estimated-with-prior\" = estimate with a lognormal prior on q, mean Catchability_init (median when bias_adjust_proc = FALSE) and log-scale SD Catchability_prior_sd\r\n3 or \"Analytical\" = geometric-mean analytical q following Ludwig and Walters 1994\r\n4 or \"PowerEquation\" = power equation (NOT YET IMPLEMENTED)\r\n5 or \"Environmental\" = linear equation log(q_y) = q_mu + beta * index_y; the environmental index is specified by Time_varying_q\r\n6 or \"AR1\" = REMOVED; data_check() errors. The deviates were never estimated, so q came back constant. Express the Rogers et al. (2024) form as a q linkage with ar1(1 | Year) and 'observe'; the error gives the call.\r\n7 or \"AnalyticalArith\" = arithmetic-mean analytical q (AMAK/ebswp form, pair with the MVN survey likelihood)\r\nApplies to any fleet carrying index_data, a fishery with a CPUE series included. A fleet with NO fitted index rows gets no catchability whatever this says, unless it follows the lead of a shared Catchability_index group. See vignette('model-options-and-functionality').", type = "switch", allowed = "q_map", aliases = "Estimate_q", tmb_target = "est_index_q"),
+    .rce_col("Catchability_init", "fleet_control", "Starting value or fixed value for catchability. Must be positive on any fleet that carries index_data, whatever its Fleet_type, AND on any fleet sharing a Catchability_index group whose q is estimated, even with no index_data of its own -- it has no default, and it is logged to seed index_log_q, so a blank or zero gives a non-finite starting value. A shared group starts at the geometric mean of its members' values, so one blank or zero seeds the WHOLE group at NA or -Inf and it cannot fit; build_map() warns. Not read under Analytical or AnalyticalArith, which solve q from the data.", aliases = c("Q_prior", "Q_init"), tmb_target = "index_log_q_prior"),
+    .rce_col("Catchability_prior_sd", "fleet_control", "Standard deviation for the q prior, on the log scale. Must be positive under Estimated-with-prior, where the prior is scored at it. In a shared Catchability_index group only the LEAD fleet's is read, because the prior is scored once on the lead, so a differing value on a non-lead fleet has no effect.", aliases = "Q_sd_prior"),
     .rce_col("Time_varying_q", "fleet_control", "0 or \"Off\" = no\r\n1 or \"IID\" = penalized deviate or random effect\r\n2 or \"AR1\" = REMOVED in 5.16.0; data_check() errors on it. It was never an AR1 -- it was scored as \"IID\" -- so use \"IID\" for the same fit, or a q linkage with ar1(1 | Year) for a real one.\r\n3 or \"Block\" = time blocks with no penalty\r\n4 or \"RandomWalk\" = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)\r\nIf Catchability = 5, this holds the env_data column index for log(q_y) = q_mu + beta * index_y, not a mode.\r\nUnder fit_mod(random_q = TRUE), IID (1) and RandomWalk (4) deviations become random effects.\r\nSoft-deprecated as a whole: the linkage grammar expresses the same deviations, with the deviation sd estimated or fixed. See vignette('model-options-and-functionality').", type = "switch", allowed = "tv_q_map", tmb_target = "index_varying_q"),
     .rce_col("Time_varying_q_sd", "fleet_control", "Starting or fixed sd for the time-varying q deviations. Must be positive when Time_varying_q is IID, AR1 or RandomWalk, which penalize the deviations at it; Block needs none.", aliases = "Time_varying_q_sd_prior"),
     .rce_col("Index_distribution", "fleet_control", "Survey/index biomass observation likelihood family.\r\n0 or \"Lognormal\" (default) = independent lognormal on the log observation, with the bias correction.\r\n1 \"MVN\" / 2 \"MVNORM\" = multivariate normal on the natural-scale residual, with a user-supplied covariance in index_cov; they differ only by a constant.\r\n3 \"Normal\" = independent normal on the natural-scale residual with an ABSOLUTE sd from Log_sd (not a log-scale CV). Matches AMAK avo_like/cpue_like term for term, so it is what the ADMB bridges compare against.\r\n4 \"TruncatedNormal\" = the same normal, left-truncated at zero. Prefer it to 3 unless an exact ADMB comparison is needed: an index cannot be negative, so this is the only natural-scale family whose likelihood and simulator are the same distribution.", type = "switch", allowed = "index_distribution_map", meta = TRUE, has_default = TRUE, default = "Lognormal", aliases = "Index_loglike", tmb_target = "index_ll_type"),
@@ -166,8 +246,8 @@
     # ======================================================================
     # bioenergetics_control sheet, in write order
     # ======================================================================
-    .rce_col("Ceq", "bioenergetics_control", "Integer: switch for which bioenergetics equation to use for each species for ft to scale max consumption: \r\n1 = Exponential (Stewart et al 1983)\r\n2 = Temperature-dependence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015)\r\n3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979)\r\n4 = for direct input of consumption in Pyrs  where consumption at age = Numbers * Pyrs (CA set to 1, fday set to 1, CB set to 0)", type = "integer", has_default = TRUE, default = 1L, default_scope = "single-species mode (msmMode == 0), per-species"),
-    .rce_col("Cindex", "bioenergetics_control", "Integer: which environmental index in env_data to use to drive bioenergetics", type = "integer", has_default = TRUE, default = 0L, default_scope = "single-species mode (msmMode == 0), per-species"),
+    .rce_col("Ceq", "bioenergetics_control", "Integer: switch for which bioenergetics equation to use for each species for ft to scale max consumption: \r\n1 = Exponential (Stewart et al 1983)\r\n2 = Temperature-dependence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015)\r\n3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979)\r\n4 = for direct input of consumption in Pyrs  where consumption at age = Numbers * Pyrs (CA set to 1, fday set to 1, CB set to 0). Equations 1-3 read the Cindex column of env_data; 4 does not, and is the default.", type = "integer", has_default = TRUE, default = 4L, default_scope = "single-species mode (msmMode == 0), per-species"),
+    .rce_col("Cindex", "bioenergetics_control", "Integer: which environmental index in env_data drives bioenergetics, counting the covariate columns from 1 (the Year column is not one). Read only when Ceq is 1, 2 or 3.", type = "integer", has_default = TRUE, default = 1L, default_scope = "single-species mode (msmMode == 0), per-species"),
     .rce_col("Pvalue", "bioenergetics_control", "Numeric: this scales the maximum consumption used for ration for each species; Pvalue is in Cmax*fT*Pvalue*Pyrs", has_default = TRUE, default = 1, default_scope = "single-species mode (msmMode == 0), per-species"),
     .rce_col("fday", "bioenergetics_control", "Numeric: number of foraging days per year for each species", has_default = TRUE, default = 365, default_scope = "single-species mode (msmMode == 0), per-species"),
     .rce_col("CA", "bioenergetics_control", "Intercept of allometric mass function for calculating maximum consumption: CA * Weight ^ CB", has_default = TRUE, default = 0, default_scope = "single-species mode (msmMode == 0), per-species"),
@@ -231,67 +311,231 @@
   row$default
 }
 
-#' Upgrade deprecated fleet_control column names to canonical, in place.
+#' Upgrade deprecated names to canonical, in place.
 #'
-#' The single migration point for legacy fleet_control column names: every
-#' canonical column carries its historical spellings in the schema `aliases`
-#' field, and this walks them, renaming any present old name to the canonical
-#' one. Both `read_data()` (on the xlsx path) and `switch_check()` (on every
-#' fit path) call it, so a data list built either way is upgraded identically
-#' from the one schema.
+#' The single migration point for legacy names: every canonical column or
+#' element holds its historical spellings in the schema `aliases` field, and
+#' this walks them, renaming any old name present to the canonical one. The two
+#' wrappers below differ only in which half of the schema they read and what
+#' they call the thing in a message, the walk itself is shared, because when
+#' it was written twice both copies held the same defect.
 #'
-#' Double-fire-safe: a no-op when the old name is absent (so re-running on an
-#' already-upgraded list is silent), and it never clobbers an existing
-#' canonical column. Emits one deprecation message per rename actually applied.
+#' Double-fire-safe: a no-op when the old name is absent, so re-running on an
+#' already-upgraded object is silent. Emits one deprecation message per rename.
 #'
-#' @param fc A `fleet_control` data frame (or NULL).
-#' @return `fc` with any deprecated column names upgraded to canonical.
+#' Both names can be present at once, and that is the case worth care. It is
+#' what a script produces when it assigns a deprecated name to a `data_list`
+#' that `read_data()` has already canonicalised: the assignment creates the old
+#' name beside the new one. The old name holds what the caller just wrote, so it
+#' is taken wherever the canonical one has nothing, and a position where the two
+#' disagree is an error rather than a silent choice between them.
+#'
+#' @param x A `fleet_control` data frame or a `data_list` (or NULL).
+#' @param fleet_control Read the fleet_control half of the schema, or the rest.
+#' @param what What to call `x`'s parts in a message.
+#' @return `x` with any deprecated names upgraded to canonical.
+#' @keywords internal
+#' @noRd
+.rce_upgrade_aliases <- function(x, fleet_control, what) {
+  if (is.null(x)) return(x)
+  labels <- if (fleet_control) as.character(x[["Fleet_name"]]) else NULL
+  for (row in .rce_column_schema()) {
+    if ((row$sheet == "fleet_control") != fleet_control) next
+    if (length(row$aliases) == 0L) next
+    src <- row$name        # where the canonical value came from, for the message
+    for (old in row$aliases) {
+      if (is.null(x[[old]])) next
+      had <- !is.null(x[[row$name]])
+      x[[row$name]] <- .rce_merge_alias(x[[row$name]], x[[old]],
+                                        row$name, old, what,
+                                        allowed = row$allowed,
+                                        cur_nm = src, labels = labels)
+      if (!had) src <- old
+      x[[old]] <- NULL
+      message(sprintf("'%s' is deprecated; use '%s'.", old, row$name))
+    }
+  }
+  x
+}
+
+#' @rdname dot-rce_upgrade_aliases
 #' @keywords internal
 #' @noRd
 .rce_upgrade_fleet_control_aliases <- function(fc) {
-  if (is.null(fc)) return(fc)
-  schema <- .rce_column_schema()
-  for (row in schema) {
-    if (row$sheet != "fleet_control" || length(row$aliases) == 0L) next
-    for (old in row$aliases) {
-      if (!is.null(fc[[old]])) {
-        if (is.null(fc[[row$name]])) fc[[row$name]] <- fc[[old]]
-        fc[[old]] <- NULL
-        message(sprintf("'%s' is deprecated; use '%s'.", old, row$name))
-      }
-    }
-  }
-  fc
+  .rce_upgrade_aliases(fc, fleet_control = TRUE, what = "fleet_control column")
 }
 
-#' Upgrade deprecated data_list-level (control / bioenergetics) names to canonical.
-#'
-#' The analogue of `.rce_upgrade_fleet_control_aliases()` for the top-level
-#' data_list elements that are NOT fleet_control columns -- the control scalars
-#' and bioenergetics per-species vectors, whose deprecated names live in the
-#' same schema `aliases` field (e.g. `sigma_rec_prior` -> `sigma_rec`,
-#' `Diet_loglike` -> `Diet_distribution`). Double-fire-safe; one message per
-#' rename applied.
-#'
-#' @param data_list An Rceattle data list (or NULL).
-#' @return `data_list` with any deprecated control/bioenergetics element names
-#'   upgraded to canonical.
+#' @rdname dot-rce_upgrade_aliases
 #' @keywords internal
 #' @noRd
 .rce_upgrade_data_list_aliases <- function(data_list) {
-  if (is.null(data_list)) return(data_list)
-  schema <- .rce_column_schema()
-  for (row in schema) {
-    if (row$sheet == "fleet_control" || length(row$aliases) == 0L) next
-    for (old in row$aliases) {
-      if (!is.null(data_list[[old]])) {
-        if (is.null(data_list[[row$name]])) data_list[[row$name]] <- data_list[[old]]
-        data_list[[old]] <- NULL
-        message(sprintf("'%s' is deprecated; use '%s'.", old, row$name))
-      }
+  .rce_upgrade_aliases(data_list, fleet_control = FALSE, what = "data_list element")
+}
+
+#' Reconcile a deprecated name with its canonical one
+#'
+#' Only the deprecated name present: rename it, which is the ordinary upgrade.
+#' The deprecated column present but entirely blank: drop it, since a column
+#' holding no information cannot be what the caller meant.
+#'
+#' Both holding values: they must say the same thing, and nothing is merged.
+#' Merging looks helpful and is not. `NA` is a real setting in several of these
+#' columns, `Sel_norm_bin` and `Sel_cap_bin` mean "do not normalize" / "no
+#' cap", `Proj_F_proportion` means "no F apportioned", so filling the canonical
+#' column's blanks from the deprecated one cannot express clearing a value, and
+#' would change a number without saying so. Nor is there a "most recent" name to
+#' prefer: in a workbook both columns arrive at once.
+#'
+#' A switch is compared on its canonical MEANING, so `Comp_loglike = 0` and
+#' `Comp_distribution = "Multinomial"` are one setting written twice.
+#'
+#' @param cur The canonical value, or NULL when the canonical name is absent.
+#' @param dep The value held under the deprecated name.
+#' @param canon_nm The canonical name; `cur_nm` is where `cur`'s value came from,
+#'   which differs when an earlier alias already supplied it.
+#' @param dep_nm,cur_nm,what Names and label, for the message.
+#' @param allowed Name of this column's switch map, or NULL for a plain value.
+#' @param labels Row labels (fleet names), used to point at the disagreement.
+#' @return The value to store under the canonical name.
+#' @keywords internal
+#' @noRd
+.rce_merge_alias <- function(cur, dep, canon_nm, dep_nm, what, allowed = NULL,
+                             cur_nm = canon_nm, labels = NULL) {
+  if (is.null(cur)) return(dep)
+  if (all(is.na(dep))) return(cur)
+
+  bad <- .rce_setting_diff(cur, dep, allowed, canon_nm)
+  if (is.null(bad)) return(cur)
+
+  # Name the column the value actually came from: after an earlier alias was
+  # adopted, `cur` is that alias's value, and pointing at the canonical name
+  # would send the reader looking for something they never wrote.
+  where <- if (identical(cur_nm, canon_nm)) sprintf("'%s'", canon_nm)
+           else sprintf("'%s' (taken from '%s')", canon_nm, cur_nm)
+
+  detail <- if (identical(bad, NA_integer_)) {
+    sprintf("they are different lengths (%d and %d)", length(cur), length(dep))
+  } else {
+    at <- if (!is.null(labels) && length(labels) == length(cur)) {
+      paste(sprintf("%s", labels[bad]), collapse = ", ")
+    } else {
+      paste(bad, collapse = ", ")
+    }
+    sprintf("they differ at %s: %s against %s", at,
+            paste(as.character(cur[bad]), collapse = ", "),
+            paste(as.character(dep[bad]), collapse = ", "))
+  }
+
+  stop(sprintf(paste0(
+    "%s %s and its deprecated name '%s' are both present and %s. Set one of ",
+    "them, not both -- there is no way to tell which you meant. If you assigned ",
+    "'%s' yourself, assign %s instead: the canonical column may already exist ",
+    "because the workbook or an earlier step supplied it."),
+    what, where, dep_nm, detail, dep_nm, sprintf("'%s'", canon_nm)),
+    call. = FALSE)
+}
+
+
+#' Where do two spellings of one column disagree?
+#'
+#' `NULL` when they hold the same setting: equal lengths, the same `NA` pattern,
+#' and equal values, compared on the canonical meaning for a switch, so an
+#' integer code and its string agree. `NA_integer_` for a length mismatch,
+#' otherwise the positions that differ.
+#'
+#' Attributes are stripped before the `NA` patterns are compared: a per-species
+#' vector a script built with `setNames()` holds names that `identical()` would
+#' otherwise read as a difference in the values themselves.
+#'
+#' An unrecognized switch value canonicalizes to the `"<blank>"` sentinel, and
+#' two different unrecognized values would then compare equal, so a sentinel on
+#' either side counts as a disagreement and is left to `validate_switches()` to
+#' name.
+#'
+#' @param cur,dep The two values.
+#' @param allowed Name of the switch map, or NULL.
+#' @return `NULL`, `NA_integer_`, or the differing positions.
+#' @keywords internal
+#' @noRd
+.rce_setting_diff <- function(cur, dep, allowed = NULL, canon_nm = NULL) {
+  if (length(cur) != length(dep)) return(NA_integer_)
+  # The normalization columns take a word or a bin and have no switch map, so
+  # resolve both spellings before comparing: "Max" and -1 are one setting. A
+  # floor of 0 makes every negative the maximum, as the model does, without
+  # needing the fleet's minage here.
+  if (!is.null(canon_nm) &&
+      canon_nm %in% c("Sel_norm_bin", "Sel_norm_bin_upper")) {
+    cur <- .rce_sel_norm_code(cur, lo = 0, allow_all = TRUE)
+    dep <- .rce_sel_norm_code(dep, lo = 0, allow_all = TRUE)
+    attributes(cur) <- NULL; attributes(dep) <- NULL
+  }
+  na_cur <- as.vector(is.na(cur)); na_dep <- as.vector(is.na(dep))
+  if (!identical(na_cur, na_dep)) return(which(na_cur != na_dep))
+
+  keep <- !na_cur
+  if (!any(keep)) return(NULL)
+
+  a <- as.vector(cur)[keep]; b <- as.vector(dep)[keep]
+  if (!is.null(allowed)) {
+    if (!exists(allowed, envir = asNamespace("Rceattle"), inherits = FALSE)) {
+      stop("internal: schema names an unknown switch map '", allowed, "'.",
+           call. = FALSE)
+    }
+    map <- get(allowed, envir = asNamespace("Rceattle"), inherits = FALSE)
+    a <- .canon_switch(a, map); b <- .canon_switch(b, map)
+    blank <- (a == "<blank>") | (b == "<blank>")
+  } else {
+    blank <- rep(FALSE, length(a))
+  }
+  differ <- blank | (as.character(a) != as.character(b))
+  if (!any(differ)) return(NULL)
+  which(keep)[differ]
+}
+
+
+#' Warn about a `fleet_control` column that looks like a misspelled one
+#'
+#' `fleet_control` is a data frame, so `fc$Catchabilty_init <- 0.2` creates a
+#' column rather than failing: the setting is never read and nothing says so.
+#' The alias machinery above catches the case where the intended column is a
+#' RECOGNIZED older name; this catches the case where it is a typo or a
+#' half-remembered one, which is the same mistake with the same consequence.
+#'
+#' Only near misses are reported. Assessment workbooks legitimately hold
+#' columns this package does not read, `Accumatation_age_*` on 147 of the 183
+#' fleet_control sheets in the sibling repositories, plus `Est_weights_mcallister`,
+#' `ALK_index` and `Log_q_prior`, and warning about those would be noise that
+#' teaches people to ignore the warning. The threshold is an edit distance of at
+#' most a quarter of the name's length, which separates the two groups cleanly:
+#' `Bin_max_selected` -> `Age_max_selected` is 3/16, while `ALK_index` ->
+#' `Q_index` is 3/9 and stays quiet rather than suggesting an unrelated column.
+#'
+#' @param fc A `fleet_control` data frame (or NULL).
+#' @return invisibly `NULL`; warns.
+#' @keywords internal
+#' @noRd
+.rce_warn_near_miss_columns <- function(fc) {
+  if (is.null(fc) || !length(names(fc))) return(invisible())
+  rows  <- Filter(function(r) r$sheet == "fleet_control", .rce_column_schema())
+  known <- c(vapply(rows, function(r) r$name, character(1)),
+             unlist(lapply(rows, function(r) r$aliases)))
+  unknown <- setdiff(names(fc), known)
+  if (!length(unknown)) return(invisible())
+
+  hits <- character(0)
+  for (nm in unknown) {
+    d <- utils::adist(nm, known)[1, ]
+    i <- which.min(d)
+    if (d[i] / nchar(nm) <= 0.25) {
+      hits <- c(hits, sprintf("'%s' (did you mean '%s'?)", nm, known[i]))
     }
   }
-  data_list
+  if (length(hits)) {
+    warning("fleet_control carries ", paste(hits, collapse = ", "),
+            ". A column Rceattle does not recognize is read by nothing, so the ",
+            "setting is ignored.", call. = FALSE)
+  }
+  invisible()
 }
 
 #' Rows for one sheet, in schema (write) order.
@@ -331,7 +575,7 @@
   c("caal_data",       "Survey/fishery CAAL data. Note if sex is 3, put female CAAL data then male CAAL data (similar to SS)."),
   c("emp_sel",         "Empirical/fixed selectivity for surveys and fisheries (leave empty if not used)"),
   c("age_trans_matrix","Age transition matrix (e.g. growth trajectory) used to convert age to length for length comp data. \r\nCan have multiple matrices for a species specified by Age_transition_index."),
-  c("age_error",       "Aging error matrices. Can have only one per species."),
+  c("age_error",       "Aging error matrices. One per species by default; give several and select them per fleet with 'Ageing_error_index' in both this table and 'fleet_control'."),
   c("weight",          "Time-invariant or -varying empirical weight-at-age for calculation of derived quantities (SSB, Consumption/Ration, Suitability, Total Catch, Survey Biomass, etc). \r\nCan have multiple weight-at-age data-sets for each species."),
   c("maturity",        "Maturity-at-age for each species"),
   c("sex_ratio",       "Percent female at age for each species"),
@@ -358,7 +602,7 @@
 #'
 #' Emits the control-scalar rows, the fleet_control header + column rows, the
 #' data-sheet header rows, the bioenergetics-scalar rows, and the tail sheet
-#' headers + NOTE footer -- reproducing the layout of the bundled
+#' headers + NOTE footer, reproducing the layout of the bundled
 #' `meta_data_names.xlsx`.
 #'
 #' @return A data.frame with columns `Sheet name`, `Column/row name`,
@@ -422,7 +666,7 @@
 #' @param doc One sentence: what it selects.
 #' @param allowed Name of the map defining its values, in the package namespace.
 #' @param default The value applied when the user supplies none.
-#' @param scope `"scalar"`, `"per-species"`, or `"per-fleet"` -- whether one
+#' @param scope `"scalar"`, `"per-species"`, or `"per-fleet"`, whether one
 #'   value configures the model or one value per species/fleet is expected.
 #' @param tmb_target The `DATA_*` object it reaches, where it reaches one.
 #' @param set_by The function that takes it.
@@ -495,8 +739,3 @@
   )
   stats::setNames(rows, vapply(rows, function(r) r$name, character(1)))
 }
-
-#' Names of the model-level switches
-#' @keywords internal
-#' @noRd
-.rce_model_switch_names <- function() names(.rce_model_switch_schema())

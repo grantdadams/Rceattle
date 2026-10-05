@@ -10,8 +10,7 @@
 testthat::test_that("estDynamics resolves readable strings to integer codes", {
   testthat::skip_if_not_installed("Rceattle")
   d <- Rceattle::BS2017SS
-  for (pair in list(c("Estimated", "0"), c("Fixed", "1"),
-                    c("FixedScaled", "2"), c("FixedScaledByAge", "3"))) {
+  for (pair in list(c("Estimated", "0"), c("Fixed", "1"), c("FixedScaled", "2"))) {
     d$estDynamics <- pair[1]
     out <- suppressMessages(Rceattle::switch_check(d))
     testthat::expect_equal(out$estDynamics, as.integer(pair[2]), info = pair[1])
@@ -58,7 +57,7 @@ testthat::test_that("suitMode wires its (previously dead) string map", {
 
 testthat::test_that("build_srr resolves srr_est_mode strings", {
   testthat::skip_if_not_installed("Rceattle")
-  testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "Fixed")$srr_est_mode, 0L)
+  testthat::expect_equal(suppressWarnings(Rceattle::build_srr(srr_est_mode = "Fixed"))$srr_est_mode, 0L)
   testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "Estimated")$srr_est_mode, 1L)
   testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "LognormalPrior")$srr_est_mode, 2L)
   testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "BetaPrior")$srr_est_mode, 3L)

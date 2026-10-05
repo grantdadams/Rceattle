@@ -16,7 +16,15 @@ and \code{source} columns.}
 Joint-sex compositions stack females in bins \verb{1..nbin} and males in bins
 \verb{nbin+1..2*nbin} (where \code{nbin} is \code{nages} or \code{nlengths} for the species).
 This re-bases the male bins to \verb{1..nbin} and tags the source label by sex so
-males and females face the same bin axis -- matching \code{\link[=plot_comp]{plot_comp()}}. Rows with
+males and females face the same bin axis, matching \code{\link[=plot_comp]{plot_comp()}}. Rows with
 Sex != 3 (single-sex or combined) are returned unchanged.
+}
+\details{
+The label says "joint" because the two series are halves of ONE decomposition
+unit, not two: a joint row is appended as a single density over the stacked
+vector with one cell dropped for the sum-to-one constraint, not one per sex.
+An assessment author read the previous " - male" / " - female" labels as two
+separate distributions and asked why the residuals did not match the
+likelihood; they do, and the label now says so.
 }
 \keyword{internal}

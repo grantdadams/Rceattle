@@ -46,6 +46,6 @@ test_that(".coerce_switch_arg warns via warn_fn only for deprecated codes", {
 
 test_that("srr_fun / M1_model wrappers preserve their documented behaviour", {
   expect_identical(Rceattle:::.coerce_srr_fun("BevertonHolt", "srr_fun"), 2L)
-  expect_warning(Rceattle:::.coerce_srr_fun(3, "srr_fun"), "soft-deprecated")
+  expect_error(Rceattle:::.coerce_srr_fun(3, "srr_fun"), "linkages")
   expect_error(Rceattle:::.coerce_srr_fun(c(2, 2), "srr_fun"), "must be length 1")
 })

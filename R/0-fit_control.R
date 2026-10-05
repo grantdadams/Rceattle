@@ -1,6 +1,6 @@
 #' Bundle the optimizer / sdreport / phasing controls for `fit_mod()`
 #'
-#' `fit_mod()` carries roughly a dozen optimizer- and reporting-related
+#' `fit_mod()` holds roughly a dozen optimizer- and reporting-related
 #' arguments (`bias.correct`, `getsd`, `loopnum`, `newtonsteps`, ...).
 #' That is a lot of surface area when the user mostly cares about
 #' "what model am I fitting" rather than "how is it being fit."
@@ -20,6 +20,38 @@
 #' corresponding individual arguments to `fit_mod()`. Individual
 #' arguments are kept for backward compatibility.
 #'
+#' @details
+#' # Selectivity standard errors
+#'
+#' `selectivity_se` needs `getsd = TRUE`, and the error it reports is the one
+#' belonging to whichever `sdreport` the fit ends on. Under
+#' `estimateMode = "Estimate"` with any HCR that re-optimizes, that is the
+#' *projection* fit, in which every selectivity parameter is mapped off, so
+#' every error comes back exactly 0. `estimateMode = "Projection"` estimates no
+#' selectivity at all and reports none where it runs no `sdreport`. Use
+#' `estimateMode = "Hindcast"`, or `"Estimate"` with
+#' `projection_uncertainty = TRUE`, to get an error from a fit that estimated
+#' the curve. [fit_mod()] warns before fitting in each of these cases.
+#'
+#' Off by default because the delta method forms a Jacobian of every reported
+#' value against every parameter, so its cost is the product of the two: on
+#' `Atka2022` it adds 1,012 values against 584 parameters.
+#'
+#' The error is on the log scale, not the logit, because the non-parametric
+#' forms normalize to mean selectivity 1 rather than a maximum of 1, 58% of
+#' `Atka2022`'s `sel_at_age` exceeds 1, to 3.06, so a logit is undefined over
+#' most of the array.
+#'
+#' Rows cover estimated, age-based lead fleets only, and start at each fleet's
+#' first selected bin. Four kinds of cell hold a structural zero, a `Fixed`
+#' fleet's empirical curve, a length-based fleet's growth-matrix projection, a
+#' bin below `Bin_first_selected`, and array padding, and one `log(0) = -Inf`
+#' on the tape turns *every* quantity in the `sdreport` to `NaN`, biomass and SSB
+#' included. All four are identified from the data, so the reported set never
+#' depends on a parameter value; a value that underflows to zero is floored, so
+#' it cannot reintroduce the `-Inf`. See [plot_selectivity()], which draws the
+#' interval.
+#'
 #' @param bias.correct logical. If `TRUE`, applies bias correction via
 #'   [TMB::sdreport()]. Default `FALSE`.
 #' @param getsd logical. If `TRUE`, run [TMB::sdreport()] after
@@ -32,6 +64,8 @@
 #'   parameter uncertainty in projections when using an HCR (refits with all
 #'   hindcast and biological-reference-point parameters turned on). Default
 #'   `FALSE` for speed.
+#' @param selectivity_se logical. If `TRUE`, [TMB::sdreport()] also returns a
+#'   standard error for log selectivity-at-age. Default `FALSE`.
 #' @param comp_offset Numeric or `NULL`. Small proportion offset added to the
 #'   observed and predicted age/length composition and conditional-age-at-length
 #'   (caal) bins before the multinomial / Dirichlet-multinomial likelihood (to
@@ -43,19 +77,20 @@
 #' @param bias_adjust_obs logical with default TRUE. Whether to
 #'   apply a bias adjustment (mean-sd^2/2) to lognormal data
 #'   likelihoods
-#' @param bias_adjust_proc logical with default TRUE. Whether to
-#'   apply a bias adjustment (mean-sd^2/2) to lognormal process
-#'   likelihoods
+#' @param bias_adjust_proc logical with default TRUE. Whether lognormal process
+#'   likelihoods, lognormal priors and the Ianelli stock-recruit penalty are
+#'   shifted by `-sd^2/2` on the log scale, making each prior value or curve a mean rather than a
+#'   median; a value between 0 and 1 scales the shift.
 #' @param use_gradient logical. Use the analytic gradient during
 #'   phasing. Default `TRUE`.
 #' @param rel_tol Numeric tolerance used to flag discontinuous
-#'   likelihood warnings (compares the TMB and `nlminb` objectives).
-#'   Default `1`.
+#'   likelihood warnings, comparing `nlminb`'s objective with a fresh
+#'   evaluation of the object it came from. Default `1`.
 #' @param loopnum Integer. Number of times to re-start optimization
 #'   (`loopnum = 3` sometimes achieves a lower final gradient than
 #'   `loopnum = 1`). Default `5`.
-#' @param newtonsteps Integer. Number of extra Newton steps to take
-#'   after optimization (alternative to `loopnum`). Default `0`.
+#' @param newtonsteps Integer. Number of extra unconstrained Newton steps to
+#'   take after optimization (alternative to `loopnum`). Default `0`.
 #' @param phase `TRUE`/`FALSE` or a list. If `FALSE`, the model is not
 #'   phased. If `TRUE`, default phasing is used. Can also accept a
 #'   list of parameter object names with corresponding phase. Default
@@ -85,6 +120,7 @@ fit_control <- function(
   getJointPrecision   = TRUE,
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
+  selectivity_se      = FALSE,
   comp_offset         = NULL,
   bias_adjust_obs     = TRUE,
   bias_adjust_proc    = TRUE,
@@ -103,6 +139,7 @@ fit_control <- function(
     getJointPrecision   = getJointPrecision,
     getReportCovariance = getReportCovariance,
     projection_uncertainty = projection_uncertainty,
+    selectivity_se      = selectivity_se,
     comp_offset         = comp_offset,
     bias_adjust_obs     = bias_adjust_obs,
     bias_adjust_proc    = bias_adjust_proc,
@@ -163,10 +200,10 @@ fit_control <- function(
 #' @description
 #' A field counts as asked for if the caller named it in the `fit_control()`
 #' call or assigned to it afterwards. Restricted to fields the bundle still
-#' carries, so deleting one (`ctl$getsd <- NULL`) withdraws the request.
+#' holds, so deleting one (`ctl$getsd <- NULL`) withdraws the request.
 #'
 #' A value that no longer matches the default also counts, whatever the record
-#' says. That is the fallback for a bundle whose record did not survive -- one
+#' says. That is the fallback for a bundle whose record did not survive, one
 #' rebuilt by `load_config()` from the non-default fields, or by `structure()`.
 #'
 #' @param fit_control an `Rceattle_fit_control` object.
@@ -193,20 +230,20 @@ fit_control <- function(
 #' `use_gradient`, ...). Accepting a whole `fit_control()` and quietly dropping
 #' those would leave a user believing every peel had used them.
 #'
-#' So a field this path cannot reach is an error, not a silent no-op -- but only
+#' So a field this path cannot reach is an error, not a silent no-op, but only
 #' when the caller changed it from `fit_control()`'s default. `.refit_like()`
 #' builds a fresh `fit_control()` naming only `phase`, `loopnum`, `getsd`,
 #' `verbose` and the bias-adjustment flags, so an unreachable field left at its
 #' default is what the refit uses anyway, and refusing it would be pedantry.
 #'
 #' **`phase` and `getsd` are read from what the caller SET**, via
-#' `.rce_fit_control_supplied()` -- named in the `fit_control()` call or
-#' assigned to afterwards -- not from whether the value differs from a
+#' `.rce_fit_control_supplied()`, named in the `fit_control()` call or
+#' assigned to afterwards, not from whether the value differs from a
 #' default. The two disagree: `fit_control()` defaults `phase` to `FALSE`, but
 #' `retrospective()` phases its peels because otherwise the parameters do not
 #' move from the full-model fit and Mohn's rho is biased towards zero. Keying on
-#' the value would mean `fit_control(getsd = FALSE)` -- a request about standard
-#' errors -- silently un-phasing every peel, while `fit_control(getsd = TRUE)`
+#' the value would mean `fit_control(getsd = FALSE)`, a request about standard
+#' errors, silently un-phasing every peel, while `fit_control(getsd = TRUE)`
 #' did nothing at all. Keying on the name gives each field exactly what was
 #' asked for and nothing else.
 #'

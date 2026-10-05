@@ -18,7 +18,7 @@
 #'
 #' Console suppression is otherwise left to the caller: the call sites wrap this
 #' differently (`suppressMessages()`, `suppressWarnings()`, both, or neither),
-#' and suppression is console-only -- it does not affect the fit. The one
+#' and suppression is console-only, it does not affect the fit. The one
 #' exception is `data_check()`'s warnings, dropped here via
 #' `fit_mod(quiet_data_check = TRUE)`, because every caller re-validates a
 #' `data_list` the user has already fitted. Convergence and TMB warnings still
@@ -35,9 +35,9 @@
 #'
 #'   There is deliberately no `bounds` counterpart. Bounds are always rebuilt
 #'   from the source `data_list`, which reproduces them exactly for every bound
-#'   the schema or the linkage table drives (`linkage_spec(bounds = )`) -- the
+#'   the schema or the linkage table drives (`linkage_spec(bounds = )`), the
 #'   documented way to set them. A raw `fit_mod(bounds = )` hand-override is
-#'   therefore the one thing a refit does not carry, and carrying it would not be
+#'   therefore the one thing a refit does not hold, and holding it would not be
 #'   safe: [run_mse()] grows `log_F` and re-dimensions the selectivity deviation
 #'   blocks at every assessment, so the source fit's bounds no longer line up
 #'   with the parameters they would be indexed against.
@@ -58,7 +58,7 @@
 #' @param suit_styr,suit_endyr Suitability window; default to the source's,
 #'   clamped to a peel year or pinned to the pristine OM by some callers.
 #' @param projection_uncertainty Whether the refit reports standard errors with
-#'   the hindcast parameters on. Defaults to the source's, carried on
+#'   the hindcast parameters on. Defaults to the source's, held on
 #'   `data_list`; under an HCR a refit without it reports zero for the whole
 #'   hindcast.
 #'
@@ -114,6 +114,16 @@
       HCRorder   = dl$HCRorder)
   }
 
+  # A fit stored with srr_fun 1|3|5 refits as the structural form it fitted. The warning
+  # escapes the suppressWarnings() below, but retrospective(), jitter(), profile() and self_test() hide it.
+  srr_fun_refit      <- .srr_fun_structural(dl$srr_fun)
+  srr_pred_fun_refit <- .srr_fun_structural(
+    dl$srr_pred_fun, penalty = isTRUE(as.integer(dl$srr_fun)[1] == 0L))
+
+  # These inits hold the fitted (or, in profile(), the grid) value, so fit_mod() must not
+  # put a linkage-fixed intercept back to its init.
+  if (is.list(inits)) attr(inits, "rceattle_refit") <- TRUE
+
   fit_mod(
     data_list    = dl,
     inits        = inits,
@@ -123,10 +133,10 @@
     estimateMode = estimateMode,
     HCR          = HCR,
     dsem = dsem,
-    # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+    # suppressWarnings: build_srr()'s advisory warnings only.
     recFun = suppressWarnings(build_srr(
-      srr_fun          = dl$srr_fun,
-      srr_pred_fun     = dl$srr_pred_fun,
+      srr_fun          = srr_fun_refit,
+      srr_pred_fun     = srr_pred_fun_refit,
       proj_mean_rec    = proj_mean_rec,
       srr_mse_switchyr = srr_mse_switchyr,
       srr_hat_styr     = srr_hat_styr,
@@ -137,7 +147,6 @@
       srr_alpha_init   = dl$srr_alpha_init,
       srr_beta_init    = dl$srr_beta_init,
       Bmsy_lim         = dl$Bmsy_lim,
-      srr_indices      = dl$srr_indices,
       linkages         = dl$srr_linkages)),
     # suppressWarnings: legacy M1_indices may travel via data_list.
     M1Fun = suppressWarnings(build_M1(
@@ -205,12 +214,12 @@
 #' Returned unchanged rather than coerced to a logical. The cpp reads these as
 #' `DATA_SCALAR` and uses them as a plain multiplier on the correction
 #' (`bias_adjust_obs * sigma^2 / 2`), so a fractional value is a partial
-#' bias-adjustment ramp, not a malformed flag -- `as.logical()` would quantize
+#' bias-adjustment ramp, not a malformed flag, `as.logical()` would quantize
 #' 0.5 up to 1 and apply a full bias correction where a half one was configured.
 #' `DATA_SCALAR` also means a vector would fail in `MakeADFun`, so taking the
 #' first element cannot silently pick the wrong one.
 #'
-#' `NULL` means the `data_list` carries no resolved value -- it never went
+#' `NULL` means the `data_list` holds no resolved value, it never went
 #' through [fit_mod()], or it came from a fit predating the field being recorded.
 #' In the second case a model fitted with the correction off refits with it on,
 #' which is not recoverable from the object; [fit_control()]'s own default is the

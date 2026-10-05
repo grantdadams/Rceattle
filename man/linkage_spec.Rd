@@ -40,10 +40,10 @@ performed at fit time inside \code{\link[=fit_mod]{fit_mod()}}.}
 each get their own coefficients. Allowed names are \code{species},
 \code{sex}, \code{age_bin}, and \code{fleet} (\code{fleet} for catchability and
 selectivity linkages). \strong{When omitted, \code{by} defaults to the base
-stratum of whichever process the spec is attached to} -- \code{~fleet}
+stratum of whichever process the spec is attached to}, \code{~fleet}
 for catchability, selectivity, and the fleet composition weights
 (\code{theta_comp} / \code{theta_caal}), and \code{~species} for recruitment, M,
-growth, and the diet weight (\code{theta_diet}) -- so you rarely need to
+growth, and the diet weight (\code{theta_diet}), so you rarely need to
 spell it out for the base case. Pass it explicitly to override:
 e.g. \code{~species + sex} for per-(species, sex) coefficients, or
 \code{NULL} to share a single coefficient across every stratum. An
@@ -54,11 +54,11 @@ given either as 1-based species ids (\code{c(1L, 2L)}) or as species
 \strong{names} matching \code{data_list$spnames} (\code{c("Pollock", "Cod")}).
 Names are matched exactly, after trimming whitespace, when the model
 is assembled in \code{\link[=fit_mod]{fit_mod()}}; an unrecognized name is an error that
-lists the model's species. Give ids or names, not a mix -- R coerces
+lists the model's species. Give ids or names, not a mix, R coerces
 \code{c(1, "Cod")} to \code{c("1", "Cod")}. \code{NULL} (default) means every species in
 \code{strata$species} at materialization time. Use this to give
 different species different formulas, e.g. by registering
-multiple specs against the same parameter -- see
+multiple specs against the same parameter, see
 \code{\link[=build_growth]{build_growth()}} for the multi-spec syntax.}
 
 \item{sex}{optional vector of sex ids that this spec applies to.
@@ -66,8 +66,8 @@ May be supplied as integers (\code{1L} = female, \code{2L} = male) or as
 character strings (\code{"Females"}/\code{"Males"}, case-insensitive;
 \code{"female"}, \code{"male"}, \code{"f"}, \code{"m"} are also accepted). \code{NULL}
 (default) means every sex in \code{strata$sex} at materialization
-time. Only meaningful when \code{by} includes \code{sex}; otherwise the
-filter is a no-op. Use this to register separate specs per sex
+time. \code{by} must include \code{sex} for it to apply; otherwise it warns
+and has no effect. Use this to register separate specs per sex
 (e.g. one prior on females, another on males) against the same
 parameter.}
 
@@ -75,43 +75,51 @@ parameter.}
 either as 1-based \code{Fleet_code}s (\code{c(1L, 3L)}) or as fleet \strong{names}
 matching \code{fleet_control$Fleet_name} (\code{c("Shelikof", "Summer BT")}).
 Names are matched exactly, after trimming whitespace, when the model
-is assembled in \code{\link[=fit_mod]{fit_mod()}}; an unrecognized name -- or one that is
-not unique in \code{fleet_control} -- is an error that lists the model's
+is assembled in \code{\link[=fit_mod]{fit_mod()}}; an unrecognized name, or one that is
+not unique in \code{fleet_control}, is an error that lists the model's
 fleets. Prefer names: a \code{Fleet_code} that is wrong but in range
 attaches the linkage to a different fleet and still fits, whereas a
-misspelled name cannot. Give ids or names, not a mix -- R coerces
+misspelled name cannot. Give ids or names, not a mix, R coerces
 \code{c(7, "Pollock")} to \code{c("7", "Pollock")}. \code{NULL} (default) means every fleet in
-\code{strata$fleet} at materialization time. Only meaningful when \code{by}
-includes \code{fleet}; otherwise the filter is a no-op. Used by
+\code{strata$fleet} at materialization time. \code{by} must include \code{fleet}
+for it to apply; otherwise it warns and has no effect. Used by
 catchability and selectivity linkages to give different fleets
 different formulas.}
 
 \item{link}{link function relating the linear predictor to the
-natural-scale target parameter. One of \code{"log"} (default) or
-\code{"identity"}. With \code{link = "log"}, \code{log(param) = X * beta} -- slope
-contributions are multiplicative on the natural-scale parameter. With \code{link = "identity"},
-\code{param = X * beta} -- slope contributions are additive on the
-natural scale. The linkage targets are estimated on the log scale,
-so \code{"log"} is the default.}
+natural-scale target parameter: one of \code{"log"} (default), \code{"identity"},
+or \code{"exponential"}. With \code{link = "log"}, \code{log(param) = X * beta}, slope
+contributions are multiplicative on the natural-scale parameter. With
+\code{link = "identity"}, \code{param = X * beta}, slope contributions are additive
+on the natural scale. With \code{link = "exponential"} the linear predictor
+MULTIPLIES the log instead of shifting it, \code{param^exp(X * beta)}; it
+reproduces Stock Synthesis's environmental link type 1 and is accepted on
+catchability only, for a lognormal index, with an estimated intercept. The
+linkage targets are estimated on the log scale, so \code{"log"} is the default.}
 
-\item{init}{optional named numeric vector of initial values keyed by
-the design-matrix column name (e.g.
-\verb{c(}(Intercept)\verb{ = 4, temp = 0)}). Missing entries default to \code{0}.}
+\item{init}{optional named list of initial values keyed by the
+design-matrix column name (e.g. \code{list(`(Intercept)` = 4, temp = 0)}),
+an intercept on the parameter's natural scale and a slope on the link
+scale; missing entries default to \code{0}. An intercept's natural-scale value
+is logged onto the parameter's base (\code{rec_pars}, \code{log_M1}, ...), or, for
+recruitment \code{R_init}, which has no base, onto the coefficient itself.}
 
 \item{bounds}{optional named list of \code{c(lower, upper)} keyed the same
-way as \code{init}.}
+way as \code{init}, and read on the same scales.}
 
 \item{priors}{optional named list of \link{Rceattle_priors} objects, keyed by
 design-matrix column name. Inside this argument you may write \code{normal()},
 \code{lognormal()}, \code{gamma()}, or \code{beta()} directly, e.g.
-\code{priors = list(temp = normal(0, 1))} -- equivalent to
+\code{priors = list(temp = normal(0, 1))}, equivalent to
 \code{priors = list(temp = prior_normal(0, 1))}.}
 
 \item{re_group}{optional character: name of a random-effect grouping
 for these coefficients. \code{NA} (default) means fixed.}
 
 \item{est_phase}{optional integer estimation phase. Default \code{1L}; \code{0} fixes
-the coefficient at its \code{init}. Applies to \strong{fixed-effect} rows only -- the
+the coefficient at its \code{init}, which then holds over any \code{inits} given to
+\code{\link[=fit_mod]{fit_mod()}} (an estimated intercept's \code{init} is only a starting value, and
+\code{inits} win). Applies to \strong{fixed-effect} rows only, the
 coefficients in \code{beta_linkage}. A random-effect term's deviations are held
 in a separate vector that \code{est_phase} does not reach, so \code{est_phase < 1} on
 a formula containing one is an error rather than a silent no-op; drop the
@@ -141,14 +149,14 @@ covariate is informative. Only used with \code{observe}.}
 
 \item{integrate}{single \code{TRUE}/\code{FALSE} (default \code{TRUE}): whether the random
 effect's deviations are integrated out by the Laplace approximation.
-\code{integrate = FALSE} instead estimates them as a \strong{penalized fixed effect} --
+\code{integrate = FALSE} instead estimates them as a \strong{penalized fixed effect},
 the deviations stay in the objective as a plain penalty and are reported
 with standard errors like any other fixed effect. This reproduces the
 ADMB/AMAK convention behind the legacy \code{Time_varying_sel} /
 \code{Time_varying_q} switches, which a Laplace-integrated \code{rw()} cannot match
-(the marginal likelihood carries a log-determinant term the penalized form
-has no counterpart for). Permitted \strong{only with a fixed SD} --
-\code{init = list(sigma = )} and no \code{sigma} prior, plus a fixed \code{rho} for \code{ar1} --
+(the marginal likelihood holds a log-determinant term the penalized form
+has no counterpart for). Permitted \strong{only with a fixed SD},
+\code{init = list(sigma = )} and no \code{sigma} prior, plus a fixed \code{rho} for \code{ar1},
 because estimating deviations and their SD jointly as fixed effects is
 degenerate. Cannot be combined with \code{observe}: an observed latent state must
 stay integrated.}
@@ -165,7 +173,7 @@ random-effect deviation SD and (for \code{ar1}) the correlation: e.g.
 \code{init = list(sigma = 0.1)} fixes the SD, \code{priors = list(rho = normal(0, 0.3))} places a prior on the correlation. \code{sigma} means different things by
 structure: for \code{rw()} it is the innovation (per-step) SD; for \code{ar1()} it is
 the marginal (stationary) SD. The two are not directly comparable across
-structures -- see \code{vignette("environmental-linkages-and-priors")}.
+structures, see \code{vignette("environmental-linkages-and-priors")}.
 }
 \examples{
 # A covariate on a growth parameter, one coefficient per species. Attach to a
@@ -183,7 +191,7 @@ linkage_spec(~ factor(Year), fleet = "Pollock_survey_1_shelikof_acoustic")
 linkage_spec(~ (1 | Year))
 
 # A random walk estimated as a penalized fixed effect, which requires a
-# fixed SD -- the ADMB/AMAK convention behind the legacy Time_varying_*
+# fixed SD, the ADMB/AMAK convention behind the legacy Time_varying_*
 # switches.
 linkage_spec(~ rw(1 | Year), init = list(sigma = 0.05), integrate = FALSE)
 

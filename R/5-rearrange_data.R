@@ -1,9 +1,9 @@
-#' Flag the fleet that carries each shared parameter block's penalty
+#' Flag the fleet that holds each shared parameter block's penalty
 #'
 #' Fleets sharing an index estimate one block of parameters, so its prior /
 #' penalty must be accumulated once. Returns 1 for the first estimated fleet in
 #' each group and 0 for the rest. An "Off" fleet estimates nothing, so it is
-#' never chosen while an estimated fleet is available -- the same donor rule
+#' never chosen while an estimated fleet is available, the same donor rule
 #' `adjust_map_shared_params()` uses. Fleets with no index (`NA`) share with
 #' nobody and always lead.
 #'
@@ -112,6 +112,15 @@ rearrange_data <- function(data_list, build_osa = FALSE){
          paste(.missing_fc, collapse = ", "),
          ". Run switch_check() first to fill defaulted columns.", call. = FALSE)
 
+  # Both read the column as supplied: convert_switches() turns a blank and a type
+  # it cannot map into the same NA, and an out-of-range code into itself.
+  .rce_stop_blank_fleet_type(data_list$fleet_control)
+  # convert_switches() resolves factor columns; do it here too so the refusal
+  # below reads the label the user wrote rather than a level index.
+  data_list$fleet_control <-
+    .rce_defactor_fleet_control(data_list$fleet_control)
+  .rce_stop_unreadable_fleet_type(data_list$fleet_control)
+
   # Convert text to integer for switches used in TMB
   data_list <- convert_switches(data_list)
 
@@ -183,12 +192,32 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$Bin_first_selected) %>% as.integer()
 
   # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
-  data_list$sel_norm_bin1 <- data_list$fleet_control %>%
-    dplyr::mutate(
-      Sel_norm_bin = .data$Sel_norm_bin - sel_bin_offset,
-      Sel_norm_bin = ifelse(.data$Sel_norm_bin < 0, -99, .data$Sel_norm_bin),         # Less than zero, normalize by max
-      Sel_norm_bin = ifelse(is.na(.data$Sel_norm_bin), -999, .data$Sel_norm_bin)) %>% # NA, do not normalize (unless type = 2)
-    dplyr::pull(.data$Sel_norm_bin) %>% as.integer()
+  # First bin each fleet may normalize at, on the column's own scale: below it
+  # the curve is zeroed, so a value there means "normalize by the maximum".
+  .norm_bounds <- lapply(seq_len(nrow(data_list$fleet_control)), function(i) {
+    age <- isTRUE(data_list$fleet_control$Selectivity_dimension[i] == "Age")
+    nb  <- if (age) data_list$nages[data_list$fleet_control$Species[i]]
+           else data_list$nlengths[data_list$fleet_control$Species[i]]
+    .rce_sel_norm_bounds(data_list, i, age, nb)
+  })
+  .norm_lo <- vapply(.norm_bounds, function(b) as.numeric(b$lo), numeric(1))
+  .norm_hi <- vapply(.norm_bounds, function(b) as.numeric(b$hi), numeric(1))
+  # A Fixed curve is read from emp_sel_obs and never normalized, so its value is
+  # allowed to be stale -- the same fleets switch_check() leaves alone.
+  .norm_hi[data_list$flt_sel_type == 0] <- NA_real_
+
+  .is_pm <- data_list$fleet_control$Selectivity %in% c(11, "LogisticPM")
+
+  # Resolve the word first, so only a real bin is shifted to the 0-based index:
+  # -99 normalizes by the maximum and -999 does not normalize. An unreadable
+  # value is refused here too -- switch_check() does not run on every path in.
+  .norm1 <- .rce_sel_norm_code(data_list$fleet_control$Sel_norm_bin,
+                               lo = .norm_lo, allow_all = .is_pm)
+  .rce_stop_bad_sel_norm(.norm1, "Sel_norm_bin", data_list$fleet_control, .norm_hi)
+  data_list$sel_norm_bin1 <- as.integer(dplyr::case_when(
+    is.na(.norm1) ~ -999,                        # do not normalize
+    .norm1 <  0   ~ -99,                         # normalize by the maximum
+    TRUE          ~ .norm1 - sel_bin_offset))
 
   # - 8b) Whether normalization pools its reference across sexes (WithinSex = 0,
   #       AcrossSexes = 1); already an integer code by this point.
@@ -196,10 +225,15 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$Sel_norm_scope) %>% as.integer()
 
   # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
-  data_list$sel_norm_bin2 <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_norm_bin_upper = .data$Sel_norm_bin_upper - sel_bin_offset,
-                  Sel_norm_bin_upper = ifelse(is.na(.data$Sel_norm_bin_upper), -999, .data$Sel_norm_bin_upper)) %>%
-    dplyr::pull(.data$Sel_norm_bin_upper) %>% as.integer()
+  # As above, but the upper bin keeps its own convention: selectivity.hpp reads
+  # anything below 0 as "no age range", so a negative is passed through.
+  .norm2 <- .rce_sel_norm_code(data_list$fleet_control$Sel_norm_bin_upper,
+                               lo = .norm_lo, allow_all = .is_pm)
+  .rce_stop_bad_sel_norm(.norm2, "Sel_norm_bin_upper", data_list$fleet_control, .norm_hi)
+  data_list$sel_norm_bin2 <- as.integer(dplyr::case_when(
+    is.na(.norm2) ~ -999,
+    .norm2 <  0   ~ .norm2,
+    TRUE          ~ .norm2 - sel_bin_offset))
 
   # - 9b) Per-fleet selectivity start year (0-based from styr). Selectivity
   #       penalties begin the year after this (excludes pre-survey years + the
@@ -241,7 +275,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     as.numeric(data_list$fleet_control$Sel_avgsel_pen))
   data_list$flt_sel_avgsel_pen[is.na(data_list$flt_sel_avgsel_pen)] <- 0
 
-  # - 9f) NonParametricRPM (type 9) bin cap (0-based): the realized selectivity is
+  # - 9f) NonParametricPM (type 9) bin cap (0-based): the realized selectivity is
   #       held flat at/after this bin (RTMB cap_old_age). NA -> -999 (no cap).
   data_list$flt_sel_cap_bin <- data_list$fleet_control %>%
     dplyr::mutate(Sel_cap_bin = .data$Sel_cap_bin - sel_bin_offset,
@@ -277,6 +311,14 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
   # - 13) Dim3 of age transition matrix (what ALK to use)
   data_list$flt_age_transition_index <- .pull_int0(data_list$fleet_control, "Age_transition_index")
+
+  # - 13b) Ageing error matrix per fleet. Absent or NA means the fleet's own
+  #        species, which reproduces the one-matrix-per-species behaviour
+  #        exactly, so an existing fleet_control needs no new column.
+  {
+    .ae <- .rce_ageing_error_index(data_list$fleet_control)
+    data_list$flt_ageing_error_index <- as.integer(.ae) - 1L   # 0-based for C++
+  }
 
   # - 14) Parametric form of q
   data_list$est_index_q <- .pull_int(data_list$fleet_control, "Catchability")
@@ -384,6 +426,38 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
 
   # 3 -  Catch data ----
+  # - The initial equilibrium catch is predicted from the equilibrium age
+  #   structure rather than from a hindcast year, so it gets its own inputs.
+  #   Only a mode that estimates Finit reads it; under any other the rows are
+  #   catch history and are dropped.
+  .equil_rows <- .rce_equil_catch_candidates(data_list)
+  if (!is.null(.equil_rows) && nrow(.equil_rows)) {
+    .equil_rows <- .equil_rows[.rce_equil_catch_rows(
+      .equil_rows, data_list$styr, data_list$initMode), , drop = FALSE]
+  }
+  if (is.null(.equil_rows) || !nrow(.equil_rows)) {
+    # TMB needs a matrix with the right column count even when there are no rows.
+    data_list$equil_catch_ctl <- matrix(0L, 0, 2)
+    data_list$equil_catch_obs <- matrix(0,  0, 2)
+  } else {
+    data_list$equil_catch_ctl <- .equil_rows %>%
+      dplyr::select(Fleet_code, Species) %>%
+      dplyr::mutate_all(as.integer) %>%
+      as.matrix()
+    data_list$equil_catch_obs <- .equil_rows %>%
+      dplyr::select(Catch, Log_sd) %>%
+      dplyr::mutate_all(as.numeric) %>%
+      as.matrix()
+  }
+  # catch_data holds the fitted catch only: a styr - 1 row in the catch equation
+  # would index F_flt_age(..., -1), an out-of-bounds read rather than an error.
+  # catch_obs is built from this frame, and row names here would travel into
+  # obsvec's OSA bookkeeping.
+  data_list$catch_data <- data_list$catch_data[
+    is.na(data_list$catch_data$Year) |
+      data_list$catch_data$Year != (data_list$styr - 1L), , drop = FALSE]
+  rownames(data_list$catch_data) <- NULL
+
   # - Seperate catch metadata from observation
   data_list$catch_ctl <- data_list$catch_data %>%
     dplyr::select(Fleet_code, Species, Year) %>%
@@ -462,6 +536,29 @@ rearrange_data <- function(data_list, build_osa = FALSE){
            as rows of all 1s with Sample_size = 0")
     }
   }
+
+  # * DoubleNormalSS3 ends ----
+  # Both ends scaled unless fit_mod() finds SS3's -999 in the starting values.
+  data_list$sel_dn6_ends <- matrix(1L, nrow(data_list$fleet_control), 2)
+
+  # * Population length bins ----
+  # The age-length key, weight-at-length and maturity-at-length are computed on
+  # these finer bins (SS3's population length bins) and summed into the data
+  # bins above. A species without its own grid uses its data bins.
+  data_list <- .rce_pop_length_bins(data_list)
+
+  # The columns that name a selectivity bin stay DATA bin ordinals on either
+  # grid. data_check() refuses a fleet that sets one on a species whose
+  # population grid is finer, because a data ordinal cannot address a finer
+  # grid without picking a reading, and the readings differ.
+
+  # * Maturity-at-length ----
+  # Logistic in length (cm); a species with no L50 / slope keeps the age-based
+  # maturity sheet.
+  L50   <- as.numeric(data_list$L50_mat_len   %||% rep(NA_real_, data_list$nspp))
+  slope <- as.numeric(data_list$slope_mat_len %||% rep(NA_real_, data_list$nspp))
+  data_list$mat_len_use  <- as.integer(!is.na(L50) & !is.na(slope))
+  data_list$mat_len_pars <- cbind(ifelse(is.na(L50), 0, L50), ifelse(is.na(slope), 0, slope))
 
 
   # 6 -  Diet data ----
@@ -561,14 +658,30 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
 
   # 9 - Rearrange age_error matrices ----
-  arm <- array(0, dim = c(data_list$nspp, max_age, max_age))
-
-  # age_error may arrive as a tibble or a matrix, and the loop below mixes `$`
-  # column access with positional `[i, ]` -- the two disagree on both. Coerce to
-  # a plain data frame first so each row reads the same way whatever was passed.
+  # Indexed by Ageing_error_index, not by species, so one species can carry
+  # several matrices -- an ageing method that changed part way through a series
+  # reads the same otolith differently before and after, and a fleet picks its
+  # matrix through fleet_control$Ageing_error_index. Absent the column the index
+  # IS the species, which is what the model did when there was one matrix each.
   data_list$age_error <- as.data.frame(data_list$age_error)
+  # Per ROW, not just per column: adding a second matrix by typing indices on the
+  # new rows leaves the original rows blank, and those still mean "the species'
+  # own matrix".
+  {
+    data_list$age_error$Ageing_error_index <-
+      .rce_ageing_error_index(data_list$age_error)
+  }
+  n_ae <- max(as.numeric(as.character(data_list$age_error$Ageing_error_index)),
+              data_list$nspp, na.rm = TRUE)
+  arm <- array(0, dim = c(n_ae, max_age, max_age))
+
+  # The observed-age columns are everything but the named metadata, so adding a
+  # metadata column cannot shift which columns are read as probabilities.
+  .ae_obs  <- setdiff(colnames(data_list$age_error), .RCE_AGE_ERROR_META)
+
   for (i in seq_len(nrow(data_list$age_error))) {
     sp <- as.numeric(as.character(data_list$age_error$Species[i]))
+    idx <- as.numeric(as.character(data_list$age_error$Ageing_error_index[i]))
     true_age <- as.numeric(as.character(data_list$age_error$True_age[i])) - data_list$minage[sp] + 1
 
     if (true_age > data_list$nages[sp]) {
@@ -578,10 +691,11 @@ rearrange_data <- function(data_list, build_osa = FALSE){
       stop()
     }
 
-    arm[sp, true_age, 1:data_list$nages[sp]] <- as.numeric(as.character(data_list$age_error[i, (1:data_list$nages[sp]) + 2]))
+    arm[idx, true_age, 1:data_list$nages[sp]] <-
+      as.numeric(as.character(data_list$age_error[i, .ae_obs[1:data_list$nages[sp]]]))
 
     # Normalize
-    arm[sp, true_age, 1:data_list$nages[sp]] <- arm[sp, true_age, 1:data_list$nages[sp]] / sum(arm[sp, true_age, 1:data_list$nages[sp]], na.rm = TRUE)
+    arm[idx, true_age, 1:data_list$nages[sp]] <- arm[idx, true_age, 1:data_list$nages[sp]] / sum(arm[idx, true_age, 1:data_list$nages[sp]], na.rm = TRUE)
   }
   data_list$age_error <- arm
 
@@ -676,8 +790,20 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   #   make the mean-fill below return an all-NA column and hand TMB a character
   #   matrix ("Only numeric matrices ... can be interfaced").
   # - Fill in missing years with column mean
+  #
+  # env_index is read BY ROW POSITION -- row r is model year styr + r - 1, and
+  # the Year label is dropped below -- so a row outside styr:projyr would shift
+  # every later row and feed the previous year's temperature to consumption.
   data_list$env_data <- .rce_numeric_env_data(data_list$env_data)
   data_list$env_index <- merge(data_list$env_data, data.frame(Year = data_list$styr:data_list$projyr), all = TRUE)
+  data_list$env_index <- data_list$env_index[
+    data_list$env_index$Year %in% data_list$styr:data_list$projyr, , drop = FALSE]
+  data_list$env_index <- data_list$env_index[order(data_list$env_index$Year), , drop = FALSE]
+  # A repeated Year is inside the range, so the filter above does not catch it,
+  # and one extra row shifts every year after it. data_check() reports it by
+  # name; this keeps the row-per-model-year contract even when that is bypassed.
+  data_list$env_index <-
+    data_list$env_index[!duplicated(data_list$env_index$Year), , drop = FALSE]
   data_list$env_index <-  data_list$env_index %>%
     dplyr::select(-Year) %>%
     dplyr::mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) %>%
@@ -765,7 +891,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # spec objects), not TMB data; strip it here alongside the other list-of-spec
   # objects so it does not ride into obj$env$data (inert to the objective, but it
   # bloats the fit and relies on TMB's sanitizer tolerating an arbitrary list).
-  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "caal_data", "env_data", "spnames",
+  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data", "equil_catch_data", "index_data", "comp_data", "caal_data", "env_data", "spnames",
                        "aLW", "diet_data", "index_cov", "model_config", # "NByageFixed", "estDynamics", "Ceq",
                        "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
@@ -920,4 +1046,53 @@ rearrange_dat <- function(data_list){
   .Deprecated("rearrange_data",
               msg = "rearrange_dat() is deprecated and will be removed in Rceattle 6.0.0; use rearrange_data().")
   rearrange_data(data_list)
+}
+
+
+#' Population length bins and their map onto the data length bins
+#'
+#' Adds `lengths_pop` (lower edges, cm; species x bins), `nlengths_pop` and
+#' `pop_to_data_bin` (0-based data bin that each population bin sums into) to
+#' `data_list`. The grid comes from `data_list$pop_lengths` (one vector for every
+#' species, or a list per species); a species without one, or with empirical
+#' growth, uses its data bins, so the map is the identity. A population bin below
+#' the first data edge sums into the first data bin and one above the last edge
+#' into the last, the data bins' minus and plus groups. Every data edge must also
+#' be a population edge, so no population bin straddles two data bins.
+#' @keywords internal
+#' @noRd
+.rce_pop_length_bins <- function(data_list) {
+  nspp <- data_list$nspp
+  pop  <- data_list$pop_lengths
+  # Recycled to nspp, as data_check() reads the same switch: build_growth() may
+  # return one value for every species, and an NA here would read as estimated
+  # growth and hand species 2 a grid it does not use.
+  gm <- rep_len(data_list$growth_model %||% 0, nspp)
+  grids <- lapply(seq_len(nspp), function(sp) {
+    data_edges <- as.numeric(data_list$lengths[sp, seq_len(data_list$nlengths[sp])])
+    g <- if (is.list(pop)) (if (sp <= length(pop)) pop[[sp]] else NULL) else pop
+    # Validated here, not only in build_growth(): ?build_growth documents
+    # data_list$pop_lengths as the inherit source, so a converter or an SS3
+    # bridge can set the field directly and skip the constructor. A decreasing
+    # grid returned a FINITE objective with age-length-key probabilities down to
+    # -0.79, and a negative edge a negative weight-at-length, neither flagged.
+    if (!is.null(g)) g <- .validate_pop_lengths(g)
+    if (is.null(g) || isTRUE(gm[sp] == 0)) g <- data_edges
+    missing_edge <- data_edges[vapply(data_edges, function(e) !any(abs(g - e) < 1e-8), logical(1))]
+    if (length(missing_edge)) {
+      stop(sprintf("pop_lengths for species %d must include every data length-bin lower edge; missing: %s",
+                   sp, paste(missing_edge, collapse = ", ")), call. = FALSE)
+    }
+    bin <- pmax(findInterval(g + 1e-8, data_edges), 1L) - 1L
+    list(edges = g, bin = as.integer(bin))
+  })
+  n_pop <- vapply(grids, function(x) length(x$edges), integer(1))
+  data_list$nlengths_pop    <- as.integer(n_pop)
+  data_list$lengths_pop     <- matrix(0, nspp, max(n_pop))
+  data_list$pop_to_data_bin <- matrix(0L, nspp, max(n_pop))
+  for (sp in seq_len(nspp)) {
+    data_list$lengths_pop[sp, seq_len(n_pop[sp])]     <- grids[[sp]]$edges
+    data_list$pop_to_data_bin[sp, seq_len(n_pop[sp])] <- grids[[sp]]$bin
+  }
+  data_list
 }

@@ -11,30 +11,50 @@ fake_estimability <- function(obj) {
 }
 
 # iter.max = 1 stops far from the optimum, so sdreport fails and the branch runs.
+#
+# Messages are captured with testthat::capture_messages() rather than
+# sink(type = "message"). Under test_file() the reporter has already redirected
+# the message stream, so a nested sink here returns empty and the assertions
+# below silently pass on nothing -- they fail rather than mislead, but they were
+# testing the harness, not the model. The stdout sink is still a sink because
+# the estimability table arrives via print(), which capture_messages() cannot
+# see.
 run_and_capture <- function(verbose) {
   so <- textConnection("so_out", "w", local = TRUE)
-  se <- textConnection("se_out", "w", local = TRUE)
-  sink(so); sink(se, type = "message")
+  sink(so)
+  # Pop exactly once, whether the fit returns or throws; a second sink() would
+  # remove the reporter's own sink under test_file().
+  sunk <- TRUE
+  unsink <- function() {
+    if (sunk) {
+      suppressWarnings(try(sink(), silent = TRUE))
+      sunk <<- FALSE
+    }
+  }
   on.exit({
-    suppressWarnings(try(sink(type = "message"), silent = TRUE))
-    suppressWarnings(try(sink(), silent = TRUE))
-    close(so); close(se)
+    unsink()
+    close(so)
   }, add = TRUE)
 
   testthat::local_mocked_bindings(.check_estimability = fake_estimability,
                                   .package = "Rceattle")
   # The non-positive-definite Hessian is the condition being induced.
-  fit <- suppressWarnings(try(Rceattle::fit_mod(
-    Rceattle::BS2017SS, file = NULL, estimateMode = 1, msmMode = 0,
-    random_rec = FALSE,
-    fit_control = Rceattle::fit_control(
-      getsd = TRUE, verbose = verbose, phase = FALSE, newtonsteps = 0,
-      nlminb_control = list(eval.max = 2, iter.max = 1, trace = 0))),
-    silent = TRUE))
+  msgs <- character()
+  fit <- withCallingHandlers(
+    suppressWarnings(try(Rceattle::fit_mod(
+      Rceattle::BS2017SS, file = NULL, estimateMode = 1, msmMode = 0,
+      random_rec = FALSE,
+      fit_control = Rceattle::fit_control(
+        getsd = TRUE, verbose = verbose, phase = FALSE, newtonsteps = 0,
+        nlminb_control = list(eval.max = 2, iter.max = 1, trace = 0))),
+      silent = TRUE)),
+    message = function(m) {
+      msgs <<- c(msgs, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    })
 
-  suppressWarnings(try(sink(type = "message"), silent = TRUE))
-  suppressWarnings(try(sink(), silent = TRUE))
-  list(fit = fit, stdout = so_out, stderr = se_out)
+  unsink()
+  list(fit = fit, stdout = so_out, stderr = msgs)
 }
 
 testthat::test_that("the estimability table is silent at verbose = 0", {
@@ -47,19 +67,39 @@ testthat::test_that("the estimability table is silent at verbose = 0", {
   testthat::expect_false(any(grepl("Param_check", r$stdout)))
   testthat::expect_false(any(grepl("Param_check", r$stderr)))
   testthat::expect_false(any(grepl("did not converge", r$stderr)))
+  # A failed sdreport is still reported here: the convergence battery is not
+  # gated on verbose, so verbose = 0 is not silence.
+  testthat::expect_true(any(grepl("sdreport_failed", r$stderr)))
 })
 
-testthat::test_that("the estimability table is shown at verbose > 0", {
+testthat::test_that("the estimability table is silent at verbose = 1", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
 
+  # From 5.26.0 the table is one row per parameter, each named after its block,
+  # and `fit$convergence` reports the flagged ones by fleet, bin and year
+  # instead. The rest of the verbose = 1 reporting is unchanged.
   r <- run_and_capture(1)
+
+  testthat::expect_true(is.null(r$fit$opt$SD))
+  testthat::expect_false(any(grepl("Param_check", r$stderr)))
+  testthat::expect_false(any(grepl("Param_check", r$stdout)))
+  # A failed sdreport is reported as `sdreport_failed`, which names the Hessian
+  # rather than calling the optimizer non-convergent.
+  testthat::expect_true(any(grepl("sdreport_failed", r$stderr)))
+  testthat::expect_false(any(grepl("did not converge", r$stderr)))
+})
+
+testthat::test_that("the estimability table is shown at verbose > 1", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  r <- run_and_capture(2)
 
   testthat::expect_true(is.null(r$fit$opt$SD))
   # Re-emitted as a message, so still suppressible and never on stdout.
   testthat::expect_true(any(grepl("Param_check", r$stderr)))
   testthat::expect_false(any(grepl("Param_check", r$stdout)))
-  testthat::expect_true(any(grepl("did not converge", r$stderr)))
 })
 
 testthat::test_that("the estimability verdict is kept whatever verbose says", {

@@ -8,8 +8,9 @@
 #'
 #' For operational use, the package version line is meant to make it
 #' obvious which version of `Rceattle` produced an archived fit so that
-#' results can be reproduced even if `master` has moved on. Tag a
-#' release (`devtools::install_github("grantdadams/Rceattle@vX.Y.Z")`)
+#' results can be reproduced even if `main` has moved on. Tag a
+#' release (`devtools::install_github("afsc-assessments/Rceattle@X.Y.Z")`,
+#' bare version, no leading `v`)
 #' and the same version string will reappear here on a fresh run.
 #'
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
@@ -195,7 +196,9 @@ summary.Rceattle <- function(object, ...) {
 
   se <- tryCatch({
     v <- stats::vcov(object)
-    if (is.null(v)) NULL else sqrt(abs(diag(v)))
+    # An indefinite Hessian inverts to a negative variance, which has no
+    # standard error; NA reports it as unavailable, not as sqrt(|variance|).
+    if (is.null(v)) NULL else .conv_se_from_cov(v)
   }, error = function(e) NULL)
 
   # vcov() covers the fixed effects only, and getsd = FALSE leaves sdrep NULL,
@@ -333,8 +336,9 @@ summary.Rceattle <- function(object, ...) {
 #' Print method for an Rceattle model summary
 #'
 #' @param x A `"summary.Rceattle"` object from [summary.Rceattle()].
-#' @param n Number of parameters to show, largest gradient-free standard error
-#'   first. Default 10; use `Inf` for all, or take `x$fixed_coefficients`.
+#' @param n Number of parameters to show, in `coef()` order. Default 10; use
+#'   `Inf` for all, or take `x$fixed_coefficients` -- on a DSEM fit
+#'   `x$coefficients` is the SEM path table, not the parameters.
 #' @param ... Currently unused.
 #' @return `x`, invisibly.
 #' @export
@@ -355,8 +359,18 @@ print.summary.Rceattle <- function(x, n = 10, ...) {
           sep = "")
     }
     if (all(is.na(cf$std_error))) {
-      cat("  standard errors are unavailable -- this fit has no sdreport",
-          "(fit_control(getsd = FALSE))\n")
+      # Two reasons, and the user needs to know which: no sdreport at all, or one
+      # whose variances are unusable because the Hessian is not positive definite.
+      # A print method must not stop, so an unreadable spec falls back to the
+      # commoner reason.
+      v <- tryCatch(stats::vcov(x$spec), error = function(e) NULL)
+      if (is.null(v)) {
+        cat("  standard errors are unavailable -- this fit has no sdreport",
+            "(fit_control(getsd = FALSE))\n")
+      } else {
+        cat("  standard errors are unavailable -- no variance in the sdreport is",
+            "usable; see convergence_diagnostics() 'pdHess'\n")
+      }
     }
   }
 
@@ -421,7 +435,7 @@ print.summary.Rceattle <- function(x, n = 10, ...) {
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param what Character. One of `"biomass"` (default), `"ssb"`,
 #'   `"recruitment"`, `"depletion"` (total biomass / B0), `"ssb_depletion"`
-#'   (female spawning biomass / SB0 -- the quantity a Tier 3 HCR compares
+#'   (female spawning biomass / SB0, the quantity a Tier 3 HCR compares
 #'   against B40%), `"index"`, `"catch"`, `"selectivity"`, `"mortality"`, or
 #'   `"data"`.
 #' @param ... Passed to the underlying plotting function.
@@ -475,7 +489,7 @@ coef.Rceattle <- function(object, ...) {
 #' Variance-covariance matrix for an Rceattle fit
 #'
 #' Returns the fixed-effect covariance matrix produced by
-#' [TMB::sdreport()]. Random-effect covariance is not returned here --
+#' [TMB::sdreport()]. Random-effect covariance is not returned here,
 #' use `object$sdrep` for the full report.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
@@ -519,7 +533,7 @@ logLik.Rceattle <- function(object, ...) {
 #'
 #' Returns a long-format data frame of residuals, following the convention of
 #' [stats::residuals.glm()] where `type` selects the *kind* of residual. By
-#' default residuals are returned for every applicable data source -- survey
+#' default residuals are returned for every applicable data source, survey
 #' indices, fishery catches, age/length composition (`comp`), and conditional
 #' age-at-length (`caal`); use `source` to restrict to particular ones.
 #'
@@ -535,7 +549,7 @@ logLik.Rceattle <- function(object, ...) {
 #'     realized observation log-SD \eqn{\sigma} and the observation
 #'     bias-adjustment flag \eqn{b} (`bias_adjust_obs`, default 1). A
 #'     natural-scale index fleet (`Index_distribution` `"MVN"`, `"MVNORM"`,
-#'     `"Normal"` or `"TruncatedNormal"`) carries an ABSOLUTE \eqn{\sigma} and is
+#'     `"Normal"` or `"TruncatedNormal"`) holds an ABSOLUTE \eqn{\sigma} and is
 #'     standardized as \eqn{(o - \hat{o})/\sigma} instead. Two caveats there: a
 #'     covariance fleet gets its marginal residual, not the whitened one (use
 #'     `type = "osa"` for that), and `"TruncatedNormal"` is standardized on the
@@ -544,14 +558,16 @@ logLik.Rceattle <- function(object, ...) {
 #'     \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 #'     N.}
 #'   \item{`"osa"`}{One-step-ahead residuals via [osa_residuals()], which builds
-#'     the composition observation data on demand from any fit.}
+#'     the composition observation data on demand from any fit. Pass its
+#'     arguments through `...`; note that `method = "cdf"` forms no conditional
+#'     mean, so `Fitted` is `NA` for every row under it.}
 #'   \item{`"process"`}{Process residuals via [process_residuals()] for the
 #'     model's random-effect deviations; `source` does not apply.}
 #' }
 #'
 #' Composition rows are returned in long form (one row per observation x
-#' age/length bin) and carry the `Age0_Length1` flag from `comp_data` (`0` age,
-#' `1` length); CAAL rows carry both the conditioning `Length` and the age `Bin`.
+#' age/length bin) and hold the `Age0_Length1` flag from `comp_data` (`0` age,
+#' `1` length); CAAL rows hold both the conditioning `Length` and the age `Bin`.
 #'
 #' Where a fleet uses tail accumulation (`Comp_accum_young` /
 #' `Comp_accum_old`), composition residuals describe the bins the likelihood
@@ -619,7 +635,8 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     }
     obs <- dd$Stomach_proportion_by_weight
     hat <- object$quantities$diet_hat[, 2]
-    res <- if (type == "pearson") .pearson_proportion(obs, hat, dd$Sample_size) else obs - hat
+    res <- if (type == "pearson") .rce_diet_pearson(object, dd, obs, hat) else
+      obs - hat
     return(.sp_filter(data.frame(
       Source = "diet", Species = dd$Pred, Pred_sex = dd$Pred_sex,
       Prey = dd$Prey, Prey_sex = dd$Prey_sex, Pred_age = dd$Pred_age,
@@ -694,6 +711,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       Observed     = numeric(n),
       Fitted       = numeric(n),
       Residual     = numeric(n),
+      # For type = "pearson" on a composition source, the sd the fleet's own
+      # likelihood assumes for the observed proportion -- the denominator the
+      # residual was divided by. NA elsewhere.
+      Sd           = rep(NA_real_, n),
       stringsAsFactors = FALSE
     )
   }
@@ -803,6 +824,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     folded <- .fold_comp_props(d, cd, obs_prop, hat_prop, a0l1, n_bin)
 
     if (is.null(folded)) {
+      row_id <- rep(seq_len(n_obs), times = n_bin)
       df <- empty_row(n_obs * n_bin)
       df$Source       <- "comp"
       df$Fleet_code   <- rep(cd$Fleet_code, times = n_bin)
@@ -817,6 +839,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       df$Observed     <- as.numeric(obs_prop)
       df$Fitted       <- as.numeric(hat_prop)
     } else {
+      row_id <- folded$row
       df <- empty_row(length(folded$obs))
       df$Source       <- "comp"
       df$Fleet_code   <- cd$Fleet_code[folded$row]
@@ -831,9 +854,17 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       df$Observed     <- folded$obs
       df$Fitted       <- folded$hat
     }
-    df$Residual     <- if (type == "pearson")
-      .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
-    else df$Observed - df$Fitted
+    if (type == "pearson") {
+      fw <- .rce_comp_family(object, df$Fleet_code, "Comp_distribution",
+                             "Comp_weights", "comp_weights")
+      pr <- .rce_comp_pearson(df$Observed, df$Fitted, df$Sample_size,
+                              row_id, fw$family, fw$weight,
+                              .rce_comp_offset(d))
+      df$Residual <- as.numeric(pr)
+      df$Sd       <- attr(pr, "sd")
+    } else {
+      df$Residual <- df$Observed - df$Fitted
+    }
     # Drop zero-padded phantom bins (ragged multispecies comps have
     # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
@@ -874,9 +905,17 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Sample_size <- rep(cd$Sample_size, times = n_bin)
     df$Observed    <- as.numeric(obs_prop)
     df$Fitted      <- as.numeric(hat_prop)
-    df$Residual    <- if (type == "pearson")
-      .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
-    else df$Observed - df$Fitted
+    if (type == "pearson") {
+      fw <- .rce_comp_family(object, df$Fleet_code, "CAAL_distribution",
+                             "CAAL_weights", "caal_weights")
+      pr <- .rce_comp_pearson(df$Observed, df$Fitted, df$Sample_size,
+                              rep(seq_len(n_obs), times = n_bin),
+                              fw$family, fw$weight, .rce_comp_offset(d))
+      df$Residual <- as.numeric(pr)
+      df$Sd       <- attr(pr, "sd")
+    } else {
+      df$Residual <- df$Observed - df$Fitted
+    }
     # Drop zero-padded phantom bins (ragged multispecies comps have
     # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
@@ -890,16 +929,286 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 }
 
 
+#' The composition proportion offset the fit used
+#'
+#' Added to both observed and fitted proportions before every composition
+#' density. `switch_check()` fills it at 1e-5 when unset, so a saved `data_list`
+#' from before it existed still resolves.
+#' @param d The model's `data_list`.
+#' @noRd
+.rce_comp_offset <- function(d) {
+  off <- d$comp_offset
+  if (is.null(off) || !is.finite(off[1])) 1e-5 else as.numeric(off)[1]
+}
+
+
 #' Pearson residual for an observed proportion
 #'
-#' \eqn{(p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}} -- the multinomial-bin Pearson
-#' residual shared by the composition, conditional-age-at-length, and diet
-#' branches of [residuals.Rceattle()].
-#' @param observed,fitted Observed and fitted proportions.
-#' @param n Input sample size.
-#' @keywords internal
-.pearson_proportion <- function(observed, fitted, n) {
-  (observed - fitted) / sqrt(fitted * (1 - fitted) / n)
+#' Divides by the variance the fleet's own likelihood assumed. `n` is the
+#' EFFECTIVE count total, not the input sample size: under a multinomial the
+#' weight column multiplies the log-likelihood, so it acts as an effective
+#' sample size (the model's own simulator draws at `N * Comp_weights`). `conc`
+#' is the Dirichlet-multinomial concentration total, i.e. the sum of the alphas.
+#' @param observed,fitted Observed and fitted proportions, on the offset scale
+#'   the likelihood works in (see `.rce_comp_pearson()`).
+#' @param n Effective count total for the observation.
+#' @param conc Dirichlet-multinomial concentration total, or `NULL` for the
+#'   multinomial variance.
+#' @noRd
+.pearson_proportion <- function(observed, fitted, n, conc = NULL) {
+  v <- if (is.null(conc)) {
+    fitted * (1 - fitted) / n
+  } else {
+    # A Dirichlet-multinomial proportion is overdispersed relative to the
+    # multinomial by (n + conc)/(1 + conc). conc -> Inf recovers the multinomial;
+    # conc -> 0 leaves a single effective sample.
+    fitted * (1 - fitted) * (n + conc) / (n * (1 + conc))
+  }
+  (observed - fitted) / sqrt(v)
+}
+
+
+#' Composition Pearson residuals on the likelihood's own scale
+#'
+#' Rebuilds the proportions, count total and concentration the likelihood used.
+#' `comp_offset` is added to both proportions before the density; the weight is
+#' an effective sample size under a multinomial and a log concentration under a
+#' Dirichlet-multinomial. Totals are summed over the bins the fleet actually
+#' fit, so tail-folded rows are handled with no special case.
+#'
+#' @param obs,hat Observed and fitted proportions, long, one element per bin.
+#' @param n_input Input sample size, recycled to the length of `obs`.
+#' @param row Row grouping, so a per-observation total sums its own bins.
+#' @param family Integer likelihood code per element: 1 = Dirichlet-multinomial,
+#'   0 / -1 = multinomial.
+#' @param weight Per-element weight parameter, on the scale the family reads it
+#'   (natural for a multinomial, log for a Dirichlet-multinomial).
+#' @param offset The model's `comp_offset`.
+#' @param S Optional per-element normalizing total. `NULL` (the default) sums
+#'   each row's own bins, which is right for comp and CAAL. Diet must pass its
+#'   own, because it renormalizes over the prey bins PLUS an "other prey" bin
+#'   that never reaches the residual frame.
+#' @param n_total Optional count total the density sees, per element. `NULL`
+#'   uses `n_input * S`, which is comp and CAAL's construction (they scale the
+#'   offset proportions by N, so the counts sum to `N * S`). Diet normalizes
+#'   BEFORE scaling by N, so its total is `N` and it passes that.
+#' @param alpha_scale Optional factor holding the second appearance of the
+#'   total in the Dirichlet-multinomial concentration, per element. `NULL` uses
+#'   `S`: comp and CAAL build `alpha = (N*S) * hat_offset * theta` where
+#'   `hat_offset` sums to `S`. Diet's alphas are built on a renormalized vector
+#'   summing to one, so it passes 1.
+#' @noRd
+.rce_comp_pearson <- function(obs, hat, n_input, row, family, weight, offset,
+                              S = NULL, n_total = NULL, alpha_scale = NULL) {
+  # Total over the row's own bins, on the offset scale the density sees.
+  if (is.null(S)) S <- stats::ave(hat + offset, row, FUN = sum)
+  S     <- as.numeric(S)
+  p_obs <- (obs + offset) / S
+  p_hat <- (hat + offset) / S
+  n_row <- if (is.null(n_total)) n_input * S else as.numeric(n_total)
+  a_scl <- if (is.null(alpha_scale)) S else as.numeric(alpha_scale)
+
+  res <- sdv <- rep(NA_real_, length(obs))
+  dm  <- !is.na(family) & family == 1L
+
+  # Comp_weights = 0 multiplies a multinomial fleet's log-likelihood by zero, so
+  # it is not fit and has no effective sample size: NA, not a residual of 0.
+  i <- which(!dm & is.finite(weight) & weight > 0 & n_row > 0)
+  if (length(i)) {
+    sdv[i] <- sqrt(p_hat[i] * (1 - p_hat[i]) / (weight[i] * n_row[i]))
+  }
+  if (any(dm)) {
+    i <- dm
+    cc <- n_row[i] * a_scl[i] * exp(weight[i])
+    sdv[i] <- sqrt(p_hat[i] * (1 - p_hat[i]) * (n_row[i] + cc) /
+                     (n_row[i] * (1 + cc)))
+  }
+  res <- (p_obs - p_hat) / sdv
+
+  # Travels with the residual so the aggregated-composition band sums the same
+  # variances the residuals were standardized by.
+  attr(res, "sd") <- sdv
+  res
+}
+
+
+#' Diet (stomach-content) Pearson residuals on the likelihood's own scale
+#'
+#' Each stomach holds an "other prey" balance that enters the density but not
+#' the residual frame, so the normalizing total is rebuilt from it. Proportions
+#' are renormalized before scaling by the stomach sample size
+#' (`ceattle.cpp:4837`), so the count total is `N_s`. The predicted other-prey
+#' bin is floored at 1e-5, which is within 1e-5 of the C++ `posfun()` it stands
+#' in for, `posfun()` decays towards zero once the prey proportions sum past
+#' one, where a flat floor holds. A difference at the scale of the offset itself,
+#' on a bin that is a residual balance rather than an observation.
+#'
+#' @param object The fitted model.
+#' @param dd Its `diet_data`.
+#' @param obs,hat Observed and fitted prey proportions, one element per row.
+#' @noRd
+.rce_diet_pearson <- function(object, dd, obs, hat) {
+  d   <- object$data_list
+  off <- .rce_comp_offset(d)
+
+  # Each stomach is scored separately, on a contiguous run of stomach_id
+  # (ceattle.cpp, section 13.2). Without that column the predator/sex/age/year
+  # key is one stomach per group, which is every bundled dataset.
+  sid <- dd$stomach_id
+  if (is.null(sid) || length(sid) != nrow(dd)) {
+    sid <- paste(dd$Pred, dd$Pred_sex, dd$Pred_age, dd$Year)
+  }
+
+  n_prey <- as.numeric(stats::ave(rep(1, length(obs)), sid, FUN = sum))
+  sum_o  <- as.numeric(stats::ave(obs, sid, FUN = sum))
+  sum_h  <- as.numeric(stats::ave(hat, sid, FUN = sum))
+
+  # The "other prey" balance, exactly as the C++ forms it.
+  other_o <- 1 - pmin(sum_o, 1)
+  other_h <- pmax(1 - sum_h, 1e-5)
+
+  # Each vector is normalized by its own offset-inflated total over n_prey + 1
+  # bins, so observed and fitted carry different totals here.
+  n_bin <- n_prey + 1
+  S_o   <- sum_o + other_o + off * n_bin
+  S_h   <- sum_h + other_h + off * n_bin
+
+  # Both switches are per-predator vectors on the data_list itself, indexed by
+  # species code. `bioenergetics_control` is a workbook sheet, not a data_list
+  # element -- reading one off it resolves to NULL and silently scores every
+  # predator as a multinomial.
+  fw  <- .rce_resolve_family_weight(
+    .rce_family_code(.rce_switch_column(d, "Diet_distribution"),
+                     "Diet_distribution")[dd$Pred],
+    .rce_weight_value(object$estimated_params$diet_comp_weights,
+                      d$Diet_comp_weights)[dd$Pred],
+    dd$Pred, "predator species")
+  fam <- fw$family
+  w   <- fw$weight
+
+  # Observed and fitted each divide by their own total, so this does not go
+  # through .rce_comp_pearson() (which applies one total to both).
+  p_obs <- (obs + off) / S_o
+  p_hat <- (hat + off) / S_h
+  n     <- as.numeric(dd$Sample_size)
+
+  res <- rep(NA_real_, length(obs))
+  dm  <- !is.na(fam) & fam == 1L
+  if (any(!dm)) {
+    res[!dm] <- .pearson_proportion(p_obs[!dm], p_hat[!dm], w[!dm] * n[!dm])
+  }
+  if (any(dm)) {
+    # alpha = normalized fitted proportions * N_s * theta, so the concentration
+    # total is N_s * theta -- no second factor, unlike comp and CAAL.
+    res[dm] <- .pearson_proportion(p_obs[dm], p_hat[dm], n[dm],
+                                   conc = n[dm] * exp(w[dm]))
+  }
+  res
+}
+
+
+#' Per-fleet composition family and fitted weight
+#'
+#' The family column may hold either the switch name or its integer code; the
+#' weight is the FITTED parameter, which a refit moves away from the
+#' `fleet_control` starting value.
+#' @param object The fitted model.
+#' @param fleet_code Fleet codes to look up, one per residual row.
+#' @param dist_col,weight_col Names of the `fleet_control` switch and starting
+#'   weight columns.
+#' @param par Name of the `estimated_params` weight vector.
+#' @return A list of `family` and `weight`, both aligned to `fleet_code`.
+#' @noRd
+.rce_comp_family <- function(object, fleet_code, dist_col, weight_col, par) {
+  fc  <- object$data_list$fleet_control
+  idx <- match(fleet_code, fc$Fleet_code)
+
+  fam <- .rce_family_code(.rce_switch_column(fc, dist_col), dist_col)[idx]
+  w   <- .rce_weight_value(object$estimated_params[[par]],
+                           .rce_switch_column(fc, weight_col))[idx]
+
+  .rce_resolve_family_weight(fam, w, fleet_code, "fleet")
+}
+
+
+#' Read a switch column by its canonical name or any deprecated spelling
+#'
+#' `switch_check()` upgrades an alias in place at build time, but a fit SAVED
+#' before a rename still holds the old spelling, and a fresh `residuals()`
+#' call on one would otherwise find nothing and fall back to the schema default
+#', the same silent wrong-family failure the canonical lookup exists to avoid.
+#' Works on a `fleet_control` data frame and on the `data_list` itself, both
+#' being `[[`-indexable.
+#'
+#' @param x The `fleet_control` or `data_list` to read from.
+#' @param col Canonical schema column name.
+#' @return The column, or `NULL` if neither it nor an alias is present.
+#' @noRd
+.rce_switch_column <- function(x, col) {
+  if (!is.null(x[[col]])) return(x[[col]])
+  row <- .rce_column_schema()[[col]]
+  for (old in row$aliases) if (!is.null(x[[old]])) return(x[[old]])
+  NULL
+}
+
+
+#' Normalize a likelihood-family column to its integer switch code
+#'
+#' The column may hold the switch name or the code itself. `NULL` (an older or
+#' hand-built `data_list`) returns `NA`, which the callers resolve to the
+#' multinomial.
+#' @param x The column, or `NULL`.
+#' @param col The schema column name, for its allowed-value map.
+#' @noRd
+.rce_family_code <- function(x, col) {
+  if (is.null(x)) return(NA_integer_)
+  if (is.numeric(x)) return(as.integer(x))
+  as.integer(.rce_allowed_map(col)[as.character(x)])
+}
+
+
+#' The fitted composition weight, falling back to its starting value
+#'
+#' A refit moves the weight away from the `fleet_control` column, so the fitted
+#' parameter is the one the likelihood used. A model built but never optimized
+#' has no `estimated_params`.
+#' @param fitted,start The `estimated_params` vector and the control column.
+#' @noRd
+.rce_weight_value <- function(fitted, start) {
+  if (!is.null(fitted)) return(as.numeric(fitted))
+  if (!is.null(start))  return(as.numeric(start))
+  NA_real_
+}
+
+
+#' Resolve a family/weight pair, demoting a Dirichlet-multinomial with no theta
+#'
+#' A concentration that cannot be recovered has no safe substitute, so the row
+#' falls back to the multinomial variance, too small for an overdispersed
+#' composition, and warned about rather than left silent. Leaving the row on the
+#' Dirichlet-multinomial with a substituted weight would be worse: `exp(1)` is a
+#' concentration of e, which inflates the variance by a factor that looks like a
+#' considered choice and is not one.
+#'
+#' An unresolved family (a hand-built `data_list` holding no switch column) is
+#' the schema default, the multinomial, and needs no warning.
+#'
+#' @param family,weight Resolved family codes and weights, aligned to `ids`.
+#' @param ids,label The units to name in the message.
+#' @return A list of `family` and `weight` with no `NA`s.
+#' @noRd
+.rce_resolve_family_weight <- function(family, weight, ids, label) {
+  bad <- !is.na(family) & family == 1L & is.na(weight)
+  if (any(bad)) {
+    warning("No fitted Dirichlet-multinomial weight found for ", label, "(s) ",
+            paste(utils::head(unique(ids[bad]), 10L), collapse = ", "),
+            "; Pearson residuals there use the multinomial variance, which is ",
+            "too small for an overdispersed composition.", call. = FALSE)
+  }
+  family[bad]            <- 0L
+  family[is.na(family)]  <- 0L
+  weight[is.na(weight)]  <- 1
+  list(family = family, weight = weight)
 }
 
 
@@ -1174,6 +1483,13 @@ as.data.frame.Rceattle <- function(x,
           dim(mat)[1] != nspp || dim(mat)[2] != nyrs) next
       sd_mat  <- if (spec$adreport) sd_lookup(qn, dim(mat)) else NULL
       lsd_mat <- if (spec$adreport) sd_lookup(paste0("log_", qn), dim(mat)) else NULL
+      # A species with input numbers-at-age reports its input recruits as R
+      # (rename_output()); the sdreport's R is the placeholder curve's, so no SE.
+      fixed_sp <- which((x$data_list$estDynamics %||% 0) > 0)
+      if (qn == "R" && length(fixed_sp)) {
+        if (!is.null(sd_mat))  sd_mat[fixed_sp, ]  <- NA
+        if (!is.null(lsd_mat)) lsd_mat[fixed_sp, ] <- NA
+      }
       grid <- expand.grid(species_idx = seq_len(nspp),
                           year_idx    = seq_len(nyrs),
                           KEEP.OUT.ATTRS = FALSE,
@@ -1246,7 +1562,7 @@ as.data.frame.Rceattle <- function(x,
 #' expected values rather than draws, call `sim_mod(simulate = FALSE)`.
 #'
 #' Draws are taken by the TMB model, so `simulate()` needs a live `$obj`: a
-#' model loaded from disk has one, a [model_average()] result does not -- see
+#' model loaded from disk has one, a [model_average()] result does not, see
 #' [sim_mod()].
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
@@ -1258,13 +1574,13 @@ as.data.frame.Rceattle <- function(x,
 #'   observation error. See [sim_mod()] for the alternatives.
 #' @param ... Currently unused.
 #'
-#' @return A list of `nsim` `data_list` objects -- always a list, including at
+#' @return A list of `nsim` `data_list` objects, always a list, including at
 #'   `nsim = 1`, so callers do not have to special-case the length. When
-#'   `process` redrew something, each element carries the deviations that
+#'   `process` redrew something, each element holds the deviations that
 #'   generated it as `attr(, "process_sim")`: a named list of whichever of
 #'   `rec_dev`, `init_dev`, `log_M1_dev` and `beta_linkage_re` were drawn, each
 #'   with a `_drawn` logical of the same shape marking the cells the draw
-#'   touched. Compare estimates against those rather than against `object` --
+#'   touched. Compare estimates against those rather than against `object`,
 #'   see [sim_mod()].
 #'
 #' @seealso [sim_mod()] for the observation model and the `process` options,

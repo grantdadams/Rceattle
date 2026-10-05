@@ -1,3 +1,89 @@
+# Parameter blocks the template no longer declares. A stored `map` naming one
+# is from an older fit and is dropped without comment; any other unknown name warns.
+.RCE_RETIRED_PARAMS <- c("log_growth_par_devs",  # 5.9.0, growth linkages
+                         "index_q_rho")          # 5.37.0, QAR1 catchability
+
+# Parameter blocks added after fits were already being saved. `inits` and a
+# stored `map` from an older fit lack them; both are filled from the fresh
+# build (all fixed at the build default), so the older fit still refits.
+.RCE_ADDED_PARAMS <- c(log_sel_apical = "5.38.0", sel_dn6 = "5.46.0")
+
+#' DoubleNormalSS3 end-scaling flags, one row per fleet
+#'
+#' SS3's -999 on `start_logit` or `end_logit` drops that end's scaling, which
+#' switches the formula rather than a value, so the template reads it as data.
+#' One flag serves a fleet's sexes and, where fleets share a `Selectivity_index`,
+#' the whole block: otherwise a sex or a follower fleet is fitted with another's
+#' curve shape while its own end parameter stays estimated and reaches nothing.
+#'
+#' @param sel_dn6 Starting values, `[6, n_flt, max_sex]`.
+#' @param nsex Number of sexes per species.
+#' @param species Species of each fleet, in `fleet_control` row order.
+#' @param fleet_names Fleet names, for the refusal message.
+#' @param is_dn6 TRUE where the fleet uses `DoubleNormalSS3`; other fleets never
+#'   read `sel_dn6`, so their flags are not compared.
+#' @param sel_index `Selectivity_index` per fleet, or NULL to skip the block check.
+#' @return An integer matrix, `[n_flt, 2]`: 1 scales that end, 0 is SS3's -999.
+#' @keywords internal
+#' @noRd
+.rce_dn6_ends <- function(sel_dn6, nsex, species, fleet_names,
+                          is_dn6 = NULL, sel_index = NULL) {
+  # SS3 reads a P5/P6 below -1000 as a bin ordinal, not as "ignore this end":
+  # P5 = -1001 - bin makes selectivity nil through that bin, P6 = -1000 - bin
+  # holds it constant beyond it and re-anchors the descending limb there
+  # (SS_selex.tpl, pattern 24). Rceattle implements neither, and -999 is the
+  # only sentinel it honours, so reading one of those as -999 would fit a
+  # different curve without saying so.
+  far <- which(sel_dn6[5:6, , , drop = FALSE] < -1000, arr.ind = TRUE)
+  if (nrow(far)) {
+    stop("Fleet(s) ", paste(unique(as.character(fleet_names[far[, 2]])),
+                            collapse = ", "),
+         ": a DoubleNormalSS3 end parameter below -1000 is Stock Synthesis's ",
+         "bin-ordinal form (selectivity nil through, or constant beyond, a ",
+         "named bin), which Rceattle does not implement. Use -999 to leave ",
+         "that end unscaled, or give the end its value on the logit scale.",
+         call. = FALSE)
+  }
+  on <- sel_dn6[5:6, , , drop = FALSE] > -999
+  nsx <- as.integer(nsex)[as.integer(species)]
+  nsx[is.na(nsx)] <- 1L
+  mixed <- vapply(seq_len(dim(on)[2]), function(i) {
+    s <- seq_len(min(dim(on)[3], nsx[i]))
+    if (length(s) < 2) return(FALSE)
+    any(on[1, i, s] != on[1, i, s[1]]) || any(on[2, i, s] != on[2, i, s[1]])
+  }, logical(1))
+  if (any(mixed)) {
+    stop("Fleet(s) ", paste(as.character(fleet_names[mixed]), collapse = ", "),
+         ": the sexes disagree on whether a 'DoubleNormalSS3' end is scaled. ",
+         "SS3's -999 switches the formula for the whole fleet, so give both ",
+         "sexes a value or give both -999, for 'start_logit' and for ",
+         "'end_logit'.", call. = FALSE)
+  }
+
+  # Fleets sharing a Selectivity_index estimate ONE sel_dn6 block, but the flag
+  # is per fleet and is read off each fleet's own starting value. Disagreeing
+  # members would share a parameter and still get different curves, so the block
+  # has to agree. Only DoubleNormalSS3 members count; nothing else reads sel_dn6.
+  if (!is.null(sel_index) && !is.null(is_dn6) && any(is_dn6, na.rm = TRUE)) {
+    keep <- which(!is.na(sel_index) & is_dn6)
+    for (ix in unique(sel_index[keep])) {
+      grp <- keep[sel_index[keep] == ix]
+      if (length(grp) < 2) next
+      if (any(on[1, grp, 1] != on[1, grp[1], 1]) ||
+          any(on[2, grp, 1] != on[2, grp[1], 1])) {
+        stop("Fleet(s) ", paste(as.character(fleet_names[grp]), collapse = ", "),
+             " share Selectivity_index ", ix, ", so they estimate one ",
+             "'DoubleNormalSS3' block, but they disagree on whether an end is ",
+             "scaled. SS3's -999 switches the formula per fleet, so the shared ",
+             "fleets would get different curves. Give the group the same ",
+             "'start_logit' and 'end_logit' treatment, or give them separate ",
+             "Selectivity_index values.", call. = FALSE)
+      }
+    }
+  }
+  matrix(as.integer(on[, , 1, drop = FALSE]), ncol = 2, byrow = TRUE)
+}
+
 #' Fit the CEATTLE assessment model
 #' @description Estimate CEATTLE population parameters by maximum likelihood, and
 #'   optionally project the stock and apply a harvest control rule.
@@ -16,23 +102,23 @@
 #'   (\code{HCR}); \code{"Hindcast"} (1) = fit the hindcast only (no fitting BRPs/HCR/projection);
 #'   \code{"Projection"} (2) = fit the BRPs/HCR/projection only, from the initial
 #'   parameters in \code{inits}; \code{"DebugBuild"} (3) = build through
-#'   \code{MakeADFun} but not \code{nlminb} -- the returned \code{obj} carries the
+#'   \code{MakeADFun} but not \code{nlminb}, the returned \code{obj} holds the
 #'   real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are usable
 #'   for diagnosing a model before committing to a fit; \code{"DebugOptimize"}
 #'   (4) = optimize with all parameters mapped out, so the objective is a
 #'   placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_q_sd`. The default is FALSE.
-#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_sel_sd`. The default is FALSE.
+#' @param random_q logical (default FALSE); if TRUE the `Time_varying_q` deviations are integrated as random effects with one estimated sd per `Catchability_index` group, not fixed at `Time_varying_q_sd` (linkage random effects are integrated either way).
+#' @param random_sel logical (default FALSE); if TRUE the `Time_varying_sel` deviations are integrated as random effects with one estimated sd per `Selectivity_index` group, not fixed at `Time_varying_sel_sd` (linkage random effects are integrated either way).
 #' @param HCR HCR list object from \code{\link{build_hcr}}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
 #' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param growthFun The weight-at-age parameterization from \code{\link{build_growth}}.
 #' @param qFun Catchability specification from \code{\link{build_catchability}},
-#'   carrying any environmental linkages on q.
-#' @param selFun Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.
-#' @param compFun Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.
+#'   holding any environmental linkages on q.
+#' @param selFun Selectivity specification from \code{\link{build_selectivity}}, holding any environmental linkages on selectivity parameters.
+#' @param compFun Composition-weighting specification from \code{\link{build_composition}}, holding any priors on the Dirichlet-multinomial weights.
 #' @param dsem Optional dynamic structural equation model on the recruitment
 #'   deviations, from \code{\link{build_DSEM}}. The recruitment deviations
 #'   become latent states of a GMRF, so environmental covariates and
@@ -50,7 +136,8 @@
 #' @param initMode how the population is initialized, as a string alias or integer
 #'   code: \code{"FreeParams"} (0), \code{"Equilibrium"} (1),
 #'   \code{"NonEquilibrium"} (2, the default), \code{"FishedNonEquilibrium"} (3),
-#'   \code{"FishedNonEquilibriumScaled"} (4), \code{"OffsetEquilibrium"} (5). See
+#'   \code{"FishedNonEquilibriumScaled"} (4), \code{"OffsetEquilibrium"} (5),
+#'   \code{"FishedNonEquilibriumSelected"} (6). See
 #'   the \strong{Initial age structure} section below for what each one estimates.
 #' @param suitMode how predator-prey suitability is derived, per predator (a single value or a vector of length \code{nspp}): 0 = empirical from diet data (Holsman et al. 2015), 2 = weight-based gamma, 4 = weight-based lognormal, 6 = weight-based normal. The length-based forms (1, 3, 5) are declared but not implemented and are rejected by the data check.
 #' @param suit_styr The first year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length `nspp` sets a distinct start year per predator. Defaults to `styr` in `data_list`. Used when diet data were sampled from a subset of years.
@@ -61,19 +148,17 @@
 #'   `loopnum`, `newtonsteps`, `TMBfilename`, `verbose`, `nlminb_control`).
 #'   Defaults to `fit_control()`. See [fit_control()] for the meaning and
 #'   defaults of each field.
-#' @param config (Optional) An `Rceattle_run_config` from [load_config()] (or
-#'   [run_config()]). Its stored `model_config` structure and estimation controls
-#'   (`estimateMode`, `random_rec`/`random_q`/`random_sel`, `suit_styr`/
-#'   `suit_endyr`, `fit_control`) overlay only the arguments the caller did *not*
-#'   pass -- an explicit argument always wins. `NULL` (default) applies no
-#'   configuration. Example: `fit_mod(data_list, config = load_config("run.yaml"))`.
+#' @param config (Optional) An `Rceattle_run_config` from [load_config()] or
+#'   [run_config()] whose stored settings overlay the ones you did not pass;
+#'   `NULL` (default) applies no configuration. See Details for what it overlays.
 #' @param quiet_data_check Drop the warnings the fit-time validation raises (errors still
 #'   stop the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
-#'   -- [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
-#'   [remove_F()], [sample_rec()], [reweight_comps()] -- set it, since they
+#', [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
+#'   [remove_F()], [sample_rec()], [reweight_comps()], set it, since they
 #'   re-validate a `data_list` the caller has already fitted once and would
 #'   otherwise repeat the same warnings per peel, jitter, or MSE iteration.
-#'   Convergence and TMB warnings are unaffected.
+#'   Also drops a linkage filter's "has no effect" warning; a filter that
+#'   drops its whole spec still warns. Convergence and TMB warnings are unaffected.
 #' @param ... Deprecated optimizer / sdreport / phasing arguments
 #'   (e.g. `phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
 #'   `control`, `getJointPrecision`, `getReportCovariance`, `loopnum`,
@@ -89,11 +174,24 @@
 #' \item{2. MSVPA Holling Type III}
 #' }
 #'
-#' Values 3 through 9 (Kinzey & Punt 2009 functional responses --
+#' Values 3 through 9 (Kinzey & Punt 2009 functional responses,
 #' Holling Type I/II/III, predator interference, predator preemption,
 #' Hassell-Varley, Ecosim) are blocked at runtime by \code{data_check()}
 #' because the implementations have not been validated against the
 #' current parameter set. See \code{src/TMB/predation.hpp}.
+#'
+#' **What `config` overlays.** Two overlays happen, at different levels. The
+#' estimation controls (`estimateMode`, `random_rec` / `random_q` /
+#' `random_sel`, `suit_styr` / `suit_endyr`, `fit_control`) overlay only the
+#' arguments you did not pass, so an explicit argument always wins. The stored
+#' `model_config` is merged into the data object's **field by field**, not
+#' wholesale: only the fields the config actually set are imposed, and the data
+#' object keeps the rest. Since 5.36.0 a config built with [model_config()]
+#' therefore no longer drops the linkages held on the data object, which it
+#' did when the whole structure was replaced. Where a field is set on both and
+#' the two disagree, the config's value is used and the difference is reported
+#' as a warning naming the field. A config written before that field record
+#' existed is treated as having set its non-default fields.
 #'
 #'
 #' @section Initial age structure:
@@ -102,7 +200,7 @@
 #'   \item{\code{"FreeParams"} (0)}{The initial age-structure is estimated directly, one free
 #'     parameter per age.}
 #'   \item{\code{"Equilibrium"} (1)}{Unfished (\eqn{F_{init} = 0}) equilibrium age-structure,
-#'     carried out from \eqn{R_0} and residual natural mortality \eqn{M1}.}
+#'     projected from \eqn{R_0} and residual natural mortality \eqn{M1}.}
 #'   \item{\code{"NonEquilibrium"} (2)}{As (1), plus estimated initial population deviates, so
 #'     the first year need not sit at equilibrium. The default.}
 #'   \item{\code{"FishedNonEquilibrium"} (3)}{As (2), with an estimated initial fishing
@@ -113,10 +211,22 @@
 #'     recruitment, \code{R_init * exp(rec_dev[1])}, decayed by \eqn{M1} and closed with the
 #'     usual geometric plus group. Initial deviates are turned off and no init-dev penalty is
 #'     applied. This is the Cole Monnahan / AFSC GOA pollock convention.}
+#'   \item{\code{"FishedNonEquilibriumSelected"} (6)}{As (3), but \eqn{F_{init}} is weighted by
+#'     the fishery's selectivity at age before it accumulates, so the first year decays with
+#'     \eqn{\sum_{a' < a} (M1_{a'} + F_{init} s_{a'})}. This is Stock Synthesis's InitF
+#'     convention. \eqn{F_{init}} is the apical initial F, since \eqn{s} is normalized to a
+#'     maximum of 1. The selectivity is the mean over the species' fishery fleets in the first
+#'     hindcast year, which is exact for a single fishery; Rceattle carries one \eqn{F_{init}}
+#'     per species where SS3 carries one per fleet, so a multi-fishery stock gets the mean shape.}
 #' }
 #'
+#' Modes 3, 4 and 6 differ in how \eqn{F_{init}} reaches an age. (3) charges every age the same
+#' \eqn{F_{init}}, (4) applies it once rather than accumulating it, and (6) weights it by
+#' selectivity. Under a size-selective fishery only (6) is an equilibrium: (3) kills unselected
+#' young ages at the full initial F and (4) does not decay the older ages with it at all.
+#'
 #' Modes 1 and 5 differ by exactly one term: both start from the initial equilibrium
-#' recruitment \eqn{R_{init}}, but (1) carries it forward unchanged while (5) seeds the first
+#' recruitment \eqn{R_{init}}, but (1) projects it forward unchanged while (5) seeds the first
 #' year with the realized recruitment \code{R_init * exp(rec_dev[1])}. On a stock whose first
 #' year was not average, that is not a small difference.
 #'
@@ -298,6 +408,10 @@ fit_mod <-
       if (length(x) == data_list$nspp) x else rep(x, data_list$nspp)
     }
 
+    # Log-scale F for the projection parameters. An input F of 0 is stored at
+    # -999, the log F build_params() gives a fleet with no catch.
+    log_F_input <- function(f) ifelse(f > 0, log(f), -999)
+
     # Prefer function arg > existing data_list field > fallback year
     resolve_yr <- function(arg, data_val, fallback) {
       if (!is.null(arg)) arg else if (!is.null(data_val)) data_val else fallback
@@ -323,7 +437,39 @@ fit_mod <-
       if (!inherits(config, "Rceattle_run_config"))
         stop("`config` must be an Rceattle_run_config (from load_config() / run_config()).",
              call. = FALSE)
-      if (!is.null(config$model_config)) data_list$model_config <- config$model_config
+      # Only the fields the config set (its "set" attribute, defaults included)
+      # overlay the data object's own model_config; the rest keep the data's,
+      # so a config built from model_config() does not drop the data's linkages.
+      # A config from before the attribute existed sets its non-default fields.
+      if (!is.null(config$model_config)) {
+        mc_new <- config$model_config
+        mc_old <- data_list$model_config
+        if (is.null(mc_old)) {
+          data_list$model_config <- mc_new
+        } else {
+          set <- attr(mc_new, "set")
+          if (is.null(set)) {
+            mc_def <- model_config()
+            set <- .RCE_MODEL_CONFIG_FIELDS[!vapply(.RCE_MODEL_CONFIG_FIELDS, function(nm)
+              identical(mc_new[[nm]], mc_def[[nm]]), logical(1))]
+          }
+          for (nm in set) {
+            # A build_*() field is compared as save_config() writes it, so a spec
+            # reloaded from YAML (same spec, new formula environment) is not a change.
+            same <- if (nm %in% names(.RCE_CONFIG_BUILDERS)) {
+              b <- .RCE_CONFIG_BUILDERS[[nm]]
+              identical(.rce_build_to_list(mc_old[[nm]], b), .rce_build_to_list(mc_new[[nm]], b))
+            } else identical(mc_old[[nm]], mc_new[[nm]])
+            if (!is.null(mc_old[[nm]]) && !same) {
+              warning("`", nm, "` differs between the data's model_config and `config`; ",
+                      "using `config`'s.", call. = FALSE)
+            }
+            mc_old[nm] <- list(mc_new[[nm]])   # keeps an explicit NULL as the value
+          }
+          attr(mc_old, "set") <- union(attr(mc_old, "set"), set)
+          data_list$model_config <- mc_old
+        }
+      }
       if (missing(estimateMode) && !is.null(config$estimateMode)) estimateMode <- config$estimateMode
       if (missing(random_rec)   && !is.null(config$random_rec))   random_rec   <- config$random_rec
       if (missing(random_q)     && !is.null(config$random_q))     random_q     <- config$random_q
@@ -465,15 +611,28 @@ fit_mod <-
     }
     gal1[is.na(gal1)] <- pmax(0.5, as.numeric(extend_length(data_list$minage)))[is.na(gal1)]
     data_list$growth_age_L1 <- gal1
+    # Growth-variability form, plus-group mean length and population length
+    # grid, resolved like growth_sd_style: build_growth() > data_list > default.
+    .inherit <- function(from_fun, from_data, default) {
+      v <- extend_length(from_fun)
+      if (!is.null(from_data)) v[is.na(v)] <- extend_length(from_data)[is.na(v)]
+      v[is.na(v)] <- default
+      v
+    }
+    data_list$growth_sd_form     <- .inherit(growthFun$growth_sd_form, data_list$growth_sd_form, 1L)      # SD in cm
+    data_list$growth_plus_length <- .inherit(growthFun$growth_plus_length, data_list$growth_plus_length, 1L) # M1-weighted
+    data_list$plus_group_decay   <- .inherit(growthFun$plus_group_decay, data_list$plus_group_decay, 0)
+    if (!is.null(growthFun$pop_lengths)) data_list$pop_lengths <- growthFun$pop_lengths
 
 
     # * HCR Switches ----
     data_list$HCR        <- HCR$HCR
     data_list$DynamicHCR <- HCR$DynamicHCR
-    if (!HCR$HCR %in% c(2, "ConstantF")) { # Ftarget is also used for fixed F (so may be of length nflts)
-      data_list$Ftarget <- extend_length(HCR$Ftarget)
-    } else {
-      data_list$Ftarget <- HCR$Ftarget
+    data_list$Ftarget  <- extend_length(HCR$Ftarget) # one per species; the input F under ConstantF
+    if (HCR$HCR %in% c(2, "ConstantF") &&
+        (is.null(data_list$Ftarget) || any(!is.finite(data_list$Ftarget) | data_list$Ftarget < 0))) {
+      stop("ConstantF needs a non-negative, finite Ftarget (one value, or one per species).",
+           call. = FALSE)
     }
     data_list$Flimit   <- extend_length(HCR$Flimit)
     data_list$Ptarget  <- extend_length(HCR$Ptarget)
@@ -507,7 +666,7 @@ fit_mod <-
     # data_list the caller already fitted once, so every warning it raises has
     # been seen, and a retrospective or an MSE would otherwise repeat it once per
     # peel or per iteration.
-    if (isTRUE(quiet_data_check)) suppressWarnings(data_check(data_list))
+    if (isTRUE(quiet_data_check)) suppressMessages(suppressWarnings(data_check(data_list)))
     else data_check(data_list)
 
     # * Pool process linkages into a global table + design matrix ----
@@ -525,15 +684,20 @@ fit_mod <-
            data_list$comp_linkages),
       function(x) !is.null(x) && length(x) > 0L, logical(1)))
     if (.has_linkage) {
-      # Prepend/gap-fill env_data to start at styr (NA for missing years) so a
-      # later-starting `observe` covariate aligns; the check then validates the
-      # extended table. NA years are skipped in the QAR1 observation (masked).
+      # Drop pre-styr rows, then prepend/gap-fill to start at styr (NA for
+      # missing years) so a later-starting `observe` covariate aligns; the check
+      # validates the result. NA years are masked in the QAR1 observation.
+      data_list$env_data <- .trim_env_data(data_list$env_data, data_list$styr,
+                                           data_list$projyr)
       data_list$env_data <- .extend_env_data(data_list$env_data, data_list$styr)
       .check_env_data_years(data_list$env_data, data_list$styr)
     }
     .message_auto_fleet_linkages(list(q   = data_list$q_linkages,
                                       sel = data_list$sel_linkages))
+    # A refit (quiet_data_check) already raised the filter no-effect warnings on
+    # its first fit; a spec dropped by its filter is still said every time.
     .linkage_pool <- pool_linkages(
+      quiet       = isTRUE(quiet_data_check),
       spec_groups = list(growth      = data_list$growth_linkages,
                          M           = data_list$M1_linkages,
                          recruitment = data_list$srr_linkages,
@@ -572,6 +736,9 @@ fit_mod <-
     # Catchability_index, so it can break a group data_check() has already
     # passed. Checked here because the table above is what it reads.
     if (!isTRUE(quiet_data_check)) .warn_q_linkage_shared_group(data_list)
+    # Refused whatever `quiet_data_check` says: an R_init level the initMode
+    # cannot carry is estimated and silently moves nothing.
+    .check_r_init_linkage(data_list)
     # (Fixed-effect covariates with missing years are rejected earlier, in
     # materialize_linkage(), before model.matrix() can silently drop NA rows.)
 
@@ -580,8 +747,18 @@ fit_mod <-
     # is not yet wired, and the non-parametric `coff` param, so the effect is
     # never silently dropped. (Empirical and the RPM random walk cannot carry
     # a covariate offset at all.)
-    .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control)
+    # comp_data only when warnings are wanted: it drives the advisory about an
+    # apical offset no joint composition informs, and a refit has raised it once
+    # already. The refusals below it are unconditional.
+    .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control,
+                               data_list$nsex,
+                               if (!isTRUE(quiet_data_check)) data_list$comp_data)
     .check_q_linkage_support(data_list$linkage_table, data_list$fleet_control)
+    .check_M_linkage_prior(data_list$linkage_table, data_list$M1_use_prior,
+                           data_list$M2_use_prior, data_list$spnames)
+    .check_srr_linkage_fixed_species(data_list$linkage_table, data_list$estDynamics,
+                                     data_list$spnames)
+    if (!isTRUE(quiet_data_check)) .warn_srr_identity_link(data_list$linkage_table)
     .check_comp_linkage_support(data_list$linkage_table, data_list)
 
     # Random-effect linkage rows (IID `~ (1 | group)`) are now consumed by the
@@ -684,6 +861,13 @@ fit_mod <-
     } else {
       start_par <- inits
 
+      # Before 5.35.0 log_pop_scalar was [nspp, nages]; only its first column was
+      # ever estimated, so an older fit's block collapses to that column.
+      if (is.matrix(start_par$log_pop_scalar)) {
+        start_par$log_pop_scalar <- stats::setNames(start_par$log_pop_scalar[, 1],
+                                                    data_list$spnames)
+      }
+
       # Guard: catch `inits` that would make TMB::MakeADFun() segfault in
       # getParameterOrder() instead of raising an R error, by comparing the
       # supplied `inits` to the parameter template `build_params(data_list)`
@@ -697,6 +881,17 @@ fit_mod <-
       # build_composition without the matching *Fun re-supplied (e.g. an older
       # .refit_like()), or a warm start not extended to a later `endyr`.
       .skel    <- suppressWarnings(Rceattle::build_params(data_list = data_list))
+      # A block added since the fit was saved is filled with the build default
+      # (fixed there unless a linkage frees it), so an older fit still warm-starts.
+      .added <- setdiff(intersect(names(.skel), names(.RCE_ADDED_PARAMS)), names(start_par))
+      if (length(.added)) {
+        start_par[.added] <- .skel[.added]
+        if (!isTRUE(quiet_data_check)) {
+          message("`inits` predate ", paste0("`", .added, "`", collapse = ", "),
+                  " (added in ", paste(.RCE_ADDED_PARAMS[.added], collapse = ", "),
+                  "); filled with the build default.")
+        }
+      }
       .missing <- setdiff(names(.skel), names(start_par))
       .shared  <- intersect(names(.skel), names(start_par))
       .badlen  <- .shared[vapply(.shared, function(nm)
@@ -841,6 +1036,34 @@ fit_mod <-
           map$mapFactor[[nm]]   <- factor(rep(NA, length(map$mapList[[nm]])))
         }
       }
+    } else if (isTRUE(data_list$srr_pred_fun > 1) && !is.null(map$mapList$rec_pars)) {
+      # A supplied map is used as given; one from a mean-recruitment fit pins
+      # alpha and beta while the curve still shapes recruitment.
+      rp    <- as.matrix(map$mapList$rec_pars)
+      est   <- (data_list$estDynamics %||% rep(0, data_list$nspp)) == 0
+      # Skip an all-NA (debug/projection) map, and species whose alpha or beta spec estimates a
+      # covariate or RE term; an intercept-only linkage keeps its level on the mapped rec_pars.
+      moved <- rep(FALSE, data_list$nspp)
+      for (nm in intersect(names(data_list$srr_linkages), c("alpha", "beta"))) {
+        specs <- data_list$srr_linkages[[nm]]
+        if (inherits(specs, "Rceattle_linkage_spec")) specs <- list(specs)
+        for (s in specs) {
+          if (as.integer(s$est_phase) == 0L || !.linkage_has_terms(s)) next
+          sp <- if (is.null(s$species)) seq_len(data_list$nspp) else
+            if (is.character(s$species)) match(s$species, data_list$spnames) else as.integer(s$species)
+          moved[sp[!is.na(sp)]] <- TRUE
+        }
+      }
+      stuck <- est & is.na(rp[, 2]) & is.na(rp[, 3]) & !moved
+      if (any(stuck) && !all(is.na(rp))) {
+        warning("The supplied `map` fixes both stock-recruit parameters (alpha ",
+                "and beta) for ", paste(data_list$spnames[stuck], collapse = ", "),
+                ", so the curve stays at its starting values while it still ",
+                "shapes recruitment. A map carried over from a mean-recruitment ",
+                "fit does this. Free map$mapList$rec_pars[, 2:3] and rebuild ",
+                "map$mapFactor$rec_pars to estimate the curve; if the curve is ",
+                "fixed on purpose, ignore this warning.", call. = FALSE)
+      }
     }
     if (verbose > 0) { message("Step 2: Map build complete") }
 
@@ -979,6 +1202,39 @@ fit_mod <-
              "the fixed effects they are).")
       }
 
+      # The same objection, for the two non-parametric configurations the
+      # Laplace approximation cannot be applied to; the messages below say why.
+      .np <- .rce_np_unintegrable_fleets(data_list$fleet_control)
+      .flts <- function(codes) paste0("'", data_list$fleet_control$Fleet_name[
+        match(codes, data_list$fleet_control$Fleet_code)], "'", collapse = ", ")
+
+      .walk <- .np$fleet[.np$reason == "RandomWalk"]
+      if (length(.walk)) {
+        stop("Fleet ", .flts(.walk), ": set `random_sel = FALSE` to fit ",
+             "non-parametric selectivity with `Time_varying_sel = \"RandomWalk\"`, ",
+             "or use `Selectivity = \"NonParametricIntegrable\"`, whose increments ",
+             "have a proper density.",
+             "\n  The deviates cannot be integrated out: the walk is scored on ",
+             "the renormalized curve, which leaves the level of each year's ",
+             "coefficients unidentified, so the estimated deviation standard ",
+             "deviation collapses to zero. `random_sel = FALSE` is the ",
+             "penalized AMAK formulation these fleets are set up for. ",
+             "See vignette(\"model-options-and-functionality\").",
+             call. = FALSE)
+      }
+      .iid <- .np$fleet[.np$reason == "IID"]
+      if (length(.iid)) {
+        stop("Fleet ", .flts(.iid), ": set `random_sel = FALSE` to fit ",
+             "non-parametric selectivity with `Time_varying_sel = \"IID\"`, or use ",
+             "`Selectivity = \"NonParametricIntegrable\"`, which charges the shape ",
+             "penalties on the base curve and integrates.",
+             "\n  The shape and average-selectivity penalties do not scale with the ",
+             "deviation sd, so an integrated sd would be biased low whatever ",
+             "`Sel_curve_pen1` / `Sel_curve_pen2` are. ",
+             "See vignette(\"model-options-and-functionality\").",
+             call. = FALSE)
+      }
+
       # Listed whether or not the maps are empty. TMB drops a fully-mapped name
       # itself, but TMBphase() reads `length(random) > 0` to decide whether to
       # pin the RE variance hyperparameters in every phase (see the note above),
@@ -1036,6 +1292,38 @@ fit_mod <-
     # check to reject it with a clear error.
     if(!is.null(fit_control$bias_adjust_obs)) data_list$bias_adjust_obs <- as.numeric(fit_control$bias_adjust_obs)
     if(!is.null(fit_control$bias_adjust_proc)) data_list$bias_adjust_proc <- as.numeric(fit_control$bias_adjust_proc)
+
+    # Read by the TMB DATA_INTEGER as the gate on the log selectivity-at-age
+    # ADREPORT. Set here rather than left to the funnel's default so a refit
+    # keeps the setting the fit was given.
+    data_list$adreport_sel <- as.integer(isTRUE(fit_control$selectivity_se))
+
+    # A delta-method error exists only where an sdreport runs, and it belongs to
+    # whichever fit the model ends on. Where the selectivity was mapped off in
+    # that fit the error is 0, which reads as a certain curve rather than an
+    # unmeasured one -- so say so before the fit rather than after.
+    if (isTRUE(fit_control$selectivity_se) && estimateMode %in% c(0, 1, 2)) {
+      if (!isTRUE(getsd)) {
+        warning("`selectivity_se = TRUE` needs `getsd = TRUE` to return a ",
+                "standard error; none will be reported.", call. = FALSE)
+      } else if (estimateMode == 2) {
+        # Nothing here estimates the curve: build_map(debug = TRUE) has already
+        # mapped the hindcast off, which projection_uncertainty cannot undo.
+        warning("`selectivity_se = TRUE` under estimateMode = \"Projection\" ",
+                "reports no usable standard error: no fit here estimates the ",
+                "selectivity, so the error is 0 where an sdreport runs at all. ",
+                "Use estimateMode = \"Hindcast\".", call. = FALSE)
+      } else if (estimateMode == 0 && !isTRUE(projection_uncertainty) &&
+                 # Every other HCR re-optimizes the projection, overwriting the
+                 # hindcast sdreport. Canonical names: switch_check() has run.
+                 !isTRUE(data_list$HCR %in% c("NoFishing", "ConstantF"))) {
+        warning("`selectivity_se = TRUE` under estimateMode = \"Estimate\" ",
+                "reports a standard error of 0 for every age: the sdreport is ",
+                "the HCR projection's, in which the selectivity parameters are ",
+                "fixed. Use estimateMode = \"Hindcast\", or ",
+                "`projection_uncertainty = TRUE`.", call. = FALSE)
+      }
+    }
 
     # Carried like the bias-adjustment flags above, so a refit can recover how
     # the model was fitted rather than take fit_control()'s default.
@@ -1149,7 +1437,14 @@ fit_mod <-
                                  label = "fleet_control$CAAL_weights"),
         diet_comp_weights = list(col = data_list$Diet_comp_weights,
                                  dist = data_list$Diet_distribution,
-                                 label = "Diet_comp_weights"))
+                                 label = "Diet_comp_weights"),
+        # The deviation sds are read from their columns on a fresh build only
+        # (build_params() stores their log), and fixed unless random_sel /
+        # random_q estimates them -- the same silent no-op as a comp weight.
+        sel_dev_log_sd     = list(col = data_list$fleet_control$Time_varying_sel_sd,
+                                  trans = log, label = "fleet_control$Time_varying_sel_sd"),
+        index_q_dev_log_sd = list(col = data_list$fleet_control$Time_varying_q_sd,
+                                  trans = log, label = "fleet_control$Time_varying_q_sd"))
       for (.nm in names(.weight_blocks)) {
         .b   <- .weight_blocks[[.nm]]
         .par <- start_par[[.nm]]
@@ -1167,31 +1462,50 @@ fit_mod <-
         if (is.factor(.col) || is.character(.col)) {
           .col <- suppressWarnings(as.numeric(as.character(.col)))
         }
+        # Compare on the parameter's own scale (a deviation sd is stored as its log).
+        if (!is.null(.b$trans)) .col <- suppressWarnings(.b$trans(.col))
         .differs <- !is.na(.col) & !is.na(.par) & .col != as.numeric(.par)
         # A Dirichlet-multinomial weight is exempt. The likelihood estimates it,
         # so a fit's parameter having moved away from its column is the normal
         # state -- and under the debug map run_mse() / retrospective() supply,
         # every weight reads as fixed, so without this the warning would fire
         # once per fleet per assessment year of every simulation.
-        .stuck <- .differs & is.na(.fix) &
-          !as.character(.b$dist) %in% c("1", "DirichletMultinomial")
+        .dm <- if (is.null(.b$dist)) FALSE else
+          as.character(.b$dist) %in% c("1", "DirichletMultinomial")
+        .stuck <- .differs & is.na(.fix) & !.dm
         if (isTRUE(any(.stuck, na.rm = TRUE))) {
           warning("`", .b$label, "` differs from the supplied `inits$", .nm,
                   "` at ", if (identical(.nm, "diet_comp_weights")) "species " else "fleet ",
                   paste(which(.stuck), collapse = ", "),
                   ", and the fit reads `inits`. The column is only read when a ",
                   "model is built from scratch (`inits = NULL`), so this edit ",
-                  "has no effect. Set `inits$", .nm, "` instead, or see ",
-                  "?reweight_comps.", call. = FALSE)
+                  "has no effect. Set `inits$", .nm, "` instead",
+                  if (grepl("weights$", .nm)) ", or see ?reweight_comps." else ".",
+                  call. = FALSE)
         }
       }
       rm(.weight_blocks)
     }
+
+    # sel_curve_pen is a parameter, so a supplied `inits` supersedes the
+    # Sel_curve_pen columns; check the weight actually in use.
+    if (!is.null(inits) && !is.null(start_par$sel_curve_pen)) {
+      .pen_err <- .rce_sel_pen_sign_errors(
+        data_list$fleet_control, pen = start_par$sel_curve_pen,
+        source = "in the supplied `inits`")
+      if (length(.pen_err)) {
+        stop(paste(c(.pen_err,
+          paste0("Set `inits$sel_curve_pen` to the weight you mean, or rebuild ",
+                 "from the workbook with `inits = NULL`.")), collapse = "\n"),
+          call. = FALSE)
+      }
+    }
+
     # Proportion of projected F to each fleet
     start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     # Fixed fishing mortality for projections for each species
     if (!is.null(HCR$Ftarget) & HCR$HCR %in% c(2, "ConstantF")) {
-      start_par$log_Ftarget <- log(HCR$Ftarget)
+      start_par$log_Ftarget <- log_F_input(data_list$Ftarget)
     }
 
     # Update M1 parameter object from data if initial parameter values input
@@ -1214,31 +1528,127 @@ fit_mod <-
       start_par$log_M1 <- log(m1)
     }
 
+    # A refit's inits hold the fitted, or profiled, value, so the starting-value
+    # overrides below skip it (.refit_like() sets this attribute).
+    refit_inits <- isTRUE(attr(inits, "rceattle_refit"))
+
     # Fix alpha at the prior mean, where srr_prior is an alpha rather than a
     # steepness (see .srr_prior_is_alpha). build_params() applies the same rule;
     # this covers the case where the caller supplied `inits` instead.
-    if (data_list$srr_est_mode %in% c(0, 2) & data_list$srr_pred_fun > 1 &&
+    if (!refit_inits && data_list$srr_est_mode %in% c(0, 2) & data_list$srr_pred_fun > 1 &&
         .srr_prior_is_alpha(data_list) && !is.null(data_list$srr_prior)) {
       start_par$rec_pars[, 2] <- log(data_list$srr_prior)
     }
 
     # Explicit stock-recruit starting values from build_srr(), which override
     # both the defaults and the prior mean.
-    if (!is.null(data_list$srr_alpha_init)) {
+    if (!refit_inits && !is.null(data_list$srr_alpha_init)) {
       start_par$rec_pars[, 2] <- log(data_list$srr_alpha_init)
     }
-    if (!is.null(data_list$srr_beta_init)) {
+    if (!refit_inits && !is.null(data_list$srr_beta_init)) {
       start_par$rec_pars[, 3] <- log(data_list$srr_beta_init)
+    }
+
+    # A pinned (Intercept) coefficient is 0 by construction -- the process's own
+    # base parameter carries the level and the row is mapped out -- so a warm
+    # start must not leave a fitted value sitting on it. `inits` from a model
+    # whose spec was slope-only has the same beta_linkage length, so the length
+    # guard above passes and the stale slope would be HELD on the mapped-out
+    # row for the whole fit: measured at 6.69x on M1 refitting `~ 1` from a
+    # `~ 0 + temp` fit. A genuine refit already carries 0 here, so re-zeroing
+    # is a no-op for it.
+    if (!is.null(data_list$linkage_table) &&
+        nrow(data_list$linkage_table) > 0L &&
+        length(start_par$beta_linkage) == nrow(data_list$linkage_table)) {
+      start_par$beta_linkage[.is_pinned_intercept(data_list$linkage_table)] <- 0
+    }
+
+    # A linkage intercept fixed at its init (est_phase = 0) wins over supplied `inits` and the
+    # overrides above.
+    if (!refit_inits) {
+      start_par <- .push_linkage_intercept_inits(start_par, data_list, fixed_only = TRUE)
+    }
+
+    # DoubleNormalSS3 ends: an end left at SS3's -999 is unscaled, read by the
+    # template as data because it switches the formula, not just a value.
+    if (!is.null(start_par$sel_dn6)) {
+      data_list_reorganized$sel_dn6_ends <- .rce_dn6_ends(
+        start_par$sel_dn6, data_list$nsex,
+        data_list$fleet_control$Species, data_list$fleet_control$Fleet_name,
+        is_dn6 = data_list$fleet_control$Selectivity %in%
+          c(15, "15", "DoubleNormalSS3"),
+        sel_index = suppressWarnings(as.integer(
+          data_list$fleet_control[["Selectivity_index"]])))
     }
 
     # Starting parameters as the model uses them: the blocks above set
     # proj_F_prop, log_Ftarget, log_M1 and the stock-recruit alpha / beta.
     # retrospective() and jitter() reuse this as their refit starting values.
     # Taken before TMBphase() replaces start_par with a fitted state.
+    # Non-parametric coefficients below Bin_first_selected are mapped off but enter
+    # the curve's centring unscored, so hold them at 0 whatever `inits` carries.
+    .np_forms <- c("NonParametric", "NonParametricPM", "NonParametricIntegrable")
+    if (!is.null(data_list$fleet_control$Bin_first_selected)) {
+      for (.f in which(as.character(data_list$fleet_control$Selectivity) %in% .np_forms)) {
+        .bfs <- suppressWarnings(as.integer(data_list$fleet_control$Bin_first_selected[.f]))
+        if (is.na(.bfs) || .bfs <= 1L) next
+        .flt  <- data_list$fleet_control$Fleet_code[.f]   # arrays are indexed by Fleet_code
+        .below <- seq_len(.bfs - 1L)
+        if (!is.null(start_par$sel_coff))     start_par$sel_coff[.flt, , .below]     <- 0
+        if (!is.null(start_par$sel_coff_dev)) start_par$sel_coff_dev[.flt, , .below, ] <- 0
+      }
+    }
+
     mod_objects$initial_params <- start_par
 
     if (verbose > 0) { message("Step 4: Data rearrange complete") }
 
+
+    # A stored map from an older fit can name a retired block (index_q_rho,
+    # 5.37.0) or size log_pop_scalar by age (before 5.35.0). Drop and collapse
+    # them as the inits guard does, so a retrospective, profile or MSE on a
+    # saved fit still runs. Before the bounds below, which take one bound per
+    # map level: built from a stale map they would not align with obj$par.
+    for (slot in c("mapList", "mapFactor")) {
+      m <- map[[slot]]
+      n_scalar <- length(start_par$log_pop_scalar)
+      if (!is.null(m$log_pop_scalar) && length(m$log_pop_scalar) > n_scalar) {
+        # The first age's column is kept, as for inits. build_map() only ever
+        # estimated that column, so a later estimated cell is a hand-built map.
+        if (identical(slot, "mapFactor") && any(!is.na(m$log_pop_scalar[-seq_len(n_scalar)]))) {
+          warning("The `map` estimated an age-specific `log_pop_scalar`; only the ",
+                  "first age's entry is kept, so this fit differs from the one the ",
+                  "map came from.", call. = FALSE)
+        }
+        m$log_pop_scalar <- m$log_pop_scalar[seq_len(n_scalar)]
+      }
+      # A retired name is dropped silently; any other name the model has no
+      # parameter for is a misspelling that would otherwise fix nothing.
+      .gone <- setdiff(names(m), c(names(start_par), .RCE_RETIRED_PARAMS))
+      if (length(.gone) && identical(slot, "mapFactor") && !isTRUE(quiet_data_check)) {
+        warning("Dropping `map` entry ", paste0("`", .gone, "`", collapse = ", "),
+                ": the model has no parameter of that name.", call. = FALSE)
+      }
+      map[[slot]] <- m[names(m) %in% names(start_par)]
+    }
+    # A block added since the map was stored is filled fixed at the build
+    # default, as `inits` are. Any other missing name would drop the parameter
+    # from the model, and TMB would stop on the template's PARAMETER read with
+    # no hint of the cause.
+    .missing <- setdiff(names(start_par), names(map$mapFactor))
+    for (nm in intersect(.missing, names(.RCE_ADDED_PARAMS))) {
+      map$mapList[[nm]]   <- replace(start_par[[nm]], values = NA)
+      map$mapFactor[[nm]] <- factor(rep(NA, length(start_par[[nm]])))
+    }
+    .missing <- setdiff(names(start_par), names(map$mapFactor))
+    if (length(.missing)) {
+      stop("`map` has no entry for ", paste0("`", .missing, "`", collapse = ", "),
+           ": it predates the parameter. Pass `map = NULL` to rebuild the map ",
+           "for this model.", call. = FALSE)
+    }
+    # TMB reads a factor's levels as its estimated blocks, so a level no cell
+    # carries (a subset stored map) would become a parameter with no start value.
+    map$mapFactor <- lapply(map$mapFactor, function(f) if (is.factor(f)) droplevels(f) else f)
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 7: Set up parameter bounds ----
@@ -1378,6 +1788,10 @@ fit_mod <-
     step <- step + 1
 
 
+    # Gap behind convergence warning (8), measured beside each optimization
+    # while `opt` and `obj` are still the same model (see .rce_marginal_gap()).
+    disc_gap <- NA_real_
+
     # * Optimize hindcast ----
     if (estimateMode %in% c(0, 1, 4)) {
       opt <- suppressMessages(
@@ -1407,21 +1821,21 @@ fit_mod <-
       if (estimateMode %in% c(0, 1)) {
         if (is.null(opt$SD) & getsd) {
 
-          if (verbose > 0) {
-            message("#################################################")
-            message("Model did not converge, check 'identified'")
-            message("#################################################")
-          }
-
+          # A failed sdreport is reported by the convergence battery as
+          # `sdreport_failed`, at every verbosity. `identified` is kept because
+          # the `estimability` check reads it.
           identified <- tryCatch(
             {
               # check_estimability() print()s its table to stdout, which
-              # suppressMessages() cannot catch. Capture it, re-emit under
-              # verbose only; the verdict is kept on `identified` regardless.
+              # suppressMessages() cannot catch. Capture it and re-emit only at
+              # verbose > 1: the table is one row per parameter, all of them
+              # named after their block, and `fit$convergence` now reports the
+              # flagged ones by fleet, bin and year instead. The verdict is kept
+              # on `identified` either way.
               res <- NULL
               tbl <- utils::capture.output(
                 res <- suppressMessages(.check_estimability(obj)))
-              if (verbose > 0 && length(tbl)) {
+              if (verbose > 1 && length(tbl)) {
                 message(paste(tbl, collapse = "\n"))
               }
               res
@@ -1470,7 +1884,8 @@ fit_mod <-
       if (estimateMode %in% c(0, 1)) {
         mod_objects$.conv_hindcast <- .capture_opt_convergence(
           opt, obj, bounds = bounds, mapFactor = map$mapFactor,
-          random_vars = random_vars, getsd = getsd)
+          random_vars = random_vars, getsd = getsd, data_list = data_list)
+        disc_gap <- .rce_marginal_gap(obj, opt)
       }
     }
 
@@ -1497,6 +1912,14 @@ fit_mod <-
           hcr_map <- Rceattle::build_hcr_map(data_list, map, debug = estimateMode > 3)
           if (sum(!is.na(unlist(hcr_map$mapFactor))) == 0) { stop("HCR map of length 0: all NAs") }
 
+          # An estimated log_Ftarget cannot start at the no-fishing value: exp(-999)
+          # has a gradient of exactly 0, so nlminb would leave it there. Inits from a
+          # ConstantF fit with Ftarget = 0 carry it; those start at log F = 0. A
+          # mapped-off log_Ftarget (PFMC, no fishery, input numbers-at-age) is left alone.
+          est <- !is.na(hcr_map$mapList$log_Ftarget)
+          lf  <- last_par$log_Ftarget
+          last_par$log_Ftarget[est & (!is.finite(lf) | lf <= -999)] <- 0
+
           obj <- TMB::MakeADFun(
             data_list_reorganized,
             parameters = last_par,
@@ -1519,6 +1942,7 @@ fit_mod <-
                        getJointPrecision = FALSE,
                        quiet             = verbose < 2)
             )
+            disc_gap <- .rce_marginal_gap(obj, opt)
           }
         }
 
@@ -1552,7 +1976,8 @@ fit_mod <-
 
             # Adjust Ftarget inits
             params_off <- c(1:data_list$nspp)[which(data_list$HCRorder > HCRiter)]
-            last_par$log_Ftarget[params_on]  <- 0
+            # ConstantF keeps its input F; rules that estimate Ftarget start it at log F = 0.
+            last_par$log_Ftarget[params_on]  <- if (data_list$HCR == "ConstantF") log_F_input(data_list$Ftarget[params_on]) else 0
             last_par$log_Ftarget[params_off] <- -999
 
             obj <- TMB::MakeADFun(
@@ -1577,6 +2002,7 @@ fit_mod <-
                          getJointPrecision = FALSE,
                          quiet             = verbose < 2)
               )
+              disc_gap <- .rce_marginal_gap(obj, opt)
 
               # Update F from opt
               last_par$log_Ftarget[params_on] <- opt$par[1:length(params_on)]
@@ -1629,15 +2055,17 @@ fit_mod <-
 
     quantities <- obj$report(obj$env$last.par.best)
 
-    # Warning for discontinuous likelihood
+    # Discontinuous likelihood: the objective nlminb reported must survive a
+    # fresh evaluation of the object it came from. `disc_gap` was measured
+    # beside that optimization, because `obj` here may be a later rebuild whose
+    # map changed which parameters are random. NA is not evidence either way.
     if (estimateMode %in% c(0:2)) {
       if (!(estimateMode == 2 & data_list$HCR == "ConstantF")) { # no optimization of projections with fixed F
-        if (!is.null(opt) && !is.null(opt$SD) && random_rec == FALSE) {
-          if (abs(opt$objective - quantities$jnll) > rel_tol) {
-            message("#################################################")
-            message("Convergence warning (8): discontinuous likelihood")
-            message("#################################################")
-          }
+        if (!is.null(opt) && !is.null(opt$SD) &&
+            is.finite(disc_gap) && disc_gap > rel_tol) {
+          message("#################################################")
+          message("Convergence warning (8): discontinuous likelihood")
+          message("#################################################")
         }
       }
     }

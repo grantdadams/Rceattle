@@ -4,17 +4,21 @@
 \alias{.osa_qqplot}
 \title{Q-Q plot of OSA residuals with standard-normal null envelope}
 \usage{
-.osa_qqplot(osa, nsim = 10000, seed = 123)
+.osa_qqplot(osa, add_sdnr_ci = TRUE, add_qq_quantiles = TRUE)
 }
 \arguments{
 \item{osa}{An \code{rceattle_osa} data frame with a \code{source} column.}
 
-\item{nsim, seed}{Passed to the SDNR / tail-statistic annotation.}
+\item{add_sdnr_ci}{Show the chi-square null interval beside SDNR.}
+
+\item{add_qq_quantiles}{Annotate the tail order statistics and their nulls.}
 }
 \value{
 A \code{ggplot} object.
 }
 \description{
-Q-Q plot of OSA residuals with standard-normal null envelope
+SDNR upper left, tail order statistics against their exact nulls lower right,
+following \code{afscOSA}. The annotation names the nominal probability each order
+statistic sits at, since it is not exactly 2.5\%.
 }
 \keyword{internal}

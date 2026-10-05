@@ -571,15 +571,31 @@ testthat::test_that("Pearson residuals are unchanged without accumulation", {
   pe <- stats::residuals(fit, type = "pearson", source = "comp")
   testthat::expect_equal(sort(unique(pe$Bin)), seq_len(10L))
 
-  # Reconstruct the pre-change vectorized result by hand.
+  # Reconstruct the vectorized result by hand, on the scale the likelihood works
+  # in: comp_offset is added to both proportions before the density, so the
+  # fitted proportions no longer sum to one, and the multinomial weight is an
+  # effective sample size. Until v5.29.0 this reference divided by the raw
+  # Sample_size with no offset, which is the defect that release corrected; on
+  # this fixture (weight 1) the offset alone moves the residuals by ~1e-4
+  # relative. What the test is for -- that the fold path leaves a model which
+  # does not accumulate exactly where the rectangular path put it -- is
+  # unchanged. The variance itself is checked against simulation in
+  # test-likelihood-pearson-effective-n.R, not here.
   cd <- fit$data_list$comp_data
   bc <- grep("^Comp_", colnames(cd), value = TRUE)
   om <- as.matrix(cd[, bc, drop = FALSE])
   rt <- rowSums(om, na.rm = TRUE); rt[rt == 0] <- NA_real_
   obs <- as.numeric(om / rt)
-  hat <- as.numeric(as.matrix(fit$quantities$comp_hat))
+  hm  <- as.matrix(fit$quantities$comp_hat)
+  hat <- as.numeric(hm)
   ss  <- rep(cd$Sample_size, times = length(bc))
-  res <- (obs - hat) / sqrt(hat * (1 - hat) / ss)
+  off <- fit$data_list$comp_offset
+  w   <- as.numeric(fit$estimated_params$comp_weights)[
+    match(cd$Fleet_code, fit$data_list$fleet_control$Fleet_code)]
+  s   <- rep(rowSums(hm + off), times = length(bc))
+  p_o <- (obs + off) / s
+  p_h <- (hat + off) / s
+  res <- (p_o - p_h) / sqrt(p_h * (1 - p_h) / (rep(w, times = length(bc)) * ss * s))
   k   <- !is.na(obs) & !is.na(hat) & !(obs == 0 & hat == 0)
   testthat::expect_equal(sort(res[k]), sort(pe$Residual), tolerance = 0)
 })

@@ -119,7 +119,7 @@
 #' Survey index fits
 #'
 #' Plots fitted index series: observed points with 95% observation intervals and
-#' the model-predicted index, faceted by fleet. Every fleet carrying
+#' the model-predicted index, faceted by fleet. Every fleet holding
 #' `index_data` is drawn, a fishery with a CPUE series as much as a survey.
 #'
 #' The interval follows the fleet's `Index_distribution`: lognormal quantiles on
@@ -153,7 +153,7 @@ plot_index <- function(Rceattle,
                        right_adj = 0,
                        top_adj = 0.05,
                        single.plots = FALSE) {
-  Rceattle <- .as_model_list(Rceattle)
+  Rceattle <- .as_plot_models(Rceattle)
   df <- .fleet_fit_df(Rceattle, kind = "index", species = species,
                       incl_proj = incl_proj, model_names = model_names)
   ylab <- "Index"
@@ -181,6 +181,141 @@ plot_index <- function(Rceattle,
 plot_logindex <- function(...) {
   .Deprecated("plot_index")
   plot_index(..., log = TRUE)
+}
+
+
+# Tidy the fleet x year catchability matrix into one row per (model, fleet, year).
+# `index_q` is the realized q, whichever route set it (see ?plot_catchability).
+.catchability_df <- function(Rceattle, species = NULL, spnames = NULL,
+                             model_names = NULL) {
+  labels <- .model_labels(Rceattle, model_names)
+  fc     <- Rceattle[[1]]$data_list$fleet_control
+  codes  <- .fleets_with_index(Rceattle[[1]]$data_list, fitted_only = FALSE)
+  sp     <- .resolve_species(Rceattle, species, spnames)$index
+  codes  <- codes[fc$Species[match(codes, fc$Fleet_code)] %in% sp]
+  if (length(codes) == 0L) {
+    stop("No fleet to plot: the selected species have no fleet carrying ",
+         "`index_data`, so no catchability is estimated for them.",
+         call. = FALSE)
+  }
+
+  out <- list()
+  for (i in seq_along(Rceattle)) {
+    q <- Rceattle[[i]]$quantities$index_q
+    if (is.null(q)) next
+    dl   <- Rceattle[[i]]$data_list
+    # Fleets are identified by model 1's fleet_control. Models whose fleets
+    # differ would be drawn under the wrong names, silently, so say so instead.
+    if (!identical(as.character(dl$fleet_control$Fleet_name),
+                   as.character(fc$Fleet_name))) {
+      stop("Model ", i, " has different fleets from model 1, so their ",
+           "catchabilities cannot be drawn on shared panels.", call. = FALSE)
+    }
+    # index_q is hindcast-only, so its columns are styr:endyr in order.
+    yrs  <- dl$styr:(dl$styr + ncol(q) - 1L)
+    rows <- match(codes, fc$Fleet_code)
+    out[[i]] <- data.frame(
+      Model = labels[i],
+      Fleet = rep(fc$Fleet_name[rows], each = length(yrs)),
+      Year  = rep(yrs, times = length(rows)),
+      value = as.vector(t(q[rows, , drop = FALSE])),
+      stringsAsFactors = FALSE)
+  }
+  if (length(out) == 0L) {
+    stop("No catchability to plot: `quantities$index_q` is absent from every ",
+         "model. It is written by a fitted model; a `data_list` alone has none.",
+         call. = FALSE)
+  }
+  df <- do.call(rbind, out)
+  df$Model <- factor(df$Model, levels = unique(labels))
+  df$Fleet <- factor(df$Fleet, levels = fc$Fleet_name[match(codes, fc$Fleet_code)])
+  df
+}
+
+
+#' Survey catchability over time
+#'
+#' Plots the fitted survey catchability `q` by year, faceted by fleet. Every
+#' fleet holding `index_data` is drawn, a fishery with a CPUE series as much as
+#' a survey.
+#'
+#' The value plotted is the realized catchability the model scaled the survey by,
+#' whichever route produced it: an estimated or fixed mean, annual deviations
+#' under `Time_varying_q`, an environmental regression (`Catchability =
+#' "Environmental"`), a `q` linkage such as `rw(1 | Year)` or `ar1(1 | Year)`, or
+#' the closed-form value under `"Analytical"` / `"AnalyticalArith"`. A fleet with
+#' a time-invariant catchability draws a flat line, which is the honest picture
+#' of a constant `q` rather than an empty panel.
+#'
+#' **Hindcast years only.** The model applies catchability over the hindcast and
+#' does not project it, so the series stops at `endyr` regardless of the
+#' projection horizon. There is no `incl_proj`.
+#'
+#' `line_col` and `lty` separate the **models**, so overlaying several fits
+#' compares their catchability series panel by panel.
+#'
+#' @inheritParams rceattle-plot-args
+#' @param log Plot catchability on the log scale.
+#' @param mse Is `Rceattle` an MSE object? Its operating models are drawn.
+#' @return A `ggplot` object.
+#' @examples
+#' \donttest{
+#' data(BS2017SS)
+#' fit <- Rceattle::fit_mod(data_list = BS2017SS, msmMode = 0)
+#' plot_catchability(fit)
+#' plot_catchability(fit, log = TRUE)
+#' }
+#' @export
+plot_catchability <- function(Rceattle,
+                              file = NULL,
+                              model_names = NULL,
+                              species = NULL,
+                              spnames = NULL,
+                              mse = FALSE,
+                              minyr = NULL,
+                              maxyr = NULL,
+                              incl_mean = FALSE,
+                              log = FALSE,
+                              line_col = NULL,
+                              lwd = 3,
+                              lty = 1,
+                              width = 7,
+                              height = 6.5,
+                              right_adj = 0,
+                              top_adj = 0.05,
+                              single.plots = FALSE) {
+  Rceattle <- .as_plot_models(Rceattle, mse = mse, OM = TRUE)
+  df <- .catchability_df(Rceattle, species = species, spnames = spnames,
+                         model_names = model_names)
+  df <- .rce_year_filter(df, minyr = minyr, maxyr = maxyr)
+
+  ylab <- "Catchability (q)"
+  if (log) {
+    df$value <- log(df$value)
+    ylab <- "log(q)"
+  }
+
+  n_mod <- nlevels(df$Model)
+  lines <- .rce_line_params(lwd = lwd, lty = lty,
+                            lwd_by = "model", lty_by = "model",
+                            lwd_n = n_mod, lty_n = n_mod)
+
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$Year, y = .data$value,
+                                        colour = .data$Model)) +
+    do.call(ggplot2::geom_line, lines$args) +
+    .rce_mean_line(df, incl_mean = incl_mean, by = c("Fleet", "Model"),
+                   value = "value",
+                   hind_endyr = .rce_model_endyr(Rceattle, levels(df$Model)),
+                   colour_by = "Model") +
+    ggplot2::facet_wrap(~ Fleet, scales = "free_y") +
+    ggplot2::labs(x = "Year", y = ylab) +
+    .rceattle_theme()
+  for (s in lines$scales) p <- p + s
+  p <- .rceattle_scale(p, line_col = line_col)
+  if (n_mod < 2L) p <- p + ggplot2::guides(colour = "none", fill = "none")
+
+  .save_ggplot(p, file = file, suffix = "catchability",
+               width = width, height = height)
 }
 
 
@@ -217,10 +352,10 @@ plot_catch <- function(Rceattle,
                        lwd = 2,
                        ymax = NULL) {
   if (mse) {
-    Rceattle <- .as_model_list(Rceattle, mse = TRUE, OM = TRUE)
+    Rceattle <- .as_plot_models(Rceattle, mse = TRUE, OM = TRUE)
     incl_proj <- TRUE
   } else {
-    Rceattle <- .as_model_list(Rceattle)
+    Rceattle <- .as_plot_models(Rceattle)
   }
 
   df <- .fleet_fit_df(Rceattle, kind = "catch", incl_proj = incl_proj,
@@ -274,7 +409,7 @@ plot_catch <- function(Rceattle,
 #' `log(observed) - log(predicted)` for a log-scale (`"Lognormal"`) fleet, and
 #' `observed - predicted` for a natural-scale one (`"MVN"`, `"MVNORM"`,
 #' `"Normal"`, `"TruncatedNormal"`), whose sd is absolute. A positive residual
-#' means the survey saw more than the model predicted. Panels carry different
+#' means the survey saw more than the model predicted. Panels hold different
 #' units where a model mixes the two families, which is why the y scale is free
 #' per fleet.
 #'
@@ -306,7 +441,7 @@ plot_indexresidual <- function(Rceattle,
     return(plot(osa))
   }
 
-  Rceattle <- .as_model_list(Rceattle)
+  Rceattle <- .as_plot_models(Rceattle)
   model_names_use <- .model_labels(Rceattle, model_names)
   fc <- Rceattle[[1]]$data_list$fleet_control
   if (is.null(species)) species <- seq_len(Rceattle[[1]]$data_list$nspp)

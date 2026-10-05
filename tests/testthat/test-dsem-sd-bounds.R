@@ -144,7 +144,12 @@ testthat::test_that("a build_DSEM() spec passed to build_bounds() says it is the
   # Only the BUILT dsem a fit carries has sem_full. Handing in the
   # specification instead is easy to do and, left silent, leaves an MCMC
   # bimodal with nothing pointing at the cause.
-  pl <- list(dsem_beta_z = c(0.3, 0.5), log_gam_a = 1, log_gam_b = 1)
+  # rec_pars is [nspp, 3] and build_bounds() rails its alpha/beta columns
+  # unconditionally, so the stub has to carry it even though this test is only
+  # about the DSEM warning. Without it the call dies on "incorrect number of
+  # subscripts on matrix" before reaching the warning under test.
+  pl <- list(dsem_beta_z = c(0.3, 0.5), log_gam_a = 1, log_gam_b = 1,
+             rec_pars = matrix(0, nrow = 1L, ncol = 3L))
   dl <- list(nspp = 1L, suitMode = 0L)
   testthat::expect_warning(
     b <- Rceattle::build_bounds(param_list = pl, data_list = dl,

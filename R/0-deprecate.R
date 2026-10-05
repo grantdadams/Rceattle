@@ -53,7 +53,7 @@
 #'
 #' @param old value bound to the deprecated argument name.
 #' @param new_supplied `TRUE` if the caller also gave the current name. Pass
-#'   `!missing(<new>)`, not `!is.null(<new>)` -- an explicit
+#'   `!missing(<new>)`, not `!is.null(<new>)`, an explicit
 #'   `object = NULL` alongside the old name is still two spellings of one
 #'   argument, and should be rejected rather than quietly resolved.
 #' @param old_name,new_name the two spellings, for the message.

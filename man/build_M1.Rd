@@ -21,11 +21,11 @@ build_M1(
 effects model. Either an integer code or the equivalent string
 alias (both forms are accepted; the integer code is canonical):
 \itemize{
-\item \code{0} / \code{"fixed"} -- use the input \code{M1_base} (no estimation).
-\item \code{1} / \code{"sex_age_invariant"} -- estimate one \verb{M1_\{spp\}}.
-\item \code{2} / \code{"sex_specific"} -- estimate \verb{M1_\{spp, sex\}}.
-\item \code{3} / \code{"sex_age_specific"} -- estimate \verb{M1_\{spp, sex, age\}}.
-\item \code{4}, \code{5} -- soft-deprecated env-driven codes; use the
+\item \code{0} / \code{"fixed"}, use the input \code{M1_base} (no estimation).
+\item \code{1} / \code{"sex_age_invariant"}, estimate one \verb{M1_\{spp\}}.
+\item \code{2} / \code{"sex_specific"}, estimate \verb{M1_\{spp, sex\}}.
+\item \code{3} / \code{"sex_age_specific"}, estimate \verb{M1_\{spp, sex, age\}}.
+\item \code{4}, \code{5}, soft-deprecated env-driven codes; use the
 \code{linkages} argument instead. See \code{vignette("environmental-linkages-and-priors")}.
 }}
 
@@ -38,13 +38,14 @@ model. Either an integer code or the equivalent string alias:
 \item{updateM1}{If using initial parameters, use M1 fixed effects
 from data (\code{M1_base}) instead. Default \code{FALSE}.}
 
-\item{M1_use_prior}{Vector or scalar; if \code{TRUE}, apply the
-lognormal \code{M_prior} / \code{M_prior_sd} to \code{M1} directly.}
+\item{M1_use_prior}{Vector or scalar; if \code{TRUE} and \code{M2_use_prior} is \code{FALSE}, apply the
+lognormal \code{M_prior} / \code{M_prior_sd} to \code{M1} directly, which is refused alongside a prior
+on that species' \code{M1} linkage intercept.}
 
 \item{M2_use_prior}{Vector or scalar; if \code{TRUE}, apply the
 lognormal prior to \code{M1 + M2} in multi-species models.}
 
-\item{M_prior}{Mean (natural-scale) of the lognormal prior on M.}
+\item{M_prior}{Natural-scale mean of the lognormal prior on M (its median when \code{bias_adjust_proc = FALSE}).}
 
 \item{M_prior_sd}{SD (log-scale) of the lognormal prior on M.}
 

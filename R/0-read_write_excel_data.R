@@ -38,6 +38,25 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
             "model_config(), or persist it with save_config()/load_config().", call. = FALSE)
   }
 
+  # The Stock Synthesis growth options reach data_list from build_growth() rather
+  # than from a workbook column, so they have no schema row and the control block
+  # below cannot write them. Losing `pop_lengths` silently is the worst of the
+  # four: the grid falls back to the data bins, which is a different age-length
+  # key, a different weight-at-length and a different length-selectivity grid --
+  # and a configuration data_check() would have REFUSED becomes one it accepts,
+  # because that refusal is conditioned on pop_lengths being present.
+  .growth_unwritten <- c("pop_lengths", "growth_sd_form", "growth_plus_length",
+                         "plus_group_decay", "growth_sd_style", "growth_age_L1")
+  .gu <- .growth_unwritten[vapply(.growth_unwritten,
+                                  function(n) !is.null(data_list[[n]]), logical(1))]
+  if (length(.gu)) {
+    warning("data_list$", paste(.gu, collapse = ", data_list$"),
+            " ", if (length(.gu) == 1L) "is" else "are",
+            " not written to the xlsx workbook and will be lost on read_data(); ",
+            "re-apply with build_growth(), or persist with ",
+            "save_config()/load_config().", call. = FALSE)
+  }
+
   # Setup a workbook
   data_names <- names(data_list)
   names_used <- c()
@@ -99,6 +118,16 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   xcel_list$fleet_control <- .fc_out[, .fc_order, drop = FALSE]
   names_used <- c(names_used, "fleet_control")
 
+
+  # The initial equilibrium catch is an ordinary catch row at styr - 1 that
+  # clean_data() holds apart. It goes back at the head of the catch sheet, so a
+  # cleaned data_list writes a workbook that reads back whole.
+  if (!is.null(data_list$equil_catch_data) && nrow(data_list$equil_catch_data) &&
+      !is.null(data_list$catch_data)) {
+    data_list$catch_data <- as.data.frame(dplyr::bind_rows(
+      data_list$equil_catch_data, data_list$catch_data))
+    rownames(data_list$catch_data) <- NULL
+  }
 
   # Composition, fleet control, fixed selectivity, n-at-age ---
   matrix_data <- c("index_data", "catch_data", "comp_data",  "caal_data", "emp_sel", "NByageFixed", "age_trans_matrix")
@@ -207,8 +236,8 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 #' Write a minimal starter CEATTLE data workbook
 #'
-#' Emits a small, structurally complete single-species workbook -- one survey
-#' and one fishery, flat placeholder data -- that a user can open and edit as a
+#' Emits a small, structurally complete single-species workbook, one survey
+#' and one fishery, flat placeholder data, that a user can open and edit as a
 #' starting point. fleet_control is built on the canonical column names with
 #' schema defaults filled by \code{\link{switch_check}}, so the template is
 #' always in sync with the current schema. The template round-trips through
@@ -227,7 +256,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 #' f <- file.path(tempdir(), "template.xlsx")
 #' dat <- write_template(f, nages = 8, nyrs = 20)
 #'
-#' # The workbook is correctly shaped but carries placeholder observations;
+#' # The workbook is correctly shaped but holds placeholder observations;
 #' # data_requirements() reports what a given configuration still needs.
 #' head(data_requirements(dat), 4)
 #' unlink(f)
@@ -241,7 +270,8 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
     nspp = 1, styr = 1, endyr = nyrs, projyr = nyrs + nprojyrs,
     spnames = "Species_1", nsex = 1, spawn_month = 0, nages = nages,
     minage = minage, nlengths = nages, pop_wt_index = 1, ssb_wt_index = 1,
-    alpha_wt_len = 1e-4, beta_wt_len = 3, pop_age_transition_index = 1,
+    alpha_wt_len = 1e-4, beta_wt_len = 3, L50_mat_len = NA, slope_mat_len = NA,
+    pop_age_transition_index = 1,
     sigma_rec = 1, other_food = 1e6, estDynamics = 0)
 
   # fleet_control: one survey + one fishery, on EVERY column the schema defines.
@@ -366,7 +396,9 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
   # Bioenergetics scalars (single-species defaults) + a minimal environmental
   # index (its column count sizes the M1 environmental-linkage parameter) +
   # empty ration / diet frames.
-  d$Ceq <- 1L; d$Cindex <- 0L; d$Pvalue <- 1; d$fday <- 365
+  # Ceq 4 is constant consumption (fT = 1), the one equation that reads no
+  # environmental index; Cindex is 1-based and points at the first covariate.
+  d$Ceq <- 4L; d$Cindex <- 1L; d$Pvalue <- 1; d$fday <- 365
   d$CA <- 0; d$CB <- 0; d$Qc <- 0; d$Tco <- 0; d$Tcm <- 0; d$Tcl <- 0
   d$CK1 <- 0; d$CK4 <- 0; d$Diet_distribution <- 0L; d$Diet_comp_weights <- 1
   d$env_data  <- data.frame(Year = years, BottomTemp = 0)

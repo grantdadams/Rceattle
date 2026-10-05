@@ -18,6 +18,8 @@ projection, MSE, diagnostics, plotting — is R.
    linkage grammar.
 4. `inst/dev/TRAPS.md` — verified traps with the measured numbers behind them.
 5. `inst/RELEASE-CHECKLIST.md` — the release and tag process.
+6. `CONTRIBUTING.md` — the same rules written for a human contributor, plus
+   `vignettes/articles/adding-a-selectivity-form.Rmd`, one extension end to end.
 
 ---
 
@@ -37,11 +39,9 @@ projection, MSE, diagnostics, plotting — is R.
 5. **Behaviour, API, or doc change ⇒ `NEWS.md` + `DESCRIPTION` `Version:` + the affected
    vignette, in the same commit** — plus `_pkgdown.yml` when a documented topic appears or
    disappears. `/doc-sync` checks this. Repo tooling (`.claude/`, `tools/`, `.github/`) and
-   developer notes (`inst/dev/`) are exempt: they change no behaviour a user can observe.
-   **"Breaking" means no back-compat path**: a removal that ships with a deprecation message and
-   keeps old fits working is a *minor* bump, even when NEWS files it under `## Breaking changes`.
-   `growth_re` is the worked example — removed with a `switch_check()` deprecation message and a
-   `fit_mod()` guard dropping retired parameter blocks from `inits`, and shipped as a minor.
+   developer notes (`inst/dev/`) are exempt. **"Breaking" means no back-compat path**: a
+   deprecation that keeps old fits working, or refusing a configuration that never fitted the
+   model it described, is a minor bump — see `inst/RELEASE-CHECKLIST.md` for the examples.
 6. **Never hand-edit `man/*.Rd` or `NAMESPACE`.** Run `/document`. Check `git diff DESCRIPTION`
    **first** — if the roxygen version key moved, the `man/` churn is the version, not your change.
 7. **TMB source is inert until `pkgload::load_all(".")`.** Then test with
@@ -53,7 +53,10 @@ projection, MSE, diagnostics, plotting — is R.
 10. **Fleet invariants.** `fleet_control$Fleet_code` must equal the row number — arrays are
     dimensioned by `nrow()` but indexed by `Fleet_code`, so read columns by row index `i`, never
     by `flt`. Fleets sharing a `Selectivity_index` / `Catchability_index` share ONE parameter block.
-    Selectivity bin columns are indices on the fleet's own `Selectivity_dimension`.
+    Selectivity bin columns are read on the fleet's own `Selectivity_dimension`, but not on one
+    convention: `Bin_first_selected` is a 1-based bin ordinal, while `Sel_norm_bin`,
+    `Sel_norm_bin_upper`, `Sel_pen_first_bin`, `Sel_pen_last_bin` and `Sel_cap_bin` are absolute
+    AGES on an age-based fleet. Check `rearrange_data()`'s offset before reading one.
 11. **`nages` is a count of age bins, not the oldest age.** Ages run
     `minage .. minage + nages - 1`; age `a` sits at index `a - minage + 1`. `minage = 1` hides
     every confusion, and that is every bundled dataset and all three live assessments — so write
@@ -66,16 +69,13 @@ projection, MSE, diagnostics, plotting — is R.
     is **no bespoke `block()` helper**, and adding one would be a second grammar.
 13. **Commits: plain messages, no `Co-Authored-By` trailer.** Imperative subject, ≤72 chars; the
     body says *why*, and gives the numbers that changed.
-14. **`../Rceattle-models` and `../GOA-ATF-ESP` consume this API.** Sweep after a breaking change
-    (`/ecosystem-sweep`), and refit a real assessment when a sweep is not enough.
-    See `inst/dev/SIBLING-REPOS.md`.
-15. **`../Rceattle-models/Pacific hake/04-mse.R` is the MSE and predation check.** It is the one
-    script that runs `run_mse()` end to end, and the only routine exercise of three-species
-    predation with estimated suitability and of DM comps carrying a prior on their own weight —
-    none of which `/golden-check` touches. Run it after changing predation, suitability, the DM
-    likelihood, `sim_mod()` or `run_mse()`. Reference objectives are in `SIBLING-REPOS.md`; the
-    script's own inline numbers are Rceattle 5.6.1 and still carry the `theta_diet` constants,
-    so compare against that folder's `README.md` "clean" values instead.
+14. **The repos listed in `inst/dev/SIBLING-REPOS.md` consume this API.** Sweep them after a
+    breaking change (`/ecosystem-sweep`), and refit a real assessment when a sweep is not enough.
+15. **The Pacific hake MSEs are the MSE and predation check** — the only end-to-end `run_mse()`,
+    and the only routine exercise of estimated suitability and of DM comps with a prior on their
+    own weight, none of which `/golden-check` touches. Run
+    `../Rceattle-models/Pacific hake/MSE_yr2024.R` after changing predation, suitability, the DM
+    likelihood, `sim_mod()` or `run_mse()`; reference objectives are in `SIBLING-REPOS.md`.
 
 ---
 
@@ -86,14 +86,16 @@ This is a TMB package, so the C++ must be compiled before the R can run.
 ```r
 pkgload::load_all(".", quiet = TRUE)   # recompiles the TMB DLL + loads R/ (after any .cpp/.hpp edit)
 devtools::document(quiet = TRUE)       # regenerate man/*.Rd + NAMESPACE after roxygen changes
-NOT_CRAN=true Rscript -e 'devtools::test()'   # full suite (NOT_CRAN runs the skip_on_cran blocks)
+NOT_CRAN=true TESTTHAT_PARALLEL=false Rscript -e 'devtools::test()'   # full suite, serial (rule 7)
 rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounded)
 ```
 
 - **Toolchain:** prefix R compile/check commands with `export PATH=/usr/bin:$PATH` — system
   toolchain first, so a Homebrew clang/gfortran does not shadow the TMB build.
 - `load_all()` recompiles via `src/TMB/compile.R`; add `compile = FALSE` for R-only changes.
-  Compiled artifacts (`*.o` ~77 MB, `*.so`) are gitignored — never commit them.
+  Compiled artifacts are gitignored — never commit them. `ceattle.o` is the big one and it
+  grows with the template (89 MB at 5.45.3, 94 MB at 5.46.0), so treat any figure here as a
+  snapshot; `*.so` is a few MB.
 - **To run one test file**, make the env's parent the package namespace so internal helpers
   resolve: `e <- new.env(parent = asNamespace("Rceattle"))`, then source the shared helpers into
   it. A plain `new.env()` fails with `could not find function "data_check"`.
@@ -130,7 +132,8 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `test-vignette-api.R`, which parses every chunk and checks each Rceattle call names an
   exported function with arguments it has; that catches renames, not return-shape drift.
   `data/` has the bundled example datasets.
-- **`inst/dev/`** — committed developer notes (handoff, traps, sibling repos, ADMB conversion).
+- **`inst/dev/`** — committed developer notes (handoff, traps, sibling repos, backlog).
+  The ADMB porting notes are a section of `TRAPS.md`.
   The untracked `dev/` is scratch and does not survive a clone.
 
 ## Plotting
@@ -149,6 +152,45 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   (`right_adj`, `top_adj`, `mod_cex`, `legend.pos`, `single.plots`, `theta`, `ymax`, `cex`), so
   the assessment scripts keep running. Keep them; document them as ignored, with the ggplot
   equivalent.
+
+## Code style
+
+Two external guides settle what this file doesn't: the
+[tidyverse style guide](https://style.tidyverse.org) for R, the
+[Google C++ style guide](https://google.github.io/styleguide/cppguide.html) for C++. They are
+tie-breakers, not licence to reformat — the surrounding file wins, and so does TMB/Eigen idiom.
+Both already describe most of what is here (snake_case, two-space R indents, ~80 columns: 36,203
+of 39,236 R lines), so what matters is where they don't:
+
+- **C++ free functions stay snake_case** — `calculate_ration()`, `first_difference()` — not
+  Google's `CamelCase`. The headers are one template-on-`Type` function per process; Google
+  governs spacing, braces, `const`-correctness and where a comment sits, never a rename.
+- **R internal helpers keep the `.` prefix** (`.rce_year_filter()`, `.as_colour()`). That prefix
+  is how a reader knows it is unexported, and `@noRd` goes with it.
+- **`[[` over `$` for a new read.** `$` partial-matches on a list *and* on a data.frame, silently
+  and with no warning (checked, R 4.5.1): where `Time_varying_sel` is absent from a
+  `fleet_control`, `fleet_control$Time_varying_sel` hands back `Time_varying_sel_sd`. Ten pairs
+  among the 83 columns the schema declares have that shape, and three of the shorter names
+  (`Time_varying_sel`, `Time_varying_q`, `Sel_norm_bin`) have exactly one longer sibling — the
+  case that resolves silently, since an ambiguous prefix returns NULL. So a `$` read is safe only
+  while its column is guaranteed present. `.pull_int()` in `5-rearrange_data.R` already does it
+  right — `fc[[col]]`. Don't sweep the ~8,300 existing `$`; write `[[` in new code, and always
+  when the name is computed.
+- **Match the file's idiom; never translate between them.** dplyr and the pipe are load-bearing
+  in the `7-*` plotters, the `0-*` data prep and `5-rearrange_data.R` (105 lines of it); most of
+  `1-*` to `6-*` is base R. Neither is more correct here, and rewriting one as the other inside
+  the fit pipeline is how a fit moves unannounced: `.pull_int0()` is pinned to the exact result
+  type of the `pull() %>% as.integer() - 1` it replaced, because the C++ template reads that
+  type. A verb that reorders rows, drops a dimname or returns a tibble does not error.
+
+**Scope discipline.** One concern per commit, and never a formatting-only hunk inside a numeric
+change — whoever reviews a fit change should see only the lines that can move it. Don't refactor
+next to the fix. No new dependency without asking; `DESCRIPTION` already imports 20.
+
+**Clear beats clever.** No abstraction for a single caller; no registry, wrapper or config layer
+until a second consumer exists; no second grammar for something the linkage formula already
+expresses (rule 12). Tests and comments are part of the change, not a follow-up (rules 2, 5, 8).
+If the structure of a change needs a paragraph to justify it, propose it before writing it.
 
 ## Comments: write for a fisheries scientist, not a programmer
 
@@ -220,20 +262,47 @@ What to consult when documenting a switch, shaping a workflow, or naming a proce
 - [**dsem**](https://github.com/James-Thorson-NOAA/dsem) — the DSEM-linked models: formula/path
   grammar, and how linkage structure is specified and reported. DSEM lives on the
   `dsem-v5-integration` branch, not here.
+- [**FIMS**](https://github.com/NOAA-FIMS/FIMS) — `.github/copilot-instructions.md`, where the
+  two style guides and the scope discipline above come from; `tests/` as the pattern an agent
+  copies rather than reinventing.
 
 ## Known traps
 
-One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
+One line each; the fuller text and the measured numbers are in `inst/dev/TRAPS.md` (the last
+section holds every entry below in full).
 
+- **`newtonsteps > 0` can return a parameter OUTSIDE its bounds**: nlminb respects them, the Newton refinement after it does not, in either `.fit_tmb()` path. `convergence` reports `parameters_outside_bounds` (FAIL); default is 0 but golden runs 3.
+- **A shared parameter block starts at the GEOMETRIC MEAN of its members' starting values**, not the lead's; inject per BLOCK, never per fleet. Cost a GOA cod survey 18% of its index.
+- **`Index_distribution` has a second registry**: a new family must also be classified in `.index_rows_natural_scale()`, or it gets the log-scale residual.
+- **`jnll_comp` columns count fleets on rows 1–8 AND row 22, species on 9–20, and neither on row 21** — the fleet axis is NOT contiguous (row 21 is the model-wide linkage REs, row 22 the initial equilibrium catch, by fleet); `.JNLL_ROW_AXIS` is the registry, so `rowSums()` mixes axes and an axis guess that stops at row 20 is wrong.
+- **A reference point CEATTLE never estimated is a number, not a gap**: `Ftarget`/`Flimit` = 1, `MSSB0` = 999 mt, per-recruit quantities 0 under `msmMode > 0`.
+- **Under `HCR = 0 & msmMode > 0` the depletions divide by last-projection-year biomass**, not `SB0`; don't blank them with a placeholder `SB0`.
+- **A fit reports 99 quantities**: enumerate `names(fit$quantities)`, not a `REPORT(` grep; `quantity_dictionary()` is the registry.
+- **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps**, so Mohn's rho can differ.
+- **`unweighted_jnll_comp` is written for 5 of its 22 rows**; the rest are structurally zero.
+- **`fit_mod(d, config = cfg)` replaces `d$model_config`**: build `cfg` with `run_config(d, ...)` or every linkage is dropped.
+- **`bias_adjust_proc` centres the lognormal priors and the recruitment deviations together** (5.33.0).
+- **A `data_list` element without `write_data()`/`read_data()` support round-trips to nothing.**
+- **Under a Dirichlet-multinomial `Comp_weights` is a log**: 1 is a starting weight of e.
+- **A Pearson residual divides by the effective sample size the likelihood used**; `.rce_comp_pearson()` resolves it.
+- **`estimateMode`: prefer the strings.** Mode 4's objective is a placeholder; mode 3's is real and usable before fitting.
+- **`fit$obj` (and `fit$sdrep` unless `ConstantF`) is the projection's under any HCR but `NoFishing`**; `fit$identified` and `fit$.conv_hindcast` are the hindcast's.
+- **`fit$data_list` is the pre-`rearrange_data()` list**; recompute rearranged fields from `fleet_control`.
+- **`Bin_first_selected` is a 1-based bin ordinal; `Sel_norm_bin` is an absolute age** (rules 10, 11).
+- **`init_dev`'s ages start at `minage + 1`**; `.PAR_AXIS_OFFSET` is the registry.
+- **`condition_number` reads the correlation matrix since 5.26.0**; `covariance_condition_number` is the old value.
+- **`getsd = FALSE` leaves `sdrep` NULL** (no `vcov()`, NA bands); the refit diagnostics read the bias-adjust flags and `projection_uncertainty` off `data_list`.
+- **`run_mse()` pins the OM's stock-recruit and suitability windows to the pristine `om$`** (`verify-mse-hindcast-invariant.R`).
+- **Every error is drawn in a `SIMULATE{}` block beside its density**; a new likelihood family owes a draw (`verify-sim-*.R`).
+- **An MSE draw is per observation row**, so changing the OM horizon or row count changes every later draw (`TODO-mse-horizon.md`).
+- **The guards are not themselves guarded**: golden runs only in `deep-checks`; keep `NOT_CRAN=false` a step-level `env:`.
+- **An access violation is memory corruption**: build `RCEATTLE_SAFEBOUNDS=true` and run `verify-safebounds.R`.
+- **A slow fit is the model**: `BS2017SS` takes ~500–700 `nlminb` iterations.
+- **A fixed-numbers species (`estDynamics > 0`) reports its input recruits as `R`** but `NA` R0/steepness/SPR0, and in single-species mode `NA` SB0/B0/depletion; `estDynamics = 2` fits as 1 under `msmMode = 0`.
+- **An identity-link recruitment linkage turns on `rec_floor_on`**, changing the AD tape; its floors miss projection, SB0 and dynamic-B0 recruitment (`TODO-srr-multispecies.md` item 14).
 - **`Index_distribution` has a second hand-synced registry** — a family added to
   `index_distribution_map` must also be classified in `.index_rows_natural_scale()`
   (`R/0-switches.R`), or it silently gets the log-scale residual formula.
-- **`jnll_comp` columns count fleets on rows 1–8 and species on rows 9–20**, so `rowSums()`
-  pools across two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the registry.
-- **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps** — the non-PD Hessian
-  check only runs when an `sdreport` exists — so Mohn's rho can differ between the two.
-- **`unweighted_jnll_comp` is written for 5 of its 21 rows** — composition, CAAL, stomach and the
-  two linkage rows. Everything else is structurally zero there, not small.
 - **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing** —
   this is how `index_cov` was lost.
 - **A `Comp_weights` of 1 under a Dirichlet-multinomial is a starting weight of e** — that
@@ -253,22 +322,11 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   are NA. The refit diagnostics forward `phase`, `getsd`, the bias-adjust flags and
   `projection_uncertainty` — the last two are read back off `data_list`, because a freshly
   built `fit_control()` would silently reset them to its own defaults.
-- **`run_mse()` pins the OM's stock-recruit and suitability windows to the pristine `om$`**, not
-  the advancing `om_use$`, so the hindcast does not drift through the projection — essential for
-  multispecies, whose predation suitability must stay fixed.
-  `tools/verify/verify-mse-hindcast-invariant.R` checks it.
 - **Every observation and process error is drawn in a `SIMULATE{}` block beside the density that
   scores it.** `sim_mod()` implements no observation model in R — it calls `obj$simulate()` once
   and writes the result back, so a new likelihood family owes a draw. Draw what the density
   assumes (bias-correction convention and scale included), REPORT under a `*_sim` name, and
   don't draw what the model does not define. `tools/verify/verify-sim-*.R` is the net.
-- **An MSE draw is per observation row, so the row count is part of the RNG stream.** Anything
-  changing the operating model's horizon or row count changes every draw after it — that is how a
-  refit horizon set by the *next* assessment year made observation error depend on the assessment
-  schedule (2.1% on a year whose advice was identical by construction). Before touching the
-  horizon, the row count, or the draw order, ask what it does to a comparison of two schedules,
-  not just to one run's reproducibility. Common random numbers are still incomplete between
-  assessments; `inst/dev/TODO-mse-horizon.md` has the design and the measured numbers.
 - **A `warning()` raised inside a `.parallel_lapply()` worker is discarded**, and since the
   default `cores` is `detectCores() - 6` that is the path anyone actually runs — the warning is
   visible only at `cores = 1`, which is what the suite passes. Hoist it before dispatch when the
@@ -287,4 +345,5 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   change, so a clean result against a stale `.so` means nothing.
 - **A slow fit is the model, not a regression** — `BS2017SS` has needed ~500–700 `nlminb`
   iterations since at least 2023.
+
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are gitignored.

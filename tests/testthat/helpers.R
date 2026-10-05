@@ -386,3 +386,29 @@ calc_dirmultinom_nll <- function(obs_num, alpha) {
   return(-ll)
 }
 
+# Every warning an expression raises, not just the first: build_map() raises
+# several and the one under test is rarely the earliest.
+collect_warnings <- function(expr) {
+  w <- character(0)
+  withCallingHandlers(expr, warning = function(cond) {
+    w <<- c(w, conditionMessage(cond))
+    invokeRestart("muffleWarning")
+  })
+  w
+}
+
+# The jnll_comp row a named likelihood component is scored on, looked up by its
+# DISPLAY NAME. jnll_comp grows -- 5.46.0 appended the initial equilibrium catch,
+# and the DSEM row moved from 21 to 22 in the template to make room for it -- so
+# no row index is stable, and obj$report() returns the matrix without the
+# dimnames rename_output() puts on fit$quantities. CLAUDE.md: address a
+# jnll_comp row by its constant, never by position.
+#
+# .JNLL_ROW_AXIS is keyed by display name in enum order, so this follows the
+# enum. test-schema-jnll-rows.R is what keeps the two in step.
+jnll_row <- function(label) {
+  i <- which(names(Rceattle:::.JNLL_ROW_AXIS) == label)
+  stopifnot(length(i) == 1L)
+  i
+}
+linkage_re_row <- function() jnll_row("Linkage random effects")

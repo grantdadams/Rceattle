@@ -2,7 +2,7 @@
 #'
 #' Natural-scale names of the underlying natural-mortality
 #' parameters that the linkage system can address. Currently just
-#' `M1` -- with the default log link the offset is added to M1 on the
+#' `M1`, with the default log link the offset is added to M1 on the
 #' log scale (applied across all ages unless the linkage row
 #' pins a specific `age_bin`).
 #'
@@ -21,7 +21,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' Either form is accepted by [build_M1()]; the canonical integer
 #' code is what the TMB template ultimately consumes. The
 #' env-driven integer codes 4 and 5 still work with a deprecation
-#' warning -- their structural part is identical to 1 and 2
+#' warning, their structural part is identical to 1 and 2
 #' respectively, and the env effect is expressed via the
 #' \code{linkages} argument to [build_M1()] (see
 #' `vignette("environmental-linkages-and-priors")`). No string alias is offered
@@ -72,7 +72,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' For `M1_model` only, the env-driven integer codes 4
 #' and 5 (controlled by `M1_indices`) are accepted for backwards
 #' compatibility but emit a soft-deprecation warning pointing users
-#' at the linkage table -- see [build_M1()].
+#' at the linkage table, see [build_M1()].
 #'
 #' @keywords internal
 #' @noRd
@@ -130,11 +130,11 @@ M_LINKAGE_PARAMS <- c("M1")
 #' @param M1_model Vector or scalar specifying the M1 structural fixed-
 #'   effects model. Either an integer code or the equivalent string
 #'   alias (both forms are accepted; the integer code is canonical):
-#'   * `0` / `"fixed"` -- use the input `M1_base` (no estimation).
-#'   * `1` / `"sex_age_invariant"` -- estimate one `M1_{spp}`.
-#'   * `2` / `"sex_specific"` -- estimate `M1_{spp, sex}`.
-#'   * `3` / `"sex_age_specific"` -- estimate `M1_{spp, sex, age}`.
-#'   * `4`, `5` -- soft-deprecated env-driven codes; use the
+#'   * `0` / `"fixed"`, use the input `M1_base` (no estimation).
+#'   * `1` / `"sex_age_invariant"`, estimate one `M1_{spp}`.
+#'   * `2` / `"sex_specific"`, estimate `M1_{spp, sex}`.
+#'   * `3` / `"sex_age_specific"`, estimate `M1_{spp, sex, age}`.
+#'   * `4`, `5`, soft-deprecated env-driven codes; use the
 #'     `linkages` argument instead. See `vignette("environmental-linkages-and-priors")`.
 #' @param M1_re Vector or scalar specifying the M1 random-effects
 #'   model. Either an integer code or the equivalent string alias:
@@ -143,11 +143,12 @@ M_LINKAGE_PARAMS <- c("M1")
 #'   `6` / `"ar1_age_year"`.
 #' @param updateM1 If using initial parameters, use M1 fixed effects
 #'   from data (`M1_base`) instead. Default `FALSE`.
-#' @param M1_use_prior Vector or scalar; if `TRUE`, apply the
-#'   lognormal `M_prior` / `M_prior_sd` to `M1` directly.
+#' @param M1_use_prior Vector or scalar; if `TRUE` and `M2_use_prior` is `FALSE`, apply the
+#'   lognormal `M_prior` / `M_prior_sd` to `M1` directly, which is refused alongside a prior
+#'   on that species' `M1` linkage intercept.
 #' @param M2_use_prior Vector or scalar; if `TRUE`, apply the
 #'   lognormal prior to `M1 + M2` in multi-species models.
-#' @param M_prior Mean (natural-scale) of the lognormal prior on M.
+#' @param M_prior Natural-scale mean of the lognormal prior on M (its median when `bias_adjust_proc = FALSE`).
 #' @param M_prior_sd SD (log-scale) of the lognormal prior on M.
 #' @param M1_indices Soft-deprecated. Vector of column indices into
 #'   `env_data` (excluding `Year`) for environmentally linked M1 when
@@ -222,4 +223,27 @@ build_M1 <- function(M1_model = 0,
 #' @noRd
 .validate_M_linkages <- function(linkages) {
   .validate_process_linkages(linkages, M_LINKAGE_PARAMS, "M")
+}
+
+
+# An M1 linkage intercept prior and M1_use_prior both penalize that species' log M1, so the
+# prior would count twice. A row with no species targets species 1, as in the template.
+.check_M_linkage_prior <- function(linkage_table, M1_use_prior, M2_use_prior, spnames) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
+  pri <- linkage_table[linkage_table$process == "M" &
+                         linkage_table$design_col == "(Intercept)" &
+                         !is.na(linkage_table$prior_family) &
+                         linkage_table$prior_family != "none", , drop = FALSE]
+  if (nrow(pri) == 0L) return(invisible())
+  sp <- unique(ifelse(is.na(pri$species), 1L, as.integer(pri$species)))
+  # With M2_use_prior on, the M prior is on total M, not log M1.
+  both <- sp[(M1_use_prior[sp] %in% 1) & (M2_use_prior[sp] %in% 0)]
+  if (length(both) > 0L) {
+    stop(sprintf(paste0(
+      "species %s: M1_use_prior = TRUE and a prior on the M1 linkage's intercept are ",
+      "both priors on the same M1, so it would be counted twice. Keep one: set ",
+      "M1_use_prior = FALSE, or drop the intercept prior."),
+      paste(spnames[both] %||% both, collapse = ", ")), call. = FALSE)
+  }
+  invisible()
 }

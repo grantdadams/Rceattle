@@ -4,7 +4,15 @@
 \alias{plot.rceattle_osa}
 \title{Plot one-step-ahead (OSA) residual diagnostics}
 \usage{
-\method{plot}{rceattle_osa}(x, source = "all", species = NULL, combine = TRUE, ...)
+\method{plot}{rceattle_osa}(
+  x,
+  source = "all",
+  species = NULL,
+  combine = TRUE,
+  add_sdnr_ci = TRUE,
+  add_qq_quantiles = TRUE,
+  ...
+)
 }
 \arguments{
 \item{x}{An \code{rceattle_osa} object from \code{\link[=osa_residuals]{osa_residuals()}} or
@@ -21,6 +29,12 @@
 share one figure (age in the left column, length in the right). When
 \code{FALSE}, they are drawn as separate \code{composition_age} / \code{composition_length}
 figures.}
+
+\item{add_sdnr_ci}{Logical. Show the chi-square null interval beside the SDNR
+annotation on each Q-Q panel. Default \code{TRUE}.}
+
+\item{add_qq_quantiles}{Logical. Annotate each Q-Q panel with the tail order
+statistics and their exact null intervals. Default \code{TRUE}.}
 
 \item{...}{Unused.}
 }
@@ -43,7 +57,7 @@ Up to two separate figures are drawn, depending on which data are present:
 These series have no age/length bin, so no bubble plots are drawn.
 \item \strong{Composition} (\code{comp} / \code{caal}): a Q-Q panel, a signed OSA-residual
 bubble panel, and a signed Pearson-residual bubble panel (the Pearson
-residuals carried on the \code{rceattle_osa} object). By default age-based bins
+residuals held on the \code{rceattle_osa} object). By default age-based bins
 (age composition and conditional age-at-length) are shown in the left
 column and length-based bins in the right column, each with its own bin
 axis; set \code{combine = FALSE} to draw the age and length composition as two

@@ -261,14 +261,14 @@ testthat::test_that("age coverage follows minage, not the age count", {
   # and report it as an uncovered age that exerts no predation.
   w <- testthat::capture_warnings(
     Rceattle:::.check_diet_age_coverage(shifted, shifted$diet_data))
-  testthat::expect_length(grep("does not cover every age", w), 0)
+  testthat::expect_length(grep("empirical suitability", w), 0)
 
   # And the gap that IS there is still found: drop the real plus group.
   holed <- shifted
   holed$diet_data <- dd[!(dd$Pred == 1 & dd$Pred_age == shifted$nages[1] - 1L), ]
   w2 <- testthat::capture_warnings(
     Rceattle:::.check_diet_age_coverage(holed, holed$diet_data))
-  cov2 <- w2[grepl("does not cover every age", w2)]
+  cov2 <- w2[grepl("empirical suitability", w2)]
   testthat::expect_length(cov2, 1)
   testthat::expect_match(cov2, paste0("as PREDATOR: no diet data at age ",
                                       shifted$nages[1] - 1L), fixed = TRUE)

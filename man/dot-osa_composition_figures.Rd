@@ -9,7 +9,9 @@
   pearson = NULL,
   combine = TRUE,
   nages = NULL,
-  nlengths = NULL
+  nlengths = NULL,
+  add_sdnr_ci = TRUE,
+  add_qq_quantiles = TRUE
 )
 }
 \arguments{
@@ -25,6 +27,8 @@ separate \code{composition_age} and \code{composition_length} figures.}
 \item{nages, nlengths}{Per-species bin counts (the \code{rceattle_osa} \code{"nages"} /
 \code{"nlengths"} attributes), used to split joint-sex (Sex == 3) bins onto a
 single age/length axis, matching \code{\link[=plot_comp]{plot_comp()}}.}
+
+\item{add_sdnr_ci, add_qq_quantiles}{Passed to \code{\link[=.osa_qqplot]{.osa_qqplot()}}.}
 }
 \value{
 A named list of \code{cowplot}/\code{ggplot} objects.

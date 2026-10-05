@@ -6,13 +6,27 @@ Verify that a numeric-touching change is behavior-preserving: fit the four refer
 (Bering Sea + Gulf of Alaska, each single- and multi-species) and compare against a stored
 snapshot.
 
-**Prefer the committed `tests/testthat/test-golden-regression.R`.** It pins the same four
-objectives, additionally asserts each is a *converged* optimum rather than merely a
-reproducible number, and carries `skip_on_cran()` / `skip_on_covr()`. Note it also runs a
-second, larger "golden reference by configuration" block, so it is heavier than these four fits. Run it with
-`NOT_CRAN=true`. Use the recipe below when that test fails and you need to see *which*
-quantity moved -- it diffs full fit objects (`par`, `jnll_comp`, SSB, R), not just the
-objective.
+**Prefer the committed `tests/testthat/test-golden-regression.R`.** Since 5.45.1 it pins the
+four objectives by **evaluating the likelihood at the reference parameters**
+(`tests/testthat/fixtures/golden-reference.rds`, `estimateMode = 3`) rather than by
+re-optimizing, so the gate answers "is this the same likelihood" and not "which of
+`goa_ss`'s two minima did this machine reach". It also asserts the reference is still a
+stationary point, and carries `skip_on_cran()` / `skip_on_covr()`, plus a second, larger
+"golden reference by configuration" block that does still fit. Run it with `NOT_CRAN=true`.
+The four objectives are literals in the test file; the fixture holds only the parameters they
+were measured at, so a re-pin is visible as changed text in a diff.
+
+**Cold starts moved to `tools/verify/verify-golden-cold-start.R`.** The gate no longer covers a
+change confined to the optimization path -- a phase order, a starting value, a bound inactive at
+the reference -- so run that harness when touching those. It asserts only that a cold fit does
+not land BELOW the reference; a fit ~52.9 above on `goa_ss` is the documented second minimum.
+
+Use the recipe below when that test fails and you need to see *which* quantity moved -- it
+diffs full fit objects (`par`, `jnll_comp`, SSB, R), not just the objective. **Regenerate
+the fixture only when a model change is intended**, with
+`Rscript tools/verify/regenerate-golden-reference.R`, and say in the commit which reference
+moved and by how much; re-running it after an unintended change launders the regression this
+check exists to catch.
 
 Scratch snapshot path for that diff: `dev/golden-ref.rds` (gitignored; create `dev/` if
 missing).
@@ -35,7 +49,10 @@ Wrap everything in one `export PATH=/usr/bin:$PATH && NOT_CRAN=true Rscript -e '
    rather than at a stationary point, leaving the GOA fits ~1e-3 in gradient. The
    reference then moves under changes that cannot alter the model -- adding a
    constant to the objective once shifted `goa_ss` by 52.9 units. Polishing pins a
-   true optimum (gradients ~1e-11), so the comparison means something.
+   true optimum (gradients ~1e-11), so the comparison means something. It does not
+   remove that 52.9: `goa_ss` has a second local minimum that far above the reference,
+   and a one-ULP gradient change can select it (`inst/dev/TRAPS.md`, "Coverage gaps in
+   the golden check").
 2. Fit the Bering Sea single-species reference (mirrors `examples/Simulation_testing.R`):
    ```r
    ss <- Rceattle::fit_mod(data_list = BS2017SS, file = NULL, inits = NULL,
@@ -80,6 +97,8 @@ Wrap everything in one `export PATH=/usr/bin:$PATH && NOT_CRAN=true Rscript -e '
    likelihood ridge — its `par`/`ssb` are ridge-sensitive across *different* code, though
    deterministic on same-code re-runs; judge it primarily on `obj` (and `jnll`). The
    reference values (this branch): ss=10241.0304272585, ms=10267.2478324443,
-   goa_ss=12868.0052289274, goa_ms=12932.7931701136.
+   goa_ss=12866.8457276232, goa_ms=12931.8602763619 (5.48.0; the GOA values changed when
+   length compositions stopped passing through the ageing-error matrix, which only
+   GOA2018SS species 2 has alongside length comps).
 
 Report a clear PASS/FAIL summary, per model. Don't change source to force a pass.

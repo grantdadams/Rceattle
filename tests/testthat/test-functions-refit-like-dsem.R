@@ -39,7 +39,7 @@ testthat::test_that("the DSEM spec actually reaches fit_mod() through the refit"
   # the template added a second copy of each.
   testthat::expect_s3_class(refit, "Rceattle")
   testthat::expect_false(is.null(refit$dsem))
-  testthat::expect_gt(sum(refit$quantities$jnll_comp[22L, ]), 0)
+  testthat::expect_gt(sum(refit$quantities$jnll_comp[jnll_row("DSEM"), ]), 0)
 
   # ...and an explicit dsem = NULL overrides the data list, so a caller can opt
   # out. This is what makes the default a default rather than a hard-wire.

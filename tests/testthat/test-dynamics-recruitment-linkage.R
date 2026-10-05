@@ -416,9 +416,10 @@ testthat::test_that("Test species-specific recruitment linkeages with R0 (proj_m
 
   # Slot 19 priors: (Intercept) prior on species 3 is now evaluated
   # against rec_pars[3, 1] = 12, not against the (zero) linkage row.
-  # The slope prior on EnvIndex2 still evaluates against beta_linkage.
+  # The slope prior on EnvIndex2 still evaluates against beta_linkage. The
+  # lognormal intercept is mean-centred (meanlog - sdlog^2/2) under bias_adjust_proc.
   testthat::expect_equal(sum(ss_run$quantities$jnll_comp[20,]),
-                         -dnorm(12,12,0.5, log = TRUE) - dnorm(0, 2, 0.5, log = TRUE),
+                         -dnorm(12, 12 - 0.5^2 / 2, 0.5, log = TRUE) - dnorm(0, 2, 0.5, log = TRUE),
                          tolerance = 0.0001)
 
 

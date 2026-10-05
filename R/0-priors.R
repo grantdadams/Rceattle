@@ -1,20 +1,20 @@
 #' Prior distributions for Rceattle linkage coefficients
 #'
 #' Each prior is captured as a small object of class
-#' `"Rceattle_prior"` carrying a `family` name and two positional
+#' `"Rceattle_prior"` holding a `family` name and two positional
 #' parameters (`p1`, `p2`). The two-parameter shape is enforced so the
 #' linkage table can store priors uniformly as four columns
 #' (`prior_family`, `prior_p1`, `prior_p2`, plus reserved future use).
 #'
 #' Two surfaces are provided:
 #'
-#'   1. **Programmatic constructors** -- exported with the `prior_`
+#'   1. **Programmatic constructors**: exported with the `prior_`
 #'      prefix (`prior_normal()`, `prior_lognormal()`, ...), safe to
 #'      call anywhere without masking [base::gamma()]/[base::beta()].
 #'   2. **Inline form** inside `linkage_spec(priors = ...)`. There the
 #'      argument is captured unevaluated and resolved with a private
 #'      data mask that makes `normal()`, `lognormal()`, `gamma()`, and
-#'      `beta()` shorthand for the respective `prior_*` constructors --
+#'      `beta()` shorthand for the respective `prior_*` constructors,
 #'      *only* inside that argument. Base R remains untouched at the
 #'      package namespace.
 #'
@@ -65,10 +65,12 @@ prior_normal <- function(mean, sd) {
 
 #' Lognormal prior on a linkage coefficient
 #'
-#' Parameterized on the log scale (mean and sd of the log of the
-#' coefficient), matching [stats::dlnorm()].
+#' A normal density on the log of the coefficient. Under
+#' `fit_control(bias_adjust_proc = TRUE)`, the default, it is centred at
+#' `meanlog - sdlog^2/2`, so `exp(meanlog)` is the prior mean; with `FALSE` it
+#' matches [stats::dlnorm()] and `exp(meanlog)` is the prior median.
 #'
-#' @param meanlog prior mean of the log of the coefficient.
+#' @param meanlog log of the prior mean (of the median when `bias_adjust_proc = FALSE`).
 #' @param sdlog prior standard deviation of the log (must be positive).
 #' @return An `Rceattle_prior` of family `"lognormal"`.
 #' @export

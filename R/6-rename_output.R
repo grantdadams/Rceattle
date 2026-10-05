@@ -43,6 +43,39 @@ rename_output <- function(data_list = NULL, quantities = NULL){
   names(quantities$SPRtarget) <- data_list$spnames
   names(quantities$steepness) <- data_list$spnames
 
+  # Input numbers-at-age (estDynamics > 0): no HCR and F = 0 in projection, so these are NA.
+  fixed_n <- (data_list$estDynamics %||% rep(0, data_list$nspp)) > 0
+  if (any(fixed_n)) {
+    # Its rec_pars are fixed, so the stock-recruit quantities are the build_params()
+    # placeholder (R0 = exp(9)), not something the model or the user set.
+    mask <- c("Ftarget", "Flimit", "SPRtarget", "SPRlimit", "SBF", "DynamicSBF",
+              "R0", "R_init", "avg_R", "steepness", "SPR0")
+    # R is its input recruits (thousands of fish): first-age N-at-age, which is
+    # NByageFixed times pop_scalar, summed over sexes.
+    for (sp in which(fixed_n)) {
+      quantities$R[sp, ] <- apply(
+        quantities$N_at_age[sp, seq_len(data_list$nsex[sp]), 1, , drop = FALSE], 4, sum)
+      # A year with no NByageFixed row holds zeros, not recruits.
+      yrs_in <- data_list$NByageFixed$Year[data_list$NByageFixed$Species == sp]
+      quantities$R[sp, !yrs_proj %in% yrs_in] <- NA
+    }
+    # In single-species mode the equilibrium SB0 and B0 are built on that placeholder,
+    # and with DynamicHCR = FALSE the depletions divide by them. Under predation MSSB0
+    # replaces SB0; with DynamicHCR = TRUE the depletions are the input numbers
+    # relative to themselves.
+    if (isTRUE(as.integer(data_list$msmMode %||% 0L)[1] == 0L)) {
+      mask <- c(mask, "SB0", "B0")
+      if (!isTRUE(as.logical(data_list$DynamicHCR %||% FALSE)))
+        mask <- c(mask, "ssb_depletion", "biomass_depletion")
+    }
+    for (nm in mask) {
+      x <- quantities[[nm]]
+      if (is.null(x)) next
+      if (is.matrix(x)) x[fixed_n, ] <- NA else x[fixed_n] <- NA
+      quantities[[nm]] <- x
+    }
+  }
+
   # * Fleets ----
   names(quantities$catch_sd) <- data_list$catch_data$Fleet_name
   names(quantities$index_sd) <- data_list$index_data$Fleet_name
@@ -80,7 +113,7 @@ rename_output <- function(data_list = NULL, quantities = NULL){
 
   dimnames(quantities$fT) <- list(data_list$spnames, yrs_proj) # Temperature function of consumption
 
-  dimnames(quantities$pop_scalar) <- list(data_list$spnames, paste0("Age", 1:max_age))
+  names(quantities$pop_scalar) <- data_list$spnames
 
 
   # - Fleet quantities
@@ -117,14 +150,23 @@ rename_output <- function(data_list = NULL, quantities = NULL){
   dimnames(quantities$weight_hat) <- dimnames(quantities$length_hat) <- list(
     c(paste(rep(data_list$spnames, each = 2), rep(c("biomass length", "spawn length"), data_list$nspp)), data_list$fleet_control$Fleet_name),
     sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  if (!is.null(quantities$spawn_output)) {
+    dimnames(quantities$spawn_output) <- list(data_list$spnames, paste0("Age", 1:max_age), yrs_proj)
+  }
+  # The age-length key and selectivity-at-length are on the POPULATION length
+  # bins. The count comes off the arrays, since `data_list` here is the
+  # pre-rearrange_data() list and carries no nlengths_pop.
+  .dim_or <- function(x, i, alt) if (!is.null(x) && length(dim(x)) >= i) dim(x)[i] else alt
+  max_length_pop <- .dim_or(quantities$growth_matrix, 4L, max_length)
   dimnames(quantities$growth_matrix) <- list(
     c(paste(rep(data_list$spnames, each = 2), rep(c("biomass weight", "spawn weight"), data_list$nspp)), data_list$fleet_control$Fleet_name),
-    sex_labels, paste0("Age", 1:max_age), paste0("Bin", 1:max_length), yrs_proj)
+    sex_labels, paste0("Age", 1:max_age), paste0("PopBin", 1:max_length_pop), yrs_proj)
 
   # - Fleet
   dimnames(quantities$F_flt_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$sel_at_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$sel_at_length) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_length), yrs_proj)
+  dimnames(quantities$sel_at_length) <- list(data_list$fleet_control$Fleet_name, sex_labels,
+    paste0("PopBin", 1:.dim_or(quantities$sel_at_length, 3L, max_length_pop)), yrs_proj)
 
   # * 5D arrays ----
   dimnames(quantities$B_eaten) <- list(paste("Pred:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
@@ -169,6 +211,13 @@ rename_output <- function(data_list = NULL, quantities = NULL){
     "Stomach content data",
     "Linkage-table priors",
     "Linkage random effects",
+    # Order is the JnllRow enum's, not alphabetical: this vector is indexed by
+    # row, so JNLL_EQUIL_CATCH is 21 and JNLL_DSEM is 22.
+    # Keep round brackets out of every comment inside this vector.
+    # test-schema-jnll-rows.R parses the block with a non-greedy match that stops
+    # at the first closing bracket, so one in a comment truncates the label list
+    # it checks and the test then fails on correct code.
+    "Initial equilibrium catch",
     "DSEM"
   )
 
@@ -256,7 +305,7 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 #' `index_sd` / `catch_sd` were named `log_index_sd` / `log_catch_sd` until
 #' 5.9.0. Neither was ever a log, and `index_sd` is an ABSOLUTE sd for a
 #' natural-scale `Index_distribution`, so the old name actively misled. Fits
-#' saved before the rename carry only the old name; a fresh report carries only
+#' saved before the rename hold only the old name; a fresh report holds only
 #' the new one. Everything downstream reads through this.
 #'
 #' @param quantities A fit's `$quantities` list, or a TMB report.

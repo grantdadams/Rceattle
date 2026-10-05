@@ -51,9 +51,17 @@ void calculate_temperature_function(matrix<Type> &fT,
   Type Kb = 0.0;
 
   for(int sp = 0; sp < nspp; sp++) {
+
+    // Equations 1-3 read one column of env_index; equation 4 reads none. Cindex
+    // is 0-based here (ceattle.cpp decrements the 1-based input). With no column
+    // to read, consumption takes equation 4's constant fT = 1 -- the model is
+    // built without bounds checking, so the read would return adjacent memory.
+    bool has_env = (Cindex(sp) >= 0) && (Cindex(sp) < env_index.cols());
+    int  eq      = has_env ? Ceq(sp) : 4;
+
     for(int yr = 0; yr < nyrs; yr++) {
 
-      switch(Ceq(sp)) {
+      switch(eq) {
       case 1: // Exponential function from Stewart et al. 1983
         fT(sp, yr) = exp(Qc(sp) * env_index(yr, Cindex(sp)));
         break;
@@ -79,6 +87,13 @@ void calculate_temperature_function(matrix<Type> &fT,
         break;
 
       case 4: // Constant
+        fT(sp, yr) = 1.0;
+        break;
+
+      default:
+        // Ceq outside 1-4 (data_check() refuses it). fT = 1 rather than the zero
+        // left by initialization, which would silently zero consumption and,
+        // under multispecies, predation mortality with it.
         fT(sp, yr) = 1.0;
         break;
       }

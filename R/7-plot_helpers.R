@@ -2,7 +2,7 @@
 # Shared helpers for the Rceattle ggplot2 plotting functions
 # -----------------------------------------------------------------------------
 # The exported plot_*() functions follow one standardized contract:
-#   1. coerce the `Rceattle` argument to a list of fits      (.as_model_list)
+#   1. coerce the `Rceattle` argument to a list of fits      (.as_plot_models)
 #   2. assemble a tidy data frame of exactly what is plotted (per function)
 #   3. render it with the shared theme + colourblind palette  (.rceattle_theme,
 #      .rceattle_scale)
@@ -15,6 +15,14 @@
 # is verified to draw the *correct numbers*, not merely to render.
 # =============================================================================
 
+# Largest |residual| the bubble figures draw at full size. Every residual-bubble
+# panel is pinned to [0, this] so a well-fitting fleet and a badly-fitting one
+# cannot be made to look alike by a free scale, and so the OSA and Pearson
+# panels drawn from the same fit stay comparable. Beyond it the bubble stops
+# growing (.rce_truncate_resid) -- a standard normal residual past 6 is already
+# far outside anything a size scale can usefully distinguish.
+.RCE_BUBBLE_MAX <- 6
+
 #' Coerce the `Rceattle` plotting argument to a list of fits
 #'
 #' Accepts a single `Rceattle` fit, a list of fits (multi-model overlay), or an
@@ -24,8 +32,8 @@
 #' @param mse,OM When `mse = TRUE`, pull the operating model (`OM = TRUE`) or
 #'   the terminal estimation model from each MSE element.
 #' @return A list of `Rceattle` fits.
-#' @keywords internal
-.as_model_list <- function(Rceattle, mse = FALSE, OM = TRUE) {
+#' @noRd
+.as_plot_models <- function(Rceattle, mse = FALSE, OM = TRUE) {
   if (mse) {
     if (OM) {
       return(lapply(Rceattle, function(x) x$OM))
@@ -43,8 +51,8 @@
 #' Returns `model_names` if supplied, otherwise `"Model 1"`, `"Model 2"`, ... so
 #' the colour/legend mapping always has labels.
 #'
-#' `model_names` is often built as a `list()` -- the package's own vignettes do
-#' -- so it is flattened to character here. Left as a list it becomes a
+#' `model_names` is often built as a `list()`, the package's own vignettes do
+#', so it is flattened to character here. Left as a list it becomes a
 #' one-element list per model and the plot frame fails to bind.
 #'
 #' Too few names would be recycled, drawing two models as one series under one
@@ -94,7 +102,7 @@
 #' Eight fixed hues in a fixed order, reordered so the strongest-contrast,
 #' best-separated hues come first (2-4 model overlays are the common case) and
 #' the low-contrast yellow comes last. Unlike a sequential ramp (viridis), this
-#' encodes *identity* (which model), not magnitude: the colours carry no implied
+#' encodes *identity* (which model), not magnitude: the colours hold no implied
 #' ordering and every hue holds a legible contrast against a white panel.
 #'
 #' Reference: Okabe & Ito (2008), "Color Universal Design".
@@ -121,7 +129,7 @@
 #' so they are resolved here.
 #'
 #' Invalid colours fail here, where the argument still has a name, rather than
-#' silently -- an `NA` colour draws nothing, so a bad `line_col` would otherwise
+#' silently, an `NA` colour draws nothing, so a bad `line_col` would otherwise
 #' give a blank panel and no message.
 #'
 #' @param x Colours as a character vector, or integers indexing
@@ -289,7 +297,7 @@
 #' entirely rather than blanking the strip and leaving its gap.
 #'
 #' Returns `NULL` when there is nothing to facet, which ggplot2 accepts as a
-#' no-op inside a `+` chain -- so call sites read the same either way.
+#' no-op inside a `+` chain, so call sites read the same either way.
 #'
 #' @param df The plot data frame; its `Species` column supplies the count.
 #' @param ... Passed to [ggplot2::facet_wrap()] (e.g. `scales`, `ncol`).
@@ -317,20 +325,20 @@
 #' Every plotter resolves the pair here, so `species` accepts each of the
 #' spellings the assessment scripts use and normalizes it:
 #'
-#' * `NULL` or `"all"` -- every species, in model order.
-#' * numeric -- indices, validated against `1:nspp`.
-#' * logical -- a mask over `1:nspp`.
-#' * character matching `spnames` -- selection by name.
-#' * character matching *nothing* -- back-compatibility: these are labels, not a
+#' * `NULL` or `"all"`, every species, in model order.
+#' * numeric, indices, validated against `1:nspp`.
+#' * logical, a mask over `1:nspp`.
+#' * character matching `spnames`, selection by name.
+#' * character matching *nothing*, back-compatibility: these are labels, not a
 #'   selection, which is how `plot_selectivity()` and `plot_maturity()` used the
 #'   argument. Emits a message pointing at `spnames` and keeps every species.
-#' * character matching *some* names -- a selection with typos. Warns, naming
+#' * character matching *some* names, a selection with typos. Warns, naming
 #'   the unmatched entries, and keeps the matches.
 #'
 #' The returned `index` preserves the order the caller asked for, so
 #' `species = c(3, 1)` yields facets in that order rather than model order.
 #'
-#' @param models A list of `Rceattle` fits (from [.as_model_list()]).
+#' @param models A list of `Rceattle` fits (from `.as_plot_models()`).
 #' @param species Species selection; see above.
 #' @param spnames Species labels, length `nspp`. `NULL` takes the model's own.
 #' @return `list(index = <integer>, spnames = <character, nspp>,
@@ -441,8 +449,8 @@
 #' The at-age arrays are indexed by BIN, 1 .. `nages[sp]`, while a species' ages
 #' run `minage[sp] .. minage[sp] + nages[sp] - 1`. The two coincide only at
 #' `minage = 1`, so an `age` argument passed straight through as a subscript
-#' plots a different age than the axis label claims for any other species -- and
-#' runs off the end of the array for an age the species does not carry.
+#' plots a different age than the axis label claims for any other species, and
+#' runs off the end of the array for an age the species does not hold.
 #'
 #' A species that has no such age is dropped rather than plotted wrong, since
 #' the ages differ between species in one figure. That matches how
@@ -453,7 +461,7 @@
 #' @param minage,nages The model's `minage` and `nages` vectors.
 #' @param spnames Species labels, for the messages.
 #' @param arg Name of the calling argument, for the messages.
-#' @return `list(species = <the species that carry this age>,
+#' @return `list(species = <the species that hold this age>,
 #'   index = <their bin indices, same order>)`.
 #' @keywords internal
 #' @noRd
@@ -526,7 +534,7 @@
 #' keying variable and given a scale.
 #'
 #' `lwd` keeps the base-graphics convention, where the default of 3 renders as a
-#' standard-weight ggplot line -- the `lwd / 3` below. Do not change that ratio:
+#' standard-weight ggplot line, the `lwd / 3` below. Do not change that ratio:
 #' every default figure in the package and in the assessment scripts is drawn at
 #' `linewidth = 1`, so `lwd = 3` must keep producing exactly that.
 #'
@@ -537,8 +545,8 @@
 #'   varies, or `NULL` if the plot has nothing to key it to. Values are applied
 #'   to that column's levels in plotting order.
 #' @param lwd_n,lty_n Number of levels the keying column actually has. A column
-#'   with one level cannot carry a varying value, so saying so lets the caller
-#'   be told rather than having the extra values dropped in silence -- line type
+#'   with one level cannot hold a varying value, so saying so lets the caller
+#'   be told rather than having the extra values dropped in silence, line type
 #'   keys on sex, and most models here are sex-combined.
 #' @param lty_in_aes The plot's own `aes()` already maps line type (as
 #'   `plot_ration()` maps it to sex). A vector then supplies one value per
@@ -706,7 +714,7 @@
 #' Dashed divider at the last hindcast year
 #'
 #' Marks where the projection starts. Consolidates the identical `geom_vline()`
-#' that six plotters carried inline.
+#' that six plotters held inline.
 #'
 #' Takes the **latest** hindcast year across the models rather than the last
 #' model's. On a retrospective peel list the models end in different years, and
@@ -761,7 +769,7 @@
 #' on four plotters and implemented on none. The mean is taken over **hindcast
 #' years only**: a mean that folded in the projection would not be a historical
 #' reference, and would move when the projection horizon changed. `hind_endyr`
-#' is therefore required, not optional -- a caller that forgot it would silently
+#' is therefore required, not optional, a caller that forgot it would silently
 #' get the projection-contaminated mean this exists to avoid.
 #'
 #' The mean line takes a colour only when the caller says colour encodes the
@@ -769,8 +777,8 @@
 #' colour to predator or to species, and adding a `colour = Model` layer to such
 #' a plot trains model names into that scale's legend.
 #'
-#' Models in one figure can end in different years -- a retrospective peel is
-#' the usual case -- so `hind_endyr` may be a vector named by model. Cutting
+#' Models in one figure can end in different years, a retrospective peel is
+#' the usual case, so `hind_endyr` may be a vector named by model. Cutting
 #' every model at the first one's `endyr` averages a peel over years it never
 #' fitted, and the answer then depends on the order of the list.
 #'
@@ -842,13 +850,13 @@
 #'
 #' The block length must match `n_total` **exactly**. `sdrep$value` holds the
 #' whole flattened series, so taking the first `n_need` of a block of unverified
-#' length silently returns the standard errors of different cells -- an interval
+#' length silently returns the standard errors of different cells, an interval
 #' that is wrong rather than absent.
 #'
 #' Taking a leading slice is legitimate only when the caller knows the block's
 #' full shape, which is why `n_total` has to be stated rather than inferred. The
 #' species-by-year series are flattened column-major with the hindcast years
-#' first, so the first `nspp * nyrs_hindcast` values are exactly the hindcast --
+#' first, so the first `nspp * nyrs_hindcast` values are exactly the hindcast,
 #' that is the one prefix any caller here needs.
 #'
 #' @param model An `Rceattle` fit.
@@ -856,7 +864,7 @@
 #' @param n_need How many leading values the caller wants.
 #' @param n_total Length the whole block must have. Defaults to `n_need`, i.e.
 #'   no slicing.
-#' @return `n_need` standard errors, or `NULL` when the fit does not carry a
+#' @return `n_need` standard errors, or `NULL` when the fit does not hold a
 #'   block of exactly `n_total` (no `sdreport`, or a `REPORT()`-only series).
 #' @keywords internal
 #' @noRd
@@ -865,11 +873,19 @@
   if (is.null(sdrep) || is.null(sdrep$value)) return(NULL)
   rows <- which(names(sdrep$value) == name)
   if (length(rows) != n_total || n_need > n_total) return(NULL)
-  sdrep$sd[rows][seq_len(n_need)]
+  out <- sdrep$sd[rows]
+  # A species with input numbers-at-age reports its input recruits as R
+  # (rename_output()), but the sdreport's R is the placeholder curve's: no SE to show.
+  nspp  <- model$data_list$nspp
+  fixed <- which((model$data_list$estDynamics %||% 0) > 0)
+  if (name %in% c("R", "log_R") && length(fixed) && length(out) %% nspp == 0) {
+    out[((seq_along(out) - 1) %% nspp + 1) %in% fixed] <- NA
+  }
+  out[seq_len(n_need)]
 }
 
 
-#' Can this quantity carry a confidence interval at all?
+#' Can this quantity hold a confidence interval at all?
 #'
 #' Reads the same `.RCEATTLE_QUANTITIES` registry that `as.data.frame.Rceattle()`
 #' uses, so the figure and the table agree on which series have standard errors.
@@ -895,7 +911,7 @@
 #' @param reason Why it cannot be drawn.
 #' @param warn Emit the warning? Pass `FALSE` where the quantity is
 #'   `REPORT()`-only by design.
-#' @return `FALSE`, always -- so the caller can write `add_ci <- .rce_no_ci(...)`.
+#' @return `FALSE`, always, so the caller can write `add_ci <- .rce_no_ci(...)`.
 #' @keywords internal
 #' @noRd
 .rce_no_ci <- function(add_ci, quantity, reason, warn = TRUE) {
@@ -915,19 +931,19 @@
 #' [plot_f()]), the predation plotters ([plot_b_eaten()], [plot_b_eaten_prop()],
 #' [plot_m_at_age()], [plot_m2_at_age_prop()], [plot_ration()]), and
 #' [plot_selectivity()]. Each argument means the same thing wherever it appears,
-#' but not every plotter takes every one -- `incl_mean` is on the predation
-#' plotters, `add_ci` only where the quantity carries standard errors, and
+#' but not every plotter takes every one, `incl_mean` is on the predation
+#' plotters, `add_ci` only where the quantity holds standard errors, and
 #' `alpha` only where the figure has a ribbon or a fan. The remaining
 #' `plot_*()` functions still take their own arguments; see each one's help.
 #'
 #' @section How `line_col` and `lty` are applied:
 #'
 #' They supply values for whichever **discrete variable the plot already
-#' encodes with that aesthetic**, matched in level order -- which is not always
+#' encodes with that aesthetic**, matched in level order, which is not always
 #' the model. Each function's help says what its own figure separates.
 #'
-#' Where colour encodes a continuous variable -- the year fan in
-#' [plot_selectivity()] -- `line_col` supplies the ramp anchors instead: one
+#' Where colour encodes a continuous variable, the year fan in
+#' [plot_selectivity()], `line_col` supplies the ramp anchors instead: one
 #' colour draws the fan in that colour, several interpolate between them.
 #'
 #' @param Rceattle A single [fit_mod()] object or a list of them (overlaid).
@@ -950,7 +966,7 @@
 #' @param alpha Transparency of confidence ribbons and shaded areas, between 0
 #'   and 1.
 #' @param add_ci Add a 95% confidence interval. Only available where the
-#'   plotted quantity carries standard errors; warns and draws none otherwise.
+#'   plotted quantity holds standard errors; warns and draws none otherwise.
 #' @param minyr,maxyr First / last year to plot.
 #' @param incl_proj Include the projection years, with a dashed divider at the
 #'   last hindcast year.
@@ -973,3 +989,159 @@
 #' @return A `ggplot` object.
 #' @name rceattle-plot-args
 NULL
+
+
+#' The selectivity standard errors a fit reports, or NULL
+#'
+#' `fit_control(selectivity_se = TRUE)` adds `log_sel_at_age` to the sdreport
+#' and `log_sel_at_age_index` to the reported quantities. Both are needed: the
+#' index says which (fleet, sex, age, year) each sdreport row belongs to, and
+#' its length depends on the model, since Fixed fleets and mirrored fleets are
+#' left out.
+#'
+#' @param model One fitted `Rceattle` object.
+#' @return A data frame of `Fleet`, `Sex`, `Age`, `Year`, `log_sel`, `sd`, or
+#'   `NULL` where the fit has no sdreport or was not asked for the errors.
+#' @keywords internal
+#' @noRd
+.rce_sel_se <- function(model) {
+  sdrep <- model$sdrep
+  idx   <- model$quantities$log_sel_at_age_index
+  if (is.null(sdrep) || is.null(sdrep$value) || is.null(idx)) return(NULL)
+  k <- names(sdrep$value) == "log_sel_at_age"
+  if (!any(k) || sum(k) != nrow(idx)) return(NULL)
+  out <- data.frame(Fleet = as.integer(idx[, 1]), Sex = as.integer(idx[, 2]),
+                    Age   = as.integer(idx[, 3]), Year = as.integer(idx[, 4]),
+                    log_sel = unname(sdrep$value[k]), sd = unname(sdrep$sd[k]),
+                    stringsAsFactors = FALSE)
+  # The plotter asks for one fleet, sex and year at a time, so index once here.
+  attr(out, "by") <- split(seq_len(nrow(out)),
+                           paste(out$Fleet, out$Sex, out$Year))
+  out
+}
+
+
+#' The fleets whose reported selectivity a given fleet may borrow
+#'
+#' The template reports one row set per selectivity group, on the group's lead
+#' fleet, so a mirrored fleet has no rows of its own. The lead is resolved with
+#' `rearrange_data()`'s own `.group_lead()`, on the same key it uses,
+#' `Selectivity_index` and `Selectivity` together, with an `Off` fleet never
+#' leading, so the plotter and the template cannot disagree about who leads.
+#' Recomputed rather than read off `data_list`, which is the pre-`rearrange_data()`
+#' list and holds no `flt_sel_lead`. Reading `Selectivity_index` as a fleet code
+#' instead would miss a group keyed on a value that is nobody's `Fleet_code`, and
+#' silently drop the band.
+#'
+#' @param dl One model's `data_list`.
+#' @param i Row index of the fleet, which is also its `Fleet_code`.
+#' @return Fleet codes in the same selectivity group, the lead first.
+#' @keywords internal
+#' @noRd
+.rce_sel_lead <- function(dl, i) {
+  fc  <- dl$fleet_control
+  flt <- fc$Fleet_code[i]
+  if (is.null(fc$Selectivity_index) || is.null(fc$Selectivity)) return(flt)
+  off  <- as.character(fc$Fleet_type) %in% c("Off", "0")
+  lead <- .group_lead(paste(fc$Selectivity_index, fc$Selectivity), off)
+  key  <- paste(fc$Selectivity_index, fc$Selectivity)
+  unique(c(fc$Fleet_code[key == key[i] & lead == 1L], flt))
+}
+
+
+#' Rows of the `.rce_sel_se()` frame for one fleet, sex and year
+#'
+#' Uses the lookup `.rce_sel_se()` built, so a 16-fleet model does not rescan a
+#' 30,000-row frame once per panel and year.
+#'
+#' @param se The `.rce_sel_se()` frame.
+#' @param flt,sex,year Fleet code, sex index and calendar year.
+#' @return Integer row positions, possibly none.
+#' @keywords internal
+#' @noRd
+.rce_sel_rows <- function(se, flt, sex, year) {
+  by <- attr(se, "by")
+  if (!is.null(by)) return(by[[paste(flt, sex, year)]])
+  which(se$Fleet == flt & se$Sex == sex & se$Year == year)
+}
+
+
+#' One fleet-sex-year's selectivity interval, on the natural scale
+#'
+#' Returned in the order of `bins`, with `NA` for any age the fit did not
+#' report, so the caller can bind it to the curve without checking lengths.
+#' `exp()` of a log-scale interval, so it is positive and right-skewed.
+#'
+#' A mirrored fleet holds no rows of its own, so it borrows its lead's, but
+#' only where the two curves actually agree. `data_check()` merely warns when
+#' fleets sharing a `Selectivity_index` differ in a shaping column, and a
+#' differing `Sel_norm_bin` alone rescales the curve, so sharing the parameter
+#' block is not on its own enough to share the band.
+#'
+#' @param se The `.rce_sel_se()` frame, or NULL.
+#' @param flt,sex Fleet code and sex index.
+#' @param bins Absolute ages, in plotting order.
+#' @param year Calendar year.
+#' @param lead Fleet codes whose rows this fleet may borrow (`.rce_sel_lead()`).
+#' @param curve This fleet's own selectivity over `bins`, to check a borrowed
+#'   band against. `NULL` borrows unchecked.
+#' @return A list of `lower` and `upper`, or `NULL` if no band applies.
+#' @keywords internal
+#' @noRd
+.rce_sel_ci <- function(se, flt, sex, bins, year, lead = flt, curve = NULL) {
+  if (is.null(se)) return(NULL)
+  band <- function(hit) {
+    m <- match(bins, se$Age[hit])
+    list(lower = exp(se$log_sel[hit][m] - 1.96 * se$sd[hit][m]),
+         upper = exp(se$log_sel[hit][m] + 1.96 * se$sd[hit][m]),
+         fit   = exp(se$log_sel[hit][m]))
+  }
+  own <- .rce_sel_rows(se, flt, sex, year)
+  if (length(own)) return(band(own)[c("lower", "upper")])
+
+  for (ld in setdiff(lead[!is.na(lead)], flt)) {
+    hit <- .rce_sel_rows(se, ld, sex, year)
+    if (!length(hit)) next
+    b <- band(hit)
+    # Compared where both are present; an age the lead did not report stays NA
+    # in the band and is not evidence the curves differ.
+    if (!is.null(curve)) {
+      both <- is.finite(b$fit) & is.finite(curve)
+      if (!any(both)) next
+      if (!isTRUE(all.equal(b$fit[both], curve[both], tolerance = 1e-8))) next
+    }
+    return(b[c("lower", "upper")])
+  }
+  NULL
+}
+
+
+#' Truncate residuals onto the fixed bubble-size scale
+#'
+#' `plot_comp()` and `.osa_bubble_plot()` both draw residual bubbles on a fixed
+#' `[0, .RCE_BUBBLE_MAX]` size scale so two figures compare by eye. Truncation
+#' has to happen here rather than being left to the scale's `limits`, because
+#' `scale_size_continuous()` sets an out-of-bounds value to `NA` and drops the
+#' point silently, the largest residuals on the panel would be the ones that
+#' vanished.
+#'
+#' The warning names the count and the largest magnitude rather than every
+#' offending value: an upweighted fleet's residuals scale by `sqrt(w)`, so this
+#' can fire on hundreds of points at once.
+#'
+#' @param x Residuals, signed.
+#' @param what Figure name, to open the warning.
+#' @return `x` with magnitudes above the cap pulled back to it, sign kept.
+#' @keywords internal
+#' @noRd
+.rce_truncate_resid <- function(x, what) {
+  big <- which(abs(x) > .RCE_BUBBLE_MAX)
+  if (length(big)) {
+    warning(what, ": ", length(big), " residual(s) beyond +/-", .RCE_BUBBLE_MAX,
+            " truncated for plotting (largest |residual| ",
+            sprintf("%.2f", max(abs(x[big]))), "). The bubble area understates ",
+            "the misfit at those points.", call. = FALSE)
+    x[big] <- .RCE_BUBBLE_MAX * sign(x[big])
+  }
+  x
+}

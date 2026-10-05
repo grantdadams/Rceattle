@@ -48,7 +48,7 @@ This vignette fits a sequence of five single- and multi-species models with `Rce
 # executing it in CI would reinstall mid-render.
 # Rceattle (pulls CRAN dependencies automatically; e.g. TMB, Matrix, dplyr)
 install.packages("remotes")
-remotes::install_github("grantdadams/Rceattle")
+remotes::install_github("afsc-assessments/Rceattle")
 
 # Optional: TMBhelper provides richer optimization diagnostics.
 # Rceattle falls back to plain nlminb + sdreport if it's not installed.
@@ -156,19 +156,114 @@ model_5 <- Rceattle::fit_mod(data_list = BS2017MS,
 summary(model_5)
 ```
 
-## 4. Compare models
+## 4. Reading the fitted object
+
+`fit_mod()` returns an object of class `Rceattle`. Rather than reaching into it
+by hand, most of what you need is reachable through standard S3 methods:
+
+```{r}
+summary(model_1)        # reference points, likelihood, convergence
+coef(model_1)           # estimated parameters
+head(vcov(model_1))     # covariance matrix (NULL when getsd = FALSE)
+logLik(model_1)         # log-likelihood, holding its degrees of freedom
+AIC(model_1)            # so stats::AIC() works
+head(residuals(model_1))
+head(as.data.frame(model_1))
+```
+
+`plot()`, `simulate()` and `profile()` dispatch on the fit too, and the
+diagnostics return their own classes with `print()` methods that summarize the
+result, `retrospective()` gives an `Rceattle_retro`, `jitter()` an
+`Rceattle_jitter`, `self_test()` an `Rceattle_selftest`, `profile()` an
+`Rceattle_profile`, and `osa_residuals()` an `rceattle_osa`. A data list read by
+`read_data()` is an `Rceattle_data`, which also prints and summarizes.
+
+The numbers themselves live in two places. Derived quantities on their natural
+scale are in `fit$quantities`, biomass, `ssb`, `N_at_age`, `M_at_age`,
+`sel_at_age`, reference points and the likelihood components. The parameters the
+optimizer actually estimated are in `fit$estimated_params`, mostly on a log
+scale, under abbreviated names. `parameter_dictionary()` explains those names:
+
+```{r}
+parameter_dictionary("R_log_sd")             # log_sd of recruitment -> sigma_R
+parameter_dictionary(process = "selectivity")
+```
+
+Anything beginning `log_`, or ending `_log_sd`, needs `exp()` to reach the
+quantity named in the dictionary's `natural` column.
+
+`quantity_dictionary()` does the same job for the reported quantities, what
+each one means, the units it is in, its dimensions, and whether `sdreport()`
+gives it a standard error:
+
+```{r}
+quantity_dictionary("ssb_depletion")
+quantity_dictionary(process = "reference_points")
+
+# Everything that holds a standard error
+dict <- quantity_dictionary()
+dict[dict$se, c("quantity", "units")]
+```
+
+Units follow the model throughout: numbers-at-age are **thousands of fish** and
+weight-at-age is **kg**, so their product is **mt**. Two things worth reading off
+the dictionary before using a quantity. `ssb` is *female* spawning-stock biomass,
+and every per-recruit reference point (`SPR0`, `SPRlimit`, `SPRtarget`) is
+defined only in single-species mode, on a multispecies fit the model leaves them
+at zero, which is not an estimate of zero.
+
+## 5. Compare models
 
 Models can be compared by marginal or joint negative log-likelihood, AIC, and retrospective analysis. AIC cannot compare a penalized-likelihood fit against a marginal-likelihood fit. The likelihood components are stored in the model objects built above:
 
 ```{r}
 # Evaluate 1 model
-model_1$opt$AIC # AIC
-model_1$opt$objective # Negative log-likelihood
-model_1$quantities$jnll_comp # Negative log-likelihood components
+AIC(model_1)                    # AIC, via the logLik() method below
+model_1$opt$objective           # Negative log-likelihood
+model_1$quantities$jnll_comp    # Negative log-likelihood components
 
 # Compare AIC across 3-species penalized likelihood models
-sapply(list(model_2, model_3, model_5), function(x) x$opt$AIC)
+sapply(list(model_2, model_3, model_5), AIC)
 
+```
+
+`report_tables()` collects the quantities an assessment reports, the fit and
+its likelihood decomposition, the time series with uncertainty, the reference
+points, and the fits to index and catch, into one set of tidy tables. Every
+table holds a `model` column, so several fits stack for a like-for-like
+comparison:
+
+```{r}
+tabs <- report_tables(list(pollock = model_1, three_species = model_2))
+tabs
+tabs$reference_points
+```
+
+Read the `basis` column of `reference_points` before quoting anything from it. A
+CEATTLE fit leaves a *number* behind for reference points it never estimated, and
+each one looks like an estimate: `Ftarget` and `Flimit` sit at 1.0/yr unless the
+harvest control rule estimates them, and in multispecies mode `SB0` is a
+placeholder until a no-fishing projection derives it, which would make B40% a few
+hundred tonnes. Those cells are returned as `NA` with the reason in `basis`,
+rather than as the number the model happens to hold.
+
+Diagnostics are attached rather than computed: a retrospective or a jitter is
+tens to hundreds of refits, so `report_tables()` never runs one on your behalf.
+Pass them in once you have them, and the matching sections appear:
+
+```{r, eval = FALSE}
+report_tables(model_1, retro = model_1_retro, osa = osa_residuals(model_1))
+```
+
+`standard_output()` relabels the result into the NOAA standardized assessment
+output that the `stockplotr` and `asar` packages read, so Rceattle results can be
+plotted and written into a report by the same tooling used for SS3, BAM, WHAM and
+FIMS. That standard describes one stock and has no species dimension, so a fit
+with more than one needs `species` to pick the stock to emit:
+
+```{r}
+head(standard_output(tabs, model = "pollock"))
+head(standard_output(tabs, model = "three_species", species = 1))
 ```
 
 The `retrospective` function measures retrospective bias, returning a list of refit models and a data.frame of Mohn's rho values.
@@ -179,7 +274,7 @@ model_1_retro <- retrospective(model_1, peels = 7)
 plot_biomass(model_1_retro$Rceattle_list, model_names = paste("Pollock; mohns =", round(model_1_retro$mohns[1,2], 3)))
 ```
 
-## 5. Model plots and diagnostics
+## 6. Model plots and diagnostics
 
 `Rceattle` includes plots for hindcast and forecast time series of biomass, SSB, recruitment, biomass consumed as prey, mortality-at-age, and depletion, with uncertainty. Time-series plots accept a list of models (see above).
 
@@ -202,7 +297,7 @@ plot_ssb(model_list, model_names = model_names, incl_proj = TRUE, add_ci = TRUE)
 # Biomass depletion (total biomass / B0)
 plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
 
-# SSB depletion (female spawning biomass / SB0) -- the quantity a Tier 3 HCR
+# SSB depletion (female spawning biomass / SB0), the quantity a Tier 3 HCR
 # compares against B40%
 plot_depletionSSB(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
 
@@ -210,7 +305,7 @@ plot_depletionSSB(model_list, model_names = model_names, incl_proj = FALSE, add_
 
 Diagnostic plots cover selectivity, composition fits, index fits, and catch fits. Composition plots take a single model; selectivity, index and catch plots take one or more.
 
-Each fleet is drawn on the dimension its selectivity was estimated on -- age, or length bin for a fleet whose `Selectivity_dimension` is `"Length"`. With one model, colour is the year, so time-varying selectivity reads as a fan. With several, colour separates the models and the fan moves to transparency.
+Each fleet is drawn on the dimension its selectivity was estimated on, age, or length bin for a fleet whose `Selectivity_dimension` is `"Length"`. With one model, colour is the year, so time-varying selectivity reads as a fan. With several, colour separates the models and the fan moves to transparency.
 
 ```{r}
 # Selectivity

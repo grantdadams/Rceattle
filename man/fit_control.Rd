@@ -10,6 +10,7 @@ fit_control(
   getJointPrecision = TRUE,
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
+  selectivity_se = FALSE,
   comp_offset = NULL,
   bias_adjust_obs = TRUE,
   bias_adjust_proc = TRUE,
@@ -41,6 +42,9 @@ parameter uncertainty in projections when using an HCR (refits with all
 hindcast and biological-reference-point parameters turned on). Default
 \code{FALSE} for speed.}
 
+\item{selectivity_se}{logical. If \code{TRUE}, \code{\link[TMB:sdreport]{TMB::sdreport()}} also returns a
+standard error for log selectivity-at-age. Default \code{FALSE}.}
+
 \item{comp_offset}{Numeric or \code{NULL}. Small proportion offset added to the
 observed and predicted age/length composition and conditional-age-at-length
 (caal) bins before the multinomial / Dirichlet-multinomial likelihood (to
@@ -54,23 +58,24 @@ Does not apply to diet (stomach-content) compositions.}
 apply a bias adjustment (mean-sd^2/2) to lognormal data
 likelihoods}
 
-\item{bias_adjust_proc}{logical with default TRUE. Whether to
-apply a bias adjustment (mean-sd^2/2) to lognormal process
-likelihoods}
+\item{bias_adjust_proc}{logical with default TRUE. Whether lognormal process
+likelihoods, lognormal priors and the Ianelli stock-recruit penalty are
+shifted by \code{-sd^2/2} on the log scale, making each prior value or curve a mean rather than a
+median; a value between 0 and 1 scales the shift.}
 
 \item{use_gradient}{logical. Use the analytic gradient during
 phasing. Default \code{TRUE}.}
 
 \item{rel_tol}{Numeric tolerance used to flag discontinuous
-likelihood warnings (compares the TMB and \code{nlminb} objectives).
-Default \code{1}.}
+likelihood warnings, comparing \code{nlminb}'s objective with a fresh
+evaluation of the object it came from. Default \code{1}.}
 
 \item{loopnum}{Integer. Number of times to re-start optimization
 (\code{loopnum = 3} sometimes achieves a lower final gradient than
 \code{loopnum = 1}). Default \code{5}.}
 
-\item{newtonsteps}{Integer. Number of extra Newton steps to take
-after optimization (alternative to \code{loopnum}). Default \code{0}.}
+\item{newtonsteps}{Integer. Number of extra unconstrained Newton steps to
+take after optimization (alternative to \code{loopnum}). Default \code{0}.}
 
 \item{phase}{\code{TRUE}/\code{FALSE} or a list. If \code{FALSE}, the model is not
 phased. If \code{TRUE}, default phasing is used. Can also accept a
@@ -93,7 +98,7 @@ print updates of model fit and TMB estimation progress. Default
 A list of class \code{"Rceattle_fit_control"}.
 }
 \description{
-\code{fit_mod()} carries roughly a dozen optimizer- and reporting-related
+\code{fit_mod()} holds roughly a dozen optimizer- and reporting-related
 arguments (\code{bias.correct}, \code{getsd}, \code{loopnum}, \code{newtonsteps}, ...).
 That is a lot of surface area when the user mostly cares about
 "what model am I fitting" rather than "how is it being fit."
@@ -113,6 +118,37 @@ supplied, the values in the \code{fit_control} object override the
 corresponding individual arguments to \code{fit_mod()}. Individual
 arguments are kept for backward compatibility.
 }
+\section{Selectivity standard errors}{
+\code{selectivity_se} needs \code{getsd = TRUE}, and the error it reports is the one
+belonging to whichever \code{sdreport} the fit ends on. Under
+\code{estimateMode = "Estimate"} with any HCR that re-optimizes, that is the
+\emph{projection} fit, in which every selectivity parameter is mapped off, so
+every error comes back exactly 0. \code{estimateMode = "Projection"} estimates no
+selectivity at all and reports none where it runs no \code{sdreport}. Use
+\code{estimateMode = "Hindcast"}, or \code{"Estimate"} with
+\code{projection_uncertainty = TRUE}, to get an error from a fit that estimated
+the curve. \code{\link[=fit_mod]{fit_mod()}} warns before fitting in each of these cases.
+
+Off by default because the delta method forms a Jacobian of every reported
+value against every parameter, so its cost is the product of the two: on
+\code{Atka2022} it adds 1,012 values against 584 parameters.
+
+The error is on the log scale, not the logit, because the non-parametric
+forms normalize to mean selectivity 1 rather than a maximum of 1, 58\% of
+\code{Atka2022}'s \code{sel_at_age} exceeds 1, to 3.06, so a logit is undefined over
+most of the array.
+
+Rows cover estimated, age-based lead fleets only, and start at each fleet's
+first selected bin. Four kinds of cell hold a structural zero, a \code{Fixed}
+fleet's empirical curve, a length-based fleet's growth-matrix projection, a
+bin below \code{Bin_first_selected}, and array padding, and one \code{log(0) = -Inf}
+on the tape turns \emph{every} quantity in the \code{sdreport} to \code{NaN}, biomass and SSB
+included. All four are identified from the data, so the reported set never
+depends on a parameter value; a value that underflows to zero is floored, so
+it cannot reintroduce the \code{-Inf}. See \code{\link[=plot_selectivity]{plot_selectivity()}}, which draws the
+interval.
+}
+
 \examples{
 # Quick-and-dirty fit: skip sdreport, single optimizer pass
 ctl <- fit_control(getsd = FALSE, loopnum = 1)

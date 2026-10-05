@@ -21,7 +21,14 @@ testthat::test_that("every parameter has a dictionary entry", {
 
 testthat::test_that("the dictionary has no stale entries", {
   pars <- .dict_params()
-  stale <- setdiff(Rceattle:::.PAR_INFO$internal, names(pars))
+  # build_params() is the R-side starting-value builder, and for a model with no
+  # DSEM it legitimately omits the dsem_* blocks -- the DSEM path adds them. The
+  # TEMPLATE declares them unconditionally, so they are real parameters of the
+  # model and parameter_index() needs their entries (test-schema-parameter-index.R
+  # enumerates obj$env$parList() and requires exactly that). Union in the branch's
+  # own registry rather than dropping either check.
+  known <- c(names(pars), Rceattle:::.DSEM_PARAM_NAMES)
+  stale <- setdiff(Rceattle:::.PAR_INFO$internal, known)
   testthat::expect_equal(
     stale, character(0),
     info = paste(".PAR_INFO entries with no matching parameter:",
@@ -48,14 +55,14 @@ testthat::test_that("dictionary is well formed", {
 })
 
 
-testthat::test_that(".par_label() is message-safe", {
+testthat::test_that(".par_description() is message-safe", {
   # Known parameter: name, natural-scale name and meaning.
-  lbl <- Rceattle:::.par_label("log_M1")
+  lbl <- Rceattle:::.par_description("log_M1")
   testthat::expect_match(lbl, "^log_M1 \\(M1\\): ")
 
   # Unknown parameter must fall back rather than error -- a diagnostic that
   # dies because of a stale name is worse than one that is terse.
-  testthat::expect_identical(Rceattle:::.par_label("no_such_param"),
+  testthat::expect_identical(Rceattle:::.par_description("no_such_param"),
                              "no_such_param")
 
   # Vectorised lookup returns one row per requested name, in order.

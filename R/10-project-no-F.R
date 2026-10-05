@@ -1,16 +1,26 @@
 #' Rerun with F = 0.
 #'
 #' @description
-#' Function to update hindcast and set F to 0.
-#' Useful for determining dynamic reference points for multi-species models under climate-change.
+#' Refits the model with fishing mortality set to 0 from `styr` on, keeping
+#' every other parameter. The projection after `endyr` is always unfished.
+#' `run_mse()` uses it for the no-fishing run (`OM_no_F`) behind the collapse
+#' metrics.
 #'
+#' @details
+#' `styr` may be any year from the model's own `styr` to `endyr + 1`; the
+#' projection is unfished whatever harvest control rule the model was fit under.
+#' Under predation, empirical suitability (`suitMode = 0`) is derived from the
+#' fitted abundance over each predator's `suit_styr:suit_endyr`, so `styr` must
+#' fall after that window for every predator with `suitMode = 0` and diet data
+#' in it.
 #'
 #' @param object A fitted Rceattle model object
+#' @param styr First year with F = 0; default `endyr + 1`, which leaves the hindcast unchanged.
 #' @param Rceattle deprecated name for `object`, still accepted so existing
 #'   scripts keep working. Supplying both is an error.
 #' @export
 #'
-remove_F <- function(object = NULL, Rceattle = NULL){
+remove_F <- function(object = NULL, styr = NULL, Rceattle = NULL){
   # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
   if (!missing(Rceattle))
     object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "remove_F")
@@ -23,27 +33,44 @@ remove_F <- function(object = NULL, Rceattle = NULL){
   # DSEM's fitted parameters simply travel through `inits`. That only became
   # true once fit_mod() stopped dropping the dsem_* blocks out of a warm start.
 
+  dl <- object$data_list
+  if (is.null(styr)) styr <- dl$endyr + 1
+  # The projection is always unfished, so the no-F period starts by endyr + 1.
+  if (!is.numeric(styr) || length(styr) != 1 || is.na(styr) ||
+      styr != round(styr) || styr < dl$styr || styr > dl$endyr + 1) {
+    stop("`styr` must be a single year from the first model year (", dl$styr,
+         ") to the year after endyr (", dl$endyr + 1, "); the projection is always unfished.",
+         call. = FALSE)
+  }
+
+  # Empirical suitability (suitMode 0) is derived from the fitted abundance over each
+  # predator's suit_styr:suit_endyr, so removing F inside that window re-derives it. A
+  # predator with no diet data in its window has an all-zero suitability slice; a
+  # parametric form does not read abundance.
+  if (isTRUE(.map_switch(dl$msmMode, msmMode_map, "msmMode") > 0)) {
+    suit_mode <- rep_len(.map_switch(dl$suitMode, suitMode_map, "suitMode"), dl$nspp)
+    suit <- object$quantities$suitability
+    if (!is.null(suit)) {
+      # A predator's rows are pred + nspp * (sex - 1), the r_idx of predation.hpp.
+      has_suit <- vapply(seq_len(dl$nspp), function(p) {
+        !isTRUE(all(suit[seq(p, dim(suit)[1], by = dl$nspp), , , , ] == 0))
+      }, logical(1))
+    } else {
+      # A model stored by run_mse() keeps only the MSE quantities. Without the
+      # suitability array, every predator with a diet record counts.
+      has_suit <- seq_len(dl$nspp) %in% unique(as.integer(dl$diet_data$Pred))
+    }
+    emp       <- suit_mode == 0 & has_suit
+    suit_end  <- rep_len(pmin(dl$suit_endyr, dl$endyr), dl$nspp)[emp]
+    if (length(suit_end) && styr <= max(suit_end)) {
+      stop("`styr` (", styr, ") must be after the empirical suitability window ",
+           "(suit_endyr ", max(suit_end), "): removing fishing inside it would re-derive ",
+           "the predation suitability the model was fit with.", call. = FALSE)
+    }
+  }
+
   # * Years for F = 0 ----
-  # INTENTIONAL that this starts at suit_endyr, not endyr: MSVPA-derived
-  # suitability is computed from the fitted dynamics up to suit_endyr, so the
-  # unfished trajectory has to begin after that window or removing F would alter
-  # the suitability the multispecies model was fitted with. The consequence is
-  # that when suit_endyr < endyr the LATE HINDCAST YEARS are unfished too --
-  # that is the intended unfished reference, not a hindcast reconstruction.
-  # Measured on BS2017SS with suit_endyr = 2010: F zeroed for 2011-2017 and
-  # terminal SSB 43%/187%/17% above the fitted model, which is the unfished
-  # counterfactual those years are supposed to represent.
-  #
-  # suit_endyr is per-predator and max() takes the latest window, so no
-  # predator's suitability is disturbed.
-  #
-  # Note this write only reaches the hindcast: log_F has nyrs_hind columns, and
-  # the template reads log_F only for hindcast years. The unfished PROJECTION
-  # comes from estimateMode = 3 below leaving the harvest control rule
-  # unevaluated, so `forecast` stays 0 and the template forces proj_F = 0. When
-  # suit_endyr == endyr the indices fall past the end of log_F and nothing is
-  # written, which is correct -- there are no hindcast years to unfish.
-  proj_years <- (max(object$data_list$suit_endyr)+1):object$data_list$projyr - object$data_list$styr + 1
+  proj_years <- styr:dl$projyr - dl$styr + 1
   fdevs_cols <- 1:ncol(object$estimated_params$log_F)
   fdevs_change <- which(fdevs_cols %in% proj_years)
 
@@ -51,8 +78,7 @@ remove_F <- function(object = NULL, Rceattle = NULL){
   object$estimated_params$log_F[,fdevs_change] <- replace(object$estimated_params$log_F[,fdevs_change], values = -999)
 
   # * Update fit ----
-  # Rebuild with F = 0 in the projection, reusing the model's own configuration;
-  # clamp the SR-switch and suitability-end years to the hindcast terminal year.
+  # Build-only refit (projection unfished); SR-switch and suitability years clamp to endyr.
   estMode <- object$data_list$estimateMode
   object <- .refit_like(
     data_list        = object$data_list,

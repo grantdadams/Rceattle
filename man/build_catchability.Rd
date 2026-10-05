@@ -16,9 +16,18 @@ fleet by default (\code{by = ~ fleet}); use the \code{fleet} argument of
 A list of catchability settings for \code{\link[=fit_mod]{fit_mod()}}.
 }
 \description{
-Carry environmental linkages on survey/index catchability \code{q}. The effect of
-an \code{env_data} covariate is written as a formula and can carry priors, bounds,
+Holds environmental linkages on survey/index catchability \code{q}. The effect of
+an \code{env_data} covariate is written as a formula and can hold priors, bounds,
 and an estimation phase like any other linkage.
+}
+\details{
+Catchability is the one process that accepts
+\code{link = "exponential"}, Stock Synthesis's environmental link type 1:
+\code{q^exp(beta * x)}, which MULTIPLIES \verb{log q} where \code{"log"} shifts it. It
+needs an estimated base \code{q} and a lognormal or t index likelihood, and
+cannot share a fleet with a random-effect q linkage; each of those is
+refused with the reason. See
+\code{vignette("environmental-linkages-and-priors")}.
 }
 \examples{
 \donttest{

@@ -55,7 +55,7 @@ from scratch via \code{\link{build_params}}.}
 (\code{HCR}); \code{"Hindcast"} (1) = fit the hindcast only (no fitting BRPs/HCR/projection);
 \code{"Projection"} (2) = fit the BRPs/HCR/projection only, from the initial
 parameters in \code{inits}; \code{"DebugBuild"} (3) = build through
-\code{MakeADFun} but not \code{nlminb} -- the returned \code{obj} carries the
+\code{MakeADFun} but not \code{nlminb}, the returned \code{obj} holds the
 real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are usable
 for diagnosing a model before committing to a fit; \code{"DebugOptimize"}
 (4) = optimize with all parameters mapped out, so the objective is a
@@ -63,9 +63,9 @@ placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.}
 
-\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at \code{Time_varying_q_sd}. The default is FALSE.}
+\item{random_q}{logical (default FALSE); if TRUE the \code{Time_varying_q} deviations are integrated as random effects with one estimated sd per \code{Catchability_index} group, not fixed at \code{Time_varying_q_sd} (linkage random effects are integrated either way).}
 
-\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at \code{Time_varying_sel_sd}. The default is FALSE.}
+\item{random_sel}{logical (default FALSE); if TRUE the \code{Time_varying_sel} deviations are integrated as random effects with one estimated sd per \code{Selectivity_index} group, not fixed at \code{Time_varying_sel_sd} (linkage random effects are integrated either way).}
 
 \item{HCR}{HCR list object from \code{\link{build_hcr}}}
 
@@ -78,11 +78,11 @@ placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.}
 \item{growthFun}{The weight-at-age parameterization from \code{\link{build_growth}}.}
 
 \item{qFun}{Catchability specification from \code{\link{build_catchability}},
-carrying any environmental linkages on q.}
+holding any environmental linkages on q.}
 
-\item{selFun}{Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.}
+\item{selFun}{Selectivity specification from \code{\link{build_selectivity}}, holding any environmental linkages on selectivity parameters.}
 
-\item{compFun}{Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.}
+\item{compFun}{Composition-weighting specification from \code{\link{build_composition}}, holding any priors on the Dirichlet-multinomial weights.}
 
 \item{dsem}{Optional dynamic structural equation model on the recruitment
 deviations, from \code{\link{build_DSEM}}. The recruitment deviations
@@ -104,7 +104,8 @@ rejected by the data check.}
 \item{initMode}{how the population is initialized, as a string alias or integer
 code: \code{"FreeParams"} (0), \code{"Equilibrium"} (1),
 \code{"NonEquilibrium"} (2, the default), \code{"FishedNonEquilibrium"} (3),
-\code{"FishedNonEquilibriumScaled"} (4), \code{"OffsetEquilibrium"} (5). See
+\code{"FishedNonEquilibriumScaled"} (4), \code{"OffsetEquilibrium"} (5),
+\code{"FishedNonEquilibriumSelected"} (6). See
 the \strong{Initial age structure} section below for what each one estimates.}
 
 \item{suitMode}{how predator-prey suitability is derived, per predator (a single value or a vector of length \code{nspp}): 0 = empirical from diet data (Holsman et al. 2015), 2 = weight-based gamma, 4 = weight-based lognormal, 6 = weight-based normal. The length-based forms (1, 3, 5) are declared but not implemented and are rejected by the data check.}
@@ -120,20 +121,18 @@ optimizer / sdreport / phasing knobs (\code{phase}, \code{bias.correct}, \code{g
 Defaults to \code{fit_control()}. See \code{\link[=fit_control]{fit_control()}} for the meaning and
 defaults of each field.}
 
-\item{config}{(Optional) An \code{Rceattle_run_config} from \code{\link[=load_config]{load_config()}} (or
-\code{\link[=run_config]{run_config()}}). Its stored \code{model_config} structure and estimation controls
-(\code{estimateMode}, \code{random_rec}/\code{random_q}/\code{random_sel}, \code{suit_styr}/
-\code{suit_endyr}, \code{fit_control}) overlay only the arguments the caller did \emph{not}
-pass -- an explicit argument always wins. \code{NULL} (default) applies no
-configuration. Example: \code{fit_mod(data_list, config = load_config("run.yaml"))}.}
+\item{config}{(Optional) An \code{Rceattle_run_config} from \code{\link[=load_config]{load_config()}} or
+\code{\link[=run_config]{run_config()}} whose stored settings overlay the ones you did not pass;
+\code{NULL} (default) applies no configuration. See Details for what it overlays.}
 
 \item{quiet_data_check}{Drop the warnings the fit-time validation raises (errors still
 stop the fit). \code{FALSE} (default) for an ordinary fit. The diagnostic refits
--- \code{\link[=retrospective]{retrospective()}}, \code{\link[=jitter]{jitter()}}, \code{\link[=self_test]{self_test()}}, \code{\link[=profile]{profile()}}, \code{\link[=run_mse]{run_mse()}},
-\code{\link[=remove_F]{remove_F()}}, \code{\link[=sample_rec]{sample_rec()}}, \code{\link[=reweight_comps]{reweight_comps()}} -- set it, since they
+, \code{\link[=retrospective]{retrospective()}}, \code{\link[=jitter]{jitter()}}, \code{\link[=self_test]{self_test()}}, \code{\link[=profile]{profile()}}, \code{\link[=run_mse]{run_mse()}},
+\code{\link[=remove_F]{remove_F()}}, \code{\link[=sample_rec]{sample_rec()}}, \code{\link[=reweight_comps]{reweight_comps()}}, set it, since they
 re-validate a \code{data_list} the caller has already fitted once and would
 otherwise repeat the same warnings per peel, jitter, or MSE iteration.
-Convergence and TMB warnings are unaffected.}
+Also drops a linkage filter's "has no effect" warning; a filter that
+drops its whole spec still warns. Convergence and TMB warnings are unaffected.}
 
 \item{...}{Deprecated optimizer / sdreport / phasing arguments
 (e.g. \code{phase}, \code{getsd}, \code{bias.correct}, \code{use_gradient}, \code{rel_tol},
@@ -170,11 +169,24 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
 \item{2. MSVPA Holling Type III}
 }
 
-Values 3 through 9 (Kinzey & Punt 2009 functional responses --
+Values 3 through 9 (Kinzey & Punt 2009 functional responses,
 Holling Type I/II/III, predator interference, predator preemption,
 Hassell-Varley, Ecosim) are blocked at runtime by \code{data_check()}
 because the implementations have not been validated against the
 current parameter set. See \code{src/TMB/predation.hpp}.
+
+\strong{What \code{config} overlays.} Two overlays happen, at different levels. The
+estimation controls (\code{estimateMode}, \code{random_rec} / \code{random_q} /
+\code{random_sel}, \code{suit_styr} / \code{suit_endyr}, \code{fit_control}) overlay only the
+arguments you did not pass, so an explicit argument always wins. The stored
+\code{model_config} is merged into the data object's \strong{field by field}, not
+wholesale: only the fields the config actually set are imposed, and the data
+object keeps the rest. Since 5.36.0 a config built with \code{\link[=model_config]{model_config()}}
+therefore no longer drops the linkages held on the data object, which it
+did when the whole structure was replaced. Where a field is set on both and
+the two disagree, the config's value is used and the difference is reported
+as a warning naming the field. A config written before that field record
+existed is treated as having set its non-default fields.
 }
 \section{Initial age structure}{
 
@@ -183,7 +195,7 @@ What \code{initMode} estimates, and from what:
 \item{\code{"FreeParams"} (0)}{The initial age-structure is estimated directly, one free
 parameter per age.}
 \item{\code{"Equilibrium"} (1)}{Unfished (\eqn{F_{init} = 0}) equilibrium age-structure,
-carried out from \eqn{R_0} and residual natural mortality \eqn{M1}.}
+projected from \eqn{R_0} and residual natural mortality \eqn{M1}.}
 \item{\code{"NonEquilibrium"} (2)}{As (1), plus estimated initial population deviates, so
 the first year need not sit at equilibrium. The default.}
 \item{\code{"FishedNonEquilibrium"} (3)}{As (2), with an estimated initial fishing
@@ -194,10 +206,22 @@ mortality \eqn{F_{init}} added to the mortality that shapes the first year.}
 recruitment, \code{R_init * exp(rec_dev[1])}, decayed by \eqn{M1} and closed with the
 usual geometric plus group. Initial deviates are turned off and no init-dev penalty is
 applied. This is the Cole Monnahan / AFSC GOA pollock convention.}
+\item{\code{"FishedNonEquilibriumSelected"} (6)}{As (3), but \eqn{F_{init}} is weighted by
+the fishery's selectivity at age before it accumulates, so the first year decays with
+\eqn{\sum_{a' < a} (M1_{a'} + F_{init} s_{a'})}. This is Stock Synthesis's InitF
+convention. \eqn{F_{init}} is the apical initial F, since \eqn{s} is normalized to a
+maximum of 1. The selectivity is the mean over the species' fishery fleets in the first
+hindcast year, which is exact for a single fishery; Rceattle carries one \eqn{F_{init}}
+per species where SS3 carries one per fleet, so a multi-fishery stock gets the mean shape.}
 }
 
+Modes 3, 4 and 6 differ in how \eqn{F_{init}} reaches an age. (3) charges every age the same
+\eqn{F_{init}}, (4) applies it once rather than accumulating it, and (6) weights it by
+selectivity. Under a size-selective fishery only (6) is an equilibrium: (3) kills unselected
+young ages at the full initial F and (4) does not decay the older ages with it at all.
+
 Modes 1 and 5 differ by exactly one term: both start from the initial equilibrium
-recruitment \eqn{R_{init}}, but (1) carries it forward unchanged while (5) seeds the first
+recruitment \eqn{R_{init}}, but (1) projects it forward unchanged while (5) seeds the first
 year with the realized recruitment \code{R_init * exp(rec_dev[1])}. On a stock whose first
 year was not average, that is not a small difference.
 

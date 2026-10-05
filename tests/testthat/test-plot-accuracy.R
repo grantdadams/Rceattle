@@ -346,3 +346,47 @@ testthat::test_that("depletion reference lines come from one model, per species"
                          as.numeric(a$data_list$Ptarget)[
                            order(a$data_list$spnames)])
 })
+
+# --- catchability -------------------------------------------------------------
+# plot_catchability() reads `quantities$index_q`, the realized catchability the
+# model scaled each survey by, whichever route set it. There is no
+# as.data.frame() quantity to cross-check against, so the source is index_q
+# itself; what this pins is the fleet-to-row and column-to-year alignment, which
+# is where a fleet-indexed array goes wrong (see the Fleet_code invariant).
+testthat::test_that("plot_catchability matches quantities$index_q", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("BS2017SS")
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))
+  ))
+
+  p  <- Rceattle::plot_catchability(ss)
+  testthat::expect_s3_class(p, "ggplot")
+  fc <- ss$data_list$fleet_control
+  q  <- ss$quantities$index_q
+
+  # Only fleets carrying index_data are drawn -- a fishery with a CPUE series as
+  # much as a survey -- and every one of them is.
+  drawn <- levels(p$data$Fleet)
+  expected <- fc$Fleet_name[match(
+    Rceattle:::.fleets_with_index(ss$data_list, fitted_only = FALSE),
+    fc$Fleet_code)]
+  testthat::expect_equal(drawn, expected)
+
+  for (nm in drawn) {
+    pd <- p$data[p$data$Fleet == nm, ]
+    pd <- pd[order(pd$Year), ]
+    testthat::expect_equal(pd$value, unname(q[match(nm, fc$Fleet_name), ]))
+    # Hindcast years only: the model does not project catchability.
+    testthat::expect_equal(range(pd$Year),
+                           c(ss$data_list$styr, ss$data_list$endyr))
+  }
+
+  # log = TRUE plots the same series on the scale a lognormal survey
+  # likelihood and the q linkages work on.
+  pl <- Rceattle::plot_catchability(ss, log = TRUE)
+  testthat::expect_equal(pl$data$value, log(p$data$value))
+})

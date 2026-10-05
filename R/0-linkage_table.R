@@ -39,7 +39,7 @@ LINKAGE_COLS <- c(
   fleet         = "integer",    # 1-based Fleet_code; NA = shared
   X_col         = "integer",    # column of the global design matrix
   design_col    = "character",  # name of the design matrix column
-  link          = "character",  # "identity", "log", "logit"
+  link          = "character",  # "identity", "log", "logit", "exponential"
   init          = "numeric",    # initial value on the linear predictor scale
   init_supplied = "logical",    # TRUE iff user explicitly supplied init
   lower         = "numeric",    # lower bound (-Inf for unbounded)
@@ -123,18 +123,29 @@ LINKAGE_PROCESSES_IMPLEMENTED <- c("recruitment", "M", "growth", "q", "sel", "co
 
 #' @rdname LINKAGE_PROCESSES
 #' @keywords internal
-LINKAGE_LINKS <- c("identity", "log", "logit")
+LINKAGE_LINKS <- c("identity", "log", "logit", "exponential")
 
 #' Link functions with a C++ accumulator behind them
 #'
-#' Every accumulator in `src/TMB/linkage.hpp` gates on `linkfn == 1` (log) or
-#' `linkfn == 0` (identity). `"logit"` stays reserved -- the code is referenced
-#' by the C++ header -- but is rejected until an accumulator implements it;
-#' the processes wired today expose only log-scale parameters.
+#' Every accumulator in `src/TMB/linkage.hpp` gates on `linkfn == 1` (log),
+#' `linkfn == 0` (identity) or `linkfn == 3` (exponential). `"logit"` stays
+#' reserved, the code is referenced by the C++ header, but is rejected until an
+#' accumulator implements it.
+#'
+#' `"exponential"` MULTIPLIES the parameter on its stored log scale rather than
+#' shifting it, `exp((log_base + log_offset) * exp(beta * x))`. It reproduces
+#' Stock Synthesis's environmental link type 1 (SS3's own name for it:
+#' `case 1: // exponential env link`, `SS_timevaryparm.tpl:206`), and is
+#' meaningful ONLY where SS3 itself stores the parameter as a log. Wired for
+#' catchability, and only for a lognormal/t survey error -- SS3 keeps `Q_parm`
+#' arithmetic under a normal index likelihood (`SS_expval.tpl:413-419`), where
+#' its type 1 is `q * exp(beta * x)`, i.e. Rceattle's `"log"`. SS3 also stores
+#' the recruitment level as a log (`SR_LN(R0)`), so the form applies there in
+#' principle, but no accumulator consumes it yet.
 #'
 #' @keywords internal
 #' @noRd
-LINKAGE_LINKS_IMPLEMENTED <- c("identity", "log")
+LINKAGE_LINKS_IMPLEMENTED <- c("identity", "log", "exponential")
 
 
 #' Error on a reserved-but-unimplemented link function
@@ -159,7 +170,7 @@ LINKAGE_LINKS_IMPLEMENTED <- c("identity", "log")
 #' Construct an empty linkage table with the canonical schema
 #'
 #' @return An empty `data.frame` with the columns and types defined in
-#'   [LINKAGE_COLS], carrying class `c("Rceattle_linkage_table", "data.frame")`.
+#'   [LINKAGE_COLS], holding class `c("Rceattle_linkage_table", "data.frame")`.
 #' @keywords internal
 new_linkage_table <- function() {
   cols <- lapply(LINKAGE_COLS, function(type) {
@@ -184,6 +195,68 @@ new_linkage_table <- function() {
 #' @keywords internal
 is_linkage_table <- function(x) {
   inherits(x, "Rceattle_linkage_table")
+}
+
+
+# `exponential` is SS3's environmental link type 1, which multiplies a parameter
+# on whatever scale SS3 stores it on (SS_timevaryparm.tpl:206-211).
+.check_exponential_link <- function(tbl) {
+  if (is.null(tbl) || !is.data.frame(tbl) || nrow(tbl) == 0L) {
+    return(invisible(tbl))
+  }
+  if (is.null(tbl[["link"]])) return(invisible(tbl))
+  is_exp <- tbl[["link"]] == "exponential"
+  if (!any(is_exp)) return(invisible(tbl))
+
+  bad <- which(is_exp & tbl[["process"]] != "q")
+  if (length(bad)) {
+    stop("link = \"exponential\" is only consumed by catchability (process ",
+         "\"q\"), and was given on: ",
+         paste(unique(tbl[["process"]][bad]), collapse = ", "), ".\n",
+         "  It reproduces Stock Synthesis's environmental link type 1, which ",
+         "multiplies the parameter on\n  whatever scale SS3 stores it on, so ",
+         "the right substitute depends on the process:\n",
+         "  - M, growth: SS3 stores these on the natural scale ",
+         "(SS_biofxn.tpl:1074, :265-275), where its\n    type 1 is ",
+         "parm * exp(beta * x) -- exactly what link = \"log\" gives. Use ",
+         "\"log\".\n",
+         "  - recruitment R0 and R_init: SS3 stores both levels as logs ",
+         "(SR_LN(R0), and the initial\n    level as an SR_regime block), so ",
+         "the form is right there, but no accumulator\n    consumes it yet, ",
+         "and \"log\" is SS3's type 2 rather than a substitute.\n",
+         "  See vignette(\"environmental-linkages-and-priors\") for the other ",
+         "processes.",
+         call. = FALSE)
+  }
+
+  # Every RE row lands in q_linkage_offset, which this link multiplies, so its
+  # deviations would be scored at a constant sigma while varying by covariate.
+  q_re <- which(!is.na(tbl[["re_struct"]]) & tbl[["process"]] == "q")
+  if (length(q_re)) {
+    exp_flt <- tbl[["fleet"]][is_exp]
+    re_flt  <- tbl[["fleet"]][q_re]
+    any_shared <- anyNA(exp_flt) || anyNA(re_flt)
+    both <- intersect(exp_flt, re_flt)
+    if (any_shared || length(both)) {
+      shared <- if (any_shared) {
+        "all fleets (a spec with no `fleet =` is shared)"
+      } else {
+        paste(sort(unique(both)), collapse = ", ")
+      }
+      stop("an \"exponential\" catchability linkage and a random-effect ",
+           "catchability linkage both target\n  fleet(s) ", shared,
+           ". Every log-link row accumulates into q_linkage_offset, which the\n",
+           "  exponential link multiplies, so the deviations would be scaled ",
+           "by exp(beta * x) while\n  their density still scores them at a ",
+           "constant sigma.\n",
+           "  Put the environmental effect and the deviations on different ",
+           "fleets, or drop one. For both on\n  one fleet, express the ",
+           "deviations as Time_varying_q, which the template keeps outside\n",
+           "  the multiply, as SS3 does its dev blocks.",
+           call. = FALSE)
+    }
+  }
+  invisible(tbl)
 }
 
 
@@ -250,6 +323,9 @@ validate_linkage_table <- function(x) {
   for (lk in setdiff(unique(x$link), LINKAGE_LINKS_IMPLEMENTED)) {
     .check_link_implemented(lk)
   }
+  # After the type checks: it reads `link`, `process` and `re_struct`, and at the
+  # top a non-data.frame errored out of `||` instead of reporting its class.
+  .check_exponential_link(x)
   bad_fam <- setdiff(unique(x$prior_family), PRIOR_FAMILIES)
   if (length(bad_fam) > 0) {
     stop("unknown prior family in linkage table: ",
@@ -290,7 +366,7 @@ validate_linkage_table <- function(x) {
 #'   `NA` = fixed.
 #' @param est_phase estimation phase ordinal; `0` = fix at `init`.
 #' @param re_index,sigma_index,re_time random-effect registry fields filled by
-#'   [pool_linkages()]; `NA` on fixed rows. `re_index` is the 0-based slot in
+#'   `pool_linkages()`; `NA` on fixed rows. `re_index` is the 0-based slot in
 #'   `beta_linkage_re`, `sigma_index` the 0-based slot in `log_sigma_linkage`,
 #'   and `re_time` the numeric grouping value used to order `rw()`/`ar1()`
 #'   deviations in real elapsed time.
@@ -400,7 +476,7 @@ linkage_row <- function(process, param, X_col,
 #'
 #' @param row a one-row slice of an `Rceattle_linkage_table`.
 #' @param data_list the data list (used for `nspp`, `nsex`, `nages`).
-#' @return a list with components `species`, `sex`, `age` -- each a list
+#' @return a list with components `species`, `sex`, `age`, each a list
 #'   keyed by species id, giving the sex/age index vectors to apply for
 #'   that species.
 #' @keywords internal
@@ -433,7 +509,7 @@ linkage_row <- function(process, param, X_col,
 #' length midpoint. Slot 2 is an inflection for the logistic family, but
 #' DoubleNormal reuses it as `logit(right_floor)` and LogisticPM as a log
 #' age-1 selectivity override. A value written on the wrong one of those is
-#' silently wrong -- `right_floor = 0.2` would become `plogis(0.2) = 0.55` --
+#' silently wrong, `right_floor = 0.2` would become `plogis(0.2) = 0.55`,
 #' so the transformed slots are refused rather than guessed at.
 #'
 #' @param param linkage parameter name; `slot` its `.SEL_PARAM_TO_SLOT` index.
@@ -449,18 +525,19 @@ linkage_row <- function(process, param, X_col,
 #' Is this fleet a follower in a shared selectivity / catchability block?
 #'
 #' `Selectivity_index` / `Catchability_index` are group keys, not fleet codes:
-#' fleets carrying the same value estimate ONE parameter block, and
+#' fleets holding the same value estimate ONE parameter block, and
 #' `adjust_map_shared_params()` copies the group's donor slice over the rest.
-#' The donor is the first estimated fleet in the group -- the same rule
+#' The donor is the first estimated fleet in the group, the same rule
 #' `.group_lead()` applies for `flt_sel_lead` / `flt_q_lead`, and the reason an
 #' `Off` fleet (whose slice is all NA) never leads. A value set on the donor is
 #' what the whole group uses; one set on any other member is overwritten.
 #'
-#' A group of one is not shared, whatever its key happens to be -- a survey
+#' A group of one is not shared, whatever its key happens to be, a survey
 #' catchability counter runs 1..n_survey and rarely matches the fleet code.
 #'
-#' @return `NA_integer_` if `flt` is not a follower, otherwise the fleet code of
-#'   the donor whose value would win.
+#' @return `NA_integer_` if `flt` is not a follower, otherwise the fleet_control
+#'   ROW of the donor whose value would win. `data_check()` requires `Fleet_code`
+#'   to equal the row number, so the two coincide, but this is a row index.
 #' @keywords internal
 #' @noRd
 .shared_block_lead <- function(data_list, flt, process) {
@@ -473,7 +550,10 @@ linkage_row <- function(process, param, X_col,
   rows <- which(!is.na(idx) & idx == idx[flt])
   if (length(rows) < 2L) return(NA_integer_)
 
-  off  <- if (is.null(fc$Fleet_type)) rep(FALSE, nrow(fc)) else fc$Fleet_type == "Off"
+  # Read through the map: a workbook that has not been through switch_check()
+  # still holds the integer code, and 0 == "Off" is FALSE.
+  off  <- if (is.null(fc$Fleet_type)) rep(FALSE, nrow(fc)) else
+    vapply(fc$Fleet_type, function(x) identical(.canon_switch(x, fleet_map), "Off"), logical(1))
   est  <- rows[!off[rows]]
   lead <- if (length(est)) est[1] else rows[1]
   if (identical(as.integer(lead), as.integer(flt))) NA_integer_ else as.integer(lead)

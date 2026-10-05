@@ -50,12 +50,13 @@ testthat::test_that("a base DSEM equals a non-DSEM fit with bias correction off"
 
   # ...and the density must have MOVED, not been duplicated or dropped: out of
   # the recruitment-deviation row and into the DSEM row, same value.
-  # JNLL_REC_DEV = 10 and JNLL_DSEM = 21 in ceattle.cpp, so rows 11 and 22 here.
-  testthat::expect_equal(sum(a$jnll_comp[11L, ]), 0)
-  testthat::expect_equal(sum(b$jnll_comp[22L, ]), 0)
-  testthat::expect_equal(sum(a$jnll_comp[22L, ]), sum(b$jnll_comp[11L, ]),
+  # Looked up by name: the template's JNLL_DSEM moved from 21 to 22 when main's
+  # equilibrium-catch row took 21, so a hardcoded index reads the wrong row.
+  testthat::expect_equal(sum(a$jnll_comp[jnll_row("Recruitment deviates"), ]), 0)
+  testthat::expect_equal(sum(b$jnll_comp[jnll_row("DSEM"), ]), 0)
+  testthat::expect_equal(sum(a$jnll_comp[jnll_row("DSEM"), ]), sum(b$jnll_comp[jnll_row("Recruitment deviates"), ]),
                          tolerance = 1e-10)
-  testthat::expect_gt(sum(a$jnll_comp[22L, ]), 0)   # and it is not trivially zero
+  testthat::expect_gt(sum(a$jnll_comp[jnll_row("DSEM"), ]), 0)   # and it is not trivially zero
 })
 
 # NOTE: lognormal bias correction is NOT applied to the DSEM deviations yet --
@@ -85,8 +86,8 @@ testthat::test_that("the density is exercised away from x_tj = 0, and never doub
   testthat::expect_gt(length(x), 0)                 # estimated, not mapped out
   testthat::expect_gt(max(abs(x)), 1e-3)            # and it moved off the origin
 
-  testthat::expect_gt(sum(fit$quantities$jnll_comp[22L, ]), 0)
-  testthat::expect_equal(sum(fit$quantities$jnll_comp[11L, ]), 0)
+  testthat::expect_gt(sum(fit$quantities$jnll_comp[jnll_row("DSEM"), ]), 0)
+  testthat::expect_equal(sum(fit$quantities$jnll_comp[jnll_row("Recruitment deviates"), ]), 0)
   testthat::expect_true(is.finite(fit$opt$objective))
 })
 
@@ -99,9 +100,13 @@ testthat::test_that("the DSEM row is exactly zero for every model without one", 
     estimateMode = 3, random_rec = FALSE, msmMode = 0,
     fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))))
 
-  testthat::expect_equal(nrow(fit$quantities$jnll_comp), 22L)
-  testthat::expect_identical(sum(fit$quantities$jnll_comp[22L, ]), 0)
-  testthat::expect_equal(rownames(fit$quantities$jnll_comp)[22L], "DSEM")
+  # Row count and label both come from the registry: jnll_comp grows, and
+  # hardcoding either is what broke when JNLL_DSEM moved from 21 to 22.
+  testthat::expect_equal(nrow(fit$quantities$jnll_comp),
+                         length(Rceattle:::.JNLL_ROW_AXIS))
+  testthat::expect_identical(sum(fit$quantities$jnll_comp[jnll_row("DSEM"), ]), 0)
+  testthat::expect_equal(rownames(fit$quantities$jnll_comp)[jnll_row("DSEM")],
+                         "DSEM")
 })
 
 testthat::test_that("rec_dev and R_log_sd are mapped out under a DSEM", {

@@ -82,8 +82,9 @@ testthat::test_that("a blank counts as a value among the shaping columns", {
   # blank-against-2, and it has to warn: blank means "do not normalize", a
   # different curve from normalizing at bin 2, not "inherit the lead's value".
   d <- .mirror_dat(function(m) { m$Sel_norm_bin <- 2L; m })
-  testthat::expect_true(is.na(d$fleet_control$Sel_norm_bin[
-    d$fleet_control$Fleet_name == "Fishery"][1]))
+  # Blank canonicalizes to the word "Off", which is the same instruction.
+  testthat::expect_equal(d$fleet_control$Sel_norm_bin[
+    d$fleet_control$Fleet_name == "Fishery"][1], "Off")
   testthat::expect_length(.mirror_warnings(d), 1)
 })
 

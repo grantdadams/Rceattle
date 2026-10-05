@@ -2,7 +2,7 @@
 #'
 #' @description
 #' CEATTLE's TMB parameter vector uses transformed, abbreviated names
-#' (`log_sel_slp_dev`, `M1_beta`, `index_q_rho`, ...). This table is the single
+#' (`log_sel_slp_dev`, `M1_beta`, `M1_rho`, ...). This table is the single
 #' place mapping them to the quantity a user actually chose to estimate, so
 #' error messages, diagnostics and output summaries share one vocabulary.
 #'
@@ -30,7 +30,7 @@
     r("dummy", "dummy", "internal",
       "Placeholder parameter; the only free parameter under estimateMode = 4.", "[1]"),
     r("log_pop_scalar", "pop_scalar", "internal",
-      "Multiplier on user-supplied numbers-at-age when estDynamics > 0.", "[nspp, nyrs]"),
+      "Multiplier on user-supplied numbers-at-age; estimated for estDynamics = 2 under predation, 1 otherwise.", "[nspp]"),
 
     # -- recruitment -------------------------------------------------------
     r("rec_pars", "R0 / alpha / beta", "recruitment",
@@ -40,7 +40,7 @@
     r("R_log_sd", "sigma_R", "recruitment",
       "Standard deviation of the recruitment deviations; estimated only when random_rec = TRUE.", "[nspp]"),
     r("init_dev", "initial-age deviations", "recruitment",
-      "Deviations defining the initial (first-year) age structure.", "[nspp, nages-1]"),
+      "Deviations defining the initial (first-year) age structure; one per age from minage + 1 upward, since age minage in the first year is recruitment.", "[nspp, nages-1]"),
 
     # -- mortality ---------------------------------------------------------
     r("log_M1", "M1", "mortality",
@@ -52,7 +52,7 @@
     r("M1_rho", "rho_M1", "mortality",
       "AR1 correlation for the M1 random effects, over age and over year.", "[nspp, nsex, 2]"),
     r("M1_dev_log_sd", "sigma_M1", "mortality",
-      "Standard deviation of the M1 random effects, over age and over year.", "[nspp, nsex, 2]"),
+      "Innovation standard deviation of the M1 random effects; the marginal sd is larger.", "[nspp, nsex]"),
 
     # -- growth ------------------------------------------------------------
     r("log_growth_pars", "K / L1 / Linf / m", "growth",
@@ -78,9 +78,26 @@
     r("log_obs_sd_linkage", "linkage QAR1 observation log-SD", "linkage",
       "Rogers et al. (2024) QAR1 observation log-SD: one per observed ar1 linkage group (`observe = `), the SD of the covariate around the latent deviate. Fixed by default; estimated with `linkage_spec(obs_sd_est = TRUE)`. Length 0 unless a state-space covariate is used.", "[n_re_obs_group]"),
 
+    # -- DSEM ---------------------------------------------------------------
+    # Dimensions follow the declarations in ceattle.cpp section 1 and the
+    # dsem::dsem() names build_dsem_objects() mirrors: z indexes the SEM path
+    # table's estimated entries, j the SEM variables, t the DSEM year span.
+    # Every block is length 0 without a DSEM, which is what keeps the
+    # non-DSEM path unchanged.
+    r("dsem_beta_z", "SEM path coefficients", "linkage",
+      "Estimated entries of the SEM path table: the one- and two-headed path coefficients, so a recruitment-deviation SD is read out of this vector rather than from `R_log_sd`. Length 0 without a DSEM.", "[n_dsem_path]"),
+    r("dsem_lnsigma_z", "SEM log measurement SDs", "linkage",
+      "Log measurement-error SD for each DSEM variable given a measurement family; the SEM states are observed through it. Length 0 without a DSEM, or where every variable is `family = \"fixed\"`.", "[n_dsem_sigma]"),
+    r("dsem_mu_j", "SEM per-variable mean", "linkage",
+      "Mean of each DSEM variable, one per variable in the SEM.", "[n_dsem_var]"),
+    r("dsem_delta0_j", "SEM initial-condition offset", "linkage",
+      "Offset applied to each DSEM variable's initial state. Empty unless the SEM estimates an initial condition.", "[n_dsem_var]"),
+    r("dsem_x_tj", "SEM latent states", "linkage",
+      "The DSEM latent field: one state per year per SEM variable, entered into the Laplace approximation. The recruitment deviations are DERIVED from these columns, so under a DSEM `rec_dev` is mapped out and writing to it is a no-op. Length 0 without a DSEM.", "[nyrs_dsem, n_dsem_var]"),
+
     # -- fishing mortality -------------------------------------------------
     r("log_F", "F", "fishing",
-      "Annual fleet-specific fishing mortality.", "[n_fsh, nyrs]"),
+      "Annual fleet-specific fishing mortality.", "[n_flt, nyrs_hind]"),
     r("log_Flimit", "Flimit", "fishing",
       "Limit fishing mortality (FOFL proxy) used in projections.", "[nspp]"),
     r("log_Ftarget", "Ftarget", "fishing",
@@ -88,15 +105,13 @@
     r("log_Finit", "Finit", "fishing",
       "Fishing mortality generating a non-equilibrium initial age structure.", "[nspp]"),
     r("proj_F_prop", "proj_F_prop", "fishing",
-      "Fixed proportion of a species' F allocated to each fishery in projections.", "[n_fsh]"),
+      "Fixed proportion of a species' F allocated to each fishery in projections.", "[n_flt]"),
 
     # -- catchability ------------------------------------------------------
     r("index_log_q", "q", "catchability",
       "Survey/index catchability.", "[n_flt]"),
     r("index_q_beta", "q covariate effect", "catchability",
       "LEGACY environmental regression coefficients on q; superseded by beta_linkage.", "[n_flt, n_env]"),
-    r("index_q_rho", "rho_q", "catchability",
-      "AR1 correlation of the annual catchability deviations.", "[n_flt]"),
     r("index_q_dev", "q deviations", "catchability",
       "Annual deviations on catchability when q is time-varying.", "[n_flt, nyrs_hind]"),
     r("index_q_log_sd", "sigma_q_prior", "catchability",
@@ -109,6 +124,10 @@
       "Logistic-family selectivity slope; row 1 ascending, row 2 descending.", "[2, n_sel, nsex]"),
     r("sel_inf", "selectivity inflection", "selectivity",
       "Logistic-family age/length at 50% selection; row 1 ascending, row 2 descending.", "[2, n_sel, nsex]"),
+    r("log_sel_apical", "selectivity apical height", "selectivity",
+      "Log multiplier on one sex's whole curve, applied after the form and before normalization; 0 = no offset. Estimated only through a selectivity linkage on `apical`.", "[n_sel, nsex]"),
+    r("sel_dn6", "SS3 double-normal parameters", "selectivity",
+      "DoubleNormalSS3 (Stock Synthesis size pattern 24) parameters on SS3's own scales: peak (cm or age), logit top width, log ascending width, log descending width, logit initial and logit final selectivity. A starting value of -999 on either of the last two is SS3's switch for leaving that end unscaled: the parameter then drops out of the curve and is fixed. Time variation is through selectivity linkages.", "[6, n_sel, nsex]"),
     r("log_sel_slp_dev", "slope deviations", "selectivity",
       "Annual deviations on the selectivity slope.", "[2, n_sel, nsex, nyrs_hind]"),
     r("sel_inf_dev", "inflection deviations", "selectivity",
@@ -174,8 +193,82 @@
 #'   when the parameter is not in the dictionary.
 #' @keywords internal
 #' @noRd
-.par_label <- function(internal) {
+.par_description <- function(internal) {
   info <- .par_info(internal)
   if (nrow(info) != 1L || is.na(info$meaning)) return(internal)
   sprintf("%s (%s): %s", info$internal, info$natural, info$meaning)
+}
+
+
+#' Look up what a CEATTLE parameter is
+#'
+#' The TMB parameter vector uses transformed, abbreviated names,
+#' `log_M1`, `R_log_sd`, `index_log_q`. This returns the table mapping each one
+#' to the quantity it represents on its natural scale, which process it belongs
+#' to, what it means, and its dimensions.
+#'
+#' @param internal Character vector of internal parameter names, as they appear
+#'   in `names(fitted$estimated_params)` or in an `sdreport()`. Default `NULL`
+#'   returns every parameter.
+#' @param process Character vector restricting the table to one or more parts of
+#'   the model: `"recruitment"`, `"mortality"`, `"growth"`, `"fishing"`,
+#'   `"catchability"`, `"selectivity"`, `"observation"`, `"predation"`,
+#'   `"linkage"` or `"internal"`.
+#'
+#' @return A data frame with one row per parameter and columns `internal`,
+#'   `natural`, `process`, `meaning` and `dims`.
+#'
+#' @details
+#' A name beginning `log_`, or ending `_log_sd`, is estimated on the log scale,
+#' so `exp()` turns it into the quantity named in the `natural` column. Most
+#' fitted values are already back-transformed in `fitted$quantities`, so this is
+#' mainly needed when reading `estimated_params` or an `sdreport()` directly.
+#'
+#' Dimensions use the model's own notation: `nspp` species, `nsex` sexes,
+#' `nages` age bins, `nyrs` years including the projection, `nyrs_hind` hindcast
+#' years only, `n_flt` fleets and `n_sel` selectivity blocks. `n_sel` equals
+#' `n_flt`: fleets sharing a `Selectivity_index` share one block through the
+#' map, not through a narrower array.
+#'
+#' @examples
+#' # The whole table
+#' head(parameter_dictionary())
+#'
+#' # What is R_log_sd?
+#' parameter_dictionary("R_log_sd")
+#'
+#' # Everything governing selectivity
+#' parameter_dictionary(process = "selectivity")
+#'
+#' # Search the meanings by keyword
+#' dict <- parameter_dictionary()
+#' dict[grep("catchability", dict$meaning, ignore.case = TRUE), ]
+#' @seealso [fit_mod()] for the fitted object these names come from.
+#' @export
+parameter_dictionary <- function(internal = NULL, process = NULL) {
+  out <- .PAR_INFO
+
+  if (!is.null(process)) {
+    known <- unique(.PAR_INFO$process)
+    unknown <- setdiff(process, known)
+    if (length(unknown)) {
+      stop("Unknown process: ", paste(unknown, collapse = ", "),
+           ". Use one of: ", paste(known, collapse = ", "))
+    }
+    out <- out[out$process %in% process, , drop = FALSE]
+  }
+
+  if (!is.null(internal)) {
+    # Warn rather than stop, so passing every name from a fit still works when
+    # that fit carries parameters from a branch this dictionary predates.
+    unknown <- setdiff(internal, .PAR_INFO$internal)
+    if (length(unknown)) {
+      warning("Not in the parameter dictionary: ",
+              paste(unknown, collapse = ", "), call. = FALSE)
+    }
+    out <- out[out$internal %in% internal, , drop = FALSE]
+  }
+
+  rownames(out) <- NULL
+  out
 }
