@@ -113,9 +113,12 @@ testthat::test_that("a DSEM peel keeps its covariate and reports a finite Mohn's
   testthat::expect_equal(ncol(xt), 4L)              # 3 recdev columns + temp
   testthat::expect_gt(max(abs(xt[, 4])), 1e-6)
 
-  rho <- retro$mohns
-  ssb_rho <- rho[rho$Object == "ssb", -(1:3), drop = FALSE]
-  testthat::expect_true(any(is.finite(as.matrix(ssb_rho))))
+  # `rho` by name. $mohns is long, so `-(1:3)` also takes the `species`
+  # character column and as.matrix() coerces the whole thing to character,
+  # making is.finite() FALSE for every cell however good the numbers are.
+  ssb_rho <- retro$mohns[retro$mohns$Object == "ssb", "rho"]
+  testthat::expect_gt(length(ssb_rho), 0)
+  testthat::expect_true(any(is.finite(ssb_rho)))
 })
 
 
@@ -211,10 +214,34 @@ testthat::test_that("forecast_rec tells the DSEM's projection from mean recruitm
 
   # Species 1 is the one the sem gives a lag and a covariate, so it is the row
   # the two rules must disagree on.
-  mf_mean  <- skill_mean$mase$mae_forecast[skill_mean$mase$species == spp1]
-  mf_model <- skill_model$mase$mae_forecast[skill_model$mase$species == spp1]
-  testthat::expect_length(mf_mean, 1L)
-  testthat::expect_gt(abs(mf_model - mf_mean) / mf_mean, 0.01)
+  # Asserted at the DEEPEST horizon, against the separation actually measured
+  # there -- not at horizon 1, and not as a max over horizons.
+  #
+  # A lag-1 SEM's one-step forecast is rho times the terminal deviation, so it
+  # leaves from near the mean and separates as it decays. Measured on this
+  # fixture, on the statistic ACTUALLY asserted here -- the relative difference
+  # in mae_forecast for species 1 -- that is 0.34% at h = 1, 46.2% at h = 2 and
+  # 96.7% at h = 3. (The often-quoted 0.03% / 46.8% pair is the difference in
+  # forecast RECRUITMENT, which is not what this line tests.) Horizon 1 asks the
+  # question where the answer is smallest, so assert at the deepest.
+  #
+  # The threshold is 10%, an order of magnitude under the 96.7% measured. Species
+  # 1 is the SEM-linked one; arrowtooth measures 8.5% at h = 3, UNDER the
+  # threshold, so this depends on spnames[1] remaining the linked species.
+  pick <- function(sk) {
+    z <- sk$mase[sk$mase$species == spp1, ]
+    stats::setNames(z$mae_forecast, z[["Forecast year"]])
+  }
+  mf_mean  <- pick(skill_mean)
+  mf_model <- pick(skill_model)
+  h <- intersect(names(mf_mean), names(mf_model))
+  # Guarded: with no shared horizon, max(integer(0)) is -Inf and the lookup
+  # below throws "subscript out of bounds" instead of failing as an assertion.
+  testthat::expect_gt(length(h), 0L)
+  testthat::skip_if(length(h) == 0L, "no shared horizon to compare at")
+  deepest <- as.character(max(as.integer(h)))
+  testthat::expect_gt(
+    abs(mf_model[[deepest]] - mf_mean[[deepest]]) / mf_mean[[deepest]], 0.10)
 })
 
 

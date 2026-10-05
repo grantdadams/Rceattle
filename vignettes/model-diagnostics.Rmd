@@ -64,11 +64,16 @@ object, an overall status, and a verdict) before the detail:
 ```
 
 The severity words are the same four everywhere, `OK`, `NOTE`, `WARN`, `FAIL`,
-and the overall status is the worst present. The **return values are unchanged**:
-each object is still the data frame or list it always was, so `retro$mohns`,
-`jit$nll`, `diag$sdnr`, `prof$grid$slot_1` and `sims[["Sim_1"]]` index exactly as
-before, and `c(sims, list(fit))` still gives a plain list of fits to plot. Only
-the printing has an opinion.
+and the overall status is the worst present. **Adding a print method did not
+change any return value**: each object is still the data frame or list it always
+was, so `jit$nll`, `diag$sdnr`, `prof$grid$slot_1` and `sims[["Sim_1"]]` index
+exactly as before, and `c(sims, list(fit))` still gives a plain list of fits to
+plot. Only the printing has an opinion.
+
+`retro$mohns` is the exception, and not because of printing: it was reshaped from
+wide to long, so a read by position or by species-column name needs updating.
+See *Retrospective analysis* below, and `NEWS.md` for the one-call way back to
+the old layout.
 
 Four of these hold a threshold you can set. `print(retro, band = )` is Mohn's
 rho threshold; the default `0.2` is the rule of thumb below, and Hurtado-Ferro
@@ -645,16 +650,46 @@ A peel still estimates the years it dropped: they are its retrospective forecast
 
 `incl_proj = TRUE` plots the forecast and projection years. Take the forecast years as `endyr_peel + seq_len(endyr_full - endyr_peel)`, empty for the unpeeled model, where `(endyr_peel + 1):endyr_full` would count down instead.
 
-The `retrospective()` function returns a list with two elements:
+The `retrospective()` function returns a list with three elements:
 
 | Element | Description |
 |---|---|
 | `Rceattle_list` | List of fitted models, ordered from most-peeled to full run, each named for its own terminal year (`Year_2013`, …, `Year_2017`) |
-| `mohns` | Data frame with columns `Object` (quantity, e.g. `"Biomass"`, `"SSB"`), `Forecast year` (0 = terminal year bias; 1+ = forecast skill), `N` (number of peels), and one column per species with mean relative error (Mohn's rho) |
+| `mohns` | Retrospective bias. Long: `Object` (the quantity — `"biomass"`, `"ssb"`, `"R"`, `"F_spp"`), `Forecast year` (a horizon in steps ahead of the peel's terminal year; 0 = terminal-year bias), `N` (number of peels), `species`, `rho` (mean signed relative error, Mohn's rho) |
+| `mase` | Forecast skill. Same leading columns as `mohns` — `Object`, `Forecast year`, `N`, `species` — then `mase`, its two halves `mae_forecast` / `mae_naive`, `peels_used`, and `forecast_rec`. Always computed from the peels already fitted, so it costs no extra fits |
+
+**The two tables share their key columns, so they merge directly:**
+
+```{r, eval = FALSE}
+merge(model_1_retro$mohns, model_1_retro$mase,
+      by = c("Object", "Forecast year", "species"))
+```
+
+Merge on those three, **not** on `N` as well. `N` means the same thing in both
+— the number of observations the statistic was computed from — but the two are
+computed from different peels, since MASE additionally needs a usable naive
+baseline. They agree for a well-behaved species and diverge precisely where a
+term was unusable, so joining on `N` would discard the rows you most want to
+see. Merging on the keys brings both `N` columns through, and a disagreement
+between them is a finding.
+
+`Forecast year` is a horizon in both — steps ahead of the peel's terminal year, not a calendar year. They overlap only above horizon 0: `mohns` carries horizon 0, the terminal-year bias the ±0.2 rule is about, and `mase` does not, because a zero-step forecast is the terminal estimate compared with itself. `mohns` also scores `F_spp`, which `mase` does not.
+
+Read the two together, because they do not measure the same thing. **Mohn's rho is signed, so it is a measure of BIAS**: a model whose peels miss high as often as they miss low averages to a rho near zero and can still forecast badly. **MASE is a scaled absolute error, so it is a measure of SKILL** -- `< 1` beats the naive baseline, `> 1` is worse than it. A model can pass one and fail the other, and that combination is informative rather than contradictory.
+
+```{r, eval = FALSE}
+model_1_retro$mase
+```
+
+Three things to read off the table rather than assume:
+
+* **`forecast_rec` is a column**, because the table scores whichever projection rule the peels were forecast under. `retrospective()`'s default is `"mean"` -- mean recruitment, *not* the fitted model's own process -- so a DSEM or stock-recruit model scored at the default is being told how well mean recruitment forecasts. `print()` on the object says so. Use `hindcast_skill()` to score a fit's own process; the next section does exactly that.
+* **`N` varies down the table, so read it per row.** A horizon of `h` years needs a peel at least `h` deep, so the count falls as the horizon grows and the deepest row can rest on a single peel. `peels_used` names which depths contributed. Join on `Forecast year` rather than comparing positionally. (It can differ by species in both tables: a species whose relative error or forecast is not finite — a zero base, or input numbers-at-age — contributes no observation at that horizon.)
+* **A species with fixed numbers-at-age (`estDynamics > 0`) is `NA`, not 0.** Its peel reproduces the parent exactly, so there is no forecast error to scale, and a 0 there would read as perfect skill.
 
 The `nyrs_forecast` argument (default 3) also evaluates rho for years projected beyond each terminal peel, so a single call quantifies forecast skill alongside retrospective bias.
 
-A peel that did not converge is dropped and a message reports how many, so `Rceattle_list` can be shorter than one plus the number of peels asked for. Index it by name rather than position — with a peel missing, `Rceattle_list[[3]]` is not the 3-year peel. If no peel converges, Mohn's rho is `NaN` and the call warns.
+A peel that did not converge is dropped and a message reports how many, so `Rceattle_list` can be shorter than one plus the number of peels asked for. Index it by name rather than position — with a peel missing, `Rceattle_list[[3]]` is not the 3-year peel. If no peel converges, `mohns` comes back with no rows and the call warns.
 
 `peels` can also be a **vector of peel depths** rather than a count, so a run can skip the shallow peels:
 
@@ -676,7 +711,7 @@ skill$mase
 
 Skill is a mean absolute scaled error (MASE), following Kell et al. (2016). The baseline is the peel's own terminal estimate carried forward — "assume nothing changes" — so `MASE < 1` beats persistence and `MASE > 1` is worse than it, which usually means the recruitment assumption is pulling the projection the wrong way.
 
-Two things to know when reading it. `reference = "observed"` scores the peel's predicted survey index against the index actually observed, which is classic hindcast cross-validation and the version comparable to values published for other platforms; `reference = "model"` (the default) scores SSB, biomass or recruitment against the full model. And read short horizons with care: at `years_ahead = 1` the denominator is a single absolute error, so a peel whose persistence forecast happens to land close produces a very large MASE that says more about the denominator than the projection. Compare the deeper peels, or the median across peels.
+Two things to know when reading it. `reference = "observed"` scores the peel's predicted survey index against the index actually observed, which is classic hindcast cross-validation; `reference = "model"` (the default) scores SSB, biomass or recruitment against the full model. Note the `"observed"` MASE is **not** on the same scale as published values: Kell et al. (2021) average the denominator over a wider window than the numerator, and this averages both over the peels fitted, which moves the denominator by up to 2.6× on the bundled data — enough to flip a `MASE < 1` verdict. Comparisons between two models scored the same way here are unaffected. And read `N` alongside each MASE, per row rather than down the column: the scoring averages across peels at a fixed steps-ahead. On an annual series a horizon `h` needs a peel at least `h` deep, so `N` falls as the horizon grows and the deepest row rests on one peel. That is not guaranteed — under `reference = "observed"` an irregular survey is scored only where it has observations both at the peel's terminal year and after it, so some horizons carry no rows at all and `$mase` is ragged. Join on `Forecast year` rather than comparing positionally.
 
 `hindcast_skill()` defaults to `forecast_rec = "model"`, which hands the peeled years to the model's own projection rule; `retrospective()` defaults to `"mean"`, the convention Mohn's rho has always been computed under. Without that difference every model forecasts identically and the comparison says nothing.
 
@@ -701,7 +736,7 @@ hindcast_skill(dsem_fit, retro = retro_mean, quantity = "R")$mase
 hindcast_skill(dsem_fit, retro = retro_dsem, quantity = "R")$mase
 ```
 
-`"mean"` is the mean-recruitment projection and `"model"` the DSEM's; the lower MASE wins, and `peels = 3:10` keeps the horizons where the MASE denominator is not dominating.
+`"mean"` is the mean-recruitment projection and `"model"` the DSEM's; the lower MASE wins. `peels = 3:10` is about cost rather than noise -- more peels add terms to the mean inside each MASE rather than adding rows, so dropping the two shallowest pays for two fewer model fits and costs a little precision at the short horizons.
 
 **Score recruitment, not SSB, over a short horizon.** The recruits the two rules disagree about are not mature yet, so SSB hardly responds and the MASE cannot see the projection rule. Measured on a BS2017SS DSEM (lag-1 on the recruitment deviations plus a temperature covariate) at a 3-year peel: the two rules differed by **46.8%** in forecast recruitment — `"mean"` flat at 35.2 million, the SEM decaying 35.2 → 25.8 → 18.7 million as the lagged state relaxed — and by **0.03%** in forecast SSB. The SSB MASE agreed to four significant figures for two of the three species. So `quantity = "R"` is the sharp test of a recruitment projection; SSB becomes informative only once the horizon reaches the age at maturity, which for these stocks means deeper peels than three years.
 

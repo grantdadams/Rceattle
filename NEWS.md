@@ -22,27 +22,256 @@ is unreleased. The branch's own 5.23.0 notes are kept immediately below
 exist on both lines with different content, the divergence the comment at the
 top of this file describes.
 
-Unreleased, on `dsem-v5-integration`. Deliberately not numbered: `dev` has
-already published 5.24.0, 5.24.1 and 5.24.2, so a bare `5.24.0` here would make
-an install from this branch report a version that exists and holds entirely
-different code -- the mislabelling `95153bbc` fixed when it moved this branch to
-a `.9000` suffix, and the GOA arrowtooth DSEM script installs from here. The
-5.23.0 section below explains the same divergence for 5.19.0 and 5.22.0;
-`DESCRIPTION` carries the development suffix until this work is given a release
-number of its own.
+Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
+number: `DESCRIPTION` reads `5.49.1.9002`, the released line this branch now
+contains plus a suffix. A bare release number here would make an install from
+this branch report a version that exists on `main` or `dev` and holds different
+code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
+`.9000` suffix, and the GOA arrowtooth DSEM script installs from here. The
+suffix stays until the DSEM work is given a release number of its own. The
+5.23.0 section below records the same divergence from when this branch was
+numbered on the 5.23.0 line.
 
 ## Diagnostics
+
+* **`N` now means the same thing in `$mohns` as in `$mase`: the number of
+  observations the statistic was computed from.** Mohn's rho counted every peel
+  that reached a horizon, including a peel whose relative error was not finite --
+  and because that term was then summed, one such peel made rho `NaN` for every
+  OTHER peel at that horizon, for that species, while `N` still advertised them
+  all. `(peel - base)/base` is `NaN` or `Inf` wherever the full model's base is
+  0, which is reachable: an unfished year for `F_spp`, a collapsed stock for
+  `ssb` or `R`. A non-finite term is now excluded, `N` counts the peels that
+  contributed, and a cell with no contributing peel is `NA` rather than `0/0`.
+  `N` is counted per SPECIES for the same reason, which the long shape can carry
+  and the old wide one could not.
+
+  **Nothing moves where rho was already finite.** Re-measured on BS2017SS with
+  `peels = 2:4` and `nyrs_forecast = 3`: all 48 values bit-identical, none
+  turning `NaN`, none turning finite -- that data has no zero base, so the fix is
+  correctly a no-op on it. The bundled data cannot reach the path, so
+  `test-retrospective-mase-table.R` injects a zero base and asserts the
+  unscoreable species gets `N = 0` and `rho = NA` while its neighbours stay
+  finite.
+
+* **`hindcast_skill()` no longer rejects `retro` when `forecast_rec` was never
+  supplied.** The new refusal tested `missing(forecast_rec)` after
+  `match.arg()` had assigned to the formal, which makes `missing()` `FALSE`
+  whatever the caller did, so `hindcast_skill(fit, retro = r)` -- the documented
+  way to reuse a retrospective -- was refused. Supplied-ness is now captured
+  before `match.arg()`.
+
+* **`retrospective()`'s `$mohns` and `$mase` now share one shape and one column
+  vocabulary, so the bias and skill tables merge directly.** Both are LONG, with
+  the same key columns -- `Object`, `Forecast year`, `species` -- so
+  `merge(retro$mohns, retro$mase, by = c("Object", "Forecast year", "species"))`
+  works. `Forecast year` is a HORIZON in both, steps ahead of the peel's terminal
+  year rather than a calendar year. Join on those three and not on `N`: both
+  tables have an `N`, but `$mohns` counts the peels that reached the horizon and
+  `$mase` the peels that produced a scoreable term, so they agree for a
+  well-behaved species and diverge exactly where a forecast or baseline was
+  `NA` -- joining on it would discard those rows silently.
+
+  **This changes the shape of `$mohns`, which was wide: one column per species,
+  named from `spnames`.** Its rho now sits in a single `rho` column with a
+  `species` column beside it. A read by name of `Object`, `Forecast year` or `N`
+  is unaffected, and so is a filter like `mohns[mohns$Object == "R", ]`.
+
+  **A read by POSITION is not**, and it is the one that does not announce itself:
+  column 4 was a species' rho and is now `species`, a character. So
+  `mohns[5, 4]` returns `"Arrowtooth"` instead of the SSB rho, and `sum()` over
+  such a column errors. Read it by name instead -- the terminal rho for a
+  quantity is `subset(mohns, Object == "ssb" & \`Forecast year\` == 0)$rho`. While
+  you are there, note `mohns[1, 2]` was never a rho under either shape: column 2
+  is `Forecast year`, so that read returned 0 before this change too.
+
+  To recover the old wide layout:
+
+  ```r
+  w <- stats::reshape(retro$mohns[, c("Object", "Forecast year", "species", "rho")],
+                      direction = "wide", idvar = c("Object", "Forecast year"),
+                      timevar = "species", v.names = "rho")
+  names(w) <- sub("^rho\\.", "", names(w))   # Pollock, Cod -- the old names
+  ```
+
+  `reshape()` prefixes the new columns `rho.`, hence the `sub()`. `N` is left out
+  of `idvar` deliberately: it is now counted per species, so including it splits
+  a horizon into one row per distinct count. For the same reason `N` cannot come
+  back unchanged in a wide table.
+
+  Long was chosen over widening `$mase` to match because `$mase`'s `N` varies BY
+  SPECIES -- a species whose forecast or naive baseline is `NA` drops out of that
+  horizon, which a single shared `N` column cannot carry -- and because a long
+  table is the same shape whatever `nspp` is. `$mase` keeps the other columns it
+  had, renamed to match: `quantity` is `Object`, `years_ahead` is `Forecast year`,
+  and `n_peels` is `N`. `mase` keeps its name -- those three had to move to key
+  the join, `mase` collides with nothing, and `$mase$mase` is the natural read
+  there, which a rename would have made return `NULL` silently. `$by_year` is
+  renamed the same way.
+
+  **The reshape itself moves no number.** Rho is bit-identical across it:
+  measured on BS2017SS with `peels = 2:4` and `nyrs_forecast = 3`, all 48 values
+  agree exactly, with no row gained or lost. The MASE arithmetic was not touched
+  at all -- the renaming happens at the public exit, so Kell eq. 5 still runs
+  against the names it was written for. Note that the companion change above --
+  excluding a non-finite term from rho -- *does* move a number, from `NaN` to a
+  value, wherever a base was 0; this BS2017SS measurement cannot detect it,
+  because that data has no zero base. One thing is deliberately no longer
+  returned: the
+  wide table pre-allocated a row per quantity x horizon and left the ones no peel
+  reached as `Object = "0"`, `N = 0` and a `NaN` rho, which read as a computed
+  result. Those rows are simply absent now.
+
+  `print()` reports rho per species per quantity rather than tagging a whole row
+  across species columns, so a warning names the species it is about.
+
+* **`hindcast_skill()` refuses a `forecast_rec` that the `retro` it was handed
+  contradicts, instead of ignoring it.** A supplied `retro` already holds its
+  forecast years, computed under the rule its own call was given, and
+  `hindcast_skill()` recomputes none of them -- so scoring one retrospective
+  twice under `forecast_rec = "mean"` and `"model"` returned the SAME numbers
+  both times. That reads as "the projection rule makes no difference", which is
+  the conclusion the comparison exists to test, rather than as an argument that
+  did nothing. It is the natural thing to write once you know both rules can be
+  scored from one FIT -- true of the fit, false of the peels, because the rule is
+  fixed when they are fitted. The error says to fit one retrospective per rule.
+  Passing a `forecast_rec` that agrees with the `retro` is unchanged. Leaving it
+  unset is still allowed, because reusing a `retro` without naming a rule is the
+  documented way to score one -- but it now says which rule it used when that
+  differs from this function's own default, since `hindcast_skill()` defaults to
+  `"model"` while `retrospective()` defaults to `"mean"`. Silence there was the
+  same mismatch the error refuses, reached by saying nothing.
+
+* **`retrospective()` now returns a forecast-skill table, `$mase`, alongside
+  `$mohns`.** Mohn's rho is a signed relative error, so it measures retrospective
+  BIAS: a model whose peels miss high as often as low can have a rho near zero
+  and still forecast badly. MASE is the scaled absolute error over the same
+  peels, so it measures SKILL, and the two answer different questions about the
+  same fits. It is always computed, from the peels already fitted, so it costs
+  no extra optimization. Scored on SSB, biomass and recruitment, per species and
+  per steps-ahead, following Kell et al. (2021) eq. 5 -- the mean is taken across
+  PEELS at a fixed horizon, which is why the table is keyed by `years_ahead`.
+  `MASE < 1` beats the naive baseline and `> 1` is worse than it.
+
+  Three things to read off it rather than assume. **`forecast_rec` is a column**,
+  because the table scores whichever projection rule the peels were forecast
+  under, and `retrospective()`'s default is `"mean"` -- mean recruitment, NOT the
+  fitted model's own process. A DSEM or stock-recruit model scored at the default
+  is being told how well mean recruitment forecasts, which is rarely the question;
+  `print()` says so. **`n_peels` varies down the table**, because a horizon `h`
+  needs a peel at least `h` deep, so the deepest row can rest on a single peel;
+  `peels_used` names which. And a species with fixed numbers-at-age
+  (`estDynamics > 0`) is scored `NA` rather than 0 -- its peel reproduces the
+  parent exactly, so there is no forecast error to scale and a 0 would read as
+  perfect skill.
+
+* **A retrospective peel whose `sdreport()` failed presented a band of zeros as
+  if it were real.** The handler returned `newmod$sdrep`, which at that point is
+  the FORECAST refit's sdreport -- built with the whole hindcast pinned, so every
+  hindcast standard error in it is exactly zero. That is the thing the report
+  pass exists to replace, so the fallback handed back a zero-width band rather
+  than no band. It now returns `NULL`, the state `getsd = FALSE` already
+  produces, so `vcov()` and the plotters give NA bands.
+
+  **A peel that previously drew a zero-width ribbon now draws none.** That looks
+  like a loss in a figure and is not: the zero was never an estimate.
+
+  The warning that should have said so was also unreachable. It was raised
+  inside the per-peel closure, and a warning raised in a FORK/PSOCK worker is
+  discarded, so at the default `cores` nobody was ever told. It is now collected
+  on the peel and re-raised by the caller after dispatch -- the pattern
+  `self_test()` uses for `sim_warns` -- and names the peel it came from. This was
+  the last of the four worker-swallowed warnings in `retrospective()`; the other
+  three were hoisted because their conditions read only the input model, while
+  this one is genuinely per-peel and needed collecting instead.
+
+  Point estimates are unaffected, and `tools/verify/verify-refit-like.R` is
+  bit-identical across all ten sections before and after.
+
+* **Corrections to the MASE change above, from an adversarial review.** Three
+  claims in that entry and its commit message were wrong, and the fixes it
+  shipped were incomplete on the `reference = "observed"` path.
+
+  **`n_peels` counted rows, not peels.** A fleet may legally carry two index
+  rows in one year at different months -- `data_check()` tests duplicates on
+  `(Fleet_code, Year, Month)` -- and both land in the same horizon from the same
+  peel, so that peel was weighted twice and `n_peels` overstated. Eq. 5 sums one
+  term per `t`, so the MASE now averages within a peel first. A constructed
+  fixture exercises it; no bundled dataset has that shape.
+
+  **The naive baseline was not Kell's.** Eq. 4 is \eqn{y_{t-h}}, the observation
+  `h` steps back, which for a held-out row is the observation at the peel's
+  terminal year. The code took the last observation at or *before* it, so on an
+  irregular survey a one-step forecast was scored against a two- or three-step
+  persistence baseline. It now uses \eqn{y_{t-h}}; where the survey has no
+  observation there, the baseline is `NA` and the MASE with it, the forecast
+  error is kept in `$by_year`, and a warning names the fleet-peel pairs.
+
+  **The model-path denominator is not a persistence error**, which the previous
+  entry said it was. `naive` is the PEEL's terminal estimate and `reference` the
+  FULL model's, so each term is a difference between two models carrying that
+  peel's retrospective bias. The 108-fold spread measured at one year ahead on
+  BS2017SS pollock SSB is bias cancellation -- one peel's 2015 estimate landed
+  within 0.3% of the full model's 2016 value -- not a short-horizon property of
+  MASE. Averaging across peels does tame it: per-peel ratios 1.02, 2.82 and
+  34.22 give a reported 1.485.
+
+  **`reference = "observed"` is not comparable to published MASE values**, and
+  the previous entry should not have implied otherwise. Kell averages the
+  denominator over \eqn{n+1+h} terms against the numerator's \eqn{n+1}; this
+  uses the peels fitted for both, which differs by up to 2.6x on the bundled
+  data -- enough to move a MASE across 1. Rankings between two models scored the
+  same way here are unaffected; the absolute level is not the published
+  statistic. Left as a documented deviation.
+
+  Also corrected: an irregular-survey example that had been measured before the
+  naive fix and no longer reproduced; a claim that more peels never add rows,
+  when horizons run to the deepest depth asked for; and an undefined baseline
+  reaching `if (mae_n > 0)` as `if (NA)`.
+
+* **`hindcast_skill()` computed MASE over the wrong axis.** It grouped by PEEL
+  and averaged over horizons; Kell et al. (2021) eq. 5 groups by HORIZON and
+  averages over peels -- its sums run over \eqn{t = T-n \ldots T} at fixed
+  \eqn{h}, which is why their Table 2 reports one MASE per steps-ahead rather
+  than one per peel. The two are transposes, so every number the function
+  returned was a mean over the wrong set.
+
+  `$mase` is now keyed by `years_ahead` rather than `peel`, and carries
+  `n_peels` -- how many peels were averaged at that horizon -- in place of
+  `n_years`. **This changes the shape of an exported function's return value**;
+  anything indexing `$mase$peel` or `$mase$n_years` needs updating. `$by_year`
+  is unchanged. Species and quantity still split the table as before.
+
+  Two pieces of documented advice went with the defect, because they were
+  compensating for it rather than describing the statistic. The warning that a
+  one-year MASE "is dominated by its own denominator" was true only because the
+  mis-grouping made that denominator a SINGLE absolute error instead of a mean
+  over peels; so was the advice to prefer deeper peels or a median across them.
+  The real caution runs the other way: a horizon `h` can only be scored by a
+  peel at least `h` deep, so `n_peels` FALLS as the horizon grows and the
+  DEEPEST horizon in a run is the least precise. Read `n_peels` beside each
+  MASE. A claim that the definition matched `ss3diags` was removed rather than
+  restated, having never been checked against their source.
+
+  Horizons run 1 to the deepest depth asked for, so a deeper `peels` adds rows
+  while more peels at the same depth add terms inside each row. `peels = 3:10`
+  and `1:10` give the same ten horizons; the second pays two more model fits for
+  more peels behind the short horizons.
+
+  **The old shape fails silently.** `$mase$peel` and `$mase$n_years` are now
+  `NULL`, and neither partial-matches a surviving column, so a filter like
+  `skill$mase[skill$mase$peel == 5, ]` evaluates `NULL == 5` to `logical(0)` and
+  returns a ZERO-ROW data frame rather than erroring. Check any script that
+  subsets `$mase`.
 
 * **`retrospective(peels = )` takes a vector of peel depths, so a comparison can
   skip the shallow peels.** A single number still means every peel from 1 to `n`,
   as it always has; `peels = 2:10` now fits exactly those nine depths, and
   `peels = c(1, 5, 10)` three. Each element is a number of years removed from
   `endyr`, not a year, and depths are sorted and de-duplicated. This is worth
-  having because the shallow peels are the ones that cost the most to interpret:
-  a one-year peel's MASE in `hindcast_skill()` has a single
-  \eqn{|naive - reference|} in its denominator, so it says more about the
-  denominator than about the projection. `peels = 3:10` drops those and pays for
-  two fewer model fits. `$peel_depths` records the depths asked for, alongside
+  having because each peel costs a model fit, and a shallow one contributes to
+  only the shortest horizons `hindcast_skill()` scores. `peels = 3:10` drops two
+  of them. `$peel_depths` records the depths asked for, alongside
   the existing `$peels_requested` count, and `print()` names them and attaches a
   `NOTE` whenever the set is not `1:n` — a rho averaged over a subset is not the
   quantity the +/-0.2 band was calibrated on.
@@ -3945,9 +4174,8 @@ fixes below. `dev` released its own, different 5.19.0, 5.21.0 and
   answers a different question from Mohn's rho, which measures how an estimate
   of a year moves as data accumulate rather than how well a year was predicted
   -- so it is the diagnostic for comparing recruitment projection assumptions,
-  e.g. `proj_mean_rec = TRUE` against `FALSE` against a DSEM. Read short
-  horizons with care: at one year ahead the scaling denominator is a single
-  term, so a lucky persistence forecast gives a very large MASE.
+  e.g. `proj_mean_rec = TRUE` against `FALSE` against a DSEM. Scored per
+  horizon, averaging across peels.
 
 * **`fit_mod(dsem = build_DSEM(...))` fits a dynamic structural equation model
   on the recruitment deviations.** The deviations become the latent states of a

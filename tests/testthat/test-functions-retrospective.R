@@ -226,9 +226,15 @@ testthat::test_that("retrospective survives dropped peels (regression)", {
       testthat::expect_warning(
         r <- suppressMessages(retrospective(fit, peels = 2, cores = 1, getsd = FALSE)),
         "2 of 2 peels dropped"),
-      "Mohn's rho is undefined")
+      "Mohn's rho cannot be computed")
     testthat::expect_length(r$Rceattle_list, 1L)
     testthat::expect_equal(names(r$Rceattle_list), paste0("Year_", endyr))
+    # What the warning now says: no rows, rather than a table of NaN that reads
+    # as computed. The columns must still be there so a caller's subset and
+    # merge work on the empty result instead of erroring on a missing name.
+    testthat::expect_identical(nrow(r$mohns), 0L)
+    testthat::expect_identical(names(r$mohns),
+      c("Object", "Forecast year", "N", "species", "rho"))
   })
 
   # And the drop WARNS rather than messages: rho is averaged over the peels
@@ -296,9 +302,13 @@ testthat::test_that("each peel reports its own terminal year, and rho is unmoved
   # Mohn's rho reads `endyr_peel` and the full model's `endyr` from the calling
   # frame, never a peel's `data_list$endyr`, so it is still computed over every
   # surviving peel rather than collapsing to NaN.
+  # `rho` by name, not `[, -(1:3)]`: $mohns is long, so that position now also
+  # sweeps the `species` character column -- `unlist()` would coerce rho to
+  # character and the NA check would still pass while testing the wrong thing.
   scored <- r$mohns[r$mohns$N > 0, , drop = FALSE]
   testthat::expect_true(nrow(scored) > 0)
-  testthat::expect_false(any(is.na(unlist(scored[, -(1:3)]))))
+  testthat::expect_type(scored$rho, "double")
+  testthat::expect_false(any(is.na(scored$rho)))
 
   # Setting `endyr` to the peel makes it duplicate `endyr_peel`, which would
   # otherwise lose the unpeeled terminal year -- and with it the boundary
@@ -738,11 +748,10 @@ testthat::test_that("retrospective() scales a multispecies hindcast curve by its
 
 # `peels` as a vector of peel depths.
 #
-# A retrospective used to be a count: `peels = n` meant 1:n. The shallow peels
-# are the expensive ones to interpret -- a one-year MASE is a single
-# |naive - reference| in its denominator (see hindcast_skill()) -- and the
-# deep ones are what a projection comparison rests on, so a caller needs to be
-# able to ask for 2:10 and skip the first. Each element is a number of YEARS
+# A retrospective used to be a count: `peels = n` meant 1:n. A caller needs to
+# be able to ask for 2:10 and skip the first -- each peel costs a model fit, and
+# the shallow ones contribute only to the shortest horizons that
+# hindcast_skill() scores. Each element is a number of YEARS
 # REMOVED from endyr, not a year.
 testthat::test_that("retrospective takes a vector of peel depths", {
   testthat::skip_on_cran()
@@ -999,4 +1008,75 @@ testthat::test_that("forecast_rec = 'model' runs on a fit with no DSEM", {
   # DSEM, where it moves recruitment 46.8% (test-dsem-retrospective.R); an
   # IID process with no data has nothing to propagate.
   testthat::expect_true(all(abs(dev_of(out[["TRUE"]])) < 1e-10))
+})
+
+
+# A peel whose sdreport() throws loses its band, and SAYS so.
+#
+# Two regressions in one handler. It returned `newmod$sdrep` on failure, which
+# at that point is the FORECAST refit's sdreport -- built with the whole
+# hindcast pinned, so every hindcast standard error in it is exactly zero. That
+# is the thing the report pass exists to replace, so a peel that could not be
+# reported handed back a zero-width band as though it were real. And it said so
+# with a warning() raised inside the per-peel closure, which a FORK/PSOCK worker
+# discards, so at the default `cores` nobody was told.
+#
+# Now: NULL (the state getsd = FALSE already produces, giving NA bands) and the
+# message is collected and re-raised by the caller after dispatch.
+#
+# Driven by stubbing TMB::sdreport to throw, because reaching this for real
+# needs a peel whose Hessian fails exactly here -- which is why the zero-band
+# fallback survived this long untested.
+testthat::test_that("a peel whose sdreport fails returns no band and reports why", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # BS2017SS, not make_test_data(): that fixture cannot produce a
+  # positive-definite Hessian, so under getsd = TRUE every peel is dropped by
+  # .refit_converged() before this path is reached and the test would pass
+  # vacuously on an empty peel list. See TRAPS.md.
+  data(BS2017SS, package = "Rceattle")
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = BS2017SS, file = NULL, estimateMode = 1,
+    fit_control = fit_control(phase = TRUE, getsd = FALSE, verbose = 0))))
+
+  # Fail ONLY the report pass. .fit_tmb() also calls sdreport() while fitting
+  # each peel, with par.fixed / hessian.fixed and the rest; the report pass
+  # calls it bare, with just the object. A blanket stub kills the peel's own fit
+  # instead, and the error escapes the tryCatch under test.
+  real_sdreport <- TMB::sdreport
+  testthat::local_mocked_bindings(
+    sdreport = function(obj, ...) {
+      if (...length() == 0L) stop("boom")
+      real_sdreport(obj, ...)
+    }, .package = "TMB")
+
+  w <- character(0)
+  r <- withCallingHandlers(
+    suppressMessages(retrospective(fit, peels = c(2, 2), cores = 1,
+                                   getsd = TRUE)),
+    warning = function(cnd) {
+      w <<- c(w, conditionMessage(cnd)); invokeRestart("muffleWarning")
+    })
+
+  # The caller is told, once, naming the peel.
+  hit <- grep("could not report hindcast standard errors", w, value = TRUE)
+  testthat::expect_length(hit, 1L)
+  testthat::expect_match(hit, "Peel 2", fixed = TRUE)
+  testthat::expect_match(hit, "no uncertainty band", fixed = TRUE)
+
+  # The band is ABSENT, not zero. A zero-valued sdrep would pass an
+  # is.null() check only by accident, so assert both.
+  peels <- Filter(function(m) m$data_list$endyr_peel < fit$data_list$endyr,
+                  r$Rceattle_list)
+  testthat::skip_if(length(peels) == 0L,
+                    "the peel did not converge, so the report path is unreached")
+  testthat::expect_length(peels, 1L)
+  testthat::expect_null(peels[[1]][["sdrep"]])
+
+  # And the plumbing does not ride out on the returned object.
+  testthat::expect_null(attr(peels[[1]], "peel_warnings"))
+
+  # Point estimates are unaffected: the fit is still there.
+  testthat::expect_false(is.null(peels[[1]]$quantities$ssb))
 })

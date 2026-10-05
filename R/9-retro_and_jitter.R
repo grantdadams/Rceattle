@@ -51,8 +51,53 @@
 #' parameters with the hindcast free in the map and reported from there. Nothing
 #' is re-estimated, so no point estimate moves.
 #'
-#' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
-#'   each species.
+#' @return a list of 1. list of Rceattle models, 2. retrospective bias
+#'   (`$mohns`, Mohn's rho) and 3. forecast skill (`$mase`).
+#'
+#'   Both are LONG and share their key columns -- `Object`, `Forecast year`,
+#'   `species` -- so they merge on those three:
+#'   `merge(retro$mohns, retro$mase, by = c("Object", "Forecast year", "species"))`.
+#'   `Object` is the quantity (`"biomass"`, `"ssb"`, `"R"`, `"F_spp"`),
+#'   `Forecast year` a HORIZON in steps ahead of the peel's terminal year rather
+#'   than a calendar year, and `species` a name from `spnames`.
+#'
+#'   `N` means the same thing in both -- the number of observations the statistic
+#'   was computed from -- but **join on the three keys, not on `N` as well.** The
+#'   two are computed from different peels (rho scores a horizon the peel
+#'   reached; MASE additionally needs a usable naive baseline), so they agree for
+#'   a well-behaved species and diverge exactly where a term was unusable.
+#'   Joining on `N` would silently DISCARD those rows; merging on the keys brings
+#'   both columns through, and a disagreement between them is a finding.
+#'
+#'   They answer different questions and cover different horizons. Rho (`rho`)
+#'   is a SIGNED relative error, so errors cancel across peels and it measures
+#'   BIAS; its `Forecast year` runs `0:nyrs_forecast`, with 0 the terminal-year
+#'   bias the +/-0.2 rule is about. MASE (`mase`) is an absolute error scaled by
+#'   "assume nothing changes", so it measures SKILL and `mase < 1` beats that
+#'   baseline. Read [hindcast_skill()]'s `@details` before leaning on the word
+#'   "persistence": under `reference = "model"`, which is what this returns, the
+#'   baseline is the PEEL's terminal estimate against the FULL model's, so it
+#'   carries the peel's own retrospective bias and is not the persistence error
+#'   of one series; it has no horizon 0, because a zero-step forecast is the
+#'   terminal estimate compared with itself.
+#'
+#'   So the merge is an INNER join on purpose, and drops more than the horizons:
+#'   rho covers `0:nyrs_forecast` and MASE `1:max(peels)`, so they share
+#'   `1:min(nyrs_forecast, max(peels))`; and rho scores `F_spp` while MASE is
+#'   scored only on `ssb`, `biomass` and `R`, so every `F_spp` row is rho-only.
+#'   Use `all.x = TRUE` to keep them.
+#'
+#'   `$mase` additionally carries `mae_forecast` and `mae_naive` (the ratio's two
+#'   halves), `peels_used` (which depths the row rests on, since `N` alone cannot
+#'   say which), and `forecast_rec`, because it scores whatever that argument
+#'   asked for. Under the default `"mean"` every model projects the peeled years
+#'   at its own historical mean whatever process it carries, so two models'
+#'   tables differ by their hindcast FITS, not their projection rules. Use
+#'   `forecast_rec = "model"` to score the model's own rule, and see
+#'   [hindcast_skill()] to compare the two on one fit. `N` falls as the horizon
+#'   grows, because a horizon `h` is scored only by peels at least `h` deep, so
+#'   the deepest rows rest on one or two fits. A species with `estDynamics > 0`
+#'   is `NA` -- its numbers-at-age are input, so it was never forecast.
 #'
 #'   A peel that did not converge is dropped, so \code{Rceattle_list} can be
 #'   shorter than one plus the number of peels asked for (a message reports how
@@ -170,9 +215,9 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   nyrs_proj <- projyr - styr + 1
 
   # Which peel depths to fit. A scalar `n` keeps the historical meaning, 1:n;
-  # a vector names the depths exactly, so a caller can skip the shallow peels
-  # whose one- and two-year forecasts say more about the MASE denominator than
-  # about the projection (see hindcast_skill()). Validate here rather than let a
+  # a vector names the depths exactly, so a caller can skip the shallow peels,
+  # which cost a model fit each and contribute only to the shortest horizons in
+  # hindcast_skill(). Validate here rather than let a
   # bad value reach run_one_peel(): `endyr - i` would silently build a model
   # ending before styr, or `(endyr_peel + 1):endyr` would count DOWN and fit the
   # retained years as a forecast.
@@ -337,6 +382,12 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # Each peel only reads the original model, so peels are independent.
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_peel <- function(i) {
+    # Warnings this peel raises that the CALLER has to see. A warning raised in
+    # here is discarded by the FORK/PSOCK worker that runs the peel, so it is
+    # collected on the returned model and re-raised after dispatch. Only for
+    # conditions that are genuinely per-peel -- one that reads the input model
+    # belongs above, with the other once-per-call warnings.
+    .peel_warnings <- character(0)
 
     # * Get end year of peel ----
     data_list <- object$data_list
@@ -724,12 +775,25 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
             suit_endyr       = pmin(data_list$suit_endyr, endyr_peel))))
         TMB::sdreport(report_mod$obj)
       }, error = function(e) {
-        # A peel that cannot be reported is not a peel that failed: keep the
-        # fit and its point estimates, and say why the band is missing.
-        warning("Peel ", i, ": could not report hindcast standard errors (",
-                conditionMessage(e), "). Point estimates are unaffected.",
-                call. = FALSE)
-        newmod$sdrep
+        # A peel that cannot be reported is not a peel that failed: keep the fit
+        # and its point estimates, and drop the band.
+        #
+        # NULL, not `newmod$sdrep`. At this point that is the FORECAST refit's
+        # sdreport, built with the whole hindcast pinned -- every hindcast
+        # standard error in it is exactly zero, which is the thing this report
+        # pass exists to replace. Returning it hands back a zero-width band as
+        # if it were real. NULL is the state `getsd = FALSE` already produces,
+        # so vcov() and the plotters give NA bands rather than a false one.
+        #
+        # Collected rather than warned here: this runs inside the per-peel
+        # closure, and a warning raised in a FORK/PSOCK worker is discarded, so
+        # at the default `cores` nobody was ever told. Re-raised by the caller
+        # after dispatch, as self_test() does with sim_warns.
+        .peel_warnings <<- c(.peel_warnings, paste0(
+          "Peel ", i, ": could not report hindcast standard errors (",
+          conditionMessage(e), "), so this peel has no uncertainty band. ",
+          "Point estimates are unaffected."))
+        NULL
       })
     }
 
@@ -770,6 +834,8 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     # Return model only if BOTH refits converged, else NULL (dropped
     # post-dispatch)
     if (hindcast_converged && .refit_converged(newmod)) {
+      if (length(.peel_warnings))
+        attr(newmod, "peel_warnings") <- .peel_warnings
       return(newmod)
     }
     return(NULL)
@@ -819,13 +885,28 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # survive, so a drop changes the number that gets reported.
   .report_dropped(length(peel_seq) - length(peel_results), length(peel_seq),
                   "peel", warn = TRUE)
+
+  # Re-raise whatever the peels collected. They run in a FORK/PSOCK worker,
+  # whose warnings are discarded, so this is the only place the caller can hear
+  # them -- the pattern self_test() uses for sim_warns. Each message already
+  # names its peel, and the attribute is stripped so a returned fit carries no
+  # trace of the plumbing.
+  for (w in unique(unlist(lapply(peel_results, attr, "peel_warnings")))) {
+    warning(w, call. = FALSE)
+  }
+  peel_results <- lapply(peel_results, function(m) {
+    attr(m, "peel_warnings") <- NULL
+    m
+  })
+
   mod_list <- c(list(object), peel_results)
 
   # Mohn's rho averages the peels against the full model, so with none left the
   # sums below stay at their initialized zeros and every species column comes
-  # back 0/0. Say so rather than return a table of NaN that looks computed.
+  # nothing is accumulated and $mohns comes back with no rows. Say so, rather
+  # than leave the caller to infer it from an empty table.
   if (length(peel_results) == 0L) {
-    warning("No peel converged, so Mohn's rho is undefined (every value NaN). ",
+    warning("No peel converged, so Mohn's rho cannot be computed and $mohns has no rows. ",
             "Inspect one with retrospective(..., peels = c(", peel_seq[1],
             ", ", peel_seq[1], ")) -- a repeated depth asks for that peel ",
             "alone -- and read its $convergence.", call. = FALSE)
@@ -836,9 +917,21 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # Calculate Mohs rho ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # * Data frame to save ----
+  # LONG, one row per Object x Forecast year x species, sharing the leading
+  # `Object`, `Forecast year`, `N`, `species` columns with $mase so the bias and
+  # skill tables merge on those keys and read in the same terms. A species is a
+  # ROW here rather than a column: $mase's N varies by species, which a column
+  # per species cannot carry, and a long table is the same shape whatever nspp
+  # is.
   objects <- c("biomass", "ssb", "R", "F_spp")
-  mohns <- data.frame(matrix(0, nrow = length(objects) * (nyrs_forecast+1), ncol = 3 + data_list$nspp))
-  colnames(mohns) <- c("Object", "Forecast year", "N", data_list$spnames)
+  spnames <- data_list[["spnames"]] %||% as.character(seq_len(data_list$nspp))
+
+  # Accumulate the signed relative error and its count per Object x forecast
+  # year x species. Keyed rather than pre-allocated by position: a peel too
+  # shallow to reach a horizon contributes nothing, and a pre-allocated row it
+  # never reached used to survive as Object "0" with N = 0 and a NaN rho, which
+  # reads as a computed result.
+  acc <- list()
 
   # * Loop through peels ----
   # seq_len, not 1:(n-1): with every peel dropped `mod_list` holds only the
@@ -846,7 +939,6 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   for (i in seq_len(length(mod_list) - 1)) {
     endyr_peel <- mod_list[[i + 1]]$data_list$endyr_peel
     nyrs_peel <- mod_list[[i + 1]]$data_list$endyr_peel - styr + 1
-    ind <- 1
 
     # * Loop output ----
     for (j in 1:length(objects)) {
@@ -865,18 +957,49 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
           rel_error <- ((peel - base)/base)
 
           # * Save and sum relative error ----
-          mohns[ind, 1] <- objects[j]         # Object
-          mohns[ind, 2] <- yr                 # Year
-          mohns[ind, 3] <- mohns[ind, 3] + 1  # N
-          mohns[ind, 4:(data_list$nspp + 3) ] <- mohns[ind, 4:(data_list$nspp + 3)] + rel_error # Relative error
+          # `N` is the number of observations rho is computed from, so a species
+          # whose relative error is not finite does not count toward it. A zero
+          # base -- an unfished year for `F_spp`, a collapsed stock for `ssb` or
+          # `R` -- makes rel_error NaN or Inf, and summing that would make rho
+          # NaN for every peel at this horizon rather than only for the peel that
+          # could not be scored. Counted per SPECIES, for the same reason.
+          ok <- is.finite(rel_error)
+          key <- paste(objects[j], yr, sep = "\r")
+          if (is.null(acc[[key]])) {
+            acc[[key]] <- list(Object = objects[j], fyr = yr,
+                               N = integer(data_list$nspp),
+                               total = numeric(data_list$nspp))
+          }
+          acc[[key]]$N[ok]     <- acc[[key]]$N[ok] + 1L
+          acc[[key]]$total[ok] <- acc[[key]]$total[ok] + rel_error[ok]
         }
-        ind = ind+1
       }
     }
   }
 
   # * Divide N ----
-  mohns[, 4:(data_list$nspp + 3) ] <- mohns[, 4:(data_list$nspp + 3)]/mohns[, 3]
+  mohns <- if (length(acc)) {
+    out <- do.call(rbind, lapply(acc, function(a) data.frame(
+      Object          = a$Object,
+      "Forecast year" = a$fyr,
+      N               = a$N,
+      species         = spnames,
+      # No contributing peel is no answer, not 0/0.
+      rho             = ifelse(a$N > 0L, a$total / a$N, NA_real_),
+      check.names = FALSE, stringsAsFactors = FALSE)))
+    # Through the same exit as $mase, so both tables come back in one order.
+    # `acc` is in first-touch order, which depends on which peels reached which
+    # horizon -- so two runs differing only in a dropped peel would otherwise
+    # return differently ordered tables.
+    .rce_as_mohns_names(out)
+  } else {
+    # No peel reached any horizon. An empty table of the right shape, so a
+    # caller's subset and merge still work rather than erroring on a missing
+    # column.
+    data.frame(Object = character(0), "Forecast year" = integer(0),
+               N = integer(0), species = character(0), rho = numeric(0),
+               check.names = FALSE, stringsAsFactors = FALSE)
+  }
 
 
 
@@ -929,7 +1052,68 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # print() subtracts it from the number kept -- so `peel_depths` carries the
   # depths that were asked for, which a subset call cannot otherwise recover
   # once a peel has been dropped.
+
+  # Forecast SKILL, alongside Mohn's rho's forecast BIAS ----
+  # Both are per horizon, and they answer different questions: rho is a signed
+  # relative error, so +/- cancel across peels and it measures bias; MASE is an
+  # absolute error scaled by "assume nothing changes", so it measures skill and
+  # MASE < 1 is a claim. Computed here rather than left to hindcast_skill()
+  # because it costs nothing -- every input is a quantity these peels already
+  # report -- and because reading bias without skill is how a model that is
+  # unbiased on average and wrong every year looks fine.
+  #
+  # Always, and for all three quantities. On a short horizon SSB barely responds
+  # to the recruitment the peels disagree about -- measured at 0.03% against
+  # 46.8% in recruitment on a BS2017SS DSEM at a 3-year peel -- so scoring one
+  # without the others invites reading "no difference" off the least responsive.
+  #
+  # reference = "model" only. The "observed" variant rebuilds every peel at
+  # estimateMode = 3 and refuses on analytical catchability, which does not
+  # belong in the default diagnostic; hindcast_skill() still offers it.
+  #
+  # IT SCORES WHATEVER `forecast_rec` ASKED FOR, and the default is "mean" --
+  # which projects every peel at its own historical mean recruitment whatever
+  # process the model carries. Two models scored that way forecast by the SAME
+  # rule, so a difference between their tables is a difference between their
+  # hindcast fits, not between their projection rules. That is a real quantity
+  # and not the one most people want. The setting is therefore a COLUMN: two
+  # tables can be rbind()ed and stay interpretable, and a reader cannot mistake
+  # one for the other. To compare projection rules, score the same fit twice --
+  # forecast_rec = "mean" against "model" -- see ?hindcast_skill.
+  mase <- NULL
+  if (length(peel_results)) {
+    # intersect, not stop: hindcast_skill() refuses an unreported quantity
+    # because the caller named it, but here the three are this function's own
+    # choice and a fit that cannot report one should still return a retro. Say
+    # so rather than drop it silently.
+    .want <- c("ssb", "biomass", "R")
+    .q <- intersect(.want, names(object$quantities))
+    if (length(.q) < length(.want)) {
+      message("Forecast skill scored on ", paste(.q, collapse = ", "),
+              "; this fit does not report ",
+              paste(setdiff(.want, .q), collapse = ", "), ".")
+    }
+    .by <- .rce_mase_by_year_model(object, peel_results, .q)
+    if (length(.by)) {
+      mase <- .rce_mase_aggregate(do.call(rbind, .by))
+      # Which projection rule these peels were forecast under. A column rather
+      # than an attribute because the number is unreadable without it: the
+      # default is "mean", so a DSEM scored here is being told how well MEAN
+      # recruitment forecasts. Last, so the key columns match $mohns.
+      mase$forecast_rec <- forecast_rec
+      mase <- .rce_as_mohns_names(mase)
+      mase <- mase[, c(setdiff(names(mase), "forecast_rec"), "forecast_rec")]
+    }
+  }
+
   structure(list(Rceattle_list = mod_list, mohns = rbind(mohns),
+                 mase = mase,
+                 # The rule these peels were forecast under, recorded whether or
+                 # not $mase could be computed. hindcast_skill() reads it to
+                 # refuse a conflicting forecast_rec, and $mase is NULL whenever
+                 # no peel converged -- exactly when a silent mismatch is most
+                 # likely, so the record cannot live only on that table.
+                 forecast_rec = forecast_rec,
                  peels_requested = length(peel_seq),
                  peel_depths = peel_seq),
             class = "Rceattle_retro")
@@ -966,11 +1150,17 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
 #'   assessment models. ICES J. Mar. Sci. 72:99-110.
 #' @export
 print.Rceattle_retro <- function(x, band = 0.2, ...) {
-  m <- as.data.frame(x$mohns)
-  spp <- setdiff(names(m), c("Object", "Forecast year", "N"))
+  m <- .rce_mohns_as_long(as.data.frame(x$mohns))
   term <- m[!is.na(m[["Forecast year"]]) & m[["Forecast year"]] == 0, , drop = FALSE]
 
-  rho <- suppressWarnings(as.numeric(unlist(term[, spp, drop = FALSE])))
+  rho <- suppressWarnings(as.numeric(term[["rho"]]))
+  # A verdict computed over no rho, from rows that DO exist, is a shape we do not
+  # recognize -- not a clean bill of health. Refuse rather than print "OK".
+  if (nrow(term) > 0L && length(rho) == 0L) {
+    stop("This object's $mohns is not a shape print() recognizes (no `rho`, ",
+         "and no species columns to read one from). Rebuild it with ",
+         "retrospective().", call. = FALSE)
+  }
   sev <- ifelse(is.na(rho), "OK", ifelse(abs(rho) > band, "WARN", "OK"))
   n_bad <- sum(sev == "WARN")
 
@@ -1011,19 +1201,69 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
   }
 
   if (nrow(term)) {
+    # One row per quantity x species now that $mohns is long, so the tag is per
+    # row rather than per quantity across species columns.
     show <- term
     show$.tag <- vapply(seq_len(nrow(show)), function(i) {
-      r <- suppressWarnings(as.numeric(show[i, spp]))
-      .rce_sev_tag(if (any(!is.na(r) & abs(r) > band)) "WARN" else "OK")
+      r <- suppressWarnings(as.numeric(show[["rho"]][i]))
+      .rce_sev_tag(if (!is.na(r) && abs(r) > band) "WARN" else "OK")
     }, character(1))
     .rce_diag_table(show, stats::setNames(
-      c(".tag", "Object", "N", spp), c(" ", "quantity", "N", spp)))
+      c(".tag", "Object", "species", "N", "rho"),
+      c(" ", "quantity", "species", "N", "rho")))
   }
   if (any(!is.na(m[["Forecast year"]]) & m[["Forecast year"]] > 0)) {
-    cat("  forecast-skill peels are in $mohns; the +/-", band,
+    cat("  rows above forecast year 0 are BIAS at that horizon; the +/-", band,
         "rule is for the terminal peel only\n")
   }
+  # Bias without skill is how a model that is unbiased on average and wrong
+  # every year reads as fine, so say the skill table is there. Naming
+  # forecast_rec matters: under the default "mean" every model forecasts by the
+  # same rule, so these numbers compare FITS, not projection rules.
+  if (!is.null(x$mase) && nrow(x$mase)) {
+    .fr <- unique(x$mase[["forecast_rec"]])
+    cat("  forecast SKILL (MASE) is in $mase, per forecast year, ",
+        "forecast_rec = \"", .fr[1], "\"\n", sep = "")
+    if (identical(.fr[1], "mean")) {
+      cat("    that is the MEAN-recruitment projection, the same rule for ",
+          "every model:\n    re-run with forecast_rec = \"model\" to score ",
+          "the model's own\n", sep = "")
+    }
+    .thin <- x$mase[!is.na(x$mase[["mase"]]) & x$mase[["N"]] < 2L, ]
+    if (nrow(.thin)) {
+      cat("    ", nrow(.thin), " row(s) rest on a single peel (the deepest ",
+          "horizons); read N\n", sep = "")
+    }
+  }
   invisible(x)
+}
+
+
+#' Read a `$mohns` table of either shape as the long one
+#'
+#' @description
+#' `$mohns` was WIDE before 5.23.0.9007 -- `Object`, `Forecast year`, `N`, then
+#' one column per species -- and retrospectives are saved to disk and reloaded
+#' months later, so `print()` still meets that shape. Reshaped here rather than
+#' refused, because the alternative is a diagnostic that cannot read its own
+#' saved output.
+#'
+#' A table already carrying `rho` is returned untouched.
+#'
+#' @param m a `$mohns` data frame, either shape.
+#' @return the long form: `Object`, `Forecast year`, `N`, `species`, `rho`.
+#' @noRd
+.rce_mohns_as_long <- function(m) {
+  if (!is.data.frame(m) || "rho" %in% names(m)) return(m)
+  keys <- c("Object", "Forecast year", "N")
+  spp <- setdiff(names(m), keys)
+  if (!all(keys %in% names(m)) || length(spp) == 0L) return(m)
+  out <- do.call(rbind, lapply(spp, function(sp) data.frame(
+    m[, keys, drop = FALSE], species = sp,
+    rho = suppressWarnings(as.numeric(m[[sp]])),
+    check.names = FALSE, stringsAsFactors = FALSE)))
+  rownames(out) <- NULL
+  out
 }
 
 

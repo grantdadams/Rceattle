@@ -301,5 +301,6 @@ section holds every entry below in full).
 - **A fixed-numbers species (`estDynamics > 0`) reports its input recruits as `R`** but `NA` R0/steepness/SPR0, and in single-species mode `NA` SB0/B0/depletion; `estDynamics = 2` fits as 1 under `msmMode = 0`.
 - **An identity-link recruitment linkage turns on `rec_floor_on`**, changing the AD tape; its floors miss projection, SB0 and dynamic-B0 recruitment (`TODO-srr-multispecies.md` item 14).
 - **A `warning()` in a `.parallel_lapply()` worker is discarded**, and the default `cores` is `detectCores() - 6`; hoist a once-per-call warning before dispatch, or collect and re-raise it as `self_test()` does. Never gate one on the item index.
-
+- **`retrospective()$mohns` is LONG since 5.23.0.9007**: column 4 is `species`, a character, not a rho — and `$mohns[1, 2]` was never a rho under either shape (it is `Forecast year`). Read by name; 13 live figure labels in the sibling repos print "Mohns = 0".
+- **Merge `$mohns` and `$mase` on `Object`/`Forecast year`/`species`, never on `N`**: both count observations used, but from different peels, so joining on it drops the rows that went wrong.
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are gitignored.

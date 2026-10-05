@@ -19,12 +19,11 @@ hindcast_skill(
 
 \item{peels}{Which peels to fit. Passed to \code{\link[=retrospective]{retrospective()}}, so a single
 number \code{n} means every peel from 1 to \code{n}, and a vector names the depths
-exactly. \code{peels = 3:10} is the useful form here: it drops the one- and
-two-year PEELS, whose own MASE is dominated by its denominator (see
-Details), and costs two fewer model fits. Note it does not drop the one-
-and two-year HORIZONS -- every peel still contributes \code{years_ahead} 1 and 2
-rows, because the thin denominator is a property of peel depth, not of
-horizon. Ignored when \code{retro} is supplied.}
+exactly. Horizons run 1 to the DEEPEST depth asked for, so a deeper \code{peels}
+adds rows while more peels at the same depth only add terms to the mean
+inside each row -- \code{peels = 3:10} and \code{1:10} produce the same ten horizons,
+the second with more peels behind the short ones and two more model fits.
+Ignored when \code{retro} is supplied.}
 
 \item{quantity}{Quantities to score against the full model. Any of \code{"ssb"},
 \code{"biomass"}, \code{"R"}. Ignored when \code{reference = "observed"}.}
@@ -36,8 +35,18 @@ happened. \code{"observed"} is classic hindcast cross-validation: it compares th
 peel's PREDICTED SURVEY INDEX to the index values actually observed in the
 held-out years. Both can be asked for. \code{"model"} scores the quantity a
 projection is used for (SSB, recruitment); \code{"observed"} scores the only
-thing that was really measured, and is the version comparable to MASE
-values published for other assessment platforms.}
+thing that was really measured.
+
+\strong{\code{"observed"} is not numerically comparable to published MASE values.}
+Kell et al. (2021) eq. 5 averages its denominator over a WIDER window than
+its numerator -- \eqn{n+1+h} terms against \eqn{n+1}, because
+\eqn{y_{t-h}} exists for years the numerator cannot score -- and this uses
+the peels actually fitted for both. Computed from BS2017SS's index data,
+the two denominators differ by up to 2.6x, which is enough to move a MASE
+across 1 and so to flip the "beats persistence" verdict. The ordering of
+two models scored the same way here is unaffected; the absolute level is
+not the published statistic. \code{"model"} does not have this issue, since its
+baseline is defined from the peels themselves.}
 
 \item{forecast_rec}{How the peeled years get their recruitment.
 \code{"model"} (default here) uses the model's own projection rule, in
@@ -48,7 +57,10 @@ effects (\code{random_rec = TRUE}, or a DSEM), so an AR1's autocorrelation or a
 DSEM's lagged and covariate paths propagate into the forecast; otherwise
 recruitment comes off the stock-recruit curve. \code{"mean"} forces the
 historical mean for all of them, which is \code{\link[=retrospective]{retrospective()}}'s default and
-the convention Mohn's rho is computed under.
+the convention Mohn's rho is computed under. Applies only when this
+function fits the peels itself: a \code{retro} handed in already carries its
+forecast years, so supplying both is an error rather than a setting that
+does nothing.
 
 The default differs from \code{\link[=retrospective]{retrospective()}}'s on purpose. A peel's forecast
 years are hindcast years, so \code{proj_mean_rec} cannot reach them by itself,
@@ -58,18 +70,29 @@ to do. Measured on the GOA arrowtooth model, \code{proj_mean_rec = TRUE} and
 \code{FALSE} returned byte-identical MASE under \code{"mean"}.}
 
 \item{retro}{Optionally an already-computed \code{\link[=retrospective]{retrospective()}} result, to
-avoid refitting when both are wanted. Note a \code{retro} computed with
-\code{\link[=retrospective]{retrospective()}}'s defaults carries \code{forecast_rec = "mean"}.}
+avoid refitting when both are wanted. Its peels carry the forecast rule
+they were fitted under -- \code{forecast_rec = "mean"} with \code{\link[=retrospective]{retrospective()}}'s
+defaults -- and that rule is what gets scored, so passing a conflicting
+\code{forecast_rec} alongside it is an error. To compare the two rules, fit one
+retrospective under each.}
 
 \item{...}{Passed to \code{\link[=retrospective]{retrospective()}} (\code{cores}, \code{getsd}, \code{rescale}).}
 }
 \value{
 A list with
 \describe{
-\item{\code{mase}}{one row per peel x species x quantity, with \code{mase},
-\code{mae_forecast}, \code{mae_naive} and the number of forecast years scored.}
-\item{\code{by_year}}{the underlying series: peel, species, quantity, year,
-years-ahead, \code{forecast}, \code{reference}, \code{naive}.}
+\item{\code{mase}}{one row per horizon x species x quantity. Keyed by
+\code{Object}, \verb{Forecast year} and \code{species}, the column vocabulary
+\code{\link[=retrospective]{retrospective()}}'s \verb{$mohns} uses, so the two merge on those three;
+then \code{mase}, \code{mae_forecast}, \code{mae_naive}, \code{N} -- how many peels were
+averaged at that horizon -- and \code{peels_used}, which ones. A peel that
+could not be scored at a horizon (an NA in its forecast years, or a
+species with \code{estDynamics > 0}, whose numbers-at-age are input and so
+was never forecast) is left out of both rather than nulling the row.}
+\item{\code{by_year}}{the underlying series, in the same vocabulary:
+\code{Object}, \verb{Forecast year}, \code{species}, \code{peel}, \code{year}, \code{forecast},
+\code{reference}, \code{naive}. \code{year} is the calendar year; \verb{Forecast year} is
+the horizon.}
 }
 }
 \description{
@@ -105,16 +128,61 @@ the recruitment assumption is pulling the projection the wrong way.
 A MASE is undefined when the naive forecast happens to be exactly right
 (a zero denominator); those rows come back \code{NA} rather than \code{Inf}.
 
-Read short horizons with care. At \code{years_ahead = 1} the denominator is a
-single \eqn{|naive - reference|}, so a peel whose persistence forecast lands
-close to the reference by chance produces a very large MASE that says more
-about the denominator than about the projection -- values in the tens appear
-routinely at one-year horizons and settle by three. Compare the deeper peels,
-or the median across peels, rather than any single number. This is a property
-of the scaling, not of the model, and it is shared with the \code{ss3diags}
-implementation the definition matches.
+One row per horizon per species per quantity: the mean runs ACROSS PEELS at a
+fixed steps-ahead, which is Kell et al. (2021) eq. 5, whose sums run over
+\eqn{t = T-n \ldots T} at fixed \eqn{h}. \code{N} is how many peels
+contributed, so \code{peels} buys terms inside each MASE rather than more rows.
+
+\strong{Know what the baseline is under \code{reference = "model"}.} It is NOT a
+persistence error of one series. \code{naive} is the PEEL's terminal estimate and
+\code{reference} is the FULL model's, so each denominator term is a difference
+between two different models, carrying the peel's own retrospective bias at
+its terminal year. A peel whose terminal estimate happens to sit near the
+full model's later value therefore contributes a tiny term: measured on
+BS2017SS pollock SSB with \code{peels = c(2,3,5)}, the three one-year denominator
+terms spanned 18,254 to 1,965,189 -- 108-fold -- because one peel's 2015 SSB
+landed within 0.3\% of the full model's 2016 value.
+
+Averaging across peels does tame the ratio: those same peels give per-peel
+ratios of 1.02, 2.82 and 34.22, and a reported MASE of 1.485. That is the
+point of scoring per horizon rather than per peel. But a horizon resting on
+few peels inherits whatever bias cancellation they happen to carry, which is
+a reason to read \code{N}, not a reason to distrust short horizons as such.
+
+Read \code{N} before reading a MASE, per row -- it is not constant down the
+column. A horizon \code{h} can only be scored by a peel at least \code{h} years deep, so
+on an ANNUAL series with a contiguous \code{peels} run it falls as the horizon
+grows: with \code{peels = 2:4}, three peels at one year ahead and one at four. A
+MASE resting on a single peel says as much about that peel as about the
+projection.
+
+That pattern holds for an ANNUAL series. Under \code{reference = "observed"} an
+irregular survey breaks it, because a fleet is scored at a horizon only where
+it has an observation both at the peel's terminal year and after it -- so
+\code{N} can rise with the horizon, and some horizons carry no rows at all.
+On BS2017SS's acoustic pollock survey with \code{peels = c(2,3,5)}, only
+\verb{Forecast year} 2 and 4 are populated, with \code{N} 2 and 1.
+
+\verb{$mase} is therefore ragged rather than rectangular: a horizon with no rows is
+MISSING, not \code{NA}. Join two models' tables on \verb{Forecast year} rather than
+comparing them positionally, or a two-year row lines up against a four-year
+one.
+
+The naive forecast differs slightly from Kell's by construction. Theirs is
+\eqn{y_{t-h}}, the last OBSERVED value, which \code{reference = "observed"} uses
+directly. Under \code{reference = "model"} there is no observation to carry
+forward, so the baseline is the peel's own terminal estimate held flat -- the
+model-based analogue of the same idea. Kell also averages the denominator over
+a wider window (\eqn{n+1+h} terms against the numerator's \eqn{n+1}), because
+\eqn{y_{t-h}} exists for more years; here both use the peels actually fitted.
 }
 \references{
+Kell, L.T., Sharma, R., Kitakado, T., Winker, H., Mosqueira, I., Cardinale,
+M., Fu, D. (2021) Validation of stock assessment methods: is it me or my
+model talking? \emph{ICES Journal of Marine Science} 78(6), 2244-2255.
+\doi{10.1093/icesjms/fsab104}. Equation 5 is the MASE this function reports;
+equation 4 is the naive baseline.
+
 Kell, L.T., Kimoto, A., Kitakado, T. (2016) Evaluation of the prediction
 skill of stock assessment using hindcasting. \emph{Fisheries Research} 183,
 119-127.
