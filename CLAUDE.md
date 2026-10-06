@@ -102,8 +102,12 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **A test that runs a real `fit_mod()` optimization needs `testthat::skip_on_cran()`** so plain
   `R CMD check` stays fast. Leave fast unit tests unguarded.
 - **CI:** `.github/workflows/R-CMD-check.yaml` (multi-OS) + `pkgdown.yaml` + `test-coverage.yaml`
-  + `vignettes.yaml` (weekly, non-blocking). No lint config, no coverage gate. **`pkgdown.yaml` triggers on `main` only**, so a PR to `dev`
-  gets no pkgdown CI — run `/pkgdown-check` yourself.
+  + `source-guards.yaml` (the registry/doc guards, per PR) + `vignettes.yaml` (weekly,
+  non-blocking) + `deep-checks.yaml` (nightly: golden, safebounds, the full `NOT_CRAN` suite).
+  No lint config, no coverage gate. **`pkgdown.yaml` triggers on `main` only**, so a PR to `dev`
+  gets no pkgdown CI — run `/pkgdown-check` yourself. **Adding or removing a test that reads
+  `R/*.R` or `src/TMB/*` means updating `EXPECTED` in `tools/ci/source-guards.R`**, which pins
+  the guard set by name so the diff says which one moved.
 - **Slash commands:** `/recompile`, `/test [file]`, `/document`, `/check`, `/golden-check`,
   `/verify`, `/new-column`, `/doc-sync`, `/pkgdown-check`, `/ecosystem-sweep`, `/handoff`.
 
@@ -176,6 +180,13 @@ of 39,236 R lines), so what matters is where they don't:
   while its column is guaranteed present. `.pull_int()` in `5-rearrange_data.R` already does it
   right — `fc[[col]]`. Don't sweep the ~8,300 existing `$`; write `[[` in new code, and always
   when the name is computed.
+  **What makes the ~50 existing `$` reads of those three names safe is which accessor comes
+  FIRST, not the accessors themselves**: `switch_check()` and `data_check()` reach the column
+  through the dplyr pronoun `.data$Time_varying_q`, and rlang's pronoun *errors* on a missing
+  column instead of partial-matching — so the pipeline dies loudly before any bare `$` read is
+  reached, and where it does not, `switch_check()` has already supplied the column. **Rewriting a
+  `.data$` read as a bare `$` removes the loud failure and exposes the silent one**, which is why
+  the idiom rule below is not cosmetic. `test-schema-partial-match.R` pins the loudness.
 - **Match the file's idiom; never translate between them.** dplyr and the pipe are load-bearing
   in the `7-*` plotters, the `0-*` data prep and `5-rearrange_data.R` (105 lines of it); most of
   `1-*` to `6-*` is base R. Neither is more correct here, and rewriting one as the other inside
@@ -220,9 +231,12 @@ comp_weights[flt] <- 0        # set weight to 0
 comp_weights[flt] <- 0
 ```
 
-**Match the surrounding style.** Canonical references: `src/TMB/recruitment.hpp` (the
-Doxygen-documented header to emulate) and any `R/*.R` + its `tests/testthat/*` pair. The codebase
-favours explanatory section headers and Doxygen on the C++ — match local comment density.
+**Match the surrounding style.** Canonical references: `src/TMB/spr.hpp` for a fully
+Doxygen-documented header — it is one of four with an `@file` block (`comp_osa.hpp`,
+`comp_sim.hpp` and `helper_functions.hpp` are the others), where `recruitment.hpp` has
+`@brief`/`@param`/`@return` per function but no file block. And any `R/*.R` + its
+`tests/testthat/*` pair. The codebase favours explanatory section headers and Doxygen on the
+C++ — match local comment density.
 
 **Roxygen:** markdown, regenerated with `/document`. A `@param` is one sentence: what the
 argument means, its allowed values, its default. Anything longer belongs in `@details` or a

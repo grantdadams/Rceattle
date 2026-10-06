@@ -927,10 +927,9 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   spnames <- data_list[["spnames"]] %||% as.character(seq_len(data_list$nspp))
 
   # Accumulate the signed relative error and its count per Object x forecast
-  # year x species. Keyed rather than pre-allocated by position: a peel too
-  # shallow to reach a horizon contributes nothing, and a pre-allocated row it
-  # never reached used to survive as Object "0" with N = 0 and a NaN rho, which
-  # reads as a computed result.
+  # year x species. Keyed rather than pre-allocated by position, so a row no
+  # peel reached is simply absent rather than present with N = 0 and a NaN rho,
+  # which would read as a computed result.
   acc <- list()
 
   # * Loop through peels ----
@@ -1242,11 +1241,11 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
 #' Read a `$mohns` table of either shape as the long one
 #'
 #' @description
-#' `$mohns` was WIDE before 5.23.0.9007 -- `Object`, `Forecast year`, `N`, then
-#' one column per species -- and retrospectives are saved to disk and reloaded
-#' months later, so `print()` still meets that shape. Reshaped here rather than
-#' refused, because the alternative is a diagnostic that cannot read its own
-#' saved output.
+#' A `$mohns` saved by an older Rceattle is WIDE -- `Object`, `Forecast year`,
+#' `N`, then one column per species -- and retrospectives are saved to disk and
+#' reloaded months later, so `print()` still meets that shape. Reshaped here
+#' rather than refused, because the alternative is a diagnostic that cannot read
+#' its own saved output.
 #'
 #' A table already carrying `rho` is returned untouched.
 #'

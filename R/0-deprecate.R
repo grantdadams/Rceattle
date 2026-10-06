@@ -27,11 +27,10 @@
 #'
 #' @description
 #' One switch for the whole package. The old argument names are accepted
-#' SILENTLY: a release that renames nothing a user can see should not start
-#' printing warnings inside long assessment and MSE loops.
-#' `options(Rceattle.warn_deprecated_args = TRUE)` turns them on for a session.
-#' Turning them on for everyone is one edit here rather than ten at the call
-#' sites -- a deliberate release decision, not yet taken.
+#' **silently by default**: a rename a user cannot see should not start
+#' printing warnings inside long assessment and MSE loops. Set
+#' `options(Rceattle.warn_deprecated_args = TRUE)` to hear them, which is one
+#' edit rather than ten when the time comes to warn by default.
 #'
 #' @return `TRUE` if deprecated argument names should warn, otherwise `FALSE`.
 #' @keywords internal

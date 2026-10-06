@@ -415,13 +415,8 @@ hindcast_skill <- function(object = NULL, peels = 5,
   # Grouped by HORIZON, averaging across peels -- Kell et al. (2021) eq. 5, whose
   # sums run over t = T-n .. T at a FIXED h. Each peel contributes one
   # |observed - predicted| at a given steps-ahead, and the mean is over those.
-  #
-  # This was grouped by peel and averaged over horizons instead, which is the
-  # transpose: it reported one MASE per peel rather than per horizon, and made
-  # the h = 1 denominator a SINGLE |naive - reference| instead of a mean over
-  # peels. That is where the "a one-year MASE is dominated by its own
-  # denominator" caveat came from -- a property of the mis-grouping, not of the
-  # statistic.
+  # Grouping the other way round is the transpose: one MASE per peel, with the
+  # h = 1 denominator a single difference rather than a mean over peels.
   mase <- .rce_mase_aggregate(by_year)
 
   # Both tables leave in $mohns's column vocabulary; see .rce_as_mohns_names().
@@ -495,7 +490,7 @@ hindcast_skill <- function(object = NULL, peels = 5,
 #' Kell et al. (2021) eq. 5. The sums run over \eqn{t = T-n \ldots T} at a
 #' FIXED \eqn{h}, so each peel contributes one term at a given steps-ahead and
 #' the mean is over peels -- not over horizons within a peel, which is the
-#' transpose and was what this computed before 5.23.0.9002.
+#' transpose.
 #'
 #' Shared by [hindcast_skill()] and [retrospective()]; eq. 5 is implemented
 #' once, here.

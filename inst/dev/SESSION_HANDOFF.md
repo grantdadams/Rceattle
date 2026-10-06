@@ -5,9 +5,19 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**This branch is `merge/dsem-v5-main-5.49.1`: `main` 5.49.1 merged into
-`dsem-v5-integration`, at `5.49.1.9001`.** 34 conflicts, ~40 hunks, resolved by
-hand. `dsem-v5-integration` itself is untouched at `326e5db2`.
+**This branch is `merge/dsem-v5-main-5.49.1`: `main` 5.49.1 AND `dev` 5.52.0
+merged into the DSEM line, at `5.52.0.9001`.** Three merges, in this order:
+`main` 5.49.1 (34 conflicts, ~40 hunks), then `dsem-v5-integration`'s five
+retrospective commits (3 conflicts, all docs), then `afsc/dev` 5.52.0
+(`4f494f60`, 4 conflicts). The branch name still says 5.49.1; it now holds more
+than that. `dsem-v5-integration` itself is at `334883cf`.
+
+**What `dev` brings that this branch must satisfy** -- see the inherited notes
+below for the detail: `source-guards.yaml` runs the hand-synced registry guards
+on every PR and makes them FATAL; a sweep removed bug history from comments; and
+a guard refuses silent `$` partial-match reads of schema columns. All three bear
+directly on the code merged in from the DSEM line, so run them before trusting
+this merge.
 
 The resolutions worth knowing:
 
@@ -87,19 +97,98 @@ fitted object was never exposed (`fit_mod()` always materializes
 `dsem_settings$sem`); a hand-built `model_config()` was, which is the route
 `save_config()`'s own examples take.
 
+## Inherited from `dev` at the merge
+
+These were `dev`'s own handoff notes. Kept because the facts still bind this
+branch, not because the state is current -- the first line below said `dev` was at
+5.49.6; it is at **5.52.0** (`4f494f60`) as merged here.
+
+**`dev` is at 5.49.6** (`07aef07f`). Merged since the release: #190-#194, then **#195**
+(`source-guards.yaml`) and **#196** (bug history out of comments). **PR #197 is open**
+(`fix/m1-padding-finite`, 5.50.0), verified and rebased.
+
+**`source-guards.yaml` is new, and it is the thing a next session must know.** Sixteen test files
+assert that two hand-synced copies of something agree, by reading `R/*.R` and `src/TMB/*.cpp` off
+disk. Under `R CMD check` they resolve `../../R` against the `.Rcheck` test directory, which does
+not exist, so each skipped and the job was green. `test-coverage` DOES run them against the real
+source but discards failures (`stop_on_failure = FALSE`, nothing reads the result);
+`deep-checks` runs them properly but nightly. The new job runs them per PR and makes the result
+fatal.
+
+  * **Adding or removing a test that reads `R/*.R` or `src/TMB/*` means updating `EXPECTED` in
+    `tools/ci/source-guards.R`**, which pins the set BY NAME so the diff says which guard moved.
+    A count would not: 11 of the 16 are named nowhere else and could be deleted silently.
+  * Its measured-nothing check is **per BLOCK**, not per file. Two earlier drafts checked per
+    file and adversarial review broke both, because most of these files hold several
+    `test_that()` blocks. See `TRAPS.md`, "The guards are not themselves guarded".
+  * It makes the check APPEAR on a PR; making it REQUIRED is a branch-protection setting this
+    repo does not hold as code. **Grant's call, and the one thing left to finish that work.**
+
+**PR #197, `log_M1` padding.** `log_M1` is dimensioned to the widest species, so a species with
+fewer sexes or ages leaves padding cells, and the two fill paths disagreed: `build_params()` read
+`1:max_age` from an `M1_base` row that is legitimately blank past the species' last age
+(`log(NA)`); `fit_mod(updateM1 = TRUE)` initialized at 0 (`log(0) = -Inf`). 11 and 53 non-finite
+cells of 126 on `GOA2018SS`, 18 on `BS2017SS`; now 0, and both paths agree. No fit moves --
+all six golden blocks, cold `GOA2018SS` identical to fifteen digits in both `msmMode`, and
+`M1_model` 1/2/3 identical in objective and parameter count. It is a **latent** trap, not a live
+wrong number: every template reader is bounded by the species' own dimensions, so
+`CLEANUP_BACKLOG.md` filing this class as Tier 0 is the wrong tier for this one. Two traps worth
+carrying forward:
+
+  * **Golden block 1 cannot verify a `log_M1` fill change.** It warm-starts from reference
+    `inits` that already carry the non-finite cells, so the fill is overridden. Blocks 2-6
+    cold-build `BS2017SS` and are the real evidence.
+  * **Under `M1_model >= 1` the padding sex cells are ESTIMATED, not inert.** `build_map_m1()`
+    writes `[sp, , 1:nages_sp]` -- a bare comma -- so they take a map index and join a shared
+    block.
+
+**THE GOA MULTISPECIES ASSESSMENT IS IN A CONFIGURATION AFFECTED BY AN M1 MAP DEFECT.** Its 2025
+workbook has `nsex` `c(1, 2, 1)` and `R/02_fit_models.R` sets `M1_model =
+c("sex_age_invariant", "sex_specific", "sex_age_invariant")`, so species 1 (pollock) and 3 (cod)
+hit it and species 2 (ATF) does not. `build_map_m1()` put their padding sex cells in the same TMB
+map level as the real ones, and `TMB:::updateMap()` starts a shared parameter at the MEAN over its
+level, so the starting M was pulled toward 1.0 per year -- +57% and +41% against the `M1_base`
+inputs. On `GOA2018SS`, the same-shaped bundled dataset, that start made an UNPHASED
+optimizer converge to a different and worse point: objective 10.5 nats worse, M1 -26%, SSB at
+`endyr` 2018 **-8.75%**. Fixed on `fix/m1-map-padding-dilution` (5.51.0).
+
+**Two numbers in an earlier version of this paragraph were wrong, and they were quoted onward.**
+It said terminal SSB **+16%** and that both runs passed the max-gradient criterion. The +16% read
+`ssb[, ncol(ssb)]`, the year 2050 PROJECTION column, which `estimateMode = 1` never optimises; at
+`endyr` the change is -8.75%, the opposite sign. And neither run converged: `max|gradient|` is
+2.2e-03 and 1.7e-03 against an `OK` tier of 1e-03, so both are `WARN`. The defect's real
+consequence is that which optimum an unphased fit reaches is arbitrary -- the surface carries at
+least four local minima over this range -- not any single pair of numbers.
+
+**Phasing is not the escape an earlier version of this paragraph implied.** Under `phase = TRUE`
+the two starts land bit-identically on `GOA2018SS`, but of the GOA multispecies assessment's three
+fits only two are phased: the fixed-M single-species one runs `M1_model = 0` and is immune, the
+estimated-M single-species one is `phase = TRUE`, and the **headline multispecies fit is
+`phase = FALSE`** (`R/02_fit_models.R:76`) with the affected `M1_model`. `phase = FALSE` also
+appears in `R/04_projections.R` and `R/05a_mse.R`. A warm start is no protection either: the
+dilution happens when `MakeADFun` averages the map level, so it applies to whatever `log_M1` the
+`inits` hold.
+
+Whether the 2025 assessment's own fit moves is therefore still **not measured**. A refit was
+declined, but that decision was taken while this note said phasing made the point moot. Nothing
+above licenses an inference either way: on the same data `M1_model = 2` moved by 5.7e-06 while
+`M1_model = 1` moved by 10.5 nats, so it turns on whether that surface has a nearby worse
+optimum. **Refit before and after, or record explicitly that the risk is accepted unmeasured.**
+
+Scope: the defect needs a multispecies model MIXING one-sex and two-sex species. A uniform `nsex`
+leaves no padding, so single-species models are immune whatever their `nsex`, as is `GOA-ATF-ESP`
+(ATF alone, `nsex = 2`). Of the bundled datasets only `GOA2018SS` qualifies.
 
 **The length-comp joint-sex fix and the golden re-pin are IN**, merged as PR #187 (`97c19414`):
 both prediction loops read `age_hat`, and `test-golden-regression.R` pins the post-fix GOA
 literals (`goa_ss` 12866.8457276232, `goa_ms` 12931.8602763619). Golden on `dev` is green.
 PR #188 (`125c6dd1`, the sibling sweep note) is in as well.
 
-**Release 5.49.1 is open as PR #184 (`dev` -> `main`).** It opened as 5.48.0; a review pass over
-the whole `main...dev` delta (2026-10-02/03) found defects worth fixing before the tag, so
-`DESCRIPTION` moved to 5.49.0 (PR #189) and then to **5.49.1** when a late reviewer found that
-5.49.0's one-bin `lengths_pop` fix was incomplete -- it guarded the bin midpoint but not the bin
-probability three lines above, which is tested first. **Read `DESCRIPTION` on the merge commit
-before tagging** -- the checklist says so for exactly this reason, and this release moved twice.
-**DO NOT merge to `main`** -- Grant does that.
+**Release 5.49.1 is DONE** -- PR #184 is merged, `main` is at `7c3308e0`, and the tag exists. It
+opened as 5.48.0 and moved twice before the tag (5.49.0 via PR #189, then 5.49.1 when a late
+reviewer found that 5.49.0's one-bin `lengths_pop` fix guarded the bin midpoint but not the bin
+probability three lines above, which is tested first). The standing lesson holds for the NEXT
+release: **read `DESCRIPTION` on the merge commit before tagging**. `main` is still Grant's.
 
 Review passes over the 5.46.0-5.49.0 delta: an adversarial bug hunt, a specification cross-check
 against the Stock Synthesis / SAM / OPAL / SPoRC / WHAM sources (SS3, SAM and OPAL are cloned

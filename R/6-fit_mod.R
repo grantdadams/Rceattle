@@ -152,11 +152,11 @@
 #'   [run_config()] whose stored settings overlay the ones you did not pass;
 #'   `NULL` (default) applies no configuration. See Details for what it overlays.
 #' @param quiet_data_check Drop the warnings the fit-time validation raises (errors still
-#'   stop the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
-#', [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
-#'   [remove_F()], [sample_rec()], [reweight_comps()], set it, since they
-#'   re-validate a `data_list` the caller has already fitted once and would
-#'   otherwise repeat the same warnings per peel, jitter, or MSE iteration.
+#'   stop the fit). `FALSE` (default) for an ordinary fit. The diagnostic
+#'   refits, [retrospective()], [jitter()], [self_test()], [profile()],
+#'   [run_mse()], [remove_F()], [sample_rec()], [reweight_comps()], set it,
+#'   since they re-validate a `data_list` the caller has already fitted, and
+#'   would otherwise repeat those warnings per peel, jitter, or MSE iteration.
 #'   Also drops a linkage filter's "has no effect" warning; a filter that
 #'   drops its whole spec still warns. Convergence and TMB warnings are unaffected.
 #' @param ... Deprecated optimizer / sdreport / phasing arguments
@@ -186,9 +186,8 @@
 #' arguments you did not pass, so an explicit argument always wins. The stored
 #' `model_config` is merged into the data object's **field by field**, not
 #' wholesale: only the fields the config actually set are imposed, and the data
-#' object keeps the rest. Since 5.36.0 a config built with [model_config()]
-#' therefore no longer drops the linkages held on the data object, which it
-#' did when the whole structure was replaced. Where a field is set on both and
+#' object keeps the rest, so a config built with [model_config()] keeps the
+#' linkages held on the data object. Where a field is set on both and
 #' the two disagree, the config's value is used and the difference is reported
 #' as a warning naming the field. A config written before that field record
 #' existed is treated as having set its non-default fields.
@@ -913,14 +912,13 @@ fit_mod <-
              "build_catchability() / build_selectivity() / build_composition(), ",
              "pass the matching qFun / selFun / compFun.", call. = FALSE)
       }
-      # Drop anything the model no longer has a parameter for, in skeleton
-      # order. `inits` from an older fit can carry a retired block (e.g.
-      # log_growth_par_devs, removed in 5.9.0). MakeADFun drops names the
+      # Keep only the parameters the template declares, in skeleton order.
+      # `inits` from an older fit can carry a retired block (e.g.
+      # log_growth_par_devs, retired in 5.9.0). MakeADFun ignores names the
       # template does not declare, but build_map() runs on start_par first and
-      # produces a map entry per element, so the stale name reached MakeADFun
-      # through the map and stopped with "Names in map must correspond to
-      # parameter names" -- a refit that failed on a parameter the model no
-      # longer has. Extra names are dropped silently because they are inert by
+      # produces a map entry per element, so a stale name would reach MakeADFun
+      # through the map and stop with "Names in map must correspond to parameter
+      # names". Extra names are dropped silently because they are inert by
       # definition; a MISSING one is the error above.
       # ...EXCEPT the DSEM blocks, which build_params() does not declare (they
       # come from build_dsem_objects() and are merged in below), so a bare
@@ -1508,9 +1506,13 @@ fit_mod <-
       start_par$log_Ftarget <- log_F_input(data_list$Ftarget)
     }
 
-    # Update M1 parameter object from data if initial parameter values input
+    # Update M1 from M1_base when initial parameter values were supplied.
+    # Fills exactly as build_params() does, through the same two helpers: only
+    # the species' own sexes and ages are read from M1_base, blank real ages
+    # carry the last supplied age forward, and each padding cell mirrors its
+    # own species. So the two paths give the same array.
     if (updateM1) {
-      m1 <- array(0, dim = c(data_list$nspp,
+      m1 <- array(1, dim = c(data_list$nspp,
                              max(data_list$nsex, na.rm = TRUE),
                              max(data_list$nages, na.rm = TRUE)))
 
@@ -1519,13 +1521,22 @@ fit_mod <-
         sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
 
         # Handle sex == 0 case for 2-sex species
-        sex_values <- if (sex == 0) 1:data_list$nsex[sp] else sex
+        sex_values <- if (sex == 0) seq_len(data_list$nsex[sp]) else sex
+        ages <- seq_len(data_list$nages[sp])
 
-        for (j in 1:length(sex_values)) {
-          m1[sp, sex_values[j], 1:max(data_list$nages, na.rm = TRUE)] <- as.numeric(data_list$M1_base[i, (1:max(data_list$nages, na.rm = TRUE)) + 2])
+        for (j in seq_along(sex_values)) {
+          m1[sp, sex_values[j], ages] <-
+            as.numeric(data_list$M1_base[i, ages + 2])
         }
       }
+      # Same helpers as build_params(), so the two fills cannot drift.
+      m1 <- .rce_fill_M1_age_gaps(m1, data_list)  # blank real ages carry over
+      m1 <- .rce_fill_M1_padding(m1, data_list)   # padding mirrors its species
+      # Keep the species / sex / age labels, so updateM1 reports log_M1 as
+      # readably as any other path.
+      dimnames(m1) <- dimnames(start_par$log_M1)
       start_par$log_M1 <- log(m1)
+      .rce_stop_if_nonfinite_M1(start_par$log_M1, "fit_mod(updateM1 = TRUE)")
     }
 
     # A refit's inits hold the fitted, or profiled, value, so the starting-value

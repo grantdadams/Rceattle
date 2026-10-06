@@ -5,6 +5,7 @@
 ^\.claude$
 ^\.mcp\.json$
 ^CLAUDE\.md$
+^AGENTS\.md$
 ^CONTRIBUTING\.md$
 ^Doxyfile$
 ^doc$
@@ -22,7 +23,6 @@
 ^dev$
 ^tools/verify$
 ^data-raw$
-^src/TMB/Dev$
 ^src/TMB/Depricated$
 ^vignettes/.*[.]pptx$
 ^vignettes/articles$

@@ -308,21 +308,43 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     M1_re_model <- data_list$M1_re[sp] # Random effects model
 
     # * 1. Fixed effects ----
+    #
+    # Index only the sexes the species HAS. log_M1 is dimensioned to the widest
+    # species, so `[sp, , ]` on a one-sex species in a two-sex model also
+    # indexes a padding cell -- and TMB starts a shared parameter at the MEAN
+    # over its map level (`TMB:::updateMap()` is `tapply(..., mean)`), so a
+    # padding cell sitting at log(1) = 0 drags the start toward an M1 of 1.0
+    # per year. On GOA2018SS at M1_model = 1 that put pollock at 0.637 against
+    # an input of 0.406.
+    sexes_sp <- seq_len(nsex_sp)
+
     # ** M1_model = 1: sex- and age-invariant M1
     if (M1_model == 1) {
-      map_list$log_M1[sp, , 1:nages_sp] <- M1_ind
+      map_list$log_M1[sp, sexes_sp, 1:nages_sp] <- M1_ind
       M1_ind <- M1_ind + 1
     }
 
 
     # ** M1_model = 2: sex-specific, but age-invariant M1
     if (M1_model == 2) {
-      map_list$log_M1[sp, 1, 1:nages_sp] <- M1_ind
-      map_list$log_M1[sp, 2, 1:nages_sp] <- M1_ind + 1
-      M1_ind <- M1_ind + 2
       if (nsex_sp == 1) {
         warning(paste0("M1 model for species ", sp," is set to 2 (sex-specific), but species is single-sex."))
-        map_list$log_M1[sp, 2, 1:nages_sp] <- M1_ind
+        # One sex, so one parameter. Taking a second index and then reassigning
+        # it without incrementing the counter -- what this did before -- gave
+        # the padding cell the counter's NEXT value, which is the following
+        # species' first level: on nsex c(1, 2, 1) species 1's padding and
+        # species 2's real female both landed on level 3.
+        #
+        # Unreachable through fit_mod(), which downgrades M1_model 2 to 1 for a
+        # single-sex species before building the map (R/6-fit_mod.R, "sex-
+        # specific -> sex-invariant for 1-sex model"), so this branch and the
+        # warning above fire only on a direct build_map() call.
+        map_list$log_M1[sp, 1, 1:nages_sp] <- M1_ind
+        M1_ind <- M1_ind + 1
+      } else {
+        map_list$log_M1[sp, 1, 1:nages_sp] <- M1_ind
+        map_list$log_M1[sp, 2, 1:nages_sp] <- M1_ind + 1
+        M1_ind <- M1_ind + 2
       }
     }
 
@@ -335,7 +357,8 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
         M1_ind <- M1_ind + nages_sp
       } else {
         warning(paste0("M1 model for species ", sp," is set to 3 (sex-specific), but species is single-sex."))
-        map_list$log_M1[sp, 2, ] <- map_list$log_M1[sp, 1, ]
+        # Sex 2 is padding; leave it mapped out rather than sharing sex 1's
+        # levels, which would average its log(1) = 0 into every age.
       }
     }
 
@@ -343,7 +366,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     if (M1_model == 4| (M1_model == 5 & nsex_sp == 1)) {
 
       # - Mean M
-      map_list$log_M1[sp, , 1:nages_sp] <- M1_ind
+      map_list$log_M1[sp, sexes_sp, 1:nages_sp] <- M1_ind
       M1_ind <- M1_ind + 1
       map_list$M1_beta[sp, 1, data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices
 
@@ -529,6 +552,14 @@ build_map_growth <- function(map_list, data_list, nyrs_hind) {
   growth_params <- c("log_growth_pars", "weight_length_pars", "growth_log_sd")
   map_list[growth_params] <- lapply(map_list[growth_params], function(x) replace(x, values = NA))
 
+  # Running counters, not a per-species stride. A stride of 4 is wrong the
+  # moment a species needs two sexes: females took slots 1:3 and males 5:7, so
+  # species sp's MALE block was species sp+1's FEMALE block -- the same TMB
+  # parameter, estimated once for both, with 3 (von Bertalanffy) or 4
+  # (Richards) free parameters silently gone.
+  growth_ind <- 0L
+  growth_sd_ind <- 0L
+
   # Loop through species and turn on based on model
   for (sp in 1:data_list$nspp) {
 
@@ -538,23 +569,21 @@ build_map_growth <- function(map_list, data_list, nyrs_hind) {
     growth_model <- data_list$growth_model[sp]
 
     # * 1. Fixed effects ----
-    if(growth_model %in% c(1, "vonBertalanffy")){ # Von Bertalanffy
-      # k, l1, linf
-      map_list$log_growth_pars[sp, 1, 1:3] <- (sp - 1) * 4 + 1:3 # Females/sex combined
-      map_list$growth_log_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
-      if(nsex_sp == 2){
-        map_list$log_growth_pars[sp, 2, 1:3] <- (sp - 1) * 4 + 5:7 # Males
-        map_list$growth_log_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD same as females
-      }
-    }
+    # k, l1, linf for von Bertalanffy; those plus m for Richards.
+    npar <- if (growth_model %in% c(1, "vonBertalanffy")) 3L else
+            if (growth_model %in% c(2, "Richards")) 4L else 0L
 
-    if(growth_model %in% c(2, "Richards")){ # Richards
-      # k, l1, linf, m
-      map_list$log_growth_pars[sp, 1, 1:4] <- (sp - 1) * 4 + 1:4 # Females/sex combined
-      map_list$growth_log_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
-      if(nsex_sp == 2){
-        map_list$log_growth_pars[sp, 2, 1:4] <- (sp - 1) * 4 + 5:8 # Males
-        map_list$growth_log_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD same as females
+    if (npar > 0L) {
+      map_list$log_growth_pars[sp, 1, 1:npar] <- growth_ind + 1:npar
+      growth_ind <- growth_ind + npar
+      map_list$growth_log_sd[sp, 1, 1:2] <- growth_sd_ind + 1:2
+      growth_sd_ind <- growth_sd_ind + 2L
+
+      if (nsex_sp == 2) {
+        map_list$log_growth_pars[sp, 2, 1:npar] <- growth_ind + 1:npar
+        growth_ind <- growth_ind + npar
+        # Growth SD shared with females, deliberately.
+        map_list$growth_log_sd[sp, 2, 1:2] <- map_list$growth_log_sd[sp, 1, 1:2]
       }
     }
   }
@@ -580,75 +609,9 @@ build_map_predation <- function(map_list, data_list) {
     map_list$log_gam_a[] <- NA
     map_list$log_gam_b[] <- NA
     map_list$log_phi[] <- NA
-
-    # # Multispecies kinzey parameters
-    # map_list$logH_1 <- map_list$logH_1 * NA
-    # map_list$logH_1a <- map_list$logH_1a * NA
-    # map_list$logH_1b <- map_list$logH_1b * NA
-    #
-    # map_list$logH_2 <- map_list$logH_2 * NA
-    # map_list$logH_3 <- map_list$logH_3 * NA
-    # map_list$H_4 <- map_list$H_4 * NA
   }
 
-  # # * 2. MSVPA form ----
-  # # Turn off all functional form parameters
-  # if (data_list$msmMode %in% c(1,2)) {
-  #
-  #   # Multispecies kinzey parameters
-  #   map_list$logH_1 <- map_list$logH_1 * NA
-  #   map_list$logH_1a <- map_list$logH_1a * NA
-  #   map_list$logH_1b <- map_list$logH_1b * NA
-  #
-  #   map_list$logH_2 <- map_list$logH_2 * NA
-  #   map_list$logH_3 <- map_list$logH_3 * NA
-  #   map_list$H_4 <- map_list$H_4 * NA
-  #
-  # }
-  #
-  # # * 3. Kinzey and Punt predation equations ----
-  # if (data_list$msmMode > 2) {
-  #   # Holling Type 1
-  #   if (data_list$msmMode == 3) {
-  #     map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
-  #     map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-  #     map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
-  #   }
-  #
-  #   # Holling Type 2
-  #   if (data_list$msmMode == 4) {
-  #     map_list$logH_3 <- map_list$logH_3 * NA
-  #     map_list$H_4 <- map_list$H_4 * NA
-  #   }
-  #
-  #   # Holling Type 3
-  #   if (data_list$msmMode == 5) {
-  #     map_list$logH_3 <- map_list$logH_3 * NA
-  #   }
-  #
-  #   # Predator interference
-  #   if (data_list$msmMode == 6) {
-  #     map_list$H_4 <- map_list$H_4 * NA
-  #   }
-  #
-  #   # Predator preemption
-  #   if (data_list$msmMode == 7) {
-  #     map_list$H_4 <- map_list$H_4 * NA
-  #   }
-  #
-  #   # Hassell-Varley
-  #   if (data_list$msmMode == 8) {
-  #     map_list$logH_3 <- map_list$logH_3 * NA
-  #   }
-  #
-  #   # Ecosim
-  #   if (data_list$msmMode == 9) {
-  #     map_list$logH_2 <- map_list$logH_2 * NA
-  #     map_list$H_4 <- map_list$H_4 * NA
-  #   }
-  # }
-
-  # * 4. Suitability (if Multi-Species) ----
+  # * 2. Suitability (if Multi-Species) ----
   map_list$diet_comp_weights[] <- NA
   if (data_list$msmMode > 0) {
     for (sp in 1:data_list$nspp) {
@@ -1206,10 +1169,9 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         # "Off" (0) is legal here -- the bin coefficients are estimated with no
         # annual deviates -- and data_check() enforces exactly {"Off", "IID"}
         # for this form. Warn only on a mode the Hake form cannot represent
-        # ("Block", "AR1", "RandomWalk", ...); the old `tv_sel != "IID"` guard
-        # fired on "Off" too, which is why a valid Time_varying_sel = 0 fleet
-        # warned about itself. Guard NA explicitly -- `NA != "IID"` is NA, which
-        # errors inside `if()` rather than falling through.
+        # ("Block", "AR1", "RandomWalk", ...), so a valid Time_varying_sel = 0
+        # fleet does not warn about itself. Guard NA explicitly -- `NA != "IID"`
+        # is NA, which errors inside `if()` rather than falling through.
         if (!is.na(tv_sel) && !tv_sel %in% c("Off", "IID")) {
           warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select 'Off' (0) or 'IID' (1)). Current value:", tv_sel))
         }
@@ -1348,13 +1310,13 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind, random_q = FA
   # Fleets whose catchability block is estimable: those carrying fitted index
   # observations, whatever their Fleet_type. The model fits an index row for
   # any non-Off fleet, so a fishery CPUE series is scored like a survey's index
-  # and needs its q the same way; keying on Fleet_type == "Survey" instead left a
-  # fishery's q, time-varying q and index sd mapped out, so Catchability =
-  # "Estimated" did nothing.
+  # and needs its q the same way; keying on Fleet_type == "Survey" would leave a
+  # fishery's q, time-varying q and index sd mapped out, making Catchability =
+  # "Estimated" do nothing.
   #
   # The converse holds too, and is why this is the data and not the fleet type: a
-  # q with no index to inform it is a flat direction in the likelihood. A survey
-  # with no index rows no longer gets one either.
+  # q with no index to inform it is a flat direction in the likelihood, so a
+  # survey with no index rows does not get one either.
   #
   # A fleet with no index of its own can still end up estimated, by sharing a
   # Catchability_index group whose LEAD estimates -- adjust_map_shared_params()

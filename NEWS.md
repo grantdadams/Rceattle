@@ -14,16 +14,16 @@ version throughout.
 
 # Rceattle (development version)
 
-This is a merge of `main` 5.49.1 into `dsem-v5-integration`. Everything from
-5.49.1 down is `main`'s released history, unchanged. The DSEM integration has
-never been released on that line, so from its point of view this whole section
-is unreleased. The branch's own 5.23.0 notes are kept immediately below
-`main`'s 5.23.0, under a title that cannot be mistaken for it -- both numbers
-exist on both lines with different content, the divergence the comment at the
-top of this file describes.
+This section is the DSEM integration. Everything from 5.52.0 down is released
+history -- `main` through 5.49.1, then `dev`'s 5.50.0 to 5.52.0 -- merged in
+unchanged. The DSEM work has never been released on either line, so from its
+point of view this whole section is unreleased. The branch's own 5.23.0 notes
+are kept immediately below `main`'s 5.23.0, under a title that cannot be
+mistaken for it: both numbers exist on both lines with different content, the
+divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.49.1.9002`, the released line this branch now
+number: `DESCRIPTION` reads `5.52.0.9001`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -31,6 +31,43 @@ code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
 suffix stays until the DSEM work is given a release number of its own. The
 5.23.0 section below records the same divergence from when this branch was
 numbered on the 5.23.0 line.
+
+## Breaking changes
+
+* **`retrospective()$mohns` is LONG, not wide.** It was `Object`, `Forecast
+  year`, `N`, then one column per species from `spnames`. The rho now sits in a
+  single `rho` column with a `species` column beside it, so the table has one
+  row per quantity x horizon x species and the same shape whatever `nspp` is.
+
+  *What still works:* a read by NAME of `Object`, `Forecast year` or `N`, and a
+  filter such as `mohns[mohns$Object == "R", ]`.
+
+  *What stops working:* a read by POSITION, and it does not announce itself --
+  column 4 was a species' rho and is now `species`, a character. `mohns[5, 4]`
+  returns a species name instead of the SSB rho, and `sum()` over that column
+  errors. Swept across the consumer repos, exactly one live script reads it
+  this way. While you are checking, note `mohns[1, 2]` was never a rho under
+  either shape: column 2 is `Forecast year`, so that read returned 0 before
+  this change too, and 13 live figure labels across the sibling repos have been
+  printing "Mohns = 0" because of it.
+
+  *The rebuild:* read by name --
+  `subset(mohns, Object == "ssb" & \`Forecast year\` == 0)$rho` -- or recover
+  the old layout in one call:
+
+  ```r
+  w <- stats::reshape(retro$mohns[, c("Object", "Forecast year", "species", "rho")],
+                      direction = "wide", idvar = c("Object", "Forecast year"),
+                      timevar = "species", v.names = "rho")
+  names(w) <- sub("^rho\\.", "", names(w))   # Pollock, Cod -- the old names
+  ```
+
+  `N` cannot come back unchanged in a wide table: it is now counted per
+  species, because a species whose relative error is not finite contributes no
+  observation at that horizon.
+
+  Stored fits are unaffected -- this is a diagnostic's return value, not a
+  model input, so nothing needs refitting.
 
 ## Diagnostics
 
@@ -344,6 +381,542 @@ numbered on the 5.23.0 line.
   arm and worked. The predicate is
   now a `pin_block()` defined once in the dispatching frame and reading
   `object$random_vars`, the same source `.rce_peel_map()` uses.
+
+# Rceattle 5.52.0
+
+## Bug fixes
+
+* **Species *sp*'s male growth parameters were species *sp+1*'s female growth parameters.**
+  `build_map_growth()` indexed `log_growth_pars` with a fixed stride of 4 per species, but a
+  two-sex species needs 8 slots: females took `(sp-1)*4 + 1:3` and males `(sp-1)*4 + 5:7`, so
+  `5,6,7` served sp1-males *and* sp2-females -- one TMB parameter for both, estimated once. K, L1
+  and L-infinity were fused across a species **and** sex boundary, and 3 (von Bertalanffy) or 4
+  (Richards) free parameters went silently missing. Measured, growth on for every species:
+
+  | `nsex` | distinct levels / expected | parameters lost |
+  |---|---|---|
+  | `c(1, 2, 1)` | 9 / 12 | 3 |
+  | `c(2, 2)` | 9 / 12 | 3 |
+  | `c(2, 1)` | 6 / 9 | 3 |
+  | `c(2, 2, 2)` | 12 / 18 | **6** |
+  | `c(1, 2)` | 9 / 9 | none -- a *trailing* two-sex species is safe |
+
+  Now a running counter, as `build_map_m1()` already uses, so the index advances by what each
+  species actually took. Fitting a two-species model with `nsex = c(2, 1)` through
+  `fit_mod(estimateMode = "DebugBuild")` now gives **135** free parameters against **132**
+  before, from 9 distinct growth levels rather than 6. The recovered parameters are informed, not
+  merely free: every growth entry carries a gradient on that fixture (4.2e+06 to 1.5e+08 on
+  `log_growth_pars`, 2.1e+05 to 6.3e+05 on the SDs) and no entry in the whole vector is exactly
+  zero, which matters because a freed parameter the data cannot move gives a singular Hessian and
+  `newtonsteps` solves with it.
+* **`build_params()` no longer dies on CAAL bin counts that differ between species.** L1 and
+  L-infinity start at the smallest and largest length with CAAL data, taken by pivoting on the
+  per-species bin *ordinal* -- so a 3-bin and a 5-bin species produced `Bin1, Bin3, Bin5`, three
+  value columns for a two-column target, with `NA` for whichever species lacked that ordinal. It
+  failed with "number of items to replace is not a multiple of replacement length". A species
+  with a single CAAL length failed differently and earlier: `slice(c(1, n()))` duplicated its one
+  row, `pivot_wider()` warned and returned a list-column, and `log()` then refused it with
+  "non-numeric-alike variable(s) in data frame". Both are now a per-species min and max, which is
+  what the slice was approximating.
+* **`build_params()` now refuses a CAAL length range it cannot use**, naming the species, rather
+  than starting L1 or L-infinity at `NA`. It also refuses **one distinct CAAL length**, where L1
+  equals L-infinity: `length_sd_at_age()` interpolates the length-at-age SD as
+  `sd0 + (sd1 - sd0) / (linf - l1) * (len - l1)` and both `growth_log_sd` start at 0, so that is
+  `0/0` for every age above `age_L1` and the `NaN` reaches the age-length key and the likelihood.
+  `data_check()` already refuses one CAAL length unless `nlengths` is also 1, so a species with a
+  single length bin is the one shape that reached this. The message says to use
+  `build_growth(fun = "empirical")` for that species instead.
+* **Neither of the two defects was reachable by anything shipping:** no bundled dataset sets
+  `growth_model` (the schema default is 0), all four golden references run 0, every multispecies
+  sibling config uses `build_growth(fun = "empirical")`, and only `whamGrowthData` carries CAAL
+  data at all. The suite *does* fit multispecies parametric growth, in `test-dynamics-brps.R`
+  and `test-composition-dm-diet-weight.R`, but `make_msm_test_data()` sets every species
+  single-sex, and the collision needs a two-sex species that is not the last one. So what hid
+  this was single sex, not single species. It arms the moment parametric growth goes on a
+  multispecies model with a non-trailing two-sex species, which is the shape of the GOA
+  multispecies assessment (arrowtooth is two-sex at species 2 of 3).
+* No golden reference moves: all four run `growth_model = 0`, where the whole growth block is
+  mapped out. Verified -- six golden blocks, 21 assertions, unchanged.
+# Rceattle 5.51.0
+
+## Bug fixes
+
+* **The starting residual M was diluted toward 1.0 per year whenever `M1_model >= 1` met a
+  species set with ragged `nsex`.** `log_M1` is dimensioned to the widest species, so a one-sex
+  species in a model whose `max(nsex)` is 2 leaves padding sex cells, and `build_map_m1()` indexed
+  them: `map_list$log_M1[sp, , 1:nages_sp]` with a bare comma under `M1_model` 1 and 4, and
+  `[sp, 2, ] <- [sp, 1, ]` under `M1_model` 3, put the padding in the **same map level** as the
+  real cells. TMB does not take a shared parameter's start from the first cell of its level --
+  `TMB:::updateMap()` is `tapply(parameter.entry, map.entry, mean)` -- so the start was the mean
+  over the level, and a padding cell sitting at `log(1) = 0` pulled it toward an M of 1.0 per year.
+* Measured on `GOA2018SS` (`nsex` `c(1, 2, 1)`, `nages` `c(10, 21, 12)`) at `M1_model = 1`:
+  pollock started at **0.637454** against an `M1_base` geometric mean of 0.406348 (**+57%**, and
+  exactly its square root) and cod at **0.710571** against 0.504911 (**+41%**). Both now start at
+  their own input. `M1_model = 3` started at the square root of every age in the schedule
+  (`1.178983, 0.830662, 0.692820, ...` for `1.39, 0.69, 0.48, ...`) and now reproduces it exactly.
+  `M1_model` 2, 4 and 5 are affected identically and fixed with it. Species 2 was always correct:
+  its two **real** sexes legitimately share one level under a sex-invariant model, so
+  `sqrt(0.20 * 0.35) = 0.264575` is the intended value.
+* **Free-parameter counts are unchanged** -- 3, 4, 64, 3 and 4 for `M1_model` 1 to 5 on that
+  dataset. Only which cells belong to a level changed, and the padding is now mapped out under
+  every `M1_model`. `test-mortality-m1-map-padding.R` fits all five through `fit_mod()` and pins
+  both the level count and the zero padding cells; an earlier version of it covered only 1 to 3,
+  leaving the environmentally-driven 4 and 5 edited but unpinned.
+* **Whether it changes a converged estimate depends on the optimizer settings, and the honest
+  answer is "only without phasing".** The shared parameter's MLE is identified by the real sex --
+  the template reads `sex < nsex(sp)` -- but an unphased optimizer does not always reach it from a
+  start displaced this far. Fitting `GOA2018SS` at `M1_model = 1` cold, `phase = FALSE`,
+  `newtonsteps = 0`:
+
+  | | before | after | change |
+  |---|---|---|---|
+  | objective | 12849.030601 | 12838.508102 | -10.52 nats |
+  | M1, species 1 | 0.38983395 | 0.28725155 | -26% |
+  | SSB at `endyr` 2018, species 1 | 362,066 | 330,402 mt | **-8.75%** |
+  | hindcast mean SSB, species 1 | 315,995 | 307,862 mt | -2.57% |
+
+  **Both of those fits are `WARN`, not converged** -- `max|gradient|` 2.2e-03 and 1.7e-03 against
+  `convergence_diagnostics()`'s `OK` tier of 1e-03 -- so this is a comparison of two unconverged
+  points, and the surface carries at least four local minima over the range: a start of 0.90
+  reaches `max|gradient|` 8.4e-04 (the only one in the `OK` tier) at an objective 4.15 nats worse
+  and species-1 SSB 37% lower. Which optimum an unphased fit reaches is therefore arbitrary, and
+  that is the defect's real consequence rather than any single pair of numbers.
+* **Under `phase = TRUE` the difference disappears entirely** on this dataset -- both sides land
+  bit-identically at 12838.508102 with SSB 330,415 mt. **Phasing is not a general escape, and the
+  live case is why that matters.** The GOA multispecies assessment runs three fits
+  (`R/02_fit_models.R`): the fixed-M single-species one is `phase = TRUE` and `M1_model = 0`, so
+  it is immune; the estimated-M single-species one is `phase = TRUE` with
+  `M1_model = c("sex_age_invariant", "sex_specific", "sex_age_invariant")`; and the **headline
+  multispecies fit sets that same `M1_model` with `phase = FALSE`** -- the configuration in which
+  `GOA2018SS` moved 10.5 nats. A warm start does not help either: the dilution happens when
+  `MakeADFun` averages the map level, so it applies to whatever `log_M1` the `inits` hold. One
+  benefit that is real at any setting: `phase = FALSE, newtonsteps = 3` **crashes** on the old
+  diluted optimum (`solve.default`, singular Hessian) and completes after.
+* `M1_model = 3` is a counterexample worth stating: unphased, the fix makes the objective 0.746
+  nats *worse* and moves species 2's `endyr` SSB +3.21%, with both sides in the `FAIL` gradient
+  tier; under `phase = TRUE` both land at 12727.17 and species 2 moves 0.004%. The direction of an
+  unphased change is not predictable, which is the argument for removing the displacement rather
+  than for any particular improvement.
+* **No golden reference moves**: all four run `M1_model = 0`, where the whole array is mapped out,
+  so none of them covered any of this. Verified: all six golden blocks unchanged, and 22 files of
+  mortality, M1, linkage-M1 and switch tests green.
+* Under `M1_model = 2` a single-sex species also claimed a second map index for its padding sex
+  and then reassigned it without incrementing the counter, so the padding took the counter's next
+  value -- which is the **following species' first level**. On `nsex` `c(1, 2, 1)` species 1's
+  padding and species 2's real female both landed on level 3. That cross-species collision is real
+  in `build_map_m1()`, and is unreachable through `fit_mod()` only because `fit_mod()` downgrades
+  `M1_model` 2 to 1 for a single-sex species before the map is built. An earlier draft of this
+  entry said a "later re-levelling" prevented it and that the branch's warning fires; neither is
+  true -- the branch and its warning are dead through `fit_mod()`, and `factor()` preserves all
+  five levels. The fix also removes a latent `subscript out of bounds` crash when `M1_model` 2 or
+  3 meets `max(nsex) == 1`.
+
+* **This also fixes, at its root, the `NaN` objective that 5.50.0 addressed from the other end.**
+  `fit_mod(updateM1 = TRUE)` with `M1_model >= 1` on a ragged-`nsex` set returned `NaN`, because
+  the `-Inf` that path left in a padding cell belonged to a real map level and so entered the
+  parameter vector. With the padding mapped out it cannot, and the objective is finite **even
+  with the old fill still in place**. On one stated recipe -- `inits` from a mode-3 fixed-M fit,
+  `estimateMode = 3`, `updateM1 = TRUE` -- `M1_model` 1, 2 and 3 give `NaN, NaN, NaN` before and
+  843787.106345, 842894.271820, 919429.003512 after, with 53 non-finite cells still in the array
+  both times. The objective on this path depends on which fit you warm-start from, so the figures
+  are only meaningful against that recipe; the transition from `NaN` to finite is the claim. The
+  figures quoted under 5.50.0 (891822.517895, 890929.683370, 933405.044463) are the same recipe
+  on the old map with the fill fixed instead. The two
+  changes are complementary rather than redundant: 5.50.0 stops the array holding a non-finite
+  value at all, and adds the refusals; this one stops a padding cell being a parameter.
+
+**Who was exposed.** The defect needs a multispecies model that mixes one-sex and two-sex
+species, since a uniform `nsex` leaves no padding at all. Of the bundled datasets only
+`GOA2018SS` qualifies (`nsex` `c(1, 2, 1)`), and single-species models are immune whatever their
+`nsex`. The live GOA multispecies assessment is in the affected configuration: its 2025 workbook
+has `nsex` `c(1, 2, 1)` and `R/02_fit_models.R` sets
+`M1_model = c("sex_age_invariant", "sex_specific", "sex_age_invariant")`, so species 1 and 3 are
+affected and species 2 is not. Of its three fits, the fixed-M single-species one runs
+`M1_model = 0` and is immune, the estimated-M single-species one is `phase = TRUE`, and the
+**headline multispecies fit is `phase = FALSE`** -- the setting under which `GOA2018SS` moved 10.5
+nats and 8.75% of species-1 SSB. Its own fit was **not** refitted; that was a deliberate decision,
+taken when this entry still said phasing made the point moot, which for the multispecies fit it
+does not. Whether its numbers move is **unmeasured**, and nothing above licenses an expectation
+either way: on the same data `M1_model = 2` moved by 5.7e-06 while `M1_model = 1` moved by 10.5
+nats, so it turns entirely on whether that surface has a nearby worse optimum.
+
+The same bare-comma pattern remains in the `log_M1_dev`, `M1_beta`, `M1_rho` and `M1_dev_log_sd`
+writes and is deliberately left alone: every one of those starts at 0, so averaging a padding cell
+into the level is exactly inert, and changing them would alter random-effect map structure for no
+numerical gain.
+# Rceattle 5.50.0
+
+## Bug fixes
+
+* **`log_M1` no longer carries a non-finite starting value.** The array is dimensioned to the
+  widest species -- `[nspp, max(nsex), max(nages)]` -- so a species with fewer sexes or ages
+  leaves padding cells, and the two fill paths disagreed about what went in them.
+  `build_params()` initialized at 1 but then read `1:max_age` from the `M1_base` row, which is
+  legitimately blank past that species' last age; `fit_mod(updateM1 = TRUE)` initialized at 0, so
+  every padding *sex* cell became `log(0) = -Inf`. Measured on `GOA2018SS` (`nsex` `c(1, 2, 1)`,
+  `nages` `c(10, 21, 12)`): 11 non-finite cells of 126 on the first path and **53 on the second**,
+  of which 42 were `-Inf`. On `BS2017SS` (`nages` `c(12, 12, 21)`) both paths left 18. Both now
+  read only the sexes and ages the species actually has, and both then run the same two fill
+  helpers, so they produce the same array. Padding does not stay at the initial 1: it mirrors
+  its own species' M1 (see below).
+* **One configuration goes from a NaN objective to a finite fit:
+  `fit_mod(updateM1 = TRUE)` with `M1_model >= 1` on a species set with ragged `nsex`.** Those
+  padding sex cells take a map index (`build_map_m1()` writes `[sp, , 1:nages_sp]`), so a `-Inf`
+  in them reached the AD tape and poisoned the objective. On `GOA2018SS`: `M1_model` 1, 2 and 3
+  all gave `NaN` and now give 891822.517895, 890929.683370 and 933405.044463. **Everything else
+  is unchanged**: all six golden blocks, and a cold `GOA2018SS` fit at `estimateMode = 3`
+  reproduces 919429.003511761 (`msmMode = 0`) and 942099.593383157 (`msmMode = 1`) to all fifteen
+  digits with `max|gradient|` unchanged, before and after. Golden blocks 2-6 are the strongest
+  check, because they *cold-build* `BS2017SS` at `estimateMode = 0` -- whose padding held 18 `NA`
+  cells -- and still reach their pinned objectives through a full optimization; block 1 alone does
+  not exercise the fill, since it warm-starts from reference `inits` that already carry the
+  non-finite cells.
+* **A missing `M1_base` row is now refused.** A `(species, sex)` the model has but `M1_base` does
+  not name kept the array's initial 1, i.e. a residual M of **1.0 per year** -- inside
+  `build_bounds()`'s `[log(0.001), log(2)]`, so nothing downstream caught it and the fit simply
+  ran with it. Deleting a species' row from `BS2017SS` previously built a model with
+  `M1_at_age = 1.0`, silently.
+* **Each padding cell now holds its own species' M1** rather than the array's initial 1. Nothing
+  reads the padding, but a parameter sharing a map level with one starts at the mean over that
+  level (`TMB:::updateMap()` is `tapply(..., mean)`), so a 1 there pulls an estimated M1 toward
+  1.0 per year. One helper does this for `build_params()` and the `updateM1` path, so the two
+  fills cannot drift -- that duplication is what produced the `array(1)` / `array(0)` divergence
+  in the first place. It runs after the linkage pass, so the padding mirrors whatever the real
+  cells hold once a linkage has supplied the level.
+* A non-finite `log_M1` starting value is also refused, naming the offending
+  `(species, sex, age)` cells. The check runs **after** the linkage initial-value pass, not at the
+  fill: an M1 linkage carrying an `init` for its intercept writes the level over every real age,
+  so a workbook may legitimately leave `M1_base` blank and let the linkage supply it. Checking at
+  the fill would refuse that, and did in an earlier draft.
+* **A workbook with a blank `M1_base` cell at a real age now warns and carries the last
+  supplied age forward**, where before the `NA` reached `MakeADFun()` -- `data_check()` has no
+  `M1_base` completeness check. One real example exists: `AI cod - Dev/Data/2024_AI_cod.xlsx` in
+  `Rceattle-models` gives `nages` 13 and fills only to `Age10`, so three real ages were `NA`.
+  Carrying forward is what the padding fill already does and the only value the workbook
+  implies; an earlier draft of this change *refused* instead, which would have stopped that
+  model fitting at all -- and, because `fit_mod()` builds a `build_params()` skeleton even on
+  the `inits` branch, would have taken `retrospective()`, `self_test()`, `refit_like()` and
+  `run_mse()` with it. The warning names the species, sex and ages, and says that under
+  `M1_model = 3` those ages are estimated from that start. Of 375 sibling workbooks (217 with
+  an `M1_base` sheet) that is the only one affected, and no bundled dataset is. `?build_M1`
+  states the requirement.
+* `fit_mod(updateM1 = TRUE)` keeps the species / sex / age dimnames on `log_M1`, so
+  `initial_params` is as readable on that path as on any other. With the fill now identical on
+  both paths, the labels were the only remaining difference.
+* Where a workbook populates `M1_base` *past* a species' last age, those padding cells are
+  **unchanged**, because the padding fill mirrors the species' own oldest real age and the
+  workbook already supplied that same value. On `GOA2018SS` that is nine cells for species 3,
+  whose row runs to age 21 against `nages` 12 at a constant 0.504911; they held
+  `log(0.504911)` before and hold it after. An earlier draft of this entry said they now carry
+  0, which described neither state. Nothing reads them in any case.
+
+Three adjacent M1 defects found during review are filed in `inst/dev/CLEANUP_BACKLOG.md` rather
+than fixed here, because each needs its own verification: the starting M1 is diluted toward 1.0
+per year under `M1_model >= 1` on a ragged-`nsex` set (`build_map_m1()` shares padding cells into
+a real map level and `TMB:::updateMap()` averages the level -- **+57%** on `GOA2018SS` pollock,
+and identical on 5.49.6, so pre-existing); `fit_mod(updateM1 = TRUE)` bypasses the bounds check
+entirely; and the linkage intercept-prior re-target reads `log_M1` without a clamp.
+
+# Rceattle 5.49.8
+
+## Internal
+
+* **`source-guards.yaml`'s per-block check could not see a namespaced `test_that(` block.**
+  `source_reading_blocks()` matched only the bare spelling, so **30 blocks across five** of its
+  own sixteen files were invisible to the one check that exists to catch a silently skipped
+  guard. Four are written entirely as `testthat::test_that(` -- `test-linkage-encode.R`,
+  `test-linkage-selectivity-apical.R`, `test-schema-jnll-rows.R`,
+  `test-schema-quantity-dictionary.R` -- and the fifth, `test-schema-cpp-dispatch.R`, mixes the
+  two: its sixth block is namespaced and reads `selectivity.hpp`, so that file's cover goes 4
+  to 5. (An earlier draft of this entry said 29 blocks across four files, having missed the mixed
+  file -- which is the one the job header cites as the motivating case.) Proven before fixing:
+  adding a `skip()` to a block in `test-schema-jnll-rows.R` left the job reporting "all passed",
+  exit 0.
+* **The job now refuses to run if the block regex parses nothing**, which is how that hole stayed
+  open: a stale pattern silently disables the per-block check for a whole file rather than
+  failing. Mutation-proven -- breaking the regex names all sixteen files and exits 1.
+* **The per-block coverage is printed per file (`blocks=`), because it is not uniform.** A block
+  is held to the strict rule -- asserted something, did not skip -- only when its own body matches
+  a discovery pattern. Three files read source through a top-level helper instead
+  (`test-likelihood-caal-afsc.R`, `test-schema-quantity-dictionary.R`, `test-vignette-api.R`), and
+  those blocks are now listed too, as `(+n via helper)`, under a weaker rule: running and
+  asserting nothing is a failure, skipping is not. It has to be weaker, because the job runs at
+  `NOT_CRAN=false` by design and a `skip_on_cran()` fit block in one of those files skips
+  legitimately.
+* **A target whose every block skipped is now a failure.** That is the hole the weaker rule would
+  otherwise leave, and it was demonstrated: a helper-read file with a `skip()` added to its last
+  running block passed the discovery check, passed the staleness guard, and the job printed "all
+  passed" -- because the no-per-block-cover list was reported and then left out of the `stop()`
+  condition. A file that asserts nothing has not exercised its source read, wherever the read
+  sits.
+* **A dead `INCIDENTAL_BLOCKS` exemption is now refused.** All three entries named block labels
+  that do not exist -- `test-likelihood-caal-afsc.R`'s blocks had been renamed -- so the
+  exemptions matched nothing while the job still printed "3 exempt blocks". The labels are
+  corrected and every entry must now resolve to a real block in a real target, or the job stops
+  and names it.
+* Both new conditions are mutation-proven, as the first fix was. Pointing one exemption at a
+  label nobody has exits 1 with "name no block that exists"; adding a `skip()` to both blocks of
+  `test-vignette-api.R` exits 1 with "test-vignette-api.R  (every block skipped)". The clean tree
+  exits 0. A file whose *every* block is allow-listed is exempt from the whole-file rule by
+  declaration -- that is `test-likelihood-caal-afsc.R`, whose three blocks all need a fit this
+  job deliberately does not build.
+
+This is the third instance of one pattern in as many days -- a guard measuring less than it
+claims -- and the second and third inside the machinery built to catch it. The first was the sixteen guards
+of 5.49.5; `inst/dev/TRAPS.md` has the class.
+
+# Rceattle 5.49.7
+
+## Internal
+
+* **`test-plot-smoke.R`'s last block tested 17 plotters by name, ran 15, and omitted 14 that
+  exist.** Two names were not exported functions -- `plot_catchresidual`, which no version of
+  this package has had, and `plot_sel_vs_mat` for `plot_selectivity_vs_maturity` -- and an
+  `if (!exists(fn)) next` skipped both silently while an `expect_gt(ran, 10L)` floor had slack
+  to spare. The list is now **derived from `getNamespaceExports()`** rather than written out, so
+  a plotter cannot be omitted by being forgotten. 31 exported, 4 excluded with a stated reason,
+  27 exercised.
+* **Every returned figure is now built, not just the first.** Several plotters return a *list* of
+  ggplots -- `plot_comp` alone returns 15, `plot_diet_comp` 9 -- and `inherits(p, "ggplot")` was
+  FALSE for those, so the `ggplot_build()` gate silently skipped them. It covered 16 figures of
+  49. A broken `plot_comp` panel passed; it now fails.
+* **The membership check reads the export list, not `exists()`.** `exists()` defaults to
+  `inherits = TRUE`, so it resolved anything reachable from the namespace -- including base
+  functions and non-function objects -- and un-exporting a plotter left the block green. That is
+  a hard-rule-1 regression the block is named for catching. It now fails.
+* `plot_m_at_age` and `plot_m2_at_age_prop` **refuse** on a `minage != 1` model, naming the real
+  age ranges, because both default to age 1. That is precisely the defect this block exists to
+  catch and neither was ever in the list; the refusal is now asserted rather than the plotters
+  skipped. `plot_form`'s Kinzey & Punt refusal is asserted the same way.
+* The counts of exported and excluded plotters are pinned, because deriving the list closes one
+  hole and opens another: an un-export would otherwise shrink the set silently, and a new plotter
+  would never be considered.
+
+# Rceattle 5.49.6
+
+## Documentation
+
+* **Removed bug history from comments**, per the standing rule that a comment states current
+  behaviour, units and the assessment reason -- never how the code used to be wrong.
+  Twenty-seven comment and roxygen blocks across `R/` and `src/TMB/` narrated a past defect or a
+  past version in the past tense; each now states what the code does, or states the counterfactual
+  that explains why a guard is written the way it is. The substantive ones: `.refit_converged()`'s
+  roxygen spent fourteen lines on a superseded test against `opt$Convergence_check`;
+  `build_map_catchability()` and `.fleets_with_index()` each described the wrong `Fleet_type`
+  keying they replaced; `fit_mod()`'s skeleton filter narrated the `MakeADFun` error a stale
+  `inits` name used to cause; `run_mse()`'s seeding comment explained what the old positional
+  keying broke; and `data_requirements_table.R` opened on how `data_check()` used to hard-code its
+  conditions.
+* **Two comments were false about current behaviour, not merely dated.**
+  `.rce_deprecate_warn()`'s roxygen said the deprecation warning "turns on in 5.13.0 by flipping
+  this to `TRUE`" -- it is still `FALSE` by default at 5.49.5, 36 minor versions later, so a reader
+  concluded warnings fire when they do not. It now documents the default and the option
+  (`Rceattle.warn_deprecated_args`) that turns them on. And the reference-point recruitment comment
+  in `ceattle.cpp` described in the past tense a condition that is *currently* broad on purpose;
+  it now says why narrowing it would leave `SB0` decaying, which is what HCR 5 and 6 read as the
+  depletion reference.
+* Where a rewrite would have dropped a fact about **current** behaviour, the fact was kept rather
+  than the history. `.refit_converged()` now names the string it tests and records that under
+  `getsd = FALSE` `Convergence_check` is still set, but only ever to one of two gradient verdicts,
+  neither of which is that string -- which is why a run that ended at a maximum gradient of 1e13
+  is kept. That branch still reads the field, so the fact is load-bearing.
+* `plot_indexresidual()` keeps **one** sentence of its sign-convention note: index residual
+  figures made before 5.9.0 are mirrored about zero relative to these. A reader comparing last
+  year's figure is the person at risk, and they are reading the help page, not `NEWS.md`. The
+  fuller account stays in the 5.9.0 entry.
+* Corrected two comments that compression had made **false**. Two in `osa_residuals()` said OSA
+  residuals work "with or without `fit_control(osa = TRUE)`" -- but `fit_control()` has no `osa`
+  argument and no `...`, so that call errors; it was removed as a breaking change in **4.6.0**.
+  They now say what is true: nothing has to be set at fit time, and any fit optimized at
+  `estimateMode < 3` will do, which the guards above them enforce. One in `run_mse()` claimed a
+  divergence "does not displace the assessments after it", which overstates incomplete common
+  random numbers; it is scoped to the random-number stream, which is what the year-keyed seeding
+  actually fixes.
+* Reflowed **six** roxygen lines that began with a stray comma (`R/0-rceattle_class.R`,
+  `R/0-tmb_helpers.R`, `R/6-fit_mod.R`, `R/7-plot_helpers.R`, `R/8-sim_mod.R`,
+  `R/9-self_test.R`). Three of the six are not `@noRd`, so the rendered help really did start a
+  line with a comma -- visible in the `fit_mod`, `dot-model_labels` and
+  `print.Rceattle_selftest` diffs.
+
+**Kept deliberately**, because the rule's exceptions apply: comments explaining why an older input
+path still executes are behaviour, not history -- a fit saved before 5.32.0 can still store a
+retired `srr_fun` code, `log_pop_scalar` from before 5.35.0 was shaped by age, and
+`log_catch_sd` / `log_index_sd` are still written as deprecated aliases by `rename_output()`. The
+`ceattle.cpp` section 16 change log is a change log. Literature citations are the specification.
+Comments on the accepted-and-ignored base-graphics plotting arguments must say they are ignored.
+Regression-test provenance stays in its test header block, which is where two of the deleted facts
+already live.
+
+**Three items went to `inst/dev/CLEANUP_BACKLOG.md` rather than being swept**, because none is
+safely history. A stranded `Fixme: denominator is zero somewhere. Log of negative number. Check
+suitability.` inside the `ceattle.cpp` change log, which change-log item 23 may have resolved but
+nothing says so, and which would be a silently-wrong M2 rather than a crash if it is live -- filed
+with the note that the marker is lowercase, so this file's own case-sensitive re-derive command
+does not count it. And **two separate** `LEGACY (scheduled removal: v4.5.0)` markers, still live:
+one on `M1_mult.sum()`, and one on the dynamic reference-point recruitment split, which feeds
+`SB0(sp, nyrs-1)` and so wants a deliberate decision rather than a sweep. These are two different
+paths, not one -- an earlier draft of the entry counted the grep hits and conflated them.
+
+# Rceattle 5.49.5
+
+## Internal
+
+* **The registry guards now run on every pull request with their result made fatal.** Sixteen test
+  files assert that two hand-synced copies of something agree -- a switch map against the `case`
+  labels in `ceattle.cpp`, the column schema against `R/data.R`, the `JnllRow` enum against its
+  two R-side partners, the HCR-2 threshold against the literal source of `run_mse()` -- by reading
+  `R/*.R` and `src/TMB/*.cpp` off disk. Where they ran before, precisely: under `R CMD check` they
+  resolve `../../R` and `../../src/TMB` relative to the `.Rcheck` test directory, where neither
+  exists, so each skips and a skip is not a failure; `test-coverage` *does* run them against the
+  real source but passes `stop_on_failure = FALSE` with nothing reading the result;
+  `deep-checks.yaml` runs them properly and fatally, but nightly. So the gap was never that they
+  never ran on a PR -- it is that their result was discarded, or arrived a day late.
+* New `source-guards.yaml` runs them on a plain source checkout, `pkgload::load_all()` without the
+  TMB build, in about five seconds of R. It fails on three conditions, because two of the three are
+  how a guard dies quietly: a guard failing, a guard returning no result rows, and a
+  source-reading **block** that skipped or asserted nothing.
+* **The measured-nothing check is per block, not per file**, and that distinction is the substance
+  of this change. Two earlier drafts checked per file -- first by a `skip_on_cran()` heuristic,
+  then by a per-file `passed > 0` floor -- and adversarial review demonstrated the identical hole
+  in both: most of these files hold several `test_that()` blocks, so one can be switched off while
+  its siblings keep the file's pass count high. Adding a `skip_on_cran()` is the likeliest
+  accidental edit in this repo (it is the idiom in 181 of 255 files), and doing it to the block
+  guarding the C++ dispatch map took 33 assertions dark with the job green.
+* **Three registry assertions were already dark and are now live.**
+  `test-schema-cpp-dispatch.R`'s not-yet-implemented inventory -- the pins that non-parametric
+  growth is still stubbed and that the Kinzey & Punt predation block has no live `msmMode` branch
+  -- sat behind a `skip_on_cran()` that existed only for the fixture half of the block. The block
+  is split: the static reads run always, the fixture half still skips. That file's assertion count
+  goes from 114 to 117.
+* The guard set is pinned **by name**, not by count. An earlier draft asserted `length() == 16`,
+  and a review showed that deleting a real guard while adding one decorative test that happens to
+  match a discovery pattern keeps the count at 16 and the job green; only 5 of the 16 are named
+  anywhere else, so 11 could have gone silently. The failure now names which guard left and which
+  arrived.
+* `NOT_CRAN=false` is set as **step-level** env, per `inst/dev/TRAPS.md`, and the script asserts
+  the value it actually received -- `setup-r-dependencies` writes `NOT_CRAN=true` to
+  `$GITHUB_ENV`, and with it set this job produces eight confusing failures with nothing naming
+  the cause.
+* Recorded two facts about the suite's self-reporting that the `deep-checks.yaml` header had stale
+  or missing: **181 of the 255** test files carry `skip_on_cran()` (it said 140 of 192), and **94
+  of those carry it at file level**, outside any `test_that()` -- which produces a zero-row result,
+  so such a file reports neither a pass nor a skip and disappears from the counts rather than
+  showing up as skipped.
+
+Note that adding the workflow makes the check appear on a pull request; making it *required* is a
+branch-protection setting, not something this repo holds as code.
+
+# Rceattle 5.49.4
+
+## Internal
+
+* **New guard: `test-schema-partial-match.R`.** `$` partial-matches on a list and on a data frame
+  silently, and three schema columns have exactly one longer sibling, so a `$` read of an absent
+  `Time_varying_sel`, `Time_varying_q` or `Sel_norm_bin` returns the *sd* or the *upper bin*
+  instead of NULL. The option that would warn, `warnPartialMatchDollar`, is off by default. The
+  new file turns it on locally -- not for the whole suite, where it fires inside readxl, dplyr and
+  TMB for names this package does not own -- filters warnings to names the schema or a data list
+  owns, and asserts `data_check()` makes no such read on eight bundled data sets. It carries a
+  positive control and floors so it cannot pass vacuously.
+* **Recorded why the existing `$` reads are safe, because it is not obvious and it is fragile.**
+  There are ~50 bare `$` reads of those three names against 2 `[[ ]]` reads, and none is reachable
+  with the column absent: `switch_check()` and `data_check()` reach the column through the dplyr
+  pronoun `.data$`, which *errors* on a missing column rather than partial-matching, so the
+  pipeline dies loudly first; where it does not, `switch_check()` has already supplied the column.
+  The protection is therefore a property of which accessor comes first. Rewriting a `.data$` read
+  as a bare `$` would remove the loud failure and expose the silent one. `CLAUDE.md` now says so,
+  and the new test pins the loudness.
+* Also pins the schema's silent-prefix set at exactly those three names, so a new column that
+  creates a fourth has to be acknowledged rather than merely added.
+
+# Rceattle 5.49.3
+
+## Documentation
+
+* **The developer guide now maps every file in `R/`, one row each.** It named 21 of 67 as files;
+  the rest were described nowhere a reader would find them, which is most of what someone has to
+  navigate to make a change. The new "Every file in `R/`, and what it does" section covers all 67,
+  grouped by purpose rather than number prefix, since the prefix tracks pipeline order only for
+  the `1-` to `6-` chain and the 31 files under `0-` are shared machinery.
+* **Added a reverse index, "I want to change X — where do I start?"** — fifteen rows, each naming
+  the entry point and what else usually has to change. Where a task has a recipe vignette the row
+  now says to read that first and labels itself orientation, because a four-file shortlist for a
+  job that touches twenty-one reads as the whole task.
+* **Named three dictionaries that are exported functions**, which is the cheapest way to learn what
+  a variable holds: `quantity_dictionary()` (quantity, meaning, units, dimensions),
+  `parameter_dictionary()` and `parameter_index()`. Also records that the quantities older scripts
+  call `NByage` and `biomassSSB` are now `N_at_age` and `ssb`.
+* **Glossed the vocabulary that defeats a reader**: that "the map" means the TMB estimated/fixed
+  mask while a "switch map" is a name-to-integer lookup, plus "deviates" and "apical".
+* Added `inst/dev/`, `data-raw/`, `tools/verify/` and `.claude/commands/` to the repository layout
+  table — all four are cited in the guide's prose and none was listed.
+
+## Bug fixes
+
+* **Corrected the selectivity dispatch name in three documents.** The developer guide, the
+  `adding-a-selectivity-form` article and `inst/dev/CONTRIBUTOR-EXPERIENCE.md` all told a reader to
+  add a `case` to `switch (sel_type)` in `selectivity.hpp`. There is no such switch: it is
+  `switch (sel_case)`, where `sel_case` is the `Selectivity` code unless form 13 sits under a
+  random walk, which rewrites it to `-13`. `test-schema-cpp-dispatch.R` has had this right all
+  along — it dispatches on `sel_case` with a comment saying so — so the code and its guard were
+  correct and only the documentation was wrong. Two of the three also cited a stale line number.
+* **Corrected "add a workbook column → nothing else".** `switch_check()` fills defaults through 23
+  hand-written calls, not a loop over the schema, so a column with a default needs a 24th;
+  `meta = TRUE` is the constructor default and `R/data.R`'s `@format` is pinned to the schema by
+  `test-schema-canonical.R`; and `meta_data_names.xlsx` is committed, regenerated by
+  `data-raw/regenerate_meta_xlsx.R`. The schema's `has_default` is wired for `fleet_control` only.
+* **Added selectivity code 15** (`DoubleNormalSS3`) to the TMB module table, which stopped at 13 and
+  so implied 15 was free. It is not; the next free code is 16.
+* Corrected the `0-column_schema.R` entry, which said its `doc` becomes the `?BS2017SS` field text.
+  That text is hand-maintained in `R/data.R` and only *asserted* to agree. Corrected the
+  McAllister–Ianelli attribution: the weight calculation is in `6-rename_output.R`, and
+  `6-reweight.R` iterates it. Corrected `0-parameter_index.R`, which is the general
+  parameter-to-coordinate map rather than a selectivity-specific one.
+
+## Internal
+
+* **Three guards on the guide, all mutation-tested**: one file-map row per file in `R/` with a
+  substantive description; every `R/` filename the guide names exists; and every C++ `switch (var)`
+  the guide quotes exists in `src/TMB/`. The last is new and is what would have caught the
+  `sel_type` error — the earlier guards checked filenames, and the filename was right.
+  Deliberately **not** checked: whether a description is correct. Word overlap against the named
+  file was tried and rejected, because the large files mention nearly every concept and 17 of 67
+  accurate rows scored higher against some other file than their own.
+* Regenerated `man/build_srr.Rd`, which had drifted from its roxygen in two passages: a new
+  paragraph distinguishing the `linkages` key `R_init` (a unitless log-scale multiplier on the
+  initial age structure) from the reported quantity `R_init` (equilibrium recruitment at F = Finit,
+  in thousands of fish), and a rewritten sentence in the starting-values section.
+
+# Rceattle 5.49.2
+
+## Internal
+
+No change to any fit. This release only deletes code that was already dead, so every objective,
+parameter and reported quantity is unchanged.
+
+* **Deleted `src/TMB/Dev/`** (`wham_v0.cpp` 2,715 lines, `caal.hpp`, `osa.hpp`, two CAAL simulation
+  scripts). It was never compiled: `src/TMB/compile.R` compiles the single translation unit
+  `ceattle.cpp`, neither `Makevars` descends into it, no `#include` names it, and
+  `.Rbuildignore` excluded it from the tarball. The now-dangling `^src/TMB/Dev$` line was removed
+  from `.Rbuildignore`.
+* **Deleted the commented-out Kinzey & Punt (2009) functional-response scaffolding** from
+  `build_params()`, `build_map_predation()`, `build_bounds()`, `set_phases()` and `plot_form()` —
+  171 lines of comments for six parameter blocks (`logH_1`, `logH_1a`, `logH_1b`, `logH_2`,
+  `logH_3`, `H_4`) that the TMB template does not declare and `data_check()` refuses
+  (`msmMode` 3-9). `build_map_predation()` goes from 101 lines to 35, of which 56 were one
+  commented block. `plot_form()` still exists and still errors, naming the modes that are
+  available; that error is behaviour and was kept. The starting values, bounds and the citation are
+  recorded in `inst/dev/REMOVED-kinzey-and-dev-cpp.md`, and the `/* */` blocks in `ceattle.cpp`
+  are deliberately left for a C++-side commit.
+* **Deleted `.save_par()`**, an unexported helper with no call site anywhere, whose docstring
+  described a contract ("calling `.save_par()` at the top of each plot function") that no plot
+  function honoured. Seven other helpers that looked unreferenced were checked and kept: all are
+  live -- two reached only from tests (`.is_timeout`, `.par_description`), one from a `data-raw/`
+  script and a test (`.rce_build_meta_data_df`), and four passed as function values rather than
+  called (`.okabe_ito_pal`, `.rce_sel_se`, `.depletion_reference_lines`, `.f_reference_lines`).
+* Renumbered the section comments left with gaps by the deletions (`build_params()` 3.3/3.4 to
+  3.2/3.3; `build_map_predation()` 4 to 2), and re-derived the `CLEANUP_BACKLOG.md` marker count,
+  which had drifted: 47 now, from 56 on 5.49.1.
 
 # Rceattle 5.49.1
 
