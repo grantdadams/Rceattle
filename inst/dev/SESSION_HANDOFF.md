@@ -5,8 +5,8 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**This branch is `merge/dsem-v5-main-5.49.1`: `main` 5.49.1 AND `dev` 5.52.0
-merged into the DSEM line, at `5.52.0.9001`.** Three merges, in this order:
+**This branch is `merge/dsem-v5-main-5.49.1`: `main` 5.49.1 AND `dev` 5.57.0
+merged into the DSEM line, at `5.57.0.9000`.** Three merges, in this order:
 `main` 5.49.1 (34 conflicts, ~40 hunks), then `dsem-v5-integration`'s five
 retrospective commits (3 conflicts, all docs), then `afsc/dev` 5.52.0
 (`4f494f60`, 4 conflicts). The branch name still says 5.49.1; it now holds more
@@ -107,50 +107,127 @@ branch, not because the state is current -- the first line below said `dev` was 
 (`source-guards.yaml`) and **#196** (bug history out of comments). **PR #197 is open**
 (`fix/m1-padding-finite`, 5.50.0), verified and rebased.
 
-**`source-guards.yaml` is new, and it is the thing a next session must know.** Sixteen test files
-assert that two hand-synced copies of something agree, by reading `R/*.R` and `src/TMB/*.cpp` off
-disk. Under `R CMD check` they resolve `../../R` against the `.Rcheck` test directory, which does
-not exist, so each skipped and the job was green. `test-coverage` DOES run them against the real
-source but discards failures (`stop_on_failure = FALSE`, nothing reads the result);
-`deep-checks` runs them properly but nightly. The new job runs them per PR and makes the result
-fatal.
+<!-- from the `dev` side of the merge -->
+
+**`dev` is at 5.54.3** (`433f02eb`). Nine PRs landed since 5.52.0 (#204 to #212); **seven**
+carried a version. #204 and #212 set none -- #212 is the last row below, with `--` in its version
+cell:
+
+| PR | version | what it fixed |
+|---|---|---|
+| #205 | 5.53.0 | `M1_re > 0` was silently inert under `M1_model` 3/4/5 -- **18 of the 42** `(M1_model, M1_re)` pairs refuse through a fit (`NEWS.md`'s figure; #208 then opened one arm, leaving 16), and the sd/rho hyperparameters are mapped off with their deviations |
+| #206 | 5.53.1 | `Time_varying_sel` / `Time_varying_q` had no schema default, so a bare `$` read partial-matched to the `_sd` column and handed back an sd as a mode; both now default to `"Off"` |
+| #207 | 5.53.2 | `M1_re > 0` on a fixed-numbers species (`estDynamics > 0`) is normalised to 0 with a message, restoring the invariant that jnll row 16 is exactly 0 when nothing is estimated |
+| #208 | 5.54.0 | implements the one arm asked for: `M1_model = 3` x `M1_re` 2/5, age-specific level plus year-varying deviations |
+| #209 | 5.54.1 | `retrospective()` inherits a fit's stored map by design, and now warns when a rebuild would differ, so the silent inconsistency is diagnosable |
+| #210 | 5.54.2 | the plotters' save path had **no** coverage; 29 of the 31 exported plotters are now pinned, and it exposed two filename defects |
+| #211 | 5.54.3 | `plot_comp()` and `plot_diet_comp2()` each drew one figure family at two looks; one look per function now, with a guard |
+| #212 | -- | `CLEANUP_BACKLOG.md` held three Tier 0 rows twice with divergent content, one copy asserting a number the other retracts |
+
+**The numbers a next session should not re-derive:**
+
+  * **Open Tier 0 rows: 10 under the strict rule, 20 counting every `**Open` variant.** Say which
+    rule you mean: `**Open**` matches 10 in-table rows, while `**Open, low**`, `**Open.**`,
+    `**Open, latent**` and the rest bring it to 20. Do NOT grep the whole file -- the section's own
+    prose line ("Rows marked **Open** were found across several reviews") is an 11th hit and is not
+    a row, which is how an earlier version of this paragraph reported 11.
+  * **`fit_mod(estimateMode = 3)` on `BS2017SS` costs 3.0 s**, and driving every exported plotter
+    once off it is 38 s. That is why `test-plot-save-paths.R` takes ~2.5 min: it writes 67 PNGs
+    at 300 dpi (see below).
+  * **29 of the 31 exported plotters write a file on the single-species fixture**, including every
+    diet plotter. Only `plot_form` (no `file` formal) and `plot_profile` (needs an
+    `Rceattle_profile`) do not. An earlier version of that test claimed the 19 it skipped needed
+    a multispecies fit or diet data; that was wrong for 18 of the 19. Driving all 29 writes **67**
+    PNGs, because `plot_comp` writes 15 and each diet plotter 9.
+  * **At least 215 call sites across the sibling repos pass `file =` to a plotter** (169
+    `Rceattle-models`, 34 `GOA-ATF-ESP`, 12 `GOA_circlulation_study`). That is a single-line regex
+    and so a FLOOR: a `file =` on a continuation line is invisible to it, and a parse-accurate
+    count is higher. **None** globs the result, but "a renamed figure errors nowhere" is too
+    strong: two Rmds hard-code figure names in `knitr::include_graphics()` -- `Rceattle-models/GOA
+    CEATTLE/Model runs/GOA_25/` and an older BSAI simulation Rmd, the latter already broken. And
+    the biggest exception is structural: `GOA-multispecies-assessment`
+    passes `file =` zero times and instead saves plotter RETURN values under its own names
+    (`R/07_figures_tables.R`), which its Rmd and `dev/verify_document_objects.R` do error on.
+
+**Two defects #210 found and deliberately did not fix**, both filed as Tier 0 rows, because
+changing a written filename is user-visible and the names want choosing rather than guessing:
+
+  * `plot_index()`'s suffix does not depend on `log`, so the natural-scale and the log-scale
+    survey index figure both write `<stem>_survey_indices.png` -- two figures, one file.
+    `plot_logindex()` forwards with `log = TRUE`, and `GOA-ATF-ESP/R/Run_2025_ceattle.R:274`
+    calls it with `file =`.
+  * `plot_diet_comp()` builds its name from `paste("Pred-", spnames[i])`, so it writes
+    `<stem>_aggregated_diet_comps_year1_Pred- Arrowtooth flounder_prey_Cod.png` -- spaces, and a
+    stray one after the dash. `plot_timeseries()` already sanitises a species name for its CSV
+    with `gsub("[^A-Za-z0-9]+", "_", ...)`; the diet plotters do not use it.
+
+**A measurement trap this file itself hit.** In a markdown table a cell separator is a pipe NOT
+preceded by a backslash. `CLEANUP_BACKLOG.md` carried `max|gradient|` unescaped in two rows, so
+GitHub split them into five cells against a three-column header and **discarded the last ~700
+characters** -- on the M1 row that hid the whole gradient half of a retraction and the paragraph
+naming the live GOA multispecies assessment. Counting raw pipes instead reports a third row
+broken when its two are already escaped. Both the review and the first fix got that wrong.
+
+**Traps the previous version of this file carried and a rewrite nearly lost.** Each is still live,
+verified 2026-10-08:
+
+  * **The installed Rceattle on this machine is 5.33.0**, against `dev` at 5.54.3 -- **21 minor
+    versions stale**. Only `GOA cod/Bridging`, `AI cod - Dev/Bridging` and
+    `SS3-bridge/attribute_gradient.R` use `pkgload::load_all()` on Rceattle; every other consumer
+    script calls `library(Rceattle)` and silently runs against 5.33.0. (`GOA
+    pollock/2025/00-fit-goa_pk.R` also calls `load_all()`, but on GOApollock, not here.) **Check `packageVersion("Rceattle")` before trusting any consumer result**, and
+    drive an `/ecosystem-sweep` through `load_all()`, not `library()`.
+  * **`Rceattle-models/SS3-bridge/HANDOFF.md`** is the only pointer to cod-bridge state and is
+    named nowhere else in `inst/dev/`.
+  * **WHAM's Dirichlet-multinomial theta is a different family** -- `alpha = p*exp(theta)` against
+    Rceattle's `N*p*exp(theta)` -- so a theta cross-walked between them errs by a factor that grows
+    with sample size.
+  * **The GOA cod script header's 9.9646 nats measured 11.254 at 5.48.0**, and the tree is now at
+    5.54.3, so neither figure is current. Keep them apart, and do not confuse the header's 9.9646
+    with the **9.96459** recorded elsewhere for the LLSrv index component -- they are different
+    quantities.
+  * **`\item{Observation}` is still missing from `R/data.R`** (grep: 0 hits).
+  * **`## After the release, in order` below is stale in its first item.** It says to make `golden`
+    robust "before anything below"; that shipped as **5.45.1** (PR #173, `NEWS.md`: "The golden
+    check no longer asks which local minimum the machine found"). The text this file lost was the
+    only record of that, so the instruction reads as outstanding when it is not.
+
+**`source-guards.yaml` is the per-PR guard job.** Seventeen test files assert that two hand-synced
+copies of something agree, by reading `R/*.R` and `src/TMB/*.cpp` off disk. Under `R CMD check`
+they resolve `../../R` against the `.Rcheck` test directory, which does not exist, so each
+skipped and the job was green. `test-coverage` DOES run them against the real source but discards
+failures (`stop_on_failure = FALSE`, nothing reads the result); `deep-checks` runs them properly
+but nightly. This job runs them per PR and makes the result fatal.
 
   * **Adding or removing a test that reads `R/*.R` or `src/TMB/*` means updating `EXPECTED` in
     `tools/ci/source-guards.R`**, which pins the set BY NAME so the diff says which guard moved.
-    A count would not: 11 of the 16 are named nowhere else and could be deleted silently.
-  * Its measured-nothing check is **per BLOCK**, not per file. Two earlier drafts checked per
-    file and adversarial review broke both, because most of these files hold several
-    `test_that()` blocks. See `TRAPS.md`, "The guards are not themselves guarded".
-  * It makes the check APPEAR on a PR; making it REQUIRED is a branch-protection setting this
-    repo does not hold as code. **Grant's call, and the one thing left to finish that work.**
+    A count would not: only 6 of the 17 are named in a vignette, so 11 could be deleted with
+    nothing a reader would miss.
+  * Its measured-nothing check is **per BLOCK**. A guard whose source read sits in a TOP-LEVEL
+    helper rather than in the block body falls under the weaker rule, where a skip is not a
+    failure. `test-plot-theme-consistency.R` was refactored into that state and back out of it,
+    so keep the `test_path()` call inside each block.
+  * **It cannot block a merge until branch protection requires it.** Still a maintainer call, and
+    still the one thing left to finish that work.
 
-**PR #197, `log_M1` padding.** `log_M1` is dimensioned to the widest species, so a species with
-fewer sexes or ages leaves padding cells, and the two fill paths disagreed: `build_params()` read
-`1:max_age` from an `M1_base` row that is legitimately blank past the species' last age
-(`log(NA)`); `fit_mod(updateM1 = TRUE)` initialized at 0 (`log(0) = -Inf`). 11 and 53 non-finite
-cells of 126 on `GOA2018SS`, 18 on `BS2017SS`; now 0, and both paths agree. No fit moves --
-all six golden blocks, cold `GOA2018SS` identical to fifteen digits in both `msmMode`, and
-`M1_model` 1/2/3 identical in objective and parameter count. It is a **latent** trap, not a live
-wrong number: every template reader is bounded by the species' own dimensions, so
-`CLEANUP_BACKLOG.md` filing this class as Tier 0 is the wrong tier for this one. Two traps worth
-carrying forward:
+**Where the plot tests run -- NOT a blanket skip, which an earlier version of this paragraph got
+wrong.** There are **15** `test-plot-*.R` files and only **6** carry a column-0
+`skip_on_cran()`. Those six are invisible on a PR, because `R-CMD-check.yaml` sets
+`NOT_CRAN: "false"` and a column-0 skip yields zero result rows; `deep-checks` is the only job
+where a failure in them is fatal, so run `test-plot-save-paths.R` by hand in any PR that changes a
+save path. Of the other nine, three skip SOME blocks
+(`test-plot-comp-aggregate.R`, `test-plot-selectivity-ci.R`,
+`test-plot-timeseries-wrappers.R`) and six run whole -- so six files skip entirely, three skip
+partly, six run. A failure in any of the nine IS fatal on a PR, and
+`test-plot-theme-consistency.R` is one of them, through the guard job.
 
-  * **Golden block 1 cannot verify a `log_M1` fill change.** It warm-starts from reference
-    `inits` that already carry the non-finite cells, so the fill is overridden. Blocks 2-6
-    cold-build `BS2017SS` and are the real evidence.
-  * **Under `M1_model >= 1` the padding sex cells are ESTIMATED, not inert.** `build_map_m1()`
-    writes `[sp, , 1:nages_sp]` -- a bare comma -- so they take a map index and join a shared
-    block.
+## Next, in the order I would take them
 
-**THE GOA MULTISPECIES ASSESSMENT IS IN A CONFIGURATION AFFECTED BY AN M1 MAP DEFECT.** Its 2025
-workbook has `nsex` `c(1, 2, 1)` and `R/02_fit_models.R` sets `M1_model =
-c("sex_age_invariant", "sex_specific", "sex_age_invariant")`, so species 1 (pollock) and 3 (cod)
-hit it and species 2 (ATF) does not. `build_map_m1()` put their padding sex cells in the same TMB
-map level as the real ones, and `TMB:::updateMap()` starts a shared parameter at the MEAN over its
-level, so the starting M was pulled toward 1.0 per year -- +57% and +41% against the `M1_base`
-inputs. On `GOA2018SS`, the same-shaped bundled dataset, that start made an UNPHASED
-optimizer converge to a different and worse point: objective 10.5 nats worse, M1 -26%, SSB at
-`endyr` 2018 **-8.75%**. Fixed on `fix/m1-map-padding-dilution` (5.51.0).
+The refactor plan's steps 1-6 are done: dead code deleted, the file->role table (67 of 67 `R/`
+files named in the developer guide, was 21), the partial-match net, the guard job, the
+`CLAUDE.md`/`CONTRIBUTING.md` split plus `AGENTS.md`, and one look per figure family. What remains
+in that plan is documentation, cosmetics, or a two-week decomposition -- and `CLEANUP_BACKLOG.md`
+says catch advice is wrong. So the order below is the backlog, not the plan.
 
 **Two numbers in an earlier version of this paragraph were wrong, and they were quoted onward.**
 It said terminal SSB **+16%** and that both runs passed the max-gradient criterion. The +16% read
@@ -586,6 +663,36 @@ optimizer explains neither. See the 5.45.1 NEWS entry and `TRAPS.md`.
 SS3 cod bridge: `initMode 6`, the SS3 growth / maturity / length-bin options,
 `Selectivity = "DoubleNormalSS3"` (code 15), length-based selectivity on the population bins,
 the initial equilibrium catch, and a per-fleet ageing error matrix.
+
+<!-- from the `dev` side of the merge -->
+
+1. **`// Input SB0 (if running in multi-species mode)` -- `msmMode = 0` with `estDynamics > 0`,
+   NARROWED rather than what the row first claimed.** Measured 2026-10-08: the F and
+   catch-advice half is **wrong** -- `proj_F = 0.0` is applied AFTER the HCR switch at both
+   template sites, and that gate is HCR- and msmMode-independent, so `F_spp` is 0 under every HCR.
+   The reported quantities are masked to NA by `rename_output()` (the 11 always-NA ones in 5.34.0,
+   `SB0`/`B0` and the depletions in 5.35.0), so no user reading a fit the normal way sees a
+   placeholder number. **What is left is real but smaller:** `ceattle.cpp` still accumulates
+   `SB0 += NByage0(...)` and `SBF += NByageF(...)` from placeholder recruitment, so a consumer
+   reading `fit$obj$report()` or `quantities` before `rename_output()` still gets those numbers.
+   Closing it means either overriding `NByage0`/`NByageF` in the template for a fixed-numbers
+   species, or deciding the R-side mask is the contract and documenting it where a direct-report
+   consumer reads. `/golden-check` is green either way -- no reference model sets
+   `estDynamics > 0`.
+2. **The two DoubleNormal rows, as one PR.** From the default starts the curve fits flat at 1.000
+   at every age (`GOApollock` fishery, static selectivity, phased: objective 3085.98 against
+   914.10 from `inits`), and DoubleNormal + `RandomWalkAscending` silently fits 220 parameters
+   instead of 316 with no message. A new user following `adding-a-selectivity-form.Rmd` hits
+   both, and `test-selectivity-double-normal.R` sets its own starts, which is why the suite does
+   not see the first one.
+3. **Whether the GOA multispecies assessment's own fit moves is still unmeasured**, and the
+   decision not to refit was taken while this file said phasing made it moot. It does not:
+   `R/02_fit_models.R:76` sets `phase = FALSE` on the headline multispecies fit. One fit, and the
+   highest information per hour in the repo. Maintainer call.
+4. **Branch protection for the guards job** (above). Maintainer call.
+5. **`CONTRIBUTOR-EXPERIENCE.md` item 0** -- one hour with the `Rceattle-models` and
+   `GOA-ATF-ESP` authors. That file still says item 0 "is still the one that should reorder the
+   rest", and steps 1-6 of the refactor plan were done without it.
 
 ## 5.49.0 review pass on PR #184 (2026-10-02/03)
 
@@ -1220,35 +1327,34 @@ older line.
 
 ## Resume here
 
-**PR #178, first.** Its head is `80e825d3` on `afsc`. CI was queued when this was written
-(2026-09-29); the runs for `c8ecff79` were cancelled by the `80e825d3` push, which is GitHub
-superseding a branch, not a failure. So:
+**`dev` is at 5.54.3 (`433f02eb`).** The repo holds **264** `test-*.R` files. Check `gh pr list`
+before assuming nothing is in flight -- several PRs were open when this was written.
 
-1. **Read CI on `80e825d3`**, and remember it does not cover golden.
-2. **Decide the two deferred items** before merge or after, as you prefer: the general
-   form/parameter check (`TODO-selectivity.md`, Open 3, needs an `/ecosystem-sweep`) and the
-   maturity axis question (`TODO-maturity.md`, Open 1).
-3. **`GOA2018SS` Cod maturity = 2.0** (`TODO-maturity.md`, Open 2) is the one to settle before it
-   is inherited by anything else. Do not change the data first: it moves both GOA golden
-   references.
-4. **The `man/` drift from PR #179** wants one commit, on `dev` rather than here.
+**Tier 0 item 1 is narrowed, not open as first written** -- read its row before picking it up.
+The working order is `CLEANUP_BACKLOG.md`'s own, and its first rule matters most here:
 
-**Then finish the release.** Grant is doing it in a session after this one, so this is where to
-start rather than `SIMPLIFY-LOG.md`.
+1. **Reproduce first, in a test that fails -- and NOT at `estimateMode = 3`.**
+   `tests/testthat/helpers-fixed-natage.R` builds a fixed-numbers fixture from a fit's `N_at_age`,
+   but `fixed_natage_build()` hardcodes `estimateMode = 3`, which leaves the reorganized
+   `forecast` at `0,0` and zeroes `proj_F` for EVERY species through the first clause of the same
+   gate. A measurement taken there shows F = 0 for the estimated species too and proves nothing
+   about the HCR. Use `estimateMode = 0` so `forecast` is `1,1`, and read `forecast` off
+   `obj$env$data`, never `fit$data_list`, which never carries it.
+2. **Expect `/golden-check` to be green either way** -- none of the four references sets
+   `estDynamics > 0`, so it measures nothing here. `tools/verify/verify-golden-cold-start.R` is
+   the harness to run for a starting-value or bounds change; neither covers this path.
+3. **Decide what the right number IS before changing one.** The row says equilibrium `SB0`/`SBF`
+   are built on placeholder recruitment while the projection correctly uses `NByageFixed`. For a
+   species whose numbers-at-age are input, what `SB0` *means* is a modelling question, not a
+   code question -- `TRAPS.md` already records that a reference point CEATTLE never estimated is
+   a number rather than a gap (`Ftarget`/`Flimit` = 1, `MSSB0` = 999 mt), and that under
+   `HCR = 0 & msmMode > 0` the depletions deliberately divide by last-projection-year biomass.
+   So ask rather than infer: refusing the configuration, reporting `NA`, and computing a
+   fixed-numbers equilibrium are three different answers with different consequences for advice.
 
-1. **Decide #161** -- renumber and include, or hold. It is code, not docs, and its bump is
-   stale (see the release sequence, step 1). Nothing else blocks the merge.
-2. **Merge PR #158.** As of 2026-09-25 it is `CLEAN` / `MERGEABLE`, and CI is green on all
-   five platforms -- Windows passed on both runs, which is worth noting given the intermittent
-   access violation. Re-check before merging; the branch has moved since.
-3. **Tag the merge commit with whatever `DESCRIPTION` reads then (5.45.0 today)**, bare, no `v`
-   prefix, then publish a GitHub Release from
-   it. **This is the step that has silently not happened five times** (5.29.0 through 5.33.0
-   are all untagged), so do not defer it or hand it on.
-4. **Run the canary** (release sequence, step 4). It 404s now and must return 200 after.
-5. **Dispatch `deep-checks` on `main`** and read `golden` against the 52.9 signature above
-   before concluding anything from it.
-6. **Then 5.45.1: make `golden` robust**, which gates the NOAA transfer.
+**Two items are maintainer calls and have been carried for several sessions** (items 3 and 4
+above): the GOA multispecies refit, whose "phasing makes it moot" justification has been
+retracted, and branch protection to make the guards job required.
 
 Two loose ends that are not release-blocking: commit the `GOA-ATF-ESP` pin change in that
 repo, and the `deep-checks` `suite` 5h timeout, which belongs with the 5.45.1 work.
@@ -1308,3 +1414,12 @@ Three of its four locked "chosen extras" landed by other routes — the `JnllRow
 cpp section index, and Doxygen `@file`/`@brief` blocks on the previously bare headers. Its one
 concrete leftover, splitting `R/0-build_srr_and_M.R`, is done in 5.14.0. Nothing of that plan is
 outstanding. Do not resume from the branch name or the handoff path; both are dead references.
+
+<!-- from the `dev` side of the merge -->
+
+**What NOT to pick up.** The refactor plan's remaining steps are deliberately deprioritised: the
+save-path unification (invisible to a user, no numeric exposure -- the net in
+`test-plot-save-paths.R` was worth building because it found two defects, but the refactor is
+not worth a cycle), and the `data_check()` decomposition, which needs
+`tools/verify/verify-data-check-conditions.R` run twice and diffed to prove its condition capture
+is deterministic before anyone commits two weeks to it.

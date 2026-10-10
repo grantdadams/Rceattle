@@ -14,8 +14,8 @@ version throughout.
 
 # Rceattle (development version)
 
-This section is the DSEM integration. Everything from 5.52.0 down is released
-history -- `main` through 5.49.1, then `dev`'s 5.50.0 to 5.52.0 -- merged in
+This section is the DSEM integration. Everything from 5.57.0 down is released
+history -- `main` through 5.49.1, then `dev`'s 5.50.0 to 5.57.0 -- merged in
 unchanged. The DSEM work has never been released on either line, so from its
 point of view this whole section is unreleased. The branch's own 5.23.0 notes
 are kept immediately below `main`'s 5.23.0, under a title that cannot be
@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.52.0.9001`, the released line this branch now
+number: `DESCRIPTION` reads `5.57.0.9000`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -381,6 +381,573 @@ numbered on the 5.23.0 line.
   arm and worked. The predicate is
   now a `pin_block()` defined once in the dispatching frame and reading
   `object$random_vars`, the same source `.rce_peel_map()` uses.
+# Rceattle 5.57.0
+
+## Behavior changes
+
+* **A selectivity or catchability linkage on fleets that share a block now estimates ONE
+  coefficient for the group, not one per fleet.** `beta_linkage` is a flat `PARAMETER_VECTOR` with
+  no fleet dimension, so `adjust_map_shared_params()` -- which reconciles 15 by-fleet slices onto
+  the group's donor -- could never reach it, and one design column on a shared group became one
+  **free** coefficient per member. Estimated separately the copies diverge, so fleets declared to
+  mirror each other fitted different selectivity, with no warning. This was the **default** path:
+  `by` defaults to `~ fleet` for `sel` and `q`, and omitting `fleet =` does not avoid it, because
+  that argument is a filter whose `NULL` default means every fleet. The shared-block spelling is an
+  explicit `by = NULL`.
+* Measured on `GOA2018SS` fleets 9 and 10 (`ATF_bottom_trawl` and its length-comp twin, sharing
+  both indices), a `~ cut(Year, 2)` block column on `inf_asc`, optimized:
+
+  | | coefficients | selectivity across the pair | objective |
+  |---|---|---|---|
+  | before | 2: -0.232615, -0.352109 | differs by **0.123** at its worst age | 12879.8748 |
+  | after | 1: -0.240043 | **identical** | 12879.9970 |
+
+  The objective rises by 0.1222 nats, the only direction one fewer free parameter can go.
+* **A saved fit still refits.** The linkage table is unchanged, so `inits$beta_linkage` still has
+  one entry per row; only the map collapses them. `TMB:::updateMap()` means the level, so the
+  shared coefficient starts at -0.292362 and converges to -0.240044 -- the same point a cold fit
+  reaches. So there is a back-compat path and this is a behaviour change, not a breaking one. What
+  moves is the answer: expect the objective and one fleet's selectivity to change on refit.
+* Reported by the GOA cod bridge session, which measured it on a real model: 47 selectivity block
+  columns became 59 linkage rows, copies diverging up to **20.89** on the log scale, with a
+  non-invertible Hessian and a fit ~33 nats below SS3's optimum on *fewer* declared parameters.
+  With the fix, the 18 paired `Srv`/`Srv_ae1` coefficients go to an exact match and exactly-flat
+  Hessian directions fall 9 to 5. (Its free-parameter counts, 344 to 328 against SS3's 330, are
+  specific to that session's uncommitted bridge configuration and are not package figures.)
+
+## Four configurations a mirrored block cannot honour are now refused
+
+One coefficient equalises a group's offsets only where every member has one. The base parameter is
+shared, but the offset it scales accumulates **per fleet** (`inf_offset(param, flt, sex, yr)`), so
+a row naming one member moves that member alone -- fitted, naming the lead alone leaves the pair
+0.265 apart and the follower alone 0.248. "Put it on the lead fleet" is therefore right only for a
+**prior**, which is re-targeted onto the shared base; every param code and the q offset write a
+per-fleet slot, the apical height included. `.stop_if_mirrored_block_linkage()` refuses:
+
+* **partial coverage** -- a `fleet =` filter naming some but not all members whose block is
+  estimated, with the missing fleets named. A member that cannot carry a row at all (q `Fixed`,
+  `Analytical`, absent; a selectivity form not wired for linkages) is not owed one.
+* **a random-effect linkage** -- each named fleet would get its own deviation series and its own
+  SD (84 slots in two sigma groups of 42, where a mirrored pair owes 42 and 1). These cannot be
+  tied: separate sigma groups would score the same deviations twice and fit two SDs to identical
+  data. Collapsing a block into one RE group is an encoder change and is not done here.
+* **two rows for one design column on one fleet** -- the offset is added once per row, so that
+  member moves `2 * beta * X` against the group's `beta * X`: one reported coefficient and two
+  curves, which no parameter count reveals.
+* **two specs disagreeing** on `link`, `bounds` or `init` -- the group would take one value by
+  table position. `est_phase` may differ: a held donor holds the whole group, which is how a
+  reference model that fixes some time blocks is reproduced.
+
+An **intercept** row is exempt from coverage and agreement: it re-targets the shared base and is
+pinned to `NA`, so it cannot diverge, and `.stop_if_shared_block()` already governs it.
+
+**Nothing shipping is refused.** Of 104 `linkage_spec()` call sites in the sibling repositories, 13
+declare a random-effect structure and the GOA pollock 2025 scripts do pass spec lists, so both
+shapes are live code -- but that workbook has no index group with two or more members whose block
+is estimated (its one shared group pairs a survey with an `Off` fleet). The SS3-bridged GOA Pacific
+cod bridge, which does share both indices across its `*_ae1` fleets, was run against this branch by
+the session that owns it: clean in three configurations, forward-pass objective **1912.2067** in
+all three, and the baseline console output byte-identical to the same run before these rules. That
+is a build and forward pass at `estimateMode = 3`, not a fit, and that model happens not to
+exercise the `Off`-member case; `GOA2018SS` `Selectivity_index` 1 is the fixture that does.
+
+## Bug fixes
+
+* **A prior on a catchability linkage is no longer counted once per fleet sharing the q block.**
+  The fixed-beta prior loop runs over every row with no lead gate, so with the coefficients tied a
+  prior named on two members was evaluated twice on the one they share -- halving its stated
+  variance, so a declared SD of 0.1 was enforced as 0.0707. Measured on a two-member q block with
+  `normal(0.4, 0.1)`: `jnll_comp["Linkage-table priors"]` 13.232707, i.e. two terms, with and
+  without the tie. `build_selectivity()` has refused the selectivity equivalent since 5.42.0; the
+  accepted spelling is a prior on one member and a plain row for the rest.
+* **The apical selectivity refusal no longer says the group inherits an offset placed on the
+  lead.** `apical_offset(flt, sex, yr)` is per fleet like every other slot, so it does not; the
+  message now points at naming the whole group or `by = NULL`.
+
+## Internal
+
+* `test-linkage-shared-block.R`: 13 blocks, 56 assertions, measured in three code states so the
+  file is known to discriminate -- 56 pass as shipped, **15 failures + 1 error** with the four
+  refusals removed, **27 failures + 1 error** with neither the tie nor the refusals.
+* `test-linkage-intercept-base-param.R` and `test-linkage-double-prior-guards.R` were failing on
+  the first version of this change and are green again. The intercept blocks now use an
+  intercept-only formula: `~ temp` also emits a slope, and a slope on one member of a mirrored
+  block is what this release refuses, so the covariate was incidental to what they test.
+* The block that asserted "the group shares one coefficient however the spec names it" was
+  asserting the wrong invariant and is replaced -- all three spellings give one coefficient, but
+  two of them fit *divergent* selectivity. A parameter count is not the invariant; identical
+  output is.
+# Rceattle 5.56.0
+
+## Behavior changes
+
+* **`Selectivity = "DoubleNormal"` fitted a flat curve from its default starting values, and now
+  fits a dome.** DoubleNormal reads the two shared `sel_inf` slots as a PEAK and a right-tail
+  floor, where the logistic family reads them as two inflections, so the shared defaults were
+  wrong for that reading: the peak started at 0 -- below the first age -- and the floor at 10 on
+  the **logit** scale, i.e. `plogis(10) = 0.99996`. The starting curve was therefore flat at ~1 at
+  every age, which leaves the ascending width with no gradient, so the optimizer had no descent
+  direction and stayed on that ridge.
+* Measured on the `GOApollock` fishery, static selectivity, phased, `inits = NULL`:
+
+  | starts | selectivity-at-age | objective | AIC |
+  |---|---|---|---|
+  | peak 0, floor logit 10 (old) | constant 0.999996 | 3085.98 | 6611.96 |
+  | peak 5.5, floor logit 0 (new) | 0.0024 .. 0.9815 .. 0.4407 | **914.10** | **2268.21** |
+  | `DoubleLogistic`, same defaults, for scale | a dome | 918.15 | 2276.31 |
+
+  **2171.88 nats**, and the fixed form now edges out the double logistic by 4.05. 914.1043 is the
+  same optimum a hand-tuned `inits` reached, so the derived starts find what someone previously
+  had to set by hand.
+* **The peak is derived, not chosen, and it is a BIN ORDINAL.** An age-based curve is evaluated at
+  `bin + 1` (`selectivity.hpp`), so the x-axis is `1 .. nages` and the mid-range is
+  `(nages + 1) / 2` -- 5.5 on a ten-age stock, and independent of `minage`. That is the same
+  expression the `DoubleNormalSS3` block already uses for the same slot. (Reading it as an absolute
+  age gives the same 5.5 at `minage = 1`, which every bundled dataset has, and 7.5 on a
+  `minage = 3` stock -- a milder version of the asymmetry this change removes.) A length-based
+  DoubleNormal keeps its length midpoint rather than being given a bin.
+* **The peak carries the fix; the floor does not.** With the peak at mid-range the fit reaches
+  914.1043 from a floor start of either 0 or 10; with the peak left at 0, a floor of 0 still fails
+  (2973.69, with the peak running to -859 -- `sel_inf` is unbounded). Logit 0 is kept because it is
+  the logistic's maximum-gradient point, not because `LogisticPM` uses 0 in the same slot: that
+  slot is a LOG there (age-1 log-selectivity) and a LOGIT here, which is the conflation
+  `.sel_inf_is_natural()` exists to prevent.
+* **The fitted right-tail floor is not identified**, and this change makes that the default outcome
+  for the form rather than introducing it. On the headline fit it lands near -17.8 with a standard
+  error in the thousands, and anywhere in `[-21.6, -10.4]` across multi-starts with the objective
+  unchanged to four decimal places; under `newtonsteps = 3` it moves again. `pdHess` is TRUE and
+  `convergence_diagnostics()` returns OK, because the conditioning check reads the correlation
+  matrix. `vignettes/articles/adding-a-selectivity-form.Rmd` documents this property of the form.
+* **Nothing shipping moves.** No bundled dataset sets `Selectivity = "DoubleNormal"` (all 12 use
+  codes 0-4 and 6), so none of the four golden references reaches this and `build_params()` output
+  is **bit-identical** between `dev` and this change on every element of its 49-element list for
+  `BS2017SS`, `BS2017MS`, `GOA2018SS` and `GOApollock`. Four scripts under
+  `Rceattle-models/GOA cod/Bridging/` do set the form, but inject their own `sel_inf` immediately
+  afterwards, and the live bridges have since moved to `DoubleNormalSS3` -- so they are inert for
+  that reason rather than for absence. `test-selectivity-double-normal.R` never saw this because it
+  supplies its own starts.
+* **Not a claim that the form is now the best choice.** The escape from the flat ridge generalises
+  -- improvements of 2171.9, 1970.9 and 5970.5 nats on the GOA pollock, Atka and GOA cod fisheries
+  -- but on Atka the dataset's own `NonParametric` still fits better (755.6 against 989.9), and on
+  GOA cod the DoubleNormal collapses to a degenerate corner (`sigma_desc` to 0, floor to 1, i.e. a
+  plain logistic) and returns convergence FAIL. The change makes the form fittable from its
+  defaults; it does not make it safe to choose.
+
+## Internal
+
+* `test-selectivity-double-normal-starts.R`: 4 blocks, 15 assertions, **8 of which fail without the
+  fix**. Three need no fit and so run on a pull request; only the fitted-curve block carries
+  `skip_on_cran()`. It asserts the starts, that **every other fleet's starts are untouched** (the
+  assertion that would catch a `which()` matching too widely, which is how a start change leaks
+  into a fit that never asked for it), that a length-based DoubleNormal keeps its length midpoint,
+  and that the fitted curve is a dome reaching 914.1043. The fit block asserts the *shape* of the
+  reported array before reading any value -- `sel` is not a reported quantity name (`sel_at_age`
+  is), and `all()` over a zero-length vector is `TRUE`, so an empty slice would otherwise satisfy
+  every check.
+
+# Rceattle 5.55.0
+
+## Breaking changes
+
+* **`Time_varying_sel = "RandomWalkAscending"` is refused on every selectivity form but
+  `DoubleLogistic`, because it was silently fitting a static curve everywhere else.** It walks the
+  ascending limb and holds the descending one fixed, and `build_map()` assigns its deviate indices
+  on `DoubleLogistic` alone. On the other parametric forms the combination fell through both arms of
+  that form's branch, so every deviate stayed mapped out and a static curve fitted where the
+  workbook asked for a walk, with no condition raised. The TEMPLATE does score the ascending
+  density for `Logistic` and `DoubleNormal` too (`flt_sel_type` 1, 3 and 8), so this is a
+  `build_map()` omission rather than a missing model -- which is why the fix is a refusal plus a
+  linkage route, not a claim that the model does not exist.
+* Measured on the GOA pollock fishery, switching only `Selectivity` and `Time_varying_sel`
+  (parameters / free selectivity deviates): `DoubleLogistic` 316 / 96, `DoubleNormal` **220 / 0**,
+  `Logistic` and `DescendingLogistic` **218 / 0** -- identical to `"Off"`. `LogisticPM`, `Hake`,
+  `NonParametric` and `NonParametricPM` also lack the arm but were already refused per form.
+* It was worse under `random_sel = TRUE`: the deviation sd is freed for any form that is not
+  `Fixed` whenever `Time_varying_sel` is `IID`, `AR1`, `RandomWalk` or `RandomWalkAscending`, so
+  `sel_dev_log_sd` became a free parameter scaling deviations that were all mapped out -- the
+  same stray-hyperparameter shape as `M1_re` under an unimplemented `M1_model` (5.53.0).
+* **Refused rather than implemented, because the same model is already reachable.** A
+  random-effect linkage on the ascending parameters -- `peak` and `sigma_asc` for `DoubleNormal`,
+  `inf_asc` and `slp_asc` for the logistic family, which alias the same slots the template scores
+  -- gives a time-varying ascending limb with the descending one fixed. `Time_varying_sel` on a
+  parametric form is itself soft-deprecated in favour of those linkages, so implementing mode 5 for
+  a second form would add a route into a mechanism already on its way out. The error prints the
+  `build_selectivity(linkages = ...)` call for the fleet's own form.
+* **`2DAR1` and `3DAR1` are exempt.** They estimate their deviate field for every bin and year
+  regardless of `Time_varying_sel`, and `build_map()` says so with a warning that the column is
+  ignored for them, so the combination was never static there.
+* **A minor bump rather than a major one**, because nothing shipping asked for it: of the 15
+  bundled datasets, 11 carry a `fleet_control` directly and only `GOA2018SS` and `GOApollock` set
+  `RandomWalkAscending`, both on the `DoubleLogistic` GOA pollock fishery; no script in the sibling
+  assessment repos sets it at all. Per `inst/RELEASE-CHECKLIST.md`, refusing a configuration that
+  never fitted the model it described is a minor bump.
+* The error names the fleet, the form and the alternative. `Time_varying_sel` on a parametric form
+  is separately soft-deprecated in favour of selectivity linkages, so this closes a hole in a
+  mechanism that is already on its way out rather than extending it.
+
+## Internal
+
+* `test-selectivity-random-walk-ascending-forms.R` pins the refusal, asserts the three refused
+  forms still accept `RandomWalk` and still free strictly more parameters than `"Off"` (the thing
+  the dropped combination failed to do), and derives from `R/3-build_map.R` that exactly one form
+  assigns `RandomWalkAscending` deviate indices -- so a new form added without that arm is caught
+  here rather than by a user. 3 blocks, 20 assertions; 6 of them fail without the refusal.
+  Registered in `tools/ci/source-guards.R`, whose set is now 18.
+* `AR1` is refused package-wide, so the `c("IID", "AR1", "RandomWalk")` membership tests in
+  `build_map()`'s selectivity branches name a value that can no longer arrive. Left alone here;
+  noted so the next reader does not take them as evidence AR1 is supported.
+
+# Rceattle 5.54.3
+
+## Bug fixes
+
+* **Two plotters drew one figure family at two different looks.** `plot_comp()` set
+  `theme_bw(base_size = 10)` on its Pearson residual bubbles and `theme_bw(base_size = 9)` on the
+  composition fit panels, and `plot_diet_comp2()` set `theme_bw()` on its line and bar fits
+  (cases 1-3) but `theme_classic()` on its bubble panels (case 4). Each function now uses one
+  look, resolved on the arm the rest of the package already agreed with: `plot_comp()` on
+  `base_size = 10`, because its bubbles are pinned to `plot.rceattle_osa()`'s size scale -- the
+  same residuals appear in both figures -- and `plot.rceattle_osa()` draws them at 10; `plot_diet_comp2()` on
+  `theme_classic()`, because its case-4 panels are the same observed / estimated / Pearson bubble
+  triptych `plot_diet_comp()` draws, and that function is `theme_classic()` throughout.
+* Figures only -- no likelihood, parameter or reported quantity moves. Measured with
+  `ggplot_build()`: the diet panels' data layer is **identical**, with 6 theme elements changing
+  (`panel.grid` off, `axis.line` on, plus `axis.text`, `axis.ticks`, `panel.border`,
+  `strip.background`); the composition fit panels scale their fonts 9 to 10 and, because ggplot2
+  4.x derives geom defaults from the theme, the shaded area's outline `linewidth` goes 0.409 to
+  0.455 -- though `comp_area_plot()` leaves `colour` at `NA`, so that outline is never drawn. The
+  explicit `linewidth`s on the fitted line and the zero line are unaffected.
+* `theme_classic()` leaves `panel.border` blank, so the three faceted diet panels are now
+  delimited by their strip boxes -- black at `linewidth` 1 -- rather than by a box around each
+  panel. `.rceattle_theme()` would supply that border, but it is not available here: it sets
+  `legend.title = element_blank()`, which would delete the "Source", "95% CI", "Prop." and
+  "Abs(Resid)" legend names the diet plotters set on every panel.
+
+## Internal
+
+* `test-plot-theme-consistency.R` asserts that no plotter in `R/7-*.R` draws one figure family at
+  two looks, pins which look each file's figures are drawn at, and records the three the package
+  uses -- `.rceattle_theme()` (`theme_classic` plus a panel border, no gridlines) for the
+  trajectory figures, `theme_bw(base_size = 10)` for the OSA and composition panels, and
+  `theme_classic()` for the diet family. It is **not** "residual diagnostics get gridlines":
+  `plot_indexresidual()` and `plot_profile()` draw residuals and profiles at `.rceattle_theme()`,
+  with none. Parsed from the call objects rather than the source lines, so a reformatted or
+  line-wrapped call cannot blind it, and a `theme(text = element_text(size = ...))` override
+  counts as a base size -- that is the easiest way to reintroduce the defect while leaving the
+  `theme_*()` call alone. What it asserts is one look per set of theme CALLS, not per figure:
+  `plot_comp()` and `plot_indexresidual(residual_type = "osa")` both delegate to
+  `plot.rceattle_osa()`, so one function can still render two looks by argument. Unifying the
+  three onto one theme would take the gridlines off every OSA and composition panel; nothing here
+  blocks that, but it is now a conscious change rather than a drift.
+* Registered in `tools/ci/source-guards.R`, so the guard job runs it against a real source
+  checkout with failures fatal. Three counts stated in that file are re-measured: the set is 17
+  files, not 16 (this change adds the 17th); **all** of them hold several `test_that()` blocks, 2
+  at the fewest and 14 at the most, where the file said 10 of 16; and 6 of the 17 are named in a
+  vignette, where it said 5 were named "anywhere else". The last two were wrong when written
+  rather than gone stale -- neither 10 nor 5 matches any reading of the file set at the commit
+  that introduced them.
+
+# Rceattle 5.54.2
+
+## Internal
+
+* **The plotters' save path had no test coverage at all.** No test passed a non-`NULL` `file =`
+  to any plotter -- the smoke test relies on the default -- and the string "png" appeared nowhere
+  under `tests/` or `tools/`. So the code that writes user-facing files was exercised by nothing.
+* `test-plot-save-paths.R` records what every plotter writes, keyed off the `file` prefix.
+  **The suffixes are measured, not derived**, and they are irregular: `plot_recruitment` writes
+  `_R_trajectory`, `plot_catch` `_fishery_catch`, `plot_mortality` `_mortality_at_age`,
+  `plot_data` `_data_plot`.
+* **29 of the 31 exported plotters write a file on the single-species `BS2017SS` fixture**, and
+  all 29 are now covered -- 25 that write one figure by exact filename, and `plot_comp` (15
+  files), `plot_diet_comp`, `plot_diet_comp1` and `plot_diet_comp2` (9 each) by file count and
+  naming pattern, since those names embed `spnames` from the dataset. Only `plot_form` (a stub
+  with no `file` formal) and `plot_profile` (needs an `Rceattle_profile`) write nothing, and both
+  are named as exclusions with a stale-entry check.
+* Covering them reaches all three implementations: `.save_ggplot()` (19 call sites),
+  `plot_comp()`'s own `save_png()` closure (1 definition, 3 uses) and the 5 inline
+  `ggplot2::ggsave()` calls in `R/7-plot_comp.R`, each with its own name and figure size. This is
+  the net a save-path unification needs first -- `ggplot_build()`, which `CLAUDE.md` names as the
+  net for a plotting change, never touches saving.
+* The filenames are an interface: **215 call sites across the sibling assessment repos pass
+  `file =` to a plotter** (169 in `Rceattle-models`, 34 in `GOA-ATF-ESP`, 12 in
+  `GOA_circlulation_study`). None globs the result, so a rename would not error anywhere -- it
+  would leave a differently-named figure.
+
+## Bug fixes
+
+* **`plot_index()` writes the same filename on both scales.** Its suffix is unconditional, so
+  `plot_index(fit, file = "p")` and `plot_index(fit, file = "p", log = TRUE)` both write
+  `p_survey_indices.png` -- two different figures, one file, whichever ran last. `plot_logindex()`
+  forwards with `log = TRUE`, and `GOA-ATF-ESP/R/Run_2025_ceattle.R:274` calls it with `file =`.
+  Recorded in `test-plot-save-paths.R` and in the Tier 0 backlog; not yet fixed, because changing
+  a written filename is a user-visible change and the two scales need names chosen deliberately.
+* **The diet plotters' filenames contain spaces.** `plot_diet_comp()` builds its name from
+  `paste("Pred-", spnames[i])`, so it writes
+  `p_aggregated_diet_comps_year1_Pred- Arrowtooth flounder_prey_Cod.png` -- a space after the
+  dash and the spaces inside each species name. `plot_timeseries()` already sanitises a species
+  name for its CSV with `gsub("[^A-Za-z0-9]+", "_", ...)`; the diet plotters do not use it.
+  Also recorded rather than fixed, for the same reason.
+
+# Rceattle 5.54.1
+
+## Bug fixes
+
+* **`retrospective()` now says when a fit's stored map no longer matches one built today.** Each
+  peel's hindcast is fitted with `object$map`, so the peels reproduce the parameterisation the
+  model was *originally* fitted with -- which is what Mohn's rho is a comparison against, and is
+  deliberate. The cost is that a later fix to how a map is built never reaches a saved fit, and
+  that within one peel the two passes disagree: the hindcast uses the stored map while the
+  forecast-catch refit calls `build_map()` afresh, so a peel can be fitted and reported under
+  different parameter counts.
+* Which map a peel uses is unchanged. The divergence is reported instead. The comparison rebuilds
+  from the **original** data and parameters, not the peel's, so a difference means the
+  map-building code has changed since the fit was saved rather than that the peel has fewer
+  years. Measured on a fresh fit: **49 map blocks compared, 0 differ**, so nothing built by
+  current code says anything.
+* The check is **hoisted above the per-peel closure** on purpose. A `warning()` raised inside a
+  `.parallel_lapply()` worker is discarded, and the default `cores` is `detectCores() - 6`, so
+  the parallel path is the one anyone actually runs -- a per-peel check would have been invisible
+  exactly where it matters. Verified at `cores = 1` and `cores = 2`.
+* `test-diagnostics-retro-map-divergence.R`: 3 blocks, 8 assertions, failing on the parent. One
+  block pins that a current fit is silent, one that a perturbed stored map is named, and one that
+  the warning survives the parallel path.
+
+# Rceattle 5.54.0
+
+## New features
+
+* **`M1_model = 3` can now estimate by-year M deviations** -- `M1_re` 2 (IID) or 5 (AR1 over
+  years). 5.53.0 refused it along with the rest of `M1_model` 3/4/5, because no arm wrote the
+  deviations; this is the one of those combinations that is well posed, and it is WHAM's
+  age-specific-mean M with `ar1_y` deviations.
+* A by-year deviation that is constant over ages is orthogonal to an age-specific time-constant
+  level apart from the mean, which the zero-mean random effect assigns to `log_M1`. Measured on
+  `GOA2018SS`: `log_M1` keeps its **64** age-specific parameters, **126** deviations are freed
+  (42 hindcast years x 3 species, shared across sexes), 3 standard deviations, and the deviations
+  form a Laplace random block of 126 rather than penalised fixed effects. Every deviation carries
+  gradient -- none is exactly zero, the smallest is 5.8 -- and moving one moves the objective.
+  Identifiability here is that argument plus those gradients; a simulation-recovery study would
+  be stronger and is not done.
+* Shared across sexes, like the other levels in that family: the template scores `num_re_sexes`
+  fields, which is 1 unless `M1_model == 2`, so one field is what `M1_model = 3` owes.
+* **The rest of the 5.53.0 refusals stand, and for stated reasons.** `M1_re` 1/4 and 3/6 vary by
+  AGE, and an age-varying deviation and an age-specific level enter the likelihood only as their
+  sum -- so the mode puts the deviations at zero and absorbs everything into `log_M1`. The
+  identifiable version of that model already exists as `M1_model = 1` with `M1_re = 4`.
+  `M1_model` 4 and 5 are in `.M1_DEPRECATED_MODELS` and the linkage grammar expresses the same
+  model as `linkage_spec(~ temp + (1 | Year))`.
+* The refusal reads **whether an arm fired**, not a list of supported pairs, so opening this one
+  legalised the combination with no second registry to update -- which is the whole reason that
+  design was chosen in 5.53.0.
+* `?build_M1`, `vignettes/model-options-and-functionality.Rmd` and
+  `vignettes/environmental-linkages-and-priors.Rmd` all said `3`, `4` and `5` have no deviation
+  block. Corrected in the same commit.
+* `test-mortality-m1-re-age-specific-year.R`: 3 blocks, 21 assertions, **2 failing on the
+  parent**. A third block pins that the by-age families and `M1_model` 4/5 stay refused, so
+  opening one of those later means deleting an assertion and saying why.
+* 5.53.0's `test-mortality-m1-re-unsupported.R` pinned the refused set and so **failed on this
+  change, correctly** -- that is what it is for. The set is now **16 of the 42 pairs**, measured
+  identically on a ragged-`nsex` and an all-one-sex dataset: `M1_model` 3 with `M1_re` 1, 3, 4 or
+  6, plus `M1_model` 4 and 5 with every family.
+
+# Rceattle 5.53.2
+
+## Bug fixes
+
+* **A species whose numbers-at-age are input scored an M random-effect density over a field it
+  does not estimate.** `build_map_fixed_natage()` maps an `estDynamics > 0` species' whole M1
+  random-effect block out -- `log_M1_dev`, `M1_dev_log_sd` and `M1_rho` -- after
+  `build_map_m1()` runs, so nothing of its M is estimated. But the template's density is gated on
+  `M1_re(sp)` alone, with no `estDynamics` test in any of the three `JNLL_M_RE` blocks, so it
+  still evaluated `N(0, exp(0))` over constant zeros and contributed `n * log(2*pi)/2`.
+* Measured end to end on `BS2017SS` (`nyrs_hind` 39) with species 1's numbers-at-age fixed,
+  `M1_model = 1`, `M1_re = 2`:
+
+  | | species 1 | 2 | 3 | objective |
+  |---|---|---|---|---|
+  | before | **35.838603** | 35.838603 | 35.838603 | 1333557.488469 |
+  | after | **0** | 35.838603 | 35.838603 | 1333521.649866 |
+
+  The difference is `35.838603` exactly -- `39 * log(2*pi)/2`. Species 2 and 3 keep theirs
+  because their deviations really are estimated; that is the density at the starting values, not
+  a degenerate constant.
+* It was a **constant**, so zero gradient and no parameter bias -- but it made the objective
+  incomparable with an `M1_re = 0` fit of the same model, and broke the invariant that the
+  "M random effects" jnll row is exactly 0 when nothing is estimated. An AIC or likelihood
+  comparison across `M1_re` settings on a model with a fixed-numbers species was reading that
+  offset as information.
+* `fit_mod()` now treats `M1_re` as 0 for such a species and warns, naming it -- the same style
+  as it already forces `M1_use_prior` to 0 when `M1_model` is 0. Nothing shipping is affected: no
+  bundled dataset ships a fixed-numbers species, and `estDynamics > 0` requires `NByageFixed`
+  data that none of them carries.
+* `test-mortality-m1-re-fixed-numbers.R`: 2 blocks, 6 assertions, **3 failing on the parent**. No
+  bundled dataset has a fixed-numbers species, so the fixture is built in the test from a normal
+  fit's `N_at_age` -- which is also the first fixed-numbers fixture in the suite.
+
+# Rceattle 5.53.1
+
+## Bug fixes
+
+* **`Time_varying_sel` and `Time_varying_q` now default to `"Off"`.** Neither had a schema
+  default, so an absent column was not filled -- and both are among the three `fleet_control`
+  names with **exactly one longer sibling**, the one shape where `$` partial-matches instead of
+  returning `NULL`. `switch_check()`'s conversion read `Time_varying_q` with a bare `$` and
+  **assigned the result back with `$<-`**, so an absent column became a present and wrong one: on
+  `GOA2018SS` it came out `0.05, 0.01, 0.05, Off, ...` where the real modes are
+  `RandomWalk, Off, RandomWalk, ...`. `fit_mod()` then refused with "Invalid `Time_varying_q`
+  specified for fleets", blaming the caller for a value they never set. `Time_varying_sel` failed
+  differently -- inside a `dplyr::mutate`, naming the expression rather than the column. An
+  absent column means no time variation, so it is now filled with `"Off"` and announced, and
+  such a model fits.
+* **The schema default for `Sel_norm_bin` was being silently defeated by the same mechanism, on
+  the line that exists to apply it.** `.rce_apply_default()` returns early when handed a non-NULL
+  value, and the call read the column with `$` -- so when `Sel_norm_bin` was absent it received
+  `Sel_norm_bin_upper` and the default never applied. Measured: with `Sel_norm_bin_upper` set to
+  7 and `Sel_norm_bin` dropped, `switch_check()` returned `7, 7, 7, ...` instead of `"Off"`.
+  `Sel_norm_bin` is an absolute age, so that is a different selectivity normalisation on every
+  fleet, which moves q and hence the advice. All three fills now read with `[[`.
+* **`rearrange_data()` reached a TMB input through the same partial match, and that one was a
+  wrong number rather than a wrong diagnosis.** It is exported and does not call
+  `switch_check()`, so no fill can protect it; its `.required_fc` guard did not list
+  `Sel_norm_bin`; and the bare `$` read returned `Sel_norm_bin_upper`. Measured on `GOA2018SS`
+  with `Sel_norm_bin = "Max"` and the upper column `"Off"`: dropping the short name made
+  `rearrange_data()` **succeed silently** with every fleet's `sel_norm_bin1` flipped from
+  **-99** (normalize by the maximum) to **-999** (do not normalize) -- a different selectivity
+  scaling, hence a different q and a different SSB. `Sel_norm_bin` is now in `.required_fc`, so
+  an absent column is refused by name with the guard's existing "Run switch_check() first"
+  message, and the read uses `[[` so the guard is not the only thing standing between a partial
+  match and the template.
+* **`Time_varying_q` doubles as the `env_data` column index** for a fleet whose `Catchability` is
+  `"Environmental"` or `"AR1"`, where `"Off"` is not a meaningful value -- so the column is
+  defaulted only when no fleet needs it as an index, and otherwise refused with a message naming
+  those fleets. Without that, the fill produced `"Off"` for such a fleet and the model died later
+  on `missing value where TRUE/FALSE needed`, which is less diagnosable than what it replaced.
+* The accessor **in the fill** is the load-bearing one for the `switch_check()` path; the ~50
+  bare `$` reads of these three names elsewhere in `R/` run after the column exists and are
+  unchanged. `CLAUDE.md` says not to sweep those, and this is not that sweep.
+* Nothing shipping changes: all 11 bundled datasets, all 183 sibling workbooks with a
+  `fleet_control` sheet (across the four consumer repos), the three `inst/extdata` workbooks and
+  `write_template()`'s output all carry the columns, so the default never fires for them.
+  Resolution with a column present is unchanged -- `RandomWalk, Off, RandomWalk, Off` on
+  `GOA2018SS`. Golden unchanged.
+* A default only fires on absence, so a workbook that *has* the column keeps its values. A model
+  built from a data list **missing** one will now differ from the pre-5.53.1 attempt, which
+  failed rather than fitting: on `GOA2018SS` minus `Time_varying_sel` the fit builds with 539
+  free parameters against the 621 of the complete workbook, because fleet 8's
+  `RandomWalkAscending` deviations are no longer requested.
+
+## Internal
+
+* `test-schema-partial-match.R` now pins the invariant that matters: an absent silent-prefix
+  column gets its **schema default**, not its sibling's values. For each of the three it marks
+  the sibling with a distinctive value, drops the short name, and requires the result to be the
+  default and not the marker -- which is what the old assertion could not see, because it checked
+  presence only and ran on `BS2017SS`, whose siblings are all `0`/`NA` and convert to a
+  plausible-looking all-`"Off"`. 7 blocks, 28 assertions; **4 fail on the parent** -- three for
+  the schema defaults, one for `rearrange_data()`.
+* A second block pins that a column which IS present keeps its own values, so the default cannot
+  start firing where it should not.
+
+# Rceattle 5.53.0
+
+## Breaking changes
+
+* **`M1_re > 0` with `M1_model` 3, 4 or 5 is refused.** Through `fit_mod()` that is **18 of the
+  42 `(M1_model, M1_re)` pairs** -- `M1_model` has six levels, 0 to 5 -- measured identically on
+  `GOA2018SS` (`nsex` `c(1, 2, 1)`) and `BS2017MS` (all one-sex). A stored fit built with one of
+  them stops refitting: `retrospective()`'s **forecast** refit, `self_test()`, `jitter()`,
+  `sim_mod()`, `project_no_f()` and `run_mse()`'s EM refits all rebuild the map through
+  `build_map()`, while `retrospective()`'s peels, `run_mse()`'s OM, `reweight()` and `profile()`
+  pass the stored map and do not. Rebuild with `M1_re = 0`, or with `M1_model` 0, 1 or 2 if the
+  time-varying M was the point.
+* **A stored `M1_model = 0` fit with `M1_re > 0` now fits a DIFFERENT model, silently.** It
+  previously produced constant M; it now estimates the deviations it asked for. On `BS2017SS`
+  with `build_M1(M1_re = "iid_year")` -- nothing else set, so the defaults -- the objective goes
+  from 1,537,143.80 to 995,573.78 and `log_M1_dev` from 0 free parameters to 117. Nothing warns,
+  because nothing is wrong: the old number came from the degenerate density below and was not a
+  meaningful likelihood. **An operational fit of that shape gave constant-M advice and will now
+  give time-varying-M advice** -- refit deliberately rather than by accident.
+* Calling the exported `build_map()` **directly** on a single-sex species with `M1_model = 2`
+  also refuses, for all six `M1_re`. `fit_mod()` never reaches it: it downgrades `M1_model` 2 to
+  1 for a single-sex species first, which is why the count through a fit is 18 and not more.
+
+## Bug fixes
+
+* **`M1_re > 0` asked for time-varying M and silently gave constant M wherever no random-effect
+  arm existed for the `M1_model`.** Every family in `build_map_m1()` nests its deviation writes
+  inside an `M1_model` test, so where none matched, `log_M1_dev` stayed entirely `NA` while
+  `M1_dev_log_sd` was freed anyway, outside that guard. `M1_model = 4` raised no condition at all,
+  and `M1_model = 0` is `build_M1()`'s default -- so the most likely call of all,
+  `build_M1(M1_re = "iid_year")` with nothing else set, was affected.
+* **The free standard deviation made the objective unbounded below.** `M1_dev_log_sd` has no entry
+  in `build_bounds()`, so it keeps the generic `[-Inf, Inf]`, and with every deviation mapped out
+  the density contributes `n * (log(2*pi)/2 + log sigma)` for an element count `n`. The gradient
+  is therefore exactly `n`: measured on `BS2017SS` the objective falls by `1755 * k` for
+  `log sigma = -k` and is already `-Inf` at `-500`. An AIC or likelihood comparison against the
+  constant-M model prefers the inert configuration by an arbitrary margin.
+* **The cost is per family, not one number.** `n` is the number of ages for `M1_re` 1/4, of
+  hindcast years for 2/5, and of age-year cells for 3/6. Measured on `BS2017SS` at the starting
+  `sigma = 1`, jnll row 16 ("M random effects"):
+
+  | `M1_re` | `n` | row 16 per species |
+  |---|---|---|
+  | 1 / 4 | `nages` | 11.03 / 11.03 / 19.30 |
+  | 2 / 5 | `nyrs_hind` | 35.84 each |
+  | 3 / 6 | `nages * nyrs_hind` | 430.06 / 430.06 / 752.61 |
+
+  `Rceattle-models/EBS pollock/2024/06-time-varying-M.R` records 56.06 nats, which is
+  `61 * log(2*pi)/2` -- the year family on a 61-year hindcast. That script worked around the
+  defect by telling the reader to avoid the combination; the package now handles it. Its comment
+  is now out of date and is a `/ecosystem-sweep` item.
+* **`M1_model = 0` keeps its deviations rather than being refused**, and this is the half of the
+  change that adds a capability. It holds `log_M1` at the input schedule, so there is no free
+  fixed effect for the deviations to be absorbed into. The template was already reading them:
+  `ceattle.cpp`'s assembly is `M1_at_age = exp(log_M1 + log_M1_dev + ...)` with **no `M1_model`
+  gate**, so only the map was withholding them. Measured at `M1_model = 0, M1_re = 2`: `log_M1`
+  free count **0**, 126 free deviations on `GOA2018SS` and 117 on `BS2017SS`, non-zero gradient,
+  and setting one deviation to 0.5 multiplies that cell's `M1_at_age` by exactly `exp(0.5)`. The
+  three family blocks now read `M1_model %in% c(0, 1)`; `M1_model` 0 and 1 give identical
+  free-deviation counts for every `M1_re`.
+* **A canonical `M1_re` or `M1_model` string now resolves to its integer code in
+  `switch_check()`.** The arms compare against integers -- `"iid_year" %in% c(2, 5)` is `FALSE` --
+  so a string mapped every deviation out with no message, for every `M1_model`. `build_M1()`
+  canonicalises its own arguments, but a list from `build_data()`, `combine_data_sets()`, the
+  deprecated `est_M1` alias or built by hand does not pass through it. (Not a workbook:
+  `read_data()` coerces every control row to numeric and the control schema has no `M1_model` or
+  `M1_re` row, so neither field survives a `write_data()` round trip -- an earlier draft of this
+  entry said otherwise.) Measured: `M1_re = "iid_year"` goes from 0 free deviations to 2688 on
+  `GOA2018SS`; `"none"` stays exactly empty, which matters because `"none" > 0` is `TRUE`
+  lexicographically.
+* Both switches go through **`.map_switch()`**, the resolver every other per-species switch in
+  `switch_check()` uses, rather than `build_M1()`'s stricter `.coerce_M1_arg()`. The strict one
+  refused a factor, a numeric-looking `"1"` and an `NA` -- shapes that worked before and that
+  `test-switches-map-switch-factor.R` exists to support, since
+  `read.csv(stringsAsFactors = TRUE)` produces them.
+* **A fixed-numbers species is not refused.** `build_map_fixed_natage()` maps an
+  `estDynamics > 0` species' `log_M1_dev`, `M1_dev_log_sd` and `M1_rho` out *after*
+  `build_map_m1()` runs, so the free sd cannot arise there and refusing would reject a correct
+  model -- a fixed-numbers predator is the common multispecies setup.
+* **The four random-effect families now agree on the two-sex requirement.** `M1_re` 1/4's
+  `M1_model == 2` arm lacked the `nsex_sp == 2 &` guard that 2/5 and 3/6 carry, so a single-sex
+  species took deviations in its **padding** sex slot: free, Laplace-integrated, scored by no
+  density (which loops `sex < num_re_sexes`, 1 there) and read by no cell (`M1_at_age` loops
+  `sex < nsex(sp)`). 22 exactly-zero-gradient rows in the inner Hessian on `GOA2018SS`,
+  unreachable through `fit_mod()` because of its 2-to-1 downgrade.
+* The refusal reads **whether an arm actually fired**, not a restated list of supported pairs, so
+  opening an arm legalises its combination with no second registry. It is `&&` rather than `&`
+  because the right-hand side subscripts `log_M1_dev` and `build_map()` is exported, and it names
+  the `M1_model` -- sex only where sex is the reason.
+* Which of the 18 to implement is a modelling question, not a default to invent. `M1_model = 3`
+  with `M1_re` 1/4 is **not identifiable**: the age-specific fixed effect and an age-varying
+  deviation enter the likelihood only as their sum, so the mode puts the deviations at zero and
+  absorbs everything into `log_M1`; that model already exists as `M1_model = 1, M1_re = 4`.
+  `M1_model` 4 and 5 are `.M1_DEPRECATED_MODELS`, and the linkage grammar expresses deviations
+  around an environmental prediction as `linkage_spec(~ temp + (1 | Year))`. `M1_model = 3` with
+  `M1_re` 2/5 is well posed and left open deliberately.
+* `test-mortality-m1-re-unsupported.R`: 10 blocks, 86 assertions. No golden reference moves: all
+  four run `M1_model = 0` **and `M1_re = 0`**, where no family block executes and jnll row 16 is
+  exactly 0 in every column.
 
 # Rceattle 5.52.0
 
@@ -698,9 +1265,9 @@ of 5.49.5; `inst/dev/TRAPS.md` has the class.
 
 * **Removed bug history from comments**, per the standing rule that a comment states current
   behaviour, units and the assessment reason -- never how the code used to be wrong.
-  Twenty-seven comment and roxygen blocks across `R/` and `src/TMB/` narrated a past defect or a
-  past version in the past tense; each now states what the code does, or states the counterfactual
-  that explains why a guard is written the way it is. The substantive ones: `.refit_converged()`'s
+  Thirty-three comment and roxygen hunks, across 18 files under `R/` and `src/TMB/`; about twelve
+  narrated a past defect or a past version in the past tense, and each now states what the code
+  does, or states the counterfactual that explains why a guard is written the way it is. The substantive ones: `.refit_converged()`'s
   roxygen spent fourteen lines on a superseded test against `opt$Convergence_check`;
   `build_map_catchability()` and `.fleets_with_index()` each described the wrong `Fleet_type`
   keying they replaced; `fit_mod()`'s skeleton filter narrated the `MakeADFun` error a stale
@@ -724,7 +1291,7 @@ of 5.49.5; `inst/dev/TRAPS.md` has the class.
   figures made before 5.9.0 are mirrored about zero relative to these. A reader comparing last
   year's figure is the person at risk, and they are reading the help page, not `NEWS.md`. The
   fuller account stays in the 5.9.0 entry.
-* Corrected two comments that compression had made **false**. Two in `osa_residuals()` said OSA
+* Corrected three comments that compression had made **false**. Two in `osa_residuals()` said OSA
   residuals work "with or without `fit_control(osa = TRUE)`" -- but `fit_control()` has no `osa`
   argument and no `...`, so that call errors; it was removed as a breaking change in **4.6.0**.
   They now say what is true: nothing has to be set at fit time, and any fit optimized at

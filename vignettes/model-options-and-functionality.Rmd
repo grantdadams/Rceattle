@@ -193,7 +193,7 @@ a deviation where it defines a density for it:
 
 | Selectivity | Modes accepted |
 |---|---|
-| `Logistic`, `DoubleLogistic`, `DescendingLogistic`, `DoubleNormal` | `Off`, `IID`, `Block`, `RandomWalk`; `RandomWalkAscending` on `DoubleLogistic` and `DoubleNormal` |
+| `Logistic`, `DoubleLogistic`, `DescendingLogistic`, `DoubleNormal` | `Off`, `IID`, `Block`, `RandomWalk`; `RandomWalkAscending` on `DoubleLogistic` only -- it walks the ascending limb and only that form's map frees those deviates. For the same model on another form, link its ascending parameters instead (`peak` / `sigma_asc` for `DoubleNormal`, `inf_asc` / `slp_asc` for the logistic family) with `~ rw(1 | Year)` |
 | `NonParametric` | `Off`, `IID`, `RandomWalk` |
 | `NonParametricPM` | `Off`, `RandomWalk`, its deviates *are* the walk increments, so `IID` would describe a different curve than the model builds |
 | `NonParametricIntegrable` | `Off`, `IID`, `RandomWalk`: the base curve holds the shape penalties and the deviations have a proper density, so `random_sel = TRUE` integrates them. `Off` estimates no deviations |
@@ -674,6 +674,18 @@ via `build_M1()`. See `?build_M1` for options and
 | `5` | `"ar1_year"`| AR(1) by year, constant over ages |
 | `6` | `"ar1_age_year"` | 2D AR(1) over both year and age |
 
+`M1_re > 0` requires an `M1_model` of `0`, `1` or `2`, or `3` with a
+by-year family (`2` or `5`). Under `M1_model = 0` the input schedule is
+held fixed and the deviations carry all of M's variation, which makes
+them the most identifiable of any level. Under `M1_model = 3` only a
+by-year deviation stays identifiable: an age-varying one (`1`, `3`, `4`,
+`6`) and the age-specific level enter the likelihood only as their sum,
+and `M1_model = 1` with `M1_re = 4` is the identifiable version of that
+model. `M1_model` `4` and `5` are refused for every family -- a request
+there would silently give constant M, and the linkage grammar expresses
+the same
+model as `linkage_spec(~ temp + (1 | Year))`.
+
 Variance and correlation parameters are species-specific but
 sex-invariant. `M1_dev_log_sd` is the AR(1) **innovation** standard deviation,
 the marginal is `sigma / sqrt(1 - rho^2)`, as in WHAM. (The linkage grammar uses
@@ -786,11 +798,19 @@ quantity they show: `plot_biomass`, `plot_ssb`, `plot_recruitment`,
 model or a list of models with `model_names`.
 
 These are built with **ggplot2** (colorblind-safe Okabe-Ito palette for
-discrete series, viridis for continuous ones, `theme_classic`) and **return
+discrete series, viridis for continuous ones; `theme_classic` with a panel
+border for the trajectory figures, `theme_bw` for the OSA and composition
+panels) and **return
 the `ggplot` object**, so they print when called interactively and can be
 further customized by adding ggplot2 layers
 (e.g. `plot_biomass(fit) + ggplot2::ggtitle("My title")`). Pass `file = "stem"`
-to also write the figure to `stem_<plot>.png`.
+to also write the figure to a PNG. The suffix is per-plotter and not derived
+from the function name -- `plot_recruitment()` writes `stem_R_trajectory.png`,
+`plot_catch()` `stem_fishery_catch.png`, `plot_data()` `stem_data_plot.png` --
+and the per-fleet plotters write one file each: `plot_comp()` writes
+`stem_comp_pearson.png` plus `stem_comp_annual_fleet<N>_<age|length>.png` and
+`stem_comp_aggregated_fleet<N>_<age|length>.png`.
+`tests/testthat/test-plot-save-paths.R` records every name.
 
 **Shared arguments.** The timeseries plotters (`plot_biomass`, `plot_ssb`,
 `plot_recruitment`, the depletions, `plot_exploitable_biomass`, `plot_f`), the
