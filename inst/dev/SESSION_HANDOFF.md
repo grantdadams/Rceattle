@@ -33,6 +33,17 @@ forced-clean rebuild. #230: R-CMD-check back to the baseline, **4 `Status: OK` +
 entered. `test-growth-*` is the only net. It was run and was green; it just measures something
 else.
 
+**#233 is open (5.59.0), reviewed and verified, not merged.** `run_mse()` no longer extends
+`NByageFixed` into the projection: numbers-at-age under `estDynamics > 0` are an input, so holding
+the terminal hindcast year invented data and pinned that species flat for the whole MSE. The
+expansion was also dropping all but the FIRST species -- on `GOA2018SS` (4 groups, 32 projection
+years) it built 128 rows and kept 32. **The backlog row's own proposed fix was wrong**, and so was
+a first implementation that routed the block through `.mse_expand_fixed_input()`: both repair the
+indexing and leave the expansion, and the expansion is the defect. A species whose input stops
+short now warns (Grant's call over a refusal), naming it and saying those years read 0 and so
+contribute no biomass, catch or predation. 155 MSE assertions, 0 skips. **No MSE that runs today
+is affected** -- no `run_mse()` caller anywhere sets `estDynamics`.
+
 **#228 is open and belongs to another session** (`docs/comment-sweep-2`, 73 files): dead Kinzey C++
 plus a comment sweep, renumbered to 5.58.1. Don't resolve it; it has an owner. Its worktree is
 under a different session id, and the git author matches this repo's others because every session
