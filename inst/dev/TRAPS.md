@@ -8,27 +8,29 @@ Verified against source, 2026-08.
 
 ## Build and test
 
-**A header-only edit under `src/TMB/` does NOT trigger a rebuild, so it is verified against the
-OLD binary.** `TMB::compile()` compares `ceattle.o` against `ceattle.cpp`, and `src/TMB/compile.R`
-declares no header dependencies — so editing `growth.hpp`, `selectivity.hpp`, `linkage.hpp` or any
-other header and running `pkgload::load_all(".")` reports success and loads the previous DLL.
-Measured while fixing the growth anchor test: `growth.hpp` at 21:18:18 against a `ceattle.o` of
-21:02:45, and `load_all()` printed nothing amiss. **It silently voids a before/after comparison**:
-a revert-and-retest of a header change ran the same binary twice and showed "no difference", which
-reads as "the test does not discriminate" when the test was never given the reverted code.
-**Delete `src/TMB/ceattle.o`, `src/TMB/ceattle.so`, `src/ceattle.so` and `src/Rceattle.so` before
-rebuilding, and check the `.o` mtime is newer than the header you edited.**
+**A header-only edit under `src/TMB/` can leave `pkgload::load_all(".")` loading the OLD binary,
+with nothing printed amiss.** Observed twice: a one-line `selectivity.hpp` fix left the defect it
+fixed still reproducing until `ceattle.cpp` was touched, and `growth.hpp` edited at 21:18:18 ran
+against a `ceattle.o` of 21:02:45. **It silently voids a before/after comparison** — a
+revert-and-retest ran the same binary twice and showed "no difference", which reads as a test that
+does not discriminate when the test was never given the reverted code. Anything measured after a
+header-only edit is suspect until the rebuild is confirmed.
 
-**Editing only a `.hpp` does not rebuild the model.** `TMB::compile()` decides from
-`ceattle.cpp` alone and tracks no header dependency, so a change confined to
-`selectivity.hpp`, `growth.hpp`, `predation.hpp` or any other header leaves the old
-`src/TMB/ceattle.o` in place. `load_all()` then reports success and you go on testing the
-**previous** model. Measured: a one-line fix in `selectivity.hpp` left the defect it fixed
-still reproducing, twice, until `ceattle.cpp` was touched. Deleting the `.o` is not enough
-either — `touch src/TMB/ceattle.cpp` before `load_all()`, and treat a rebuild that finishes in
-seconds as proof nothing was compiled (a real one is ~60–140 s). Anything measured after a
-header-only edit — a test run, a golden number, a bridge comparison — is suspect until the
-rebuild is confirmed.
+**The recipe: delete `src/TMB/ceattle.o`, `src/TMB/ceattle.so`, `src/ceattle.so` and
+`src/Rceattle.so`, then check the `ceattle.o` mtime is newer than the header.** That is what
+`src/Makevars`' own `clean:` removes, and a missing `.o` is always remade. Verified on the growth
+anchor gate (5.57.3): one test file went 10 failures to 0 across two forced rebuilds, each `.o`
+about a minute newer than the header, with no `touch` of `ceattle.cpp`. Treat a rebuild that
+finishes in seconds as proof nothing compiled — a real one is ~60–140 s.
+
+**Check the `.o`, never an `.so`.** `src/TMB/compile.R` copies `ceattle.so` up to `../`
+unconditionally, so `src/ceattle.so` gets a fresh mtime whether or not anything was compiled.
+
+**Why it happens at all is not established**, so do not reason from a mechanism. `TMB::compile()`
+holds no mtime logic and `src/TMB/compile.R` declares no header dependencies, which would explain
+it — but on pkgbuild 1.4.8 `pkgbuild:::headers()` globs `\\.h.*$` recursively and so does see
+`src/TMB/*.hpp`, which should make `needs_clean()` true and force `--preclean`. Both observations
+above are real; the chain between them is not understood. Run the recipe regardless.
 
 **Dev builds are `-O2`, not pkgbuild's `-O0`.** The repo `.Rprofile` sets
 `options(pkg.build_extra_flags = FALSE)`, so `load_all()` compiles the TMB model with the same
