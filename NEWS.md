@@ -12,7 +12,7 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
-# Rceattle 5.55.1
+# Rceattle 5.57.1
 
 ## Documentation
 
@@ -141,6 +141,169 @@ version throughout.
   disagrees with its sibling branches at `minage >= 2`. Both are unreachable in
   anything shipping -- every bundled dataset and live assessment uses `minage`
   0 or 1, and no live model carries multi-group fixed numbers.
+# Rceattle 5.57.0
+
+## Behavior changes
+
+* **A selectivity or catchability linkage on fleets that share a block now estimates ONE
+  coefficient for the group, not one per fleet.** `beta_linkage` is a flat `PARAMETER_VECTOR` with
+  no fleet dimension, so `adjust_map_shared_params()` -- which reconciles 15 by-fleet slices onto
+  the group's donor -- could never reach it, and one design column on a shared group became one
+  **free** coefficient per member. Estimated separately the copies diverge, so fleets declared to
+  mirror each other fitted different selectivity, with no warning. This was the **default** path:
+  `by` defaults to `~ fleet` for `sel` and `q`, and omitting `fleet =` does not avoid it, because
+  that argument is a filter whose `NULL` default means every fleet. The shared-block spelling is an
+  explicit `by = NULL`.
+* Measured on `GOA2018SS` fleets 9 and 10 (`ATF_bottom_trawl` and its length-comp twin, sharing
+  both indices), a `~ cut(Year, 2)` block column on `inf_asc`, optimized:
+
+  | | coefficients | selectivity across the pair | objective |
+  |---|---|---|---|
+  | before | 2: -0.232615, -0.352109 | differs by **0.123** at its worst age | 12879.8748 |
+  | after | 1: -0.240043 | **identical** | 12879.9970 |
+
+  The objective rises by 0.1222 nats, the only direction one fewer free parameter can go.
+* **A saved fit still refits.** The linkage table is unchanged, so `inits$beta_linkage` still has
+  one entry per row; only the map collapses them. `TMB:::updateMap()` means the level, so the
+  shared coefficient starts at -0.292362 and converges to -0.240044 -- the same point a cold fit
+  reaches. So there is a back-compat path and this is a behaviour change, not a breaking one. What
+  moves is the answer: expect the objective and one fleet's selectivity to change on refit.
+* Reported by the GOA cod bridge session, which measured it on a real model: 47 selectivity block
+  columns became 59 linkage rows, copies diverging up to **20.89** on the log scale, with a
+  non-invertible Hessian and a fit ~33 nats below SS3's optimum on *fewer* declared parameters.
+  With the fix, the 18 paired `Srv`/`Srv_ae1` coefficients go to an exact match and exactly-flat
+  Hessian directions fall 9 to 5. (Its free-parameter counts, 344 to 328 against SS3's 330, are
+  specific to that session's uncommitted bridge configuration and are not package figures.)
+
+## Four configurations a mirrored block cannot honour are now refused
+
+One coefficient equalises a group's offsets only where every member has one. The base parameter is
+shared, but the offset it scales accumulates **per fleet** (`inf_offset(param, flt, sex, yr)`), so
+a row naming one member moves that member alone -- fitted, naming the lead alone leaves the pair
+0.265 apart and the follower alone 0.248. "Put it on the lead fleet" is therefore right only for a
+**prior**, which is re-targeted onto the shared base; every param code and the q offset write a
+per-fleet slot, the apical height included. `.stop_if_mirrored_block_linkage()` refuses:
+
+* **partial coverage** -- a `fleet =` filter naming some but not all members whose block is
+  estimated, with the missing fleets named. A member that cannot carry a row at all (q `Fixed`,
+  `Analytical`, absent; a selectivity form not wired for linkages) is not owed one.
+* **a random-effect linkage** -- each named fleet would get its own deviation series and its own
+  SD (84 slots in two sigma groups of 42, where a mirrored pair owes 42 and 1). These cannot be
+  tied: separate sigma groups would score the same deviations twice and fit two SDs to identical
+  data. Collapsing a block into one RE group is an encoder change and is not done here.
+* **two rows for one design column on one fleet** -- the offset is added once per row, so that
+  member moves `2 * beta * X` against the group's `beta * X`: one reported coefficient and two
+  curves, which no parameter count reveals.
+* **two specs disagreeing** on `link`, `bounds` or `init` -- the group would take one value by
+  table position. `est_phase` may differ: a held donor holds the whole group, which is how a
+  reference model that fixes some time blocks is reproduced.
+
+An **intercept** row is exempt from coverage and agreement: it re-targets the shared base and is
+pinned to `NA`, so it cannot diverge, and `.stop_if_shared_block()` already governs it.
+
+**Nothing shipping is refused.** Of 104 `linkage_spec()` call sites in the sibling repositories, 13
+declare a random-effect structure and the GOA pollock 2025 scripts do pass spec lists, so both
+shapes are live code -- but that workbook has no index group with two or more members whose block
+is estimated (its one shared group pairs a survey with an `Off` fleet). The SS3-bridged GOA Pacific
+cod bridge, which does share both indices across its `*_ae1` fleets, was run against this branch by
+the session that owns it: clean in three configurations, forward-pass objective **1912.2067** in
+all three, and the baseline console output byte-identical to the same run before these rules. That
+is a build and forward pass at `estimateMode = 3`, not a fit, and that model happens not to
+exercise the `Off`-member case; `GOA2018SS` `Selectivity_index` 1 is the fixture that does.
+
+## Bug fixes
+
+* **A prior on a catchability linkage is no longer counted once per fleet sharing the q block.**
+  The fixed-beta prior loop runs over every row with no lead gate, so with the coefficients tied a
+  prior named on two members was evaluated twice on the one they share -- halving its stated
+  variance, so a declared SD of 0.1 was enforced as 0.0707. Measured on a two-member q block with
+  `normal(0.4, 0.1)`: `jnll_comp["Linkage-table priors"]` 13.232707, i.e. two terms, with and
+  without the tie. `build_selectivity()` has refused the selectivity equivalent since 5.42.0; the
+  accepted spelling is a prior on one member and a plain row for the rest.
+* **The apical selectivity refusal no longer says the group inherits an offset placed on the
+  lead.** `apical_offset(flt, sex, yr)` is per fleet like every other slot, so it does not; the
+  message now points at naming the whole group or `by = NULL`.
+
+## Internal
+
+* `test-linkage-shared-block.R`: 13 blocks, 56 assertions, measured in three code states so the
+  file is known to discriminate -- 56 pass as shipped, **15 failures + 1 error** with the four
+  refusals removed, **27 failures + 1 error** with neither the tie nor the refusals.
+* `test-linkage-intercept-base-param.R` and `test-linkage-double-prior-guards.R` were failing on
+  the first version of this change and are green again. The intercept blocks now use an
+  intercept-only formula: `~ temp` also emits a slope, and a slope on one member of a mirrored
+  block is what this release refuses, so the covariate was incidental to what they test.
+* The block that asserted "the group shares one coefficient however the spec names it" was
+  asserting the wrong invariant and is replaced -- all three spellings give one coefficient, but
+  two of them fit *divergent* selectivity. A parameter count is not the invariant; identical
+  output is.
+# Rceattle 5.56.0
+
+## Behavior changes
+
+* **`Selectivity = "DoubleNormal"` fitted a flat curve from its default starting values, and now
+  fits a dome.** DoubleNormal reads the two shared `sel_inf` slots as a PEAK and a right-tail
+  floor, where the logistic family reads them as two inflections, so the shared defaults were
+  wrong for that reading: the peak started at 0 -- below the first age -- and the floor at 10 on
+  the **logit** scale, i.e. `plogis(10) = 0.99996`. The starting curve was therefore flat at ~1 at
+  every age, which leaves the ascending width with no gradient, so the optimizer had no descent
+  direction and stayed on that ridge.
+* Measured on the `GOApollock` fishery, static selectivity, phased, `inits = NULL`:
+
+  | starts | selectivity-at-age | objective | AIC |
+  |---|---|---|---|
+  | peak 0, floor logit 10 (old) | constant 0.999996 | 3085.98 | 6611.96 |
+  | peak 5.5, floor logit 0 (new) | 0.0024 .. 0.9815 .. 0.4407 | **914.10** | **2268.21** |
+  | `DoubleLogistic`, same defaults, for scale | a dome | 918.15 | 2276.31 |
+
+  **2171.88 nats**, and the fixed form now edges out the double logistic by 4.05. 914.1043 is the
+  same optimum a hand-tuned `inits` reached, so the derived starts find what someone previously
+  had to set by hand.
+* **The peak is derived, not chosen, and it is a BIN ORDINAL.** An age-based curve is evaluated at
+  `bin + 1` (`selectivity.hpp`), so the x-axis is `1 .. nages` and the mid-range is
+  `(nages + 1) / 2` -- 5.5 on a ten-age stock, and independent of `minage`. That is the same
+  expression the `DoubleNormalSS3` block already uses for the same slot. (Reading it as an absolute
+  age gives the same 5.5 at `minage = 1`, which every bundled dataset has, and 7.5 on a
+  `minage = 3` stock -- a milder version of the asymmetry this change removes.) A length-based
+  DoubleNormal keeps its length midpoint rather than being given a bin.
+* **The peak carries the fix; the floor does not.** With the peak at mid-range the fit reaches
+  914.1043 from a floor start of either 0 or 10; with the peak left at 0, a floor of 0 still fails
+  (2973.69, with the peak running to -859 -- `sel_inf` is unbounded). Logit 0 is kept because it is
+  the logistic's maximum-gradient point, not because `LogisticPM` uses 0 in the same slot: that
+  slot is a LOG there (age-1 log-selectivity) and a LOGIT here, which is the conflation
+  `.sel_inf_is_natural()` exists to prevent.
+* **The fitted right-tail floor is not identified**, and this change makes that the default outcome
+  for the form rather than introducing it. On the headline fit it lands near -17.8 with a standard
+  error in the thousands, and anywhere in `[-21.6, -10.4]` across multi-starts with the objective
+  unchanged to four decimal places; under `newtonsteps = 3` it moves again. `pdHess` is TRUE and
+  `convergence_diagnostics()` returns OK, because the conditioning check reads the correlation
+  matrix. `vignettes/articles/adding-a-selectivity-form.Rmd` documents this property of the form.
+* **Nothing shipping moves.** No bundled dataset sets `Selectivity = "DoubleNormal"` (all 12 use
+  codes 0-4 and 6), so none of the four golden references reaches this and `build_params()` output
+  is **bit-identical** between `dev` and this change on every element of its 49-element list for
+  `BS2017SS`, `BS2017MS`, `GOA2018SS` and `GOApollock`. Four scripts under
+  `Rceattle-models/GOA cod/Bridging/` do set the form, but inject their own `sel_inf` immediately
+  afterwards, and the live bridges have since moved to `DoubleNormalSS3` -- so they are inert for
+  that reason rather than for absence. `test-selectivity-double-normal.R` never saw this because it
+  supplies its own starts.
+* **Not a claim that the form is now the best choice.** The escape from the flat ridge generalises
+  -- improvements of 2171.9, 1970.9 and 5970.5 nats on the GOA pollock, Atka and GOA cod fisheries
+  -- but on Atka the dataset's own `NonParametric` still fits better (755.6 against 989.9), and on
+  GOA cod the DoubleNormal collapses to a degenerate corner (`sigma_desc` to 0, floor to 1, i.e. a
+  plain logistic) and returns convergence FAIL. The change makes the form fittable from its
+  defaults; it does not make it safe to choose.
+
+## Internal
+
+* `test-selectivity-double-normal-starts.R`: 4 blocks, 15 assertions, **8 of which fail without the
+  fix**. Three need no fit and so run on a pull request; only the fitted-curve block carries
+  `skip_on_cran()`. It asserts the starts, that **every other fleet's starts are untouched** (the
+  assertion that would catch a `which()` matching too widely, which is how a start change leaks
+  into a fit that never asked for it), that a length-based DoubleNormal keeps its length midpoint,
+  and that the fitted curve is a dome reaching 914.1043. The fit block asserts the *shape* of the
+  reported array before reading any value -- `sel` is not a reported quantity name (`sel_at_age`
+  is), and `all()` over a zero-length vector is `TRUE`, so an empty slice would otherwise satisfy
+  every check.
 
 # Rceattle 5.55.0
 
@@ -862,9 +1025,9 @@ of 5.49.5; `inst/dev/TRAPS.md` has the class.
 
 * **Removed bug history from comments**, per the standing rule that a comment states current
   behaviour, units and the assessment reason -- never how the code used to be wrong.
-  Twenty-seven comment and roxygen blocks across `R/` and `src/TMB/` narrated a past defect or a
-  past version in the past tense; each now states what the code does, or states the counterfactual
-  that explains why a guard is written the way it is. The substantive ones: `.refit_converged()`'s
+  Thirty-three comment and roxygen hunks, across 18 files under `R/` and `src/TMB/`; about twelve
+  narrated a past defect or a past version in the past tense, and each now states what the code
+  does, or states the counterfactual that explains why a guard is written the way it is. The substantive ones: `.refit_converged()`'s
   roxygen spent fourteen lines on a superseded test against `opt$Convergence_check`;
   `build_map_catchability()` and `.fleets_with_index()` each described the wrong `Fleet_type`
   keying they replaced; `fit_mod()`'s skeleton filter narrated the `MakeADFun` error a stale
@@ -888,7 +1051,7 @@ of 5.49.5; `inst/dev/TRAPS.md` has the class.
   figures made before 5.9.0 are mirrored about zero relative to these. A reader comparing last
   year's figure is the person at risk, and they are reading the help page, not `NEWS.md`. The
   fuller account stays in the 5.9.0 entry.
-* Corrected two comments that compression had made **false**. Two in `osa_residuals()` said OSA
+* Corrected three comments that compression had made **false**. Two in `osa_residuals()` said OSA
   residuals work "with or without `fit_control(osa = TRUE)`" -- but `fit_control()` has no `osa`
   argument and no `...`, so that call errors; it was removed as a breaking change in **4.6.0**.
   They now say what is true: nothing has to be set at fit time, and any fit optimized at

@@ -956,7 +956,34 @@ shared through `Catchability_index`.
 ## Selectivity
 
 Selectivity is also fleet-indexed (`by = ~ fleet`) and, unlike the other
-processes, has several parameters. `build_selectivity()` accepts these keys,
+processes, has several parameters.
+
+Because `~ fleet` is the default, **fleets sharing a `Selectivity_index` or a
+`Catchability_index` estimate one coefficient for the whole group and keep
+identical selectivity — provided the linkage reaches every member** (5.57.0).
+Before that each member got its own coefficient and the copies diverged, which
+is the defect the shared index exists to prevent.
+
+The proviso is the thing to remember. The *base* parameter is shared, but the
+offset a linkage adds is applied **per fleet**, so a `fleet =` filter naming
+some members moves only those: the group shares a coefficient and still fits
+different curves. **Name every member, or pass `by = NULL` for a single row
+that reaches all of them.** Four things are refused on a mirrored block: naming
+a strict subset; a random-effect linkage (each member would get its own
+deviation series and SD); two rows for one design column on one fleet (the
+offset is added once per row, so that fleet moves twice as far); and two specs
+disagreeing on `link`, `bounds` or `init`. `est_phase` may differ — a fixed
+donor holds the group, which is how a reference model that fixes some time
+blocks is reproduced.
+
+A linkage on the lead fleet alone does **not** propagate, and that includes the
+`apical` height. The one thing re-targeted onto the shared base is a **prior**,
+which is why it belongs on a single member: named on two it is counted twice on
+the coefficient they share, halving its stated variance. The usual spelling is
+a prior on one member and a plain row for the others. An intercept is also
+re-targeted, so an intercept `init` or `bounds` goes on the donor.
+
+`build_selectivity()` accepts these keys,
 which name the slots shared across the parametric forms under whichever alias
 your fleet's form actually has:
 
