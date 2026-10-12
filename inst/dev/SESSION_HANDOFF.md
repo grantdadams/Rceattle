@@ -76,13 +76,7 @@ says catch advice is wrong. So the order below is the backlog, not the plan.
    species, or deciding the R-side mask is the contract and documenting it where a direct-report
    consumer reads. `/golden-check` is green either way -- no reference model sets
    `estDynamics > 0`.
-2. **The two DoubleNormal rows, as one PR.** From the default starts the curve fits flat at 1.000
-   at every age (`GOApollock` fishery, static selectivity, phased: objective 3085.98 against
-   914.10 from `inits`), and DoubleNormal + `RandomWalkAscending` silently fits 220 parameters
-   instead of 316 with no message. A new user following `adding-a-selectivity-form.Rmd` hits
-   both, and `test-selectivity-double-normal.R` sets its own starts, which is why the suite does
-   not see the first one.
-3. **`growth_age_L1 = 0`: a decision, not a patch.** It is SS3's own default
+2. **`growth_age_L1 = 0`: a decision, not a patch.** It is SS3's own default
    (`SS_readcontrol_330.tpl:914` sets `AFIX = 0.`) and sits in 44 of the 188 control files
    reachable here, so the SS3 bridge can hand it over -- and `growth_age_L1` is validated
    nowhere. At that anchor Rceattle's ramp test (`current_age <= age_L1`) takes slot 0 and
@@ -93,12 +87,12 @@ says catch advice is wrong. So the order below is the backlog, not the plan.
    computed length for an input accepted today, so it turns on reading Rceattle's intent as SS3
    parity. Maintainer call. A negative anchor is separate and genuinely refusable: SS3 does not
    handle it either, since its `AFIX != 0.0` test yields a negative denominator.
-4. **Whether the GOA multispecies assessment's own fit moves is still unmeasured**, and the
+3. **Whether the GOA multispecies assessment's own fit moves is still unmeasured**, and the
    decision not to refit was taken while this file said phasing made it moot. It does not:
    `R/02_fit_models.R:76` sets `phase = FALSE` on the headline multispecies fit. One fit, and the
    highest information per hour in the repo. Maintainer call.
-5. **Branch protection for the guards job** (above). Maintainer call.
-6. **`CONTRIBUTOR-EXPERIENCE.md` item 0** -- one hour with the `Rceattle-models` and
+4. **Branch protection for the guards job** (above). Maintainer call.
+5. **`CONTRIBUTOR-EXPERIENCE.md` item 0** -- one hour with the `Rceattle-models` and
    `GOA-ATF-ESP` authors. That file still says item 0 "is still the one that should reorder the
    rest", and steps 1-6 of the refactor plan were done without it.
 
