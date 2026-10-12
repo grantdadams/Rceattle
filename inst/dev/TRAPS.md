@@ -8,16 +8,29 @@ Verified against source, 2026-08.
 
 ## Build and test
 
-**Editing only a `.hpp` does not rebuild the model.** `TMB::compile()` decides from
-`ceattle.cpp` alone and tracks no header dependency, so a change confined to
-`selectivity.hpp`, `growth.hpp`, `predation.hpp` or any other header leaves the old
-`src/TMB/ceattle.o` in place. `load_all()` then reports success and you go on testing the
-**previous** model. Measured: a one-line fix in `selectivity.hpp` left the defect it fixed
-still reproducing, twice, until `ceattle.cpp` was touched. Deleting the `.o` is not enough
-either — `touch src/TMB/ceattle.cpp` before `load_all()`, and treat a rebuild that finishes in
-seconds as proof nothing was compiled (a real one is ~60–140 s). Anything measured after a
-header-only edit — a test run, a golden number, a bridge comparison — is suspect until the
-rebuild is confirmed.
+**A header-only edit under `src/TMB/` can leave `pkgload::load_all(".")` loading the OLD binary,
+with nothing printed amiss.** Observed twice: a one-line `selectivity.hpp` fix left the defect it
+fixed still reproducing until `ceattle.cpp` was touched, and `growth.hpp` edited at 21:18:18 ran
+against a `ceattle.o` of 21:02:45. **It silently voids a before/after comparison** — a
+revert-and-retest ran the same binary twice and showed "no difference", which reads as a test that
+does not discriminate when the test was never given the reverted code. Anything measured after a
+header-only edit is suspect until the rebuild is confirmed.
+
+**The recipe: delete `src/TMB/ceattle.o`, `src/TMB/ceattle.so`, `src/ceattle.so` and
+`src/Rceattle.so`, then check the `ceattle.o` mtime is newer than the header.** That is what
+`src/Makevars`' own `clean:` removes, and a missing `.o` is always remade. Verified on the growth
+anchor gate (5.57.3): one test file went 10 failures to 0 across two forced rebuilds, each `.o`
+about a minute newer than the header, with no `touch` of `ceattle.cpp`. Treat a rebuild that
+finishes in seconds as proof nothing compiled — a real one is ~60–140 s.
+
+**Check the `.o`, never an `.so`.** `src/TMB/compile.R` copies `ceattle.so` up to `../`
+unconditionally, so `src/ceattle.so` gets a fresh mtime whether or not anything was compiled.
+
+**Why it happens at all is not established**, so do not reason from a mechanism. `TMB::compile()`
+holds no mtime logic and `src/TMB/compile.R` declares no header dependencies, which would explain
+it — but on pkgbuild 1.4.8 `pkgbuild:::headers()` globs `\\.h.*$` recursively and so does see
+`src/TMB/*.hpp`, which should make `needs_clean()` true and force `--preclean`. Both observations
+above are real; the chain between them is not understood. Run the recipe regardless.
 
 **Dev builds are `-O2`, not pkgbuild's `-O0`.** The repo `.Rprofile` sets
 `options(pkg.build_extra_flags = FALSE)`, so `load_all()` compiles the TMB model with the same
@@ -278,6 +291,36 @@ estimated the hindcast.** `build_hcr_map()` (`R/0-build_hcr.R`) replaces every e
 than switch on `estimateMode`.
 
 ## Silent-wrong-number traps
+
+**A NON-INTEGER `growth_age_L1` made Jan-1 length-at-age year-varying.** Fixed in 5.57.3; the
+reason it hid is the trap. The Jan-1 cohort recursion advances a slot from the same cohort one year
+younger, so it is valid only once that predecessor is on the growth curve. The gate testing for
+"not yet" compared the slot's age to `max(minage, 1)`, where the first slot above the anchor is at
+`max(minage, floor(age_L1) + 1)`.
+
+Those agree for every anchor anyone uses, by two different mechanisms — which is why no fit was
+wrong and no test fired. At an INTEGER anchor the linear ramp ends exactly at `l1`, so the
+recursion inherits a curve value and is right regardless of the gate. At a sub-year anchor such as
+0.5 the first slot above it is Jan-1 age 1, which `max(minage, 1)` names exactly when
+`minage <= 1`; above that, slot 0 is already past the anchor and the old gate caught it because
+`minage == max(minage, 1)`. Measured over all 188 SS3 control files reachable from this machine
+(values 1 x113, 0 x44, 0.5 x30, 3 x1), the 5.57.3 gate reroutes **nothing** at any `minage` 0-4 or
+`nages` 2-20.
+
+What it cost where it did fire: on a `make_test_data` fit at `minage = 1` with anchor 2.5, the slot
+above the anchor came back **2.2959 cm against a correct 1.6965 (+35.3%)**, with a 0.5994 cm spread
+across years that constant growth parameters forbid. Transcribed at realistic parameters
+(`Lmin = 2, l1 = 10, Linf = 60, K = 0.25`, `minage` 0-4 x anchor 0.25-5.00, `nages` 8, `nyrs` 6)
+the worst error is **+59.8% / 8.19 cm** on Richards and +54.1% / 7.05 cm on von Bertalanffy; both
+grow with the series length, so quote the grid with any such figure. It propagates into every
+fleet's weight-at-age through `id_pop`, and it put the two growth routines in direct contradiction:
+the same cohort at the same instant read 15.8752 from the within-year advance and 19.8139 from
+Jan-1, a 3.939 cm gap that is now exactly 0.
+
+**The lesson is about the test, not the gate.** `test-growth-vonbert-year-invariance.R` pinned
+exactly this invariant and could never fire, because it used the default anchor and every default
+is an integer or 0.5. **A year-invariance test is only as good as its parameter grid**: pin a
+convention at a value where the two readings differ, not at the default.
 
 **A joint-sex composition is predicted in TWO loops, and the row is normalized across both.**
 `ceattle.cpp` builds a `flt_sex == 3` composition as females over the first `nlengths` (or
