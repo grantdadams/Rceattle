@@ -8,8 +8,9 @@
 # `if (current_age == age_L1_ceil)` evaluated to `1 == 0` and was never
 # taken, causing the unguarded recursive branch to run at age = 0.
 #
-# The fix sets `age_L1_ceil = max(minage, 1)` so the youngest age (with
-# current_age = 1.0) always hits the boundary branch regardless of minage.
+# The fix set `age_L1_ceil = max(minage, 1)` so the youngest age always hit the
+# boundary branch. 5.57.3 replaced that with an explicit `age == 0` clause,
+# because `max(minage, 1)` named the wrong slot at a non-integer anchor.
 #
 # This test must construct + evaluate the TMB AD function. If the bug
 # returns the test will crash R (and CI) rather than fail gracefully, which

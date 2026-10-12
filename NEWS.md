@@ -12,7 +12,7 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
-# Rceattle 5.57.2
+# Rceattle 5.58.1
 
 ## Documentation
 
@@ -25,13 +25,13 @@ version throughout.
   Three section headers left heading nothing went too, including a `14.10. Kinzey
   predation functions` that had come to label a live `REPORT(mort_sum)` — the
   initial-state mortality accumulator, nothing to do with predation. `src/TMB/`
-  falls 376 lines, `predation.hpp` from 738 to 517 with its FIXME/TODO count from
-  5 to 0, and `ceattle.cpp` from 5,986 to 5,831. The word "Kinzey" no longer
+  falls 377 lines, `predation.hpp` from 738 to 517 with its FIXME/TODO count from
+  5 to 0, and `ceattle.cpp` from 5,986 to 5,830. The word "Kinzey" no longer
   appears in the template.
 
   All of it sat inside `/* */`, so the preprocessor already discarded it: stripping
   comments and normalising whitespace leaves `ceattle.cpp`, `predation.hpp` and
-  `selectivity.hpp` byte-identical to 5.57.1, and `clang -E -P` output matches per
+  `selectivity.hpp` byte-identical to 5.58.0, and `clang -E -P` output matches per
   file. `data_check()` refuses `msmMode %in% 3:9` in any case.
   `inst/dev/REMOVED-kinzey-and-dev-cpp.md` records what was taken and now gives
   the commit to recover it from, since there is no longer anything to uncomment.
@@ -97,22 +97,141 @@ version throughout.
   three codes are settable but only mode 0 has an effect, which `?fit_mod` already
   said and the template's declaration comment now says too.
 
-* **Comment volume.** `R/` falls 109 lines (doc share 37.8% to 37.6%),
-  `src/TMB/` 376, and `man/` 521. 83 `#-#-#-#` decoration lines carrying no text
+* **Comment volume.** `R/` falls 97 lines (doc share 37.8% to 37.7%),
+  `src/TMB/` 377, and `man/` 515. 83 `#-#-#-#` decoration lines carrying no text
   were removed; all but two bracketed a section header that holds the RStudio fold
   itself, and none had the trailing dashes that would make it a section. Thirteen
   comments narrating past defects were cut to what the code does now. 24 internal
   helpers gained `@noRd`, so they no longer generate `man/dot-*.Rd` (193 `.Rd`
   files to 169); none was listed in `_pkgdown.yml`. `inst/dev/CLEANUP_BACKLOG.md`'s
-  marker census is re-derived with its own documented command: 36 remain, against
-  a stated 47 and a measured 46 before this release.
+  marker census is re-derived with its own documented command: 35 remain, against
+  a stated 47 and a measured 45 before this release.
 
 * **No R or C++ executable line changed**, verified by comparing
   `deparse(parse())` for every changed `R/` file and the comment-stripped text of
-  every changed `src/TMB/` file against 5.57.1, so no fit can move. The only code
+  every changed `src/TMB/` file against 5.58.0, so no fit can move. The only code
   change is one assertion in `test-schema-cpp-dispatch.R`, which pinned that the
   dead `switch (msmMode)` was present and now pins that no `msmMode` dispatch
   exists at all.
+# Rceattle 5.58.0
+
+## Bug fixes
+
+* **An intercept `init` or `bounds` on a shared block now reaches the parameter, instead of being
+  diluted by the rest of the group.** Fleets sharing a `Selectivity_index` / `Catchability_index`
+  estimate ONE parameter block, and `TMB:::updateMap()` starts a shared level at
+  `tapply(parameter.entry, map.entry, mean)` -- the mean over the whole level. The push wrote the
+  donor's cell only, so the other members' build defaults pulled the start off the request.
+  Measured on `BS2017SS` with fleets 4 and 5 sharing a `Selectivity_index` and
+  `linkage_spec(~ 1, init = list(intercept = 0.5), by = ~ fleet, fleet = 4)`:
+
+  | | `log_sel_slp` start | on the natural scale |
+  |---|---|---|
+  | before | **-0.096574** | a slope of 0.908 |
+  | after | -0.693147 | **0.500000**, as asked |
+
+  `.stop_if_shared_block()` refuses a value set on a FOLLOWER and tells the caller to put it on the
+  donor, so the spelling it recommends was the one that diluted.
+* **The same defect on bounds was worse**, because `fit_mod()` reduces bounds to one entry per map
+  level by first occurrence (`match(levels(droplevels(mf)), as.character(mf))`): if the donor was
+  not first in array order, the surviving bound was an unwritten DEFAULT rather than the requested
+  one. Both pushes now write every member of the block, so whichever cell the reduction picks is
+  right.
+* The expansion does not filter on species -- a group may span species, and the mean does not care
+  -- so for a member of a one-sex species in a two-sex caller's group the worst case is a write
+  into a padding cell, which is mapped off and is neither read nor part of the level.
+
+**Whose fits move:** any fit that sets an intercept `init` or `bounds` through a `sel` or `q`
+linkage on a fleet that shares its block. Nothing in the bundled datasets or the sibling
+assessment scripts does -- the GOA cod bridge's three intercept inits are all unstratified growth
+rows, and its selectivity specs are intercept-free -- so no shipped configuration changes. A fit
+that does set one was starting somewhere nobody asked for and will now start where it was told.
+# Rceattle 5.57.3
+
+## Bug fixes
+
+* **Jan-1 length-at-age was year-varying at a non-integer growth anchor.** The cohort recursion
+  in `src/TMB/growth.hpp` advances a slot from the same cohort one year younger, so it is only
+  valid once that predecessor is itself on the growth curve. The test for "not yet" compared the
+  slot's age to `max(minage, 1)`, where the first slot above the anchor is at
+  `max(minage, floor(growth_age_L1) + 1)`. Where those differ, every year after the first
+  recursed from a linear-ramp length. Measured on a `make_test_data` fit at `minage = 1` with an
+  anchor of 2.5: the slot above the anchor came back **2.2959 cm against a correct 1.6965
+  (+35.3%)**, with a 0.5994 cm spread across years that constant growth parameters forbid. It
+  propagates into every fleet's weight-at-age, and it put the two growth routines in
+  contradiction -- the same cohort at the same instant read 15.8752 cm from the within-year
+  advance and 19.8139 cm from Jan-1, a gap that is now exactly 0. The test is now
+  `current_age - 1 < age_L1_safe || age == 0`, and `age_L1_ceil` is deleted.
+* **Slot 0 no longer reaches the cohort recursion at any anchor.** It has no one-year-younger
+  predecessor, so it read index `-1` -- an out-of-bounds load this build does not report. The old
+  gate covered this only incidentally, via `max(minage, 1) == minage`; the `age == 0` clause is
+  what covers it now, and without that clause the new first test alone would read `-1` wherever
+  the anchor sits below `minage`.
+
+**Nothing shipping moves.** Every `Growth_Age_for_L1` in the 188 SS3 control files reachable here
+is 0.5 or an integer (1 x113, 0 x44, 0.5 x30, 3 x1), and for all of them the new gate reroutes no
+slot at any `minage` 0-4 or `nages` 2-20; the `max(0.5, minage)` default is likewise bit-identical
+for `minage` 0-4. Two mechanisms make that so: at an integer anchor the ramp ends exactly at `l1`,
+so the recursion already inherited a curve value, and at a sub-year anchor the first slot above it
+is Jan-1 age 1, which `max(minage, 1)` names when `minage <= 1`.
+
+Both arms are pinned by new blocks in `test-growth-vonbert-year-invariance.R`; the non-integer
+block fails 10 assertions on the parent commit, which is also testthat's cap. **`/golden-check` is
+not evidence here** -- `BS2017SS` and `GOA2018SS` carry no `growth_model`, so `estimate_growth()`
+is never entered; it passed as a no-regression check on everything else.
+
+# Rceattle 5.57.2
+
+## Bug fixes
+
+* **The within-year growth routine chose its branch on the age-slot INDEX where it meant the
+  cohort's Jan-1 AGE.** `src/TMB/growth.hpp` tested `age + 1.0 < age_L1` -- `age` is the 0-based
+  slot and `age_L1` the von Bertalanffy anchor age -- so the test only equalled the cohort's age
+  at `minage == 1`. It is now `age + minage(sp)`, which is what the sibling Jan-1 routine already
+  uses. Three wrong numbers follow from it, all at `minage != 1`:
+  - at `minage = 0` with a fractional anchor the mean length was **discontinuous in the season**:
+    10.000000 cm at `fracyr = 0.5` against 8.815181 at `0.5 + 1e-7`, so a fish shrank 11.9% as the
+    year crossed July 1. At month 9 the age-0 length goes 11.9163 to 13.0293 -- 8.5% in length and
+    about 23.5% in weight.
+  - at `minage >= 3` with time-varying growth the arm recomputed from the closed form and
+    discarded the cohort recursion: 23.7240 against the correct 27.6468, 14% low.
+  - where the whole age range sat under the anchor it bypassed the plus-group pin: 34.8584 against
+    the pinned 42.3377, 18% low.
+* **The plus-group pin now precedes the anchor test.** It is an override, not an alternative: with
+  the age range under the anchor the anchor test also matches the plus group, and placed second it
+  discarded the Jan-1 mean length `estimate_growth()` wrote. That ordering regression was
+  introduced by the first version of this fix and caught in review -- measured at 54% low on a
+  one-age `minage = 0` model, 63% on a four-age one.
+
+**This is NOT a no-op, and the reason matters more than the claim.** `minage == 1` is
+bit-identical, unconditionally -- but `minage = 0` is live, since it is the SS3 converter's own
+default and both the GOA and AI cod bridges pass it with parametric growth. What keeps those two
+unchanged is configuration, not the `minage == 1` premise: GOA cod's anchor is 0.5 and its largest
+fleet month is 6, so `fracyr` equals the anchor exactly and the first branch's `<=` wins -- a
+margin of **one month**, and an August survey would move its age-0 length, ALK and weight-at-age.
+AI cod is safe for a different reason, an integral anchor of 1.0, and only a fractional anchor can
+diverge at `minage = 0`. Nothing live combines `minage >= 2` with parametric growth.
+
+The arm fires exactly when `age_L1` is non-integer, `fracyr > age_L1 - floor(age_L1)`, and
+`floor(age_L1)` lies in `[minage, minage + nages - 1]`; at most one age slot ever matches.
+
+**`/golden-check` cannot see this change at all.** Every bundled dataset resolves to `empirical`
+weight-at-age, and the routine is gated behind `growth_model(sp) > 0`, so none of the four
+reference models enters it. A green golden run is not evidence here; `test-growth-*.R` is the
+cover.
+
+## Internal
+
+* `test-growth-minage2-anchor.R`: 4 blocks, 8 assertions, measured in three code states --
+  **8 pass** as shipped, **2 failures** against `dev` (the `minage >= 2` and `minage = 0` cases),
+  and **1 failure** with the age test fixed but the plus-group pin left second (the ordering
+  regression). Each rebuild was forced, for the reason in the next entry.
+* The fixture needs two things a first attempt lacked: `spawn_month > 0`, since `fracyr = 0` lets
+  the first branch take everything; and an anchor ABOVE `minage`, since at the default
+  `max(0.5, minage)` the diverging slot's Jan-1 length is exactly `l1` and both arms return the
+  same number -- the branches differ and the values do not.
+* `inst/dev/TRAPS.md` records that a header-only edit under `src/TMB/` does not trigger a rebuild,
+  so it is verified against the previous binary unless the artifacts are deleted first.
 
 # Rceattle 5.57.1
 

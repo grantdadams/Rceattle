@@ -113,11 +113,10 @@ void fill_age_length_key(int wtind, int sp, int sex, int age, int yr,
  *    - Von Bertalanffy (Model 1): \f$L_a = L_{\infty} + (l_1 - L_{\infty}) \cdot e^{-K(a - a_{L1})}\f$
  *    - Richards (Model 2): \f$L_a = [L_{\infty}^m + (l_1^m - L_{\infty}^m) \cdot e^{-K(a - a_{L1})}]^{1/m}\f$
  *    - For year > 0, a cohort recursion advances \f$L_{a, y}\f$ from \f$L_{a-1, y-1}\f$
- *      using lag-year parameters. At the cohort boundary (current_age ==
- *      age_L1_ceil) the closed-form anchor at \f$l_1\f$ is used; `age_L1_safe`
- *      keeps this anchor at \f$l_1\f$ for both minage > 0 and minage = 0.
+ *      using lag-year parameters. Where that predecessor is still on the linear
+ *      ramp, or at slot 0, the closed-form anchor at \f$l_1\f$ is used instead.
  *    - Linear ramp from Lmin_sp at age 0 to \f$l_1\f$ at age_L1 applies when
- *      current_age <= age_L1 (only reachable for minage > 0).
+ *      current_age <= age_L1.
  *
  * 2. Weight-at-Age (\f$W_a\f$):
  *    Integrated across length to account for Jensen's Inequality:
@@ -201,21 +200,11 @@ void estimate_growth(
   // with minage = 0 get an SS3-style half-year anchor and minage >= 1 stays
   // backwards-compatible.
   Type age_L1 = growth_age_L1(sp);
-  // age_L1_ceil is compared to current_age (the slot age in years) to mark the
-  // youngest VB-relevant slot, which needs the closed-form boundary formula
-  // rather than the cohort recursion: that would index age - 1 = -1 at slot 0
-  // when minage = 0, or read a stale slot 1 when the anchor sits at age 0.5.
-  // So it is C++ age 1 when minage = 0 (current_age = 1, anchor at 0.5), and
-  // slot 0 itself (current_age = minage) when minage >= 1.
-  Type age_L1_ceil = (Type(minage(sp)) >= Type(1)) ? Type(minage(sp)) : Type(1);
 
-  // When minage = 0, the linear ramp from Lmin_sp at age 0 to l1 at age_L1
-  // becomes degenerate (divide by zero in b_len) AND the ramp branch should
-  // never execute (current_age >= 1 always > age_L1 = 0). Replace the ramp
-  // anchor with a small positive value so b_len is finite; the value is
-  // unused because the if(current_age <= age_L1) branch is unreachable.
+  // An anchor at age 0 would divide by zero in the ramp slope b_len, so the
+  // slope and the cohort-boundary test below both floor it at 1 year.
   Type age_L1_safe = age_L1;
-  if (age_L1 <= Type(0)) age_L1_safe = Type(1);  // safe denominator only
+  if (age_L1 <= Type(0)) age_L1_safe = Type(1);
 
   for(int sex = 0; sex < nsex(sp); sex++) {
     for(int yr = 0; yr < nyrs; yr++) {
@@ -237,7 +226,7 @@ void estimate_growth(
         case 1: // Von Bertalanffy
 
           // Slope from Lmin to L1
-          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 when minage > 0; == 1 when minage = 0 (ramp branch unreachable)
+          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 unless the anchor is <= 0
 
           // Age < minage
           if((current_age) <= age_L1){
@@ -246,10 +235,11 @@ void estimate_growth(
             if(yr == 0) {
               length_hat(wtind,  sex, age, yr) = linf + (l1 - linf) * exp(-kappa * (current_age - age_L1));
             } else { // Yr > 0
-              if(current_age == age_L1_ceil) {
-                // age_L1_safe ensures last_linear == l1 in both minage > 0
-                // (where age_L1_safe == age_L1) and minage = 0 (where
-                // age_L1 = 0 would otherwise collapse this to Lmin_sp).
+              // The recursion below reads the same cohort one year younger, so
+              // it is only valid once that slot is itself on the curve. Where it
+              // is still on the linear ramp -- or at slot 0, which has no
+              // predecessor at all -- read off the anchor instead.
+              if(current_age - Type(1) < age_L1_safe || age == 0) {
                 last_linear = Lmin_sp + b_len * age_L1_safe;
                 length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
               } else {
@@ -265,7 +255,7 @@ void estimate_growth(
         case 2: // Richards
 
           // Slope from Lmin to L1
-          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 when minage > 0; == 1 when minage = 0 (ramp branch unreachable)
+          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 unless the anchor is <= 0
 
           if((current_age) <= age_L1) {
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
@@ -273,9 +263,8 @@ void estimate_growth(
             if(yr == 0) {
               length_hat(wtind,  sex, age, yr) = pow(pow(linf, m) + (pow(l1, m) - pow(linf, m)) * exp(-kappa * (current_age - age_L1)), 1 / m);
             } else { // Yr > 0
-              if(current_age == age_L1_ceil) {
-                // age_L1_safe ensures last_linear == l1 in both minage > 0
-                // and minage = 0; see VBGF branch above for full reasoning.
+              // Same cohort-boundary test as the VBGF branch above.
+              if(current_age - Type(1) < age_L1_safe || age == 0) {
                 last_linear = Lmin_sp + b_len * age_L1_safe;
                 length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(linf, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
               } else {
@@ -451,8 +440,9 @@ void estimate_growth_within_yr(
   // backwards-compatible.
   Type age_L1 = growth_age_L1(sp);
 
-  // Safe denominator for the linear ramp slope when minage = 0. See month=0
-  // estimate_growth() for full context.
+  // Floors the ramp slope's denominator at 1 year when the anchor is at age 0.
+  // This routine advances each slot from its own Jan-1 length, so it has no
+  // cohort-boundary test to floor -- unlike estimate_growth() above.
   Type age_L1_safe = age_L1;
   if (age_L1 <= Type(0)) age_L1_safe = Type(1);
 
@@ -475,7 +465,7 @@ void estimate_growth_within_yr(
         case 1: // Von Bertalanffy
 
           // Slope from Lmin to L1
-          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 when minage > 0; == 1 when minage = 0 (ramp branch unreachable)
+          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 unless the anchor is <= 0
 
           // Age < minage
           // The plus group is advanced through within-year growth like every
@@ -485,20 +475,24 @@ void estimate_growth_within_yr(
           // so id_pop already carries the corrected Jan-1 length.
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
-          // WHAM-style parameterization: for ages between the anchor and the
-          // plus group, blend the linear ramp with the growth curve; the plus
-          // group is pinned at its Jan-1 (id_pop) length rather than advanced by
-          // within-year growth.
-          // TODO(review): this branch (and its Richards mirror below) tests
-          // `age + 1.0 < age_L1`, mixing the slot index with an age, while the
-          // sibling branch above uses `current_age` (= age + minage + fracyr).
-          // For minage != 1 the two disagree, so the interpolated length can be
-          // off by one age. Unreachable for minage 0/1; verify for minage >= 2.
-          }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
-            last_linear = Lmin_sp + b_len * age_L1;
-            length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
+          // The plus group is PINNED at the Jan-1 length estimate_growth() wrote
+          // for it, so this override comes BEFORE the anchor test below: that
+          // test also matches the plus group when the whole age range sits under
+          // the anchor, and would discard the pinned mean length.
+          // `age + 1.0 == nages(sp)` is a slot-ordinal test (0-based `age`,
+          // `nages` a count), not an age.
           }else if(age + 1.0 == nages(sp) && growth_plus_length(sp) == 1) { // Plus group held at its Jan-1 length; under the SS3 forms it grows like every other age
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
+          // The cohort that CROSSED the anchor during the year -- Jan-1 age below
+          // age_L1, mid-year age strictly above it -- is read off the growth curve
+          // from the anchor, not advanced from its Jan-1 ramp length. `last_linear`
+          // is identically `l1` here, so the body reduces to
+          // linf + (l1 - linf) * exp(-kappa * (current_age - age_L1)).
+          // The test is the JAN-1 age, `age + minage(sp)`: `current_age` carries
+          // fracyr and the first branch already took it.
+          }else if(age + Type(minage(sp)) < age_L1){ // Linear + growth curve mixed
+            last_linear = Lmin_sp + b_len * age_L1;
+            length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
           }else { // Growth curve
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr) + (length_hat(id_pop,  sex, age, yr) - linf) * (exp(-kappa * fracyr) - 1.0); // Add fracyr growth
           }
@@ -507,7 +501,7 @@ void estimate_growth_within_yr(
         case 2: // Richards
 
           // Slope from Lmin to L1
-          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 when minage > 0; == 1 when minage = 0 (ramp branch unreachable)
+          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 unless the anchor is <= 0
 
           // Mirror the VBGF branch above with the Richards curve so the plus
           // group is treated identically regardless of growth family: a linear
@@ -516,11 +510,24 @@ void estimate_growth_within_yr(
           // for the remaining ages. (`last_linear` is declared at function scope.)
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
-          }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
-            last_linear = Lmin_sp + b_len * age_L1;
-            length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(linf, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
+          // The plus group is PINNED at the Jan-1 length estimate_growth() wrote
+          // for it, so this override comes BEFORE the anchor test below: that
+          // test also matches the plus group when the whole age range sits under
+          // the anchor, and would discard the pinned mean length.
+          // `age + 1.0 == nages(sp)` is a slot-ordinal test (0-based `age`,
+          // `nages` a count), not an age.
           }else if(age + 1.0 == nages(sp) && growth_plus_length(sp) == 1) { // Plus group held at its Jan-1 length (see VBGF branch)
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
+          // The cohort that CROSSED the anchor during the year -- Jan-1 age below
+          // age_L1, mid-year age strictly above it -- is read off the growth curve
+          // from the anchor, not advanced from its Jan-1 ramp length. `last_linear`
+          // is identically `l1` here, so the body reduces to
+          // linf + (l1 - linf) * exp(-kappa * (current_age - age_L1)).
+          // The test is the JAN-1 age, `age + minage(sp)`: `current_age` carries
+          // fracyr and the first branch already took it.
+          }else if(age + Type(minage(sp)) < age_L1){ // Linear + growth curve mixed
+            last_linear = Lmin_sp + b_len * age_L1;
+            length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(linf, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
           } else {
             length_hat(wtind,  sex, age, yr) = pow(pow(length_hat(id_pop,  sex, age, yr), m) + (pow(length_hat(id_pop,  sex, age, yr), m) - pow(linf, m)) * (exp(-kappa * fracyr) - 1.0), 1 / m); // Add fracyr growth
           }
