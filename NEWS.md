@@ -12,6 +12,35 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.59.0
+
+## Behaviour changes
+
+* **`run_mse()` no longer extends `NByageFixed` into the projection.** Numbers-at-age for a
+  species with `estDynamics > 0` are an input, not a forecast, so holding the terminal hindcast
+  year across the projection invented data and pinned that species' population flat for the whole
+  MSE. It now carries only the years the input supplies.
+* **A fixed-numbers species whose input stops short of the projection is warned about**, naming
+  the species and the uncovered years. The warning says what follows, because the MSE still runs:
+  `rearrange_data()` leaves those years at the array's initialised 0 and the template computes
+  `N_at_age = pop_scalar * NByageFixed(...)`, so the species contributes no biomass, catch or
+  predation in them. Raised before the parallel dispatch, since a warning from a
+  `.parallel_lapply()` worker is discarded.
+
+## Bug fixes
+
+* **The expansion it replaces also dropped all but the first species.** It built one block of
+  projection rows per `(Species, Sex)` group, then subset them with
+  `which(om_proj_yrs %!in% NByageFixed$Year)` -- positions within `om_proj_yrs`, not row positions
+  in the grouped frame. With one group the two coincide, which is why it went unnoticed. Measured
+  on `GOA2018SS` (4 groups, 32 projection years): **128 rows built, 32 kept**, so species 2 (both
+  sexes) and species 3 received no projection rows at all.
+
+**Whose MSEs move:** none that run today. No `run_mse()` caller in the bundled examples, the
+vignettes or the sibling repos sets `estDynamics`, so every one of them projects estimated
+numbers and never reaches this path. An MSE that does set it was previously running on invented
+numbers for every species but the first, and on flat-held numbers for that one.
+
 # Rceattle 5.58.0
 
 ## Bug fixes
