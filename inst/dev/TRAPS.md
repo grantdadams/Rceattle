@@ -146,6 +146,16 @@ on fleets carrying index rows, and exempts `Analytical`/`AnalyticalArith` — an
 non-lead fleet's values there are simply never read. **Inject or set per-fleet starting values by
 BLOCK, never by fleet name.**
 
+**A linkage intercept `init` / `bounds` is injected per block since 5.58.0, and was per FLEET
+before.** `.stop_if_shared_block()` refuses a value set on a follower and names the donor, so the
+spelling it recommends was the diluted one: the push wrote the donor's cell and the rest of the
+group kept its build defaults, so the level started at their mean. Measured on `BS2017SS` with
+fleets 4 and 5 sharing a `Selectivity_index` and an intercept `init` of 0.5 on `slp_asc`, the
+level started at **-0.096574** where `log(0.5)` is -0.693147 — a slope of 0.908 for a requested
+0.5. The bounds half was worse, because `fit_mod()` takes one bound per level by first occurrence,
+so a donor that was not first in array order left an unwritten default as the surviving bound.
+Both pushes now write every member, `.shared_block_members()` being the expansion.
+
 **Worked example: GOA2018SS.** Fleets 1 and 7 share selectivity; fleets 9 and 10 share
 selectivity *and* q.
 

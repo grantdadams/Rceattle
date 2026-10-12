@@ -637,7 +637,10 @@ build_params <- function(data_list) {
           # index_log_q is log catchability, one entry per fleet.
           .stop_if_shared_block(data_list, row$fleet, "q", row$param)
           .stop_unless_positive(init_val, row$param, "index_log_q")
-          param_list$index_log_q[idx$fleet] <- log(init_val)
+          # Per BLOCK: a shared level starts at the mean over the level, so the
+          # donor's cell alone is diluted by the others' build defaults.
+          param_list$index_log_q[.shared_block_members(data_list, idx$fleet, "q")] <-
+            log(init_val)
         },
         comp = {
           # The Dirichlet-multinomial weight is exp(<weight parameter>), so an
@@ -660,10 +663,14 @@ build_params <- function(data_list) {
           slot <- .SEL_PARAM_TO_SLOT[[row$param]]
           if (is.null(slot)) next
           .stop_if_shared_block(data_list, row$fleet, "sel", row$param)
+          # Per BLOCK, for the same reason as q above. Only the WRITE expands --
+          # the form checks below stay on the fleet the caller named, so this
+          # adds no refusal for a group whose members use different forms.
+          blk <- .shared_block_members(data_list, idx$fleet, "sel")
           if (identical(slot$arr, "log_sel_slp")) {
             .stop_unless_positive(init_val, row$param, "log_sel_slp")
             for (s in idx$species) {
-              param_list$log_sel_slp[slot$slot, idx$fleet,
+              param_list$log_sel_slp[slot$slot, blk,
                                      idx$per_sp[[as.character(s)]]$sex] <- log(init_val)
             }
           } else if (identical(slot$arr, "sel_inf")) {
@@ -673,21 +680,21 @@ build_params <- function(data_list) {
               .stop_unless_natural_sel_inf(data_list, f, slot$slot, row$param)
             }
             for (s in idx$species) {
-              param_list$sel_inf[slot$slot, idx$fleet,
+              param_list$sel_inf[slot$slot, blk,
                                  idx$per_sp[[as.character(s)]]$sex] <- init_val
             }
           } else if (identical(slot$arr, "sel_dn6")) {
             # DoubleNormalSS3 holds each parameter on SS3's scale, so the init
             # is the value as an SS3 control file gives it.
             for (s in idx$species) {
-              param_list$sel_dn6[slot$slot, idx$fleet,
+              param_list$sel_dn6[slot$slot, blk,
                                  idx$per_sp[[as.character(s)]]$sex] <- init_val
             }
           } else if (identical(slot$arr, "log_sel_apical")) {
             # The init is the multiplier itself (1 = no offset), stored logged.
             .stop_unless_positive(init_val, row$param, "log_sel_apical")
             for (s in idx$species) {
-              param_list$log_sel_apical[idx$fleet,
+              param_list$log_sel_apical[blk,
                                         idx$per_sp[[as.character(s)]]$sex] <- log(init_val)
             }
           }
