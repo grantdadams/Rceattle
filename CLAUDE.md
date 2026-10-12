@@ -403,6 +403,7 @@ section holds every entry below in full).
 - **Every error is drawn in a `SIMULATE{}` block beside its density**; a new likelihood family owes a draw (`verify-sim-*.R`).
 - **An MSE draw is per observation row**, so changing the OM horizon or row count changes every later draw (`TODO-mse-horizon.md`).
 - **The guards are not themselves guarded**: golden runs only in `deep-checks`; keep `NOT_CRAN=false` a step-level `env:`.
+- **A green R-CMD-check can be reporting your mistake**: `error-on: '"error"'` passes NOTEs and WARNINGs alike. The baseline is four runners `Status: OK` plus `macos-latest` at 1 WARNING, so read the `Status:` line against that, not the tick.
 - **An access violation is memory corruption**: build `RCEATTLE_SAFEBOUNDS=true` and run `verify-safebounds.R`.
 - **A slow fit is the model**: `BS2017SS` takes ~500–700 `nlminb` iterations.
 - **A fixed-numbers species (`estDynamics > 0`) reports its input recruits as `R`** but `NA` R0/steepness/SPR0, and in single-species mode `NA` SB0/B0/depletion; `estDynamics = 2` fits as 1 under `msmMode = 0`.
