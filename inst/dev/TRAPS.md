@@ -8,6 +8,17 @@ Verified against source, 2026-08.
 
 ## Build and test
 
+**A header-only edit under `src/TMB/` does NOT trigger a rebuild, so it is verified against the
+OLD binary.** `TMB::compile()` compares `ceattle.o` against `ceattle.cpp`, and `src/TMB/compile.R`
+declares no header dependencies — so editing `growth.hpp`, `selectivity.hpp`, `linkage.hpp` or any
+other header and running `pkgload::load_all(".")` reports success and loads the previous DLL.
+Measured while fixing the growth anchor test: `growth.hpp` at 21:18:18 against a `ceattle.o` of
+21:02:45, and `load_all()` printed nothing amiss. **It silently voids a before/after comparison**:
+a revert-and-retest of a header change ran the same binary twice and showed "no difference", which
+reads as "the test does not discriminate" when the test was never given the reverted code.
+**Delete `src/TMB/ceattle.o`, `src/TMB/ceattle.so`, `src/ceattle.so` and `src/Rceattle.so` before
+rebuilding, and check the `.o` mtime is newer than the header you edited.**
+
 **Editing only a `.hpp` does not rebuild the model.** `TMB::compile()` decides from
 `ceattle.cpp` alone and tracks no header dependency, so a change confined to
 `selectivity.hpp`, `growth.hpp`, `predation.hpp` or any other header leaves the old
