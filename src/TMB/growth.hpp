@@ -485,20 +485,24 @@ void estimate_growth_within_yr(
           // so id_pop already carries the corrected Jan-1 length.
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
-          // WHAM-style parameterization: for ages between the anchor and the
-          // plus group, blend the linear ramp with the growth curve; the plus
-          // group is pinned at its Jan-1 (id_pop) length rather than advanced by
-          // within-year growth.
-          // TODO(review): this branch (and its Richards mirror below) tests
-          // `age + 1.0 < age_L1`, mixing the slot index with an age, while the
-          // sibling branch above uses `current_age` (= age + minage + fracyr).
-          // For minage != 1 the two disagree, so the interpolated length can be
-          // off by one age. Unreachable for minage 0/1; verify for minage >= 2.
-          }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
-            last_linear = Lmin_sp + b_len * age_L1;
-            length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
+          // The plus group is PINNED at the Jan-1 length estimate_growth() wrote
+          // for it, so this override comes BEFORE the anchor test below: that
+          // test also matches the plus group when the whole age range sits under
+          // the anchor, and would discard the pinned mean length.
+          // `age + 1.0 == nages(sp)` is a slot-ordinal test (0-based `age`,
+          // `nages` a count), not an age.
           }else if(age + 1.0 == nages(sp) && growth_plus_length(sp) == 1) { // Plus group held at its Jan-1 length; under the SS3 forms it grows like every other age
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
+          // The cohort that CROSSED the anchor during the year -- Jan-1 age below
+          // age_L1, mid-year age strictly above it -- is read off the growth curve
+          // from the anchor, not advanced from its Jan-1 ramp length. `last_linear`
+          // is identically `l1` here, so the body reduces to
+          // linf + (l1 - linf) * exp(-kappa * (current_age - age_L1)).
+          // The test is the JAN-1 age, `age + minage(sp)`: `current_age` carries
+          // fracyr and the first branch already took it.
+          }else if(age + Type(minage(sp)) < age_L1){ // Linear + growth curve mixed
+            last_linear = Lmin_sp + b_len * age_L1;
+            length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
           }else { // Growth curve
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr) + (length_hat(id_pop,  sex, age, yr) - linf) * (exp(-kappa * fracyr) - 1.0); // Add fracyr growth
           }
@@ -516,11 +520,24 @@ void estimate_growth_within_yr(
           // for the remaining ages. (`last_linear` is declared at function scope.)
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
-          }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
-            last_linear = Lmin_sp + b_len * age_L1;
-            length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(linf, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
+          // The plus group is PINNED at the Jan-1 length estimate_growth() wrote
+          // for it, so this override comes BEFORE the anchor test below: that
+          // test also matches the plus group when the whole age range sits under
+          // the anchor, and would discard the pinned mean length.
+          // `age + 1.0 == nages(sp)` is a slot-ordinal test (0-based `age`,
+          // `nages` a count), not an age.
           }else if(age + 1.0 == nages(sp) && growth_plus_length(sp) == 1) { // Plus group held at its Jan-1 length (see VBGF branch)
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
+          // The cohort that CROSSED the anchor during the year -- Jan-1 age below
+          // age_L1, mid-year age strictly above it -- is read off the growth curve
+          // from the anchor, not advanced from its Jan-1 ramp length. `last_linear`
+          // is identically `l1` here, so the body reduces to
+          // linf + (l1 - linf) * exp(-kappa * (current_age - age_L1)).
+          // The test is the JAN-1 age, `age + minage(sp)`: `current_age` carries
+          // fracyr and the first branch already took it.
+          }else if(age + Type(minage(sp)) < age_L1){ // Linear + growth curve mixed
+            last_linear = Lmin_sp + b_len * age_L1;
+            length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(linf, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
           } else {
             length_hat(wtind,  sex, age, yr) = pow(pow(length_hat(id_pop,  sex, age, yr), m) + (pow(length_hat(id_pop,  sex, age, yr), m) - pow(linf, m)) * (exp(-kappa * fracyr) - 1.0), 1 / m); // Add fracyr growth
           }

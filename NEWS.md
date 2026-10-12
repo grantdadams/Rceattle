@@ -12,6 +12,59 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.57.2
+
+## Bug fixes
+
+* **The within-year growth routine chose its branch on the age-slot INDEX where it meant the
+  cohort's Jan-1 AGE.** `src/TMB/growth.hpp` tested `age + 1.0 < age_L1` -- `age` is the 0-based
+  slot and `age_L1` the von Bertalanffy anchor age -- so the test only equalled the cohort's age
+  at `minage == 1`. It is now `age + minage(sp)`, which is what the sibling Jan-1 routine already
+  uses. Three wrong numbers follow from it, all at `minage != 1`:
+  - at `minage = 0` with a fractional anchor the mean length was **discontinuous in the season**:
+    10.000000 cm at `fracyr = 0.5` against 8.815181 at `0.5 + 1e-7`, so a fish shrank 11.9% as the
+    year crossed July 1. At month 9 the age-0 length goes 11.9163 to 13.0293 -- 8.5% in length and
+    about 23.5% in weight.
+  - at `minage >= 3` with time-varying growth the arm recomputed from the closed form and
+    discarded the cohort recursion: 23.7240 against the correct 27.6468, 14% low.
+  - where the whole age range sat under the anchor it bypassed the plus-group pin: 34.8584 against
+    the pinned 42.3377, 18% low.
+* **The plus-group pin now precedes the anchor test.** It is an override, not an alternative: with
+  the age range under the anchor the anchor test also matches the plus group, and placed second it
+  discarded the Jan-1 mean length `estimate_growth()` wrote. That ordering regression was
+  introduced by the first version of this fix and caught in review -- measured at 54% low on a
+  one-age `minage = 0` model, 63% on a four-age one.
+
+**This is NOT a no-op, and the reason matters more than the claim.** `minage == 1` is
+bit-identical, unconditionally -- but `minage = 0` is live, since it is the SS3 converter's own
+default and both the GOA and AI cod bridges pass it with parametric growth. What keeps those two
+unchanged is configuration, not the `minage == 1` premise: GOA cod's anchor is 0.5 and its largest
+fleet month is 6, so `fracyr` equals the anchor exactly and the first branch's `<=` wins -- a
+margin of **one month**, and an August survey would move its age-0 length, ALK and weight-at-age.
+AI cod is safe for a different reason, an integral anchor of 1.0, and only a fractional anchor can
+diverge at `minage = 0`. Nothing live combines `minage >= 2` with parametric growth.
+
+The arm fires exactly when `age_L1` is non-integer, `fracyr > age_L1 - floor(age_L1)`, and
+`floor(age_L1)` lies in `[minage, minage + nages - 1]`; at most one age slot ever matches.
+
+**`/golden-check` cannot see this change at all.** Every bundled dataset resolves to `empirical`
+weight-at-age, and the routine is gated behind `growth_model(sp) > 0`, so none of the four
+reference models enters it. A green golden run is not evidence here; `test-growth-*.R` is the
+cover.
+
+## Internal
+
+* `test-growth-minage2-anchor.R`: 4 blocks, 8 assertions, measured in three code states --
+  **8 pass** as shipped, **2 failures** against `dev` (the `minage >= 2` and `minage = 0` cases),
+  and **1 failure** with the age test fixed but the plus-group pin left second (the ordering
+  regression). Each rebuild was forced, for the reason in the next entry.
+* The fixture needs two things a first attempt lacked: `spawn_month > 0`, since `fracyr = 0` lets
+  the first branch take everything; and an anchor ABOVE `minage`, since at the default
+  `max(0.5, minage)` the diverging slot's Jan-1 length is exactly `l1` and both arms return the
+  same number -- the branches differ and the values do not.
+* `inst/dev/TRAPS.md` records that a header-only edit under `src/TMB/` does not trigger a rebuild,
+  so it is verified against the previous binary unless the artifacts are deleted first.
+
 # Rceattle 5.57.1
 
 ## Documentation
