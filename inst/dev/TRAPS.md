@@ -792,6 +792,16 @@ is age 5. `minage = 1` hides it everywhere it is currently written, so the colum
 Three of this repo's most valuable checks have been guarded off in a way nothing verified. All
 the same shape: a speed optimization, or a green-looking job, that silently removes coverage.
 
+**`R CMD check` reports a NOTE and still concludes SUCCESS, so a green check can be naming your
+mistake.** `r-lib/actions/check-r-package` defaults to `error-on: warning`, so every NOTE passes.
+Measured: PR #226 shipped a scratch test-runner at the repository root, and all five R-CMD-check
+runners printed `checking top-level files ... NOTE / Non-standard file/directory found at top
+level: 'suite226.R' / Status: 1 NOTE` while reporting pass. It was read as 12 of 12 green and
+merged, and the file reached `dev` — where it ships, being in neither `.gitignore` nor
+`.Rbuildignore`. **Read the `Status:` line, not the check's conclusion**, and keep scratch
+runners out of the worktree: write them to a temp directory, since `git add -A` cannot tell them
+from the change.
+
 **A job that checks "did this guard measure anything" must check per BLOCK, not per file.**
 Building `source-guards.yaml` (5.49.5) produced the defect twice in a row. First a heuristic
 exempted any file whose `test_that` blocks were all followed within two lines by
