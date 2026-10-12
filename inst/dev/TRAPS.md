@@ -528,7 +528,7 @@ full schedule for a one-sex species only. **SPR reaches the objective only under
 `HCR = "ConstantF"` or an SPR-based rule (`HCR > 3`)**, so most fits cannot move at all.
 
 **A grep for `REPORT(` over `ceattle.cpp` over-counts.** `mature_females`, `sex_ratio_hat`,
-`N_at_age_dB0` / `N_at_age_dBF` and the whole Kinzey functional-response block sit behind
+`N_at_age_dB0` / `N_at_age_dBF` sit behind
 comments. A fit reports **99** quantities, identical single- and multi-species; enumerate from
 `names(fit$quantities)`, not from the source.
 
@@ -668,7 +668,7 @@ iteration. `tools/verify/verify-mse-hindcast-invariant.R` checks the invariant.
 ## The SIMULATE contract
 
 Every observation and process error is drawn in a `SIMULATE{}` block **beside the density that
-scores it** (`ceattle.cpp` sections 5.12b and 5.13, plus one per likelihood slot; the
+scores it** (`ceattle.cpp` sections 5.2 and 5.13, plus one per likelihood slot; the
 multivariate draws live in `comp_sim.hpp`). `sim_mod()` implements no observation model in R — it
 calls `obj$simulate()` once and writes the result back. **A new likelihood family therefore owes
 a draw.** Three rules, with their reasons:

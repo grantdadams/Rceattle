@@ -757,31 +757,24 @@ build_map_predation <- function(map_list, data_list) {
 #' @param nyrs_hind Number of historical years.
 #' @param random_sel Logical indicating if selectivity deviations are random effects.
 #'
-#' @description
-#'   \code{Selectivity} in \code{fleet_control} of the data determines shape of selectivity curve:
-#' `0` = "Fixed" empirical selectivity provided in \code{emp_sel} in the data
-#' `1` = "Logistic"
-#' `2` = "NonParametric" selectivity sensu Ianelli et al 2018
-#' `3` = "DoubleLogistic"
-#' `4` = "DescendingLogistic"
-#' `5` = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)
-#' `6` = "2DAR1" across age x year
-#' `7` = "3DAR1" across age x cohort x year (Cheng et al 2024)
-#' `8` = "DoubleNormal" Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
-#'     Parameters: `sel_inf[1]` = peak; `sel_inf[2]` = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
-#'     `log_sel_slp[1]` = log(sigma_asc); `log_sel_slp[2]` = log(sigma_desc).
-#'     right_floor->0: dome-shaped; right_floor->1: logistic ascending only.
+#' @details
+#'   `Selectivity` sets the curve's shape and `Time_varying_sel` whether it
+#'   varies over time; for the allowed values of both, see
+#'   "3. Selectivity (per fleet)" in
+#'   \code{vignette("model-options-and-functionality")}, or
+#'   [rceattle_switch_maps] for the code-to-name maps themselves.
+#'   `N_sel_bins` is how many age or length bins the non-parametric and AR1 forms
+#'   estimate (`Selectivity` 2, 5, 6, 7, 9 or 13); it is unused otherwise.
+#'   `random_sel` in [fit_mod()] treats the deviations as random effects and
+#'   estimates their variance.
 #'
-#' \code{N_sel_bins}	Number of age/length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, 9, or 13). Not used otherwise
-#'
-#' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-#' `0` = 'Off'
-#' `1` = 'IID' penalized deviates given \code{sel_sd_prior}
-#' `3` = 'Block' time blocks with no penalty
-#' `4` = 'RandomWalk' random walk
-#' `5` = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
-#' \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
-#'
+#'   The double-normal forms blend Gaussian ascending and descending limbs at the
+#'   peak. `DoubleNormal` reads its four parameters from the shared arrays:
+#'   `sel_inf[1]` = peak, `sel_inf[2]` = logit(right_floor) (the right-tail floor,
+#'   SS3 P6/`end_logit`), `log_sel_slp[1]` = log(sigma_asc) and
+#'   `log_sel_slp[2]` = log(sigma_desc). right_floor -> 0 is dome-shaped;
+#'   right_floor -> 1 is logistic ascending only. `DoubleNormalSS3` instead
+#'   carries its own six-parameter array (`sel_dn6`).
 #'
 #' @return Updated \code{map_list}.
 build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
@@ -1453,10 +1446,10 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind, random_q = FA
       # `q_map` so a workbook that has one is recognised and gets that migration
       # message, rather than a generic "invalid value" from validate_switches().
 
-      # Standard deviation of surveys index
-      # - 0 = use CV from index_data
-      # - 1 = estimate a free parameter
-      # - 2 = analytically estimate following (Walters and Ludwig 1994)
+      # Survey index sd: 0 = the input `Log_sd` from index_data, read on the
+      # fleet's own Index_distribution scale -- log under the lognormal family,
+      # an absolute natural-scale sd under Normal/TruncatedNormal; 1 = a free
+      # parameter; 2 = analytical (Walters and Ludwig 1994).
       if (data_list$fleet_control$Estimate_index_sd[i] == 1) {
         map_list$index_log_sd[flt] <- flt
       }

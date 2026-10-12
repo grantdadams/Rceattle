@@ -646,7 +646,6 @@
 }
 
 
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Model-level switches
 #
 # The switches that configure the MODEL rather than a workbook column --
@@ -659,7 +658,6 @@
 # workbook columns, and write_data(), read_data(), the meta sheet and the
 # R/data.R drift guard all iterate that list, so a non-column added to it
 # would land in the workbook.
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 #' One model-level switch
 #'

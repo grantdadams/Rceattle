@@ -3,7 +3,8 @@
 # Shared by run_mse() and mse_summary() so the retained set stays in one place.
 .mse_keep_quantities <- c(
   "catch_hat", "catch_sd", "index_hat", "index_sd",
-  "log_catch_sd", "log_index_sd",          # deprecated spellings, dropped next release
+  # deprecated aliases rename_output() still writes
+  "log_catch_sd", "log_index_sd",
   "ssb_depletion", "biomass_depletion", "biomass", "ssb",
   "BO", "SB0", "SBF", "F_spp", "R",
   "M1_at_age", "M_at_age", "avg_rec",
@@ -203,7 +204,7 @@
 # those rows ARE the projection, so they cannot be dropped like the index and
 # composition rows: they are blanked to NA, the state `clean_data()` creates a
 # projection row in. Nothing the fit uses is lost -- no harvest control rule
-# reads observed catch (HCR 1, constant catch, sums `catch_hat`), and section 3
+# reads observed catch (CMSY, HCR 1, sums `catch_hat`), and section 3
 # of the assessment loop overwrites every year in the interval with the
 # operating model's realized catch.
 #
@@ -383,9 +384,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     stop("`em` must be an Rceattle model object (see ?fit_mod).")
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # MSE SETUP ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   '%!in%' <- function(x,y)!('%in%'(x,y))
   set.seed(regenerate_seed)
 
@@ -544,9 +543,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     dplyr::filter(abs(Year) <= em$data_list$endyr)
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Regenerate past data from OM and refit EM ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if(regenerate_past){
 
     # - Simulate index and comp data and updatae EM
@@ -588,9 +585,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     }
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Expand OM data-dim ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- index_data
   proj_srv <- om$data_list$index_data |>
     dplyr::group_by(Fleet_code) |>
@@ -657,9 +652,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   om$data_list$ration_data <- .mse_expand_fixed_input(
     om$data_list$ration_data, "Species", om$data_list$endyr, om_proj_yrs)
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Expand EM data-dim ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
   #FIXME - assuming same as terminal year of hindcast
   # -- EM emp_sel - Use terminal year
@@ -700,9 +693,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # TODO: extract run_one_sim as a top-level internal helper with
   # explicit args (om, em, seed, assess_yrs, ...) for testability.
   # Inline closure for now to ship the foreach -> parLapply migration.
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-simulation closure (run_one_sim) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_sim <- function(sim) {
 
     set.seed(seed = seed + sim) # setting unique seed for each simulation
@@ -736,9 +727,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     # Run through assessment years
     for(k in 1:length(assess_yrs)){
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 1. Get recommended catch from the EM-HCR ----
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       new_years <- om_proj_yrs[which(om_proj_yrs <= assess_yrs[k] & om_proj_yrs > om_use$data_list$endyr)]
 
       # - Get projected catch data from EM
@@ -793,10 +782,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$data_list$catch_data <- new_catch_data
 
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 2. Update the OM ----
       # - Estimate Fdev and update dynamics
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Update endyr of OM
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
@@ -933,11 +920,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       om_fit <- om_use
 
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 3. Get actual catch from OM ----
       # - Maybe the OM can't support the TAC
       # (should be minimal with the < exploitable biomass check)
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
       # - Get realized catch data from OM
       new_catch_data <- om_use$data_list$catch_data
@@ -949,9 +934,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$data_list$catch_data <- new_catch_data
 
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 4. Simulate data from OM ----
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Simulate new survey and comp data
       # Seeded on this assessment's year, not on wherever the stream happened
       # to be left by the assessments before it.
@@ -1029,9 +1012,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
         rbind(new_caal_data) |>
         dplyr::arrange(Fleet_code, abs(Year))
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 5. Update EM and HCR ----
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # Update end year and re-estimate
       em_use$data_list$endyr <- assess_yrs[k]
 
@@ -1116,9 +1097,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
       sim_list$EM[[k+1]] <- em_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 6. End year loop ----
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     }
 
 
@@ -1200,9 +1179,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     })
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch sims (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     # FORK where possible (inherits the loaded package + the large OM/EM objects
     # via copy-on-write); PSOCK fallback exports them. See .parallel_lapply().

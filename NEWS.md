@@ -12,6 +12,108 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.57.2
+
+## Documentation
+
+* **Dead Kinzey & Punt (2009) code removed from the template.** Eight
+  commented-out block spans, not the three an earlier note listed, and two of its
+  line ranges had drifted: the `PARAMETER_*` declarations, the
+  `H_1 = exp(logH_1.array())` derivations, the `avgnMode` switch, the Kinzey diet
+  likelihood, two disabled `REPORT` blocks, the functional-response implementation
+  in `predation.hpp`, and the 42-line change log at the foot of `ceattle.cpp`.
+  Three section headers left heading nothing went too, including a `14.10. Kinzey
+  predation functions` that had come to label a live `REPORT(mort_sum)` — the
+  initial-state mortality accumulator, nothing to do with predation. `src/TMB/`
+  falls 376 lines, `predation.hpp` from 738 to 517 with its FIXME/TODO count from
+  5 to 0, and `ceattle.cpp` from 5,986 to 5,831. The word "Kinzey" no longer
+  appears in the template.
+
+  All of it sat inside `/* */`, so the preprocessor already discarded it: stripping
+  comments and normalising whitespace leaves `ceattle.cpp`, `predation.hpp` and
+  `selectivity.hpp` byte-identical to 5.57.1, and `clang -E -P` output matches per
+  file. `data_check()` refuses `msmMode %in% 3:9` in any case.
+  `inst/dev/REMOVED-kinzey-and-dev-cpp.md` records what was taken and now gives
+  the commit to recover it from, since there is no longer anything to uncomment.
+
+* **`?build_srr`'s `Bmsy_lim` described the wrong scale and the wrong
+  direction.** It said the limit "carries the same scaling" as the Ricker `beta`,
+  which is estimated divided by 1e6, and that the penalty applies when beta is
+  estimated above it. The template divides `Bmsy_lim` by 1e6 before comparing, so
+  the scaling cancels and the value is **metric tons**; and `posfun()` fires when
+  `1/beta` exceeds the limit, which is beta *below* it. A limit supplied on the
+  parameter's scale is 1e6 too large, so the penalty on the Ricker SSB-MSY proxy
+  never fires.
+
+* **`man/build_map_selectivity.Rd` hid four shipping selectivity forms.** Its
+  hand-copied `Selectivity` table stopped at code 8, omitting `NonParametricPM`
+  (9), `LogisticPM` (11), `NonParametricIntegrable` (13) and `DoubleNormalSS3`
+  (15), all four in `sel_map`; its `Time_varying_sel` list was likewise stale, and
+  it attributed IID deviates to `sel_sd_prior`, which is neither the canonical
+  `Time_varying_sel_sd` nor either of its aliases. The page is published, so an
+  assessment author was told four forms do not exist. Both tables are replaced by
+  a pointer to "3. Selectivity (per fleet)" in
+  `vignette("model-options-and-functionality")` and to `rceattle_switch_maps`,
+  which removes the staleness rather than re-syncing it. The `DoubleNormal`
+  array-slot mapping and the `N_sel_bins` form list, neither of which the vignette
+  carries, are kept. The block also had two `@description` tags, which roxygen
+  concatenates.
+
+* **`?plot_maturity` documented three arguments the function does not honour.**
+  `line_col` is never read and the line width is fixed at 1, so both are now
+  documented as retained-and-ignored, the phrasing already used by
+  `plot_stock_recruit()` and `plot_selectivity_vs_maturity()`. `species` labels
+  the facet strips and does not subset, so `plot_maturity(fit, species = 1)` drew
+  every species and labelled the rest `NA`.
+
+* **Harvest control rule 1 was named "constant catch" in the MSE pipeline.**
+  `hcr_map` has `CMSY = 1` -- maximize joint catch across species -- and there is
+  no constant-catch rule. One of the two copies is the stated reason for blanking
+  projection catch before each assessment, so the comment now points at the
+  registry and `?build_hcr` rather than restating the codes.
+
+* **`?fit_control`'s `comp_offset` said it does not apply to diet compositions.**
+  The template adds it to both `obs_diet_prop` and `pred_diet_prop`, and its own
+  declaration comment now says comp/caal/diet rather than comp/caal.
+
+* Smaller corrections, each checked against the code it describes:
+  `check_composition_data()` and `check_caal_data()` were documented as refusing
+  zero-sum rows, a check that is commented out, and carried a bare `throws` line
+  that roxygen folded into the preceding `@param`; a `build_map()` comment gave the
+  `index_data` input as a CV, where it is `Log_sd` -- a log-scale sd under the
+  lognormal family and an absolute natural-scale sd under `Index_distribution` 3
+  and 4; `selectivity.hpp` described `nages`/`nlengths` as maximum bins rather
+  than counts (rule 11); a `ceattle.cpp` section numbered `5.12b` between 5.1 and
+  5.3 where `5.2` was unused, renumbered and its twelve citations across five
+  files swept, since five of them sat outside the template and would otherwise
+  dangle; a cross-reference to section `13.4`, which does not exist, and one to
+  `14.6` where the random-effect density actually lives in `14.6b`; a stale
+  `ceattle.cpp` line citation for the diet renormalization; `@param maxage_sp`,
+  unused by `get_growth_matrix_r()`'s body and kept only because a test helper
+  passes it; a "dropped next release" promise on two deprecated spellings still
+  present; a `model_average()` comment describing a conversion the code refuses,
+  and another reading `sdrep$par.random` as though a `getsd = FALSE` fit had no
+  random effects; and a stale `4.4` version in the template banner. `avgnMode`'s
+  three codes are settable but only mode 0 has an effect, which `?fit_mod` already
+  said and the template's declaration comment now says too.
+
+* **Comment volume.** `R/` falls 109 lines (doc share 37.8% to 37.6%),
+  `src/TMB/` 376, and `man/` 521. 83 `#-#-#-#` decoration lines carrying no text
+  were removed; all but two bracketed a section header that holds the RStudio fold
+  itself, and none had the trailing dashes that would make it a section. Thirteen
+  comments narrating past defects were cut to what the code does now. 24 internal
+  helpers gained `@noRd`, so they no longer generate `man/dot-*.Rd` (193 `.Rd`
+  files to 169); none was listed in `_pkgdown.yml`. `inst/dev/CLEANUP_BACKLOG.md`'s
+  marker census is re-derived with its own documented command: 36 remain, against
+  a stated 47 and a measured 46 before this release.
+
+* **No R or C++ executable line changed**, verified by comparing
+  `deparse(parse())` for every changed `R/` file and the comment-stripped text of
+  every changed `src/TMB/` file against 5.57.1, so no fit can move. The only code
+  change is one assertion in `test-schema-cpp-dispatch.R`, which pinned that the
+  dead `switch (msmMode)` was present and now pins that no `msmMode` dispatch
+  exists at all.
+
 # Rceattle 5.57.1
 
 ## Documentation

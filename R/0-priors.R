@@ -142,6 +142,7 @@ print.Rceattle_prior <- function(x, ...) {
 #' masking [base::gamma()] or [base::beta()] at the package level.
 #'
 #' @keywords internal
+#' @noRd
 .prior_dispatch_mask <- function() {
   list(
     normal    = prior_normal,

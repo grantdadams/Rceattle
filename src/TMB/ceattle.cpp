@@ -55,7 +55,7 @@ struct LOM_t : vector<matrix<Type> > {
 };
 
 /* ------------------------------------------------------------------------- //
- *                 CEATTLE version 4.4                                       //
+ *                 CEATTLE (version: see DESCRIPTION)                        //
  *                  Template Model Builder                                   //
  *               Multispecies Statistical Model                              //
  *          Bioenergetic-based Assessment for Understanding                  //
@@ -107,10 +107,7 @@ Type objective_function<Type>::operator() () {
   //          predator preemption, Hassell-Varley, Ecosim)
   // DATA_INTEGER(est_diet);              // Include diet data in the likelihood
   DATA_IVECTOR(suitMode);                 // Estimate suitability
-  // DATA_INTEGER(avgnMode);              // N used for predation function
-  //    0 = avgN_at_age
-  //    1 = N*exp(-Z / 2))
-  //    2 = N
+  // DATA_INTEGER(avgnMode);              // Not read; predation uses avgN_at_age
   DATA_INTEGER(initMode);                 // How the age-structure is initialized
   DATA_IVECTOR(forecast);                 // Run the model in forecast mo
 
@@ -379,7 +376,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( diet_obsvec_idx );          // obsvec start position for each stomach's prey bins (incl. "other prey"); length n_stomach_obs (-1 = excluded)
   DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities); 2 = OSA build + conditional CDF terms for method = "cdf"
   DATA_INTEGER( adreport_sel );             // 0 = no selectivity standard errors (default); 1 = ADREPORT log_sel_at_age; set via fit_control(selectivity_se =)
-  DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal obs & pred before the multinomial; set via rearrange_data()/fit_control()
+  DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal/diet obs & pred before the multinomial; set via rearrange_data()/fit_control()
 
   // -- 2.4.2c. Simulation switches (sim_mod(simulate = TRUE))
   // Observations are always drawn; process error is a choice, so it is switched.
@@ -545,14 +542,6 @@ Type objective_function<Type>::operator() () {
   vector<Type>  DM_diet_pars = exp(diet_comp_weights);// Dirichlet-multinomial scalars
 
   // -- 3.7. Kinzery predation function parameters
-  /*
-   PARAMETER_MATRIX(logH_1);                       // Predation functional form; n = [nspp, nspp2];
-   PARAMETER_VECTOR(logH_1a);                      // Age adjustment to H_1; // FIXME: make matrix
-   PARAMETER_VECTOR(logH_1b);                      // Age adjustment to H_1; // FIXME: make matrix
-   PARAMETER_MATRIX(logH_2);                       // Predation functional form; n = [nspp, nspp]
-   PARAMETER_MATRIX(logH_3);                       // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
-   PARAMETER_MATRIX(H_4);                          // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
-   */
 
   // 3.8. Gamma selectivity parameters
   PARAMETER_VECTOR( log_gam_a );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
@@ -702,7 +691,7 @@ Type objective_function<Type>::operator() () {
   // correlated branch scales it by the fleet's row count, because a vector is
   // rejected whenever any single row is non-positive and the joint rejection
   // probability climbs with the number of rows. REPORTed below (under the _sim
-  // name every SIMULATE report takes, see section 5.12b) so sim_mod() quotes
+  // name every SIMULATE report takes, see section 5.2) so sim_mod() quotes
   // this value in its warning rather than carrying a second copy of it.
   const int index_trunc_max_tries = 100;
   // The observation sd the index likelihood actually used for each row, whichever
@@ -779,30 +768,6 @@ Type objective_function<Type>::operator() () {
   array<Type>   M2_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); M2_prop.setZero();  // Relative predation mortality at age from each species at age
   array<Type>   B_eaten(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); B_eaten.setZero();  // Biomass of prey eaten via predation by a predator at age
   array<Type>   B_eaten_as_prey(nspp, max_sex, max_age, nyrs); B_eaten_as_prey.setZero();            // Biomass eaten as prey via predation
-  // array<Type>   B_eaten_as_pred(nspp, max_sex, max_age, nyrs); B_eaten_as_pred.setZero();         // Biomass eaten as predator via predation (used for Kinzey and Punt)
-  // array<Type>   N_eaten(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); N_eaten.setZero();     // Number of prey of age a eaten by predator age u
-
-  // -- 4.14. Kinzey Functional response parameters
-  /*
-   matrix<Type> H_1(nspp, nspp + 1); H_1 = exp(logH_1.array());
-   vector<Type> H_1a(nspp); H_1a = exp(logH_1a);
-   vector<Type> H_1b(nspp); H_1b = exp(logH_1b);
-   matrix<Type> H_2(nspp, nspp); H_2 = exp(logH_2.array());
-   matrix<Type> H_3(nspp, nspp); H_3 = exp(logH_3.array());
-
-   array<Type>  N_pred_yrs(nspp, max_sex, max_age, nyrs); N_pred_yrs.setZero();                // Effective numbers of predators for each age of prey FIXME: should be avgN_at_age?
-   array<Type>  N_prey_yrs(nspp, max_sex, max_age, nyrs); N_prey_yrs.setZero();                // Effective numbers of prey for each age of predator
-   array<Type>  N_pred_eq(nspp, max_sex, max_age); N_pred_eq.setZero();                        // Effective numbers of predators for each age of prey (styr_pred)
-   array<Type>  N_prey_eq(nspp, max_sex, max_age); N_prey_eq.setZero();                        // Effective numbers of prey for each age of predator
-
-   array<Type>  pred_resp(nspp * max_sex, (nspp * max_sex)+1, max_age, max_age, nyrs); pred_resp.setZero();// Predator functional response +1 for other species
-   array<Type>  Pred_r(nspp, max_sex, max_age, nyrs); Pred_r.setZero();                          // save Pred_ratio values
-   array<Type>  Prey_r(nspp, max_sex, max_age, nyrs); Prey_r.setZero();                          // save Prey_ratio values
-
-   array<Type> ration_hat(nspp, max_sex, max_age, nyrs); ration_hat.setZero();                   // Annual ration by predator age each year
-   array<Type> ration_hat_ave(nspp, max_sex, max_age); ration_hat_ave.setZero();                 // Annual ration by predator age averaged over years
-   */
-
 
   /** ------------------------------------------------------------------------ //
    * 5. INITIAL CALCULATIONS                                                   //
@@ -816,12 +781,12 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
-  // -- 5.12b. SIMULATE LINKAGE RANDOM EFFECTS (sim_mod(simulate = TRUE))
+  // -- 5.2. SIMULATE LINKAGE RANDOM EFFECTS (sim_mod(simulate = TRUE))
   // Time-varying recruitment, M, growth, q and selectivity are all written the
   // same way -- a random linkage -- so all five draw here, before the deviations
   // are gathered below and the processes read them.
   //
-  // Each structure draws from the density that scores it in section 14.6:
+  // Each structure draws from the density that scores it in section 14.6b:
   //   IID  N(0, sigma) per slot;
   //   rw   N(0, sigma) on first differences; slot 0 is left alone, being a level
   //        the density never sees and the map pins;
@@ -2669,23 +2634,10 @@ Type objective_function<Type>::operator() () {
       for(sex = 0; sex < nsex(sp); sex ++){
         for(age = 0; age < nages(sp); age++) {
           for(yr = 0; yr < nyrs; yr++) {
-            // switch(avgnMode){
-            // case 0: // MSVPA approach
+          // MSVPA average N over the year.
             avgN_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) / Z_at_age(sp, sex, age, yr);
             avgN_at_age_dB0(sp, sex, age, yr) = N_at_age_dB0(sp, sex, age, yr) * (1 - exp(-M_at_age_dB0(sp, sex, age, yr))) / M_at_age_dB0(sp, sex, age, yr);
             avgN_at_age_dBF(sp, sex, age, yr) = N_at_age_dBF(sp, sex, age, yr) * (1 - exp(-M_at_age_dBF(sp, sex, age, yr) - Ftarget_at_age(sp, sex, age, yr))) / (M_at_age_dBF(sp, sex, age, yr) + Ftarget_at_age(sp, sex, age, yr));
-            /*
-             break;
-          case 1: // Kinzey and Punt (2009) approximation
-             avgN_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * exp(- Z_at_age(sp, sex, age, yr) / 2);
-             break;
-          case 2: // Van Kirk et al (2010) approximation
-             avgN_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr);
-             break;
-          default:
-             error("Invalid 'avgnMode'");
-             }
-             */
           }
         }
       }
@@ -3832,7 +3784,7 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-  // Reported under a _sim name -- see the naming rule in section 5.12b.
+  // Reported under a _sim name -- see the naming rule in section 5.2.
   SIMULATE {
     matrix<Type> index_obs_sim = index_obs;
     REPORT(index_obs_sim);
@@ -3950,7 +3902,7 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-  // Reported under _sim names -- see the naming rule in section 5.12b.
+  // Reported under _sim names -- see the naming rule in section 5.2.
   //
   // obsvec_sim holds the catch and survey-index entries redrawn and every other
   // entry as observed, and that is all it will ever hold: the composition, CAAL
@@ -3982,7 +3934,7 @@ Type objective_function<Type>::operator() () {
   // comparable with a version that fits without it.
   //
   // Simulated compositions go to this copy, not into the REPORTed comp_obs --
-  // see the _sim naming rule in section 5.12b. Rows the draw does not touch keep
+  // see the _sim naming rule in section 5.2. Rows the draw does not touch keep
   // the observed values they were copied with.
   matrix<Type> comp_sim = comp_obs;
 
@@ -5251,7 +5203,7 @@ Type objective_function<Type>::operator() () {
 
   // 13.2. Diet likelihood components
   // Simulated stomach contents go to this copy, not into the REPORTed diet_obs
-  // -- see the _sim naming rule in section 5.12b. Stomachs the model does not fit
+  // -- see the _sim naming rule in section 5.2. Stomachs the model does not fit
   // keep the observed values they were copied with.
   matrix<Type> diet_sim = diet_obs;
 
@@ -5435,49 +5387,12 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-  // Reported under a _sim name -- see the naming rule in section 5.12b. Equal to
+  // Reported under a _sim name -- see the naming rule in section 5.2. Equal to
   // diet_obs for a model with no diet likelihood, where nothing above is drawn.
   SIMULATE {
     matrix<Type> diet_obs_sim = diet_sim;
     REPORT(diet_obs_sim);
   }
-
-
-  //  Diet likelihood components for Kinzey and Punt predation
-  /*
-   if(msmMode > 2){
-   // Slot 15 -- Ration likelihood
-   for(yr = 0; yr < nyrs_hind; yr++) {
-   for(sp = 0; sp < nspp; sp++) {
-   for(sex = 0; sex < nsex(sp); sex ++){
-   for(age = 1; age < nages(sp); age++) { // don't include age zero in likelihood
-   if(ration(sp, sex, age, yr) > 0){
-   if(ration_hat(sp, sex, age, yr) > 0){
-   jnll_comp(JNLL_RATION, sp) -= dnorm(log(ration(sp, sex, age, yr))  - square(sd_ration) / 2,  log( ration_hat(sp, sex, age, yr)), sd_ration, true);
-   }
-   }
-   }
-   }
-   }
-   }
-
-
-   // Slot 16 -- Ration penalalties FIXME: not sure if necessary: talk to Andre
-   for(sp = 0; sp < nspp; sp++) {
-   for(sex = 0; sex < nsex(sp); sex ++){
-   for(age = 0; age < nages(sp); age++) {
-   for(yr = 0; yr < nyrs_hind; yr++) {
-   if(ration_hat(sp, sex, age, yr) > 0){
-   //jnll_comp(JNLL_RATION_PENALTY, sp) += 20 *  pow(ration_hat(sp, sex, age, yr) - ration_hat_ave(sp, sex, age), 2);
-   }
-   }
-   }
-   }
-   }
-   } // End if statement for Kinzey diet likelihood
-   */
-
-
   // Paste unweighted likelihood parts over
   // - Only comp and diet comp use data weights!
   for(flt = 0; flt < n_col; flt++){
@@ -5846,7 +5761,7 @@ Type objective_function<Type>::operator() () {
               // is reported as an unweighted LIKELIHOOD (Francis and
               // McAllister-Ianelli read it), and a CDF term is not one. This row
               // is one of the few that keeps its own value -- the wholesale copy
-              // in section 13.4 runs `ind < 19`, so rows 19 and 20 are never
+              // in section 13.2 runs `ind < 19`, so rows 19 and 20 are never
               // overwritten, and it executes before this block in any case.
               if (osa_mode == 2) {
                 jnll_comp(JNLL_LINKAGE_RE, 0) -= osa_norm_cdf_terms(
@@ -5869,16 +5784,6 @@ Type objective_function<Type>::operator() () {
   REPORT( fT );
 
   // -- 14.9. Predation components
-  /*
-   REPORT( suit_other );
-   REPORT( stom_div_bio );
-   REPORT( avail_food );
-   REPORT( diet_prop );
-   REPORT( other_food_diet_prop );
-   REPORT( diet_prop_hat );
-   REPORT( B_eaten_as_pred );
-   REPORT( N_eaten );
-   */
   REPORT( M2_prop );
   REPORT( diet_obs );
   REPORT( suitability );
@@ -5896,26 +5801,7 @@ Type objective_function<Type>::operator() () {
   REPORT( avail_food );
 
 
-  // -- 14.10. Kinzey predation functions
-  /*
-   REPORT( H_1 );
-   REPORT( H_1a );
-   REPORT( H_1b );
-   REPORT( H_2 );
-   REPORT( H_3 );
-
-   REPORT( N_pred_yrs );
-   REPORT( N_prey_yrs );
-   REPORT( N_pred_eq );
-   REPORT( N_prey_eq );
-
-   REPORT( pred_resp );
-   REPORT( Pred_r );
-   REPORT( Prey_r );
-
-   REPORT( ration_hat );
-   REPORT( ration_hat_ave );
-   */
+  // -- 14.10. Initial-state cumulative mortality (feeds the initial age structure)
   REPORT(mort_sum);
 
   /** ------------------------------------------------------------------------ //
@@ -5942,45 +5828,3 @@ Type objective_function<Type>::operator() () {
   return jnll;
 }
 
-/** ------------------------------------------------------------------------ //
- // 16. CHANGE LOG                                                            //
- // ------------------------------------------------------------------------- //
- // Changes from 2017 assessment
- // 1. Normalize age-transition matrix prior to use (PCod rows did not sum to 1)
- // 2. Added log-normal recruitment deviation bias correction
- // 3. Added month to survey index calculation. EBS specific. BT survey age/length composition estimated for month 6 rather than 0, similar to BT survey biomass
- // 4. Fixed mis-specification of multinomial for fishery composition
- // 5. Normalized survey and fishery selectivity so that max = 1
- // 6. Fixed initialization of population
- // 7. Fixed estimation routine of suitability coefficients (N used to caclulate suitability is no-longer different)
- // 8. Changed ration calculation over nyrs rather than nTyrs
- // 9. Allowed retrospective estimation
- // 10. Added month to comp caclulation. EBS specific: Acoustic comp and biomass data are assumed to come from month 6 rather than 0, given they survey in the summer
- // 11. Added time varying selectivity and catchability
- // 12. Can make survey selectivity and/or catchability equal across surveys
- // 13. Added cabability to have a two sex model
- // 14. Added in spawning stock biomass weight
- // 15. Added in multiple weights for surveys
- // 16. Added in spawning month mortality adjustment
- // 17. Removed constant 0.0001 added to M1_at_age
- // 18. Had the model estimate diet_obs
- // 19. Added flexibility to fixed n-at-age to have age, sex specific scaling paramters and estimate selectivity
- //  Fixme: denominator is zero somewhere. Log of negative number. Check suitability. Make other prey a very large number.
- //  Look at M2_at_age: suitability: and consumption. Make sure positive.
- // 20. Added analytical q for time-varying survey sigma inputs
- // 21. All random effect selectivity and catchability deviates are commented out
- // 22. Estimate M1_at_age for sex/species
- // 23. Fixed suitability estimation (use hindcast only)
- // 24. Added in non-parametric time varying selectivity similar to Hake
- // 25. Added in dynamic reference points
- // 26. Added biomass_depletion and F
- // 27. Added stock-recruitment relationships
- // 28. Added dirichlet multinomial for age/length composition data
- // 29. Removed log_mean_F + F_dev, converted to log_F
-
-
- // ------------------------------------------------------------------------ //
- // 16. TODO                                                                 //
- // ------------------------------------------------------------------------- //
- // Remove month from comp_data & index_data now that month is in fleet_control
- */

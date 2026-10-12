@@ -28,6 +28,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' for 4 or 5 to discourage their use in new code.
 #'
 #' @keywords internal
+#' @noRd
 .M1_MODELS <- c(
   fixed             = 0L,
   sex_age_invariant = 1L,
@@ -51,6 +52,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' codes continue to work for backwards compatibility.
 #'
 #' @keywords internal
+#' @noRd
 .M1_RES <- c(
   none         = 0L,
   iid_age      = 1L,

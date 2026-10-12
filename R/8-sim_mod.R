@@ -1002,7 +1002,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 #' template reports every deviation array whole, the draws cover the hindcast
 #' only, and `beta_linkage_re` spans every random-linkage slot whether or not its
 #' process was asked for, so the arrays hold fitted values alongside simulated
-#' ones. The mask is written by the draw itself (`ceattle.cpp` sections 5.12b and
+#' ones. The mask is written by the draw itself (`ceattle.cpp` sections 5.2 and
 #' 5.13) rather than re-derived here, so it cannot disagree with what happened.
 #'
 #' @param sim_rep The report from one `obj$simulate()` call.
@@ -1064,7 +1064,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 
 #' Does this model hold a random linkage on a process the caller asked for?
 #'
-#' Mirrors the gate in ceattle.cpp section 5.12b, including its skip of observed
+#' Mirrors the gate in ceattle.cpp section 5.2, including its skip of observed
 #' AR1 (QAR1) groups. Used only for the HYPOTHETICAL question, would this
 #' process be drawn if it were asked for, which the model cannot answer,
 #' since it only reports what it did draw. What actually happened is read from
@@ -1295,7 +1295,7 @@ compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
 #' @param nyrs Integer. Number of years in the simulation.
 #' @param lengths_sp Vector. Boundaries of the length bins.
 #' @param minage_sp Numeric. The reference age (L1) for growth estimation.
-#' @param maxage_sp Numeric. The age at which growth enters the asymptotic phase.
+#' @param maxage_sp Unused by the body; `helpers-make-msm-data.R` passes it.
 #' @param growth_params_sp Array. Dimensions (sex, yr, 4).
 #'   Params: K, L1, Linf, Richards m.
 #' @param growth_log_sd_sp Array. Dimensions (sex, 2).

@@ -437,9 +437,8 @@ plot_timeseries <- function(Rceattle,
 
 
 # Display divisor per derived series; a series absent here is plotted unscaled.
-# Any entry added needs its matching unit in .rce_ts_ylab(): the two drifting
-# apart is how recruitment came to be plotted in thousands under a "million"
-# label.
+# Any entry added needs its matching unit in .rce_ts_ylab(); a mismatch
+# silently mislabels the axis by the divisor.
 .RCE_TS_RESCALE <- c(
   biomass             = 1e6,   # mt              -> million mt
   ssb                 = 1e6,   # mt              -> million mt
@@ -531,9 +530,7 @@ plot_timeseries <- function(Rceattle,
 # are handed to plot_timeseries(), which adds the layers before it saves, so the
 # reference lines reach the written PNG and the CSV still has the `file` it
 # needs. They exist so every timeseries plotter goes through this factory: F and
-# SSB depletion both draw reference points, and writing either by hand outside
-# it is how plot_f() came to take a different argument list from its siblings
-# and to resolve `species` its own way.
+# SSB depletion both draw reference points.
 .ts_wrapper <- function(output, zero_y = FALSE, ref_lines = NULL,
                         suffix = NULL) {
   force(output); force(zero_y); force(ref_lines); force(suffix)
@@ -1020,8 +1017,8 @@ plot_selectivity <-
 #' @param msmMode Multispecies mode integer specifying functional form
 #' @export
 plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode = 3){
-  # The Kinzey & Punt (2009) functional-response parameters are commented out in
-  # the TMB template and absent from build_params(), build_map() and
+  # The Kinzey & Punt (2009) functional-response parameters are absent from the
+  # TMB template, and from build_params(), build_map() and
   # build_bounds(), and data_check() refuses msmMode 3-9. The plotting body and
   # the parameter starting values are in inst/dev/REMOVED-kinzey-and-dev-cpp.md.
   stop(paste0(
@@ -1191,9 +1188,11 @@ plot_mortality <-
 #'   function.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param species Species names for legend
-#' @param lwd Line width as specified by user
+#' @param line_col,lwd Deprecated base-graphics arguments, retained for
+#'   back-compatibility and ignored; colour comes from the shared model palette
+#'   and the line width is fixed.
+#' @param species Species labels for the facet strips, length `nspp`. Default is
+#'   the model's own names. It labels panels and does not subset.
 #' @param width Figure width in inches
 #' @param height Figure height in inches
 #'
