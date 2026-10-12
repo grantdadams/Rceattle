@@ -76,6 +76,19 @@ version throughout.
   The template adds it to both `obs_diet_prop` and `pred_diet_prop`, and its own
   declaration comment now says comp/caal/diet rather than comp/caal.
 
+* **`other_food` was declared in kilograms and is metric tons.** It is summed
+  into the available-food denominator beside `suit * prey_N * prey_wt` --
+  numbers-at-age in thousands times weight-at-age in kg, which is mt by the
+  same convention the rest of the package uses -- so a value supplied in kg is
+  1000x too small and understates how much non-modelled prey a predator has
+  available, which inflates predation mortality on the modelled species. The
+  schema `doc`, the template's `DATA_VECTOR` comment and `R/data.R`'s `@format`
+  now all say mt, and `inst/extdata/meta_data_names.xlsx` is regenerated (103
+  rows) because the schema's `doc` strings ship into it verbatim. Note that
+  under `msmMode = 2` the prey term in that sum is squared, so the denominator
+  is not a biomass in any unit there; the label describes `msmMode = 1`, which
+  is what every bundled dataset and live assessment runs.
+
 * Smaller corrections, each checked against the code it describes:
   `check_composition_data()` and `check_caal_data()` were documented as refusing
   zero-sum rows, a check that is commented out, and carried a bare `throws` line
@@ -107,12 +120,14 @@ version throughout.
   marker census is re-derived with its own documented command: 35 remain, against
   a stated 47 and a measured 45 before this release.
 
-* **No R or C++ executable line changed**, verified by comparing
-  `deparse(parse())` for every changed `R/` file and the comment-stripped text of
-  every changed `src/TMB/` file against 5.58.0, so no fit can move. The only code
-  change is one assertion in `test-schema-cpp-dispatch.R`, which pinned that the
-  dead `switch (msmMode)` was present and now pins that no `msmMode` dispatch
-  exists at all.
+* **No fit can move.** Of 31 changed `R/` files, exactly one differs at parse
+  level -- `R/0-column_schema.R`, by the single `other_food` `doc` string above,
+  which is data the workbook reader and the generated xlsx consume and which no
+  likelihood reads. Every changed `src/TMB/` file is byte-identical to 5.58.0
+  once `/* */` and `//` are stripped and whitespace normalised, each check run
+  with a negative control. The only other code change is one assertion in
+  `test-schema-cpp-dispatch.R`, which pinned that the dead `switch (msmMode)`
+  was present and now pins that no `msmMode` dispatch exists at all.
 # Rceattle 5.58.0
 
 ## Bug fixes

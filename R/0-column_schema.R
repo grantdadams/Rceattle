@@ -179,7 +179,7 @@
     .rce_col("slope_mat_len", "control", "Numeric: slope (per cm, positive) of logistic maturity-at-length, maturity = 1 / (1 + exp(-slope_mat_len * (length - L50_mat_len))). NA uses the age-based maturity sheet.", tmb_target = "mat_len_pars"),
     .rce_col("pop_age_transition_index", "control", "Integer: age transition matrix (e.g. growth trajectory) index to use deriving length-based predation", type = "integer"),
     .rce_col("sigma_rec", "control", "Numeric: fixed or initial value of standard deviation for recruitment deviates", aliases = "sigma_rec_prior"),
-    .rce_col("other_food", "control", "Numeric: other food in the ecosystem for each species (kg)"),
+    .rce_col("other_food", "control", "Numeric: other food in the ecosystem for each species (mt)"),
     .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient, estimated under predation (msmMode > 0) and fixed at 1 otherwise.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp)); documentation-only", tmb_target = "estDynamics"),
 
     # ======================================================================

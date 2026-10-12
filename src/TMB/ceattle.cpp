@@ -434,7 +434,7 @@ Type objective_function<Type>::operator() () {
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
-  DATA_VECTOR( other_food );              // Biomass of other prey (kg)
+  DATA_VECTOR( other_food );              // Biomass of other prey (mt)
   DATA_VECTOR( Pvalue );                  // This scales the pvalue used, proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge
   DATA_IVECTOR( Ceq );                    // Ceq: which Comsumption equation to use; Currently all sp = 1
   DATA_IVECTOR( Cindex );                 // Cindex, which environmental index in env_index should drive bioenergetics.
