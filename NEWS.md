@@ -12,6 +12,39 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.58.0
+
+## Bug fixes
+
+* **An intercept `init` or `bounds` on a shared block now reaches the parameter, instead of being
+  diluted by the rest of the group.** Fleets sharing a `Selectivity_index` / `Catchability_index`
+  estimate ONE parameter block, and `TMB:::updateMap()` starts a shared level at
+  `tapply(parameter.entry, map.entry, mean)` -- the mean over the whole level. The push wrote the
+  donor's cell only, so the other members' build defaults pulled the start off the request.
+  Measured on `BS2017SS` with fleets 4 and 5 sharing a `Selectivity_index` and
+  `linkage_spec(~ 1, init = list(intercept = 0.5), by = ~ fleet, fleet = 4)`:
+
+  | | `log_sel_slp` start | on the natural scale |
+  |---|---|---|
+  | before | **-0.096574** | a slope of 0.908 |
+  | after | -0.693147 | **0.500000**, as asked |
+
+  `.stop_if_shared_block()` refuses a value set on a FOLLOWER and tells the caller to put it on the
+  donor, so the spelling it recommends was the one that diluted.
+* **The same defect on bounds was worse**, because `fit_mod()` reduces bounds to one entry per map
+  level by first occurrence (`match(levels(droplevels(mf)), as.character(mf))`): if the donor was
+  not first in array order, the surviving bound was an unwritten DEFAULT rather than the requested
+  one. Both pushes now write every member of the block, so whichever cell the reduction picks is
+  right.
+* The expansion does not filter on species -- a group may span species, and the mean does not care
+  -- so for a member of a one-sex species in a two-sex caller's group the worst case is a write
+  into a padding cell, which is mapped off and is neither read nor part of the level.
+
+**Whose fits move:** any fit that sets an intercept `init` or `bounds` through a `sel` or `q`
+linkage on a fleet that shares its block. Nothing in the bundled datasets or the sibling
+assessment scripts does -- the GOA cod bridge's three intercept inits are all unstratified growth
+rows, and its selectivity specs are intercept-free -- so no shipped configuration changes. A fit
+that does set one was starting somewhere nobody asked for and will now start where it was told.
 # Rceattle 5.57.3
 
 ## Bug fixes

@@ -560,6 +560,35 @@ linkage_row <- function(process, param, X_col,
 }
 
 
+#' Every member of the blocks the named fleets belong to
+#'
+#' An intercept value written to the donor's cell alone is diluted: a shared
+#' block starts at `TMB:::updateMap()`'s mean over the whole map level, so the
+#' other members' build defaults pull it off the request. Bounds take one entry
+#' per level by first occurrence, so they need the same expansion to land on
+#' whichever cell wins.
+#'
+#' A group may span species -- `adjust_map_shared_params()` keys on the index
+#' alone, and so does the mean -- so the expansion does not filter on species.
+#' The sex range a caller writes is the NAMED fleet's species', and sex 1 exists
+#' for every species, so the worst case for a member of a one-sex species in a
+#' two-sex caller's group is a write into a padding cell, which is mapped off
+#' and so is neither read nor part of the level.
+#'
+#' @keywords internal
+#' @noRd
+.shared_block_members <- function(data_list, flts, process) {
+  col <- switch(process, q = "Catchability_index", sel = "Selectivity_index", NULL)
+  idx <- if (is.null(col)) NULL else data_list$fleet_control[[col]]
+  if (is.null(idx) || !length(flts)) return(flts)
+  out <- as.integer(flts)
+  for (f in out[!is.na(out)]) {
+    if (!is.na(idx[f])) out <- c(out, which(!is.na(idx) & idx == idx[f]))
+  }
+  sort(unique(as.integer(out)))
+}
+
+
 #' Guards shared by the intercept init and bounds pushes
 #'
 #' @keywords internal
