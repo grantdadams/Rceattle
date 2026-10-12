@@ -12,6 +12,40 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.57.3
+
+## Bug fixes
+
+* **Jan-1 length-at-age was year-varying at a non-integer growth anchor.** The cohort recursion
+  in `src/TMB/growth.hpp` advances a slot from the same cohort one year younger, so it is only
+  valid once that predecessor is itself on the growth curve. The test for "not yet" compared the
+  slot's age to `max(minage, 1)`, where the first slot above the anchor is at
+  `max(minage, floor(growth_age_L1) + 1)`. Where those differ, every year after the first
+  recursed from a linear-ramp length. Measured on a `make_test_data` fit at `minage = 1` with an
+  anchor of 2.5: the slot above the anchor came back **2.2959 cm against a correct 1.6965
+  (+35.3%)**, with a 0.5994 cm spread across years that constant growth parameters forbid. It
+  propagates into every fleet's weight-at-age, and it put the two growth routines in
+  contradiction -- the same cohort at the same instant read 15.8752 cm from the within-year
+  advance and 19.8139 cm from Jan-1, a gap that is now exactly 0. The test is now
+  `current_age - 1 < age_L1_safe || age == 0`, and `age_L1_ceil` is deleted.
+* **Slot 0 no longer reaches the cohort recursion at any anchor.** It has no one-year-younger
+  predecessor, so it read index `-1` -- an out-of-bounds load this build does not report. The old
+  gate covered this only incidentally, via `max(minage, 1) == minage`; the `age == 0` clause is
+  what covers it now, and without that clause the new first test alone would read `-1` wherever
+  the anchor sits below `minage`.
+
+**Nothing shipping moves.** Every `Growth_Age_for_L1` in the 188 SS3 control files reachable here
+is 0.5 or an integer (1 x113, 0 x44, 0.5 x30, 3 x1), and for all of them the new gate reroutes no
+slot at any `minage` 0-4 or `nages` 2-20; the `max(0.5, minage)` default is likewise bit-identical
+for `minage` 0-4. Two mechanisms make that so: at an integer anchor the ramp ends exactly at `l1`,
+so the recursion already inherited a curve value, and at a sub-year anchor the first slot above it
+is Jan-1 age 1, which `max(minage, 1)` names when `minage <= 1`.
+
+Both arms are pinned by new blocks in `test-growth-vonbert-year-invariance.R`; the non-integer
+block fails 10 assertions on the parent commit, which is also testthat's cap. **`/golden-check` is
+not evidence here** -- `BS2017SS` and `GOA2018SS` carry no `growth_model`, so `estimate_growth()`
+is never entered; it passed as a no-regression check on everything else.
+
 # Rceattle 5.57.2
 
 ## Bug fixes

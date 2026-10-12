@@ -13,7 +13,10 @@
 #     diverging slot is the one whose Jan-1 age IS the anchor, where its Jan-1
 #     length is exactly `l1` and the two arms give the same number -- the
 #     branches differ and the values do not. `growth_age_L1 = 3.5` puts
-#     the divergence on slot 2, whose Jan-1 length is on the curve.
+#     the divergence on slot 2, whose Jan-1 length is on the curve -- true only
+#     since 5.57.3; before it that Jan-1 value was itself a mid-ramp recursion.
+#     These assertions survived either way because each is taken relative to
+#     the Jan-1 value it reads back, or sits on the mixed branch.
 
 testthat::skip_on_cran()
 
