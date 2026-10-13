@@ -693,6 +693,40 @@ lost.
 likelihood reads the column as a log (`DM_pars_comp = exp(comp_weights)`); a multinomial reads it
 as a natural-scale multiplier. `write_template()` seeds 1. `fit_mod()` reports this since 5.11.0.
 
+**A bundled maturity above 1 is a data defect, not a sex-ratio convention, and on a TWO-SEX
+species it doubles SSB.** `GOA2018SS` and `GOAcod` carry Pacific cod maturity = **2.0 at
+Age1-Age12** — every age those models use (`nages[cod] = 12`). It looks harmless only because cod
+is `nsex = 1` with `sex_ratio = 0.5` and `ceattle.cpp:1025` multiplies by the sex ratio **for
+one-sex species only**; `mature_females` is otherwise a plain copy of `maturity`
+(`ceattle.cpp:1015`), so a two-sex species takes the value at face value. Measured by doubling
+two-sex Arrowtooth's row in `GOA2018SS` at the golden reference parameters: `ssb[endyr]`
+1,044,496.91 -> 2,088,993.82, `SB0` 1,047,684.48 -> 2,095,368.97, `SPR0` 1.230019 -> 2.460037 —
+all exactly x2 — with the objective **unchanged**.
+
+Why it is a defect rather than a convention, measured across all 11 bundled datasets: 14 one-sex
+species rows carry maturity <= 1 and exactly 2 carry 2.0, both the same stock. The control is
+decisive — **BS2017SS/MS Cod** is the same species, also `nsex = 1`, also `sex_ratio = 0.5`, and
+carries an ordinary ogive topping at **0.99728**. The row also mixes two scales: Age1-12 read a
+flat 2, while the *unused* padding at Age13-20 reads 0.99828 -> 0.99965, an ogive tail on the
+undoubled scale. GOA Pcod's real maturity is a **length** ogive (the SS3 model the bridge targets
+sets `maturity_option: 1 = length logistic`), so the age sheet was never a proportion-at-age, and
+`Rceattle-models/GOA cod/2024_pcod.R` already overrides it with `maturity[,-1] <- 1`.
+
+Three reasons nothing caught it. `data_check()` has a lower bound only —
+`R/1-data_check.R` reads `if(any(mat_vals < 0, na.rm = TRUE)){   # | mat_vals > 1`, the upper half
+**written and commented out in the commit that introduced it** (`ab9872bf`) and never live.
+`plot_maturity()` sets `coord_cartesian(ylim = c(0, 1.1))`, so the one figure that would show a
+2.0 clips it out of the panel. And no test would move if the data were corrected: the five
+`GOA2018SS` tests touching SSB or SPR either overwrite maturity first or recompute the expectation
+from `d$maturity` itself. Across every workbook in the ecosystem, 70 of 528 maturity rows exceed
+1; **all 70 are exactly 2.0**, every one a cod row in the GOA/AI lineage, including the live
+`GOA-multispecies-assessment/data/raw/GOA_25_data_1977_2025.xlsx`.
+
+**Documented, not fixed (Grant's call, 2026-10-12.)** Enabling the upper bound would refuse two
+bundled datasets and 70 rows of live assessment workbooks, and the correct cod ogive has to be
+recovered from the length-based model rather than guessed. Do not "fix" the data before that is
+settled. See `inst/dev/TODO-maturity.md` Open 2.
+
 **Mohn's rho has two live conventions differing by the PEEL COUNT, and r4ss returns both from one
 function.** `r4ss::SSmohnsrho()` gives `$SSB` as `sum(rel_error)` over peels and
 `$AFSC_Hurtado_SSB` as `sum(rel_error)/n`; SAM's `mohn.samset()` uses `colMeans`. **Rceattle is
@@ -1072,6 +1106,13 @@ across the boundary.
 - **The simulation draws.** `tools/verify/verify-sim-*.R`.
 - **Any figure.** A plotter can change every number it draws and stay green. The net is
   `tests/testthat/test-plot-*.R` plus a before/after `ggplot_build()` diff at the merge base.
+- **Anything the likelihood does not read.** `GOA2018SS` sets no `srr_fun` and no `srr_pred_fun`,
+  the corner where SSB is pure derived output, so `maturity` never enters the objective there:
+  every maturity perturbation gives `dObj = +0.0000e+00` on both `goa_ss` and `goa_ms` (positive
+  controls on the same probe: an index observation x1.5 moves it +3.7664, a fitted catch row x1.5
+  moves it +32.674). Golden therefore cannot see the cod maturity defect above, and correcting the
+  data would leave both objectives bit-unchanged. Maturity reaches the objective only where
+  `srr_pred_fun > 0` or `srr_fun > 1`, through `R_hat` into `jnll_comp(JNLL_SRR_PENALTY)`.
 - **Linkage rows.** The four golden models carry none. The constructive linkage tests
   (`test-dynamics-recruitment-linkage.R`, `test-linkage-random-effects.R`) are the net.
 - **Selectivity normalization.** No bundled dataset enters the normalization block in
