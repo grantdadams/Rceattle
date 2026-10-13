@@ -36,12 +36,9 @@ plot is drawn to the active device only. When supplied, the figure is
 written to \code{paste0(file, "_data_plot.png")} (and \verb{_data_plot2.png} for
 the bubble subplot).}
 
-\item{subplots}{Integer vector controlling which subplots are produced:
-\itemize{
-\item 1, equal-size points showing presence/absence by year/fleet
-\item 2, points scaled to relative quantity / precision within each
-data type (catch tonnage, 1/SE for indices, sample size for comps)
-}}
+\item{subplots, res, ptsize, margins, cex, lwd, maxsize, mainTitle, cex.main}{Deprecated base-graphics arguments, retained for back-compatibility and
+ignored. Both subplots are always drawn; size, resolution and titles come
+from the ggplot theme and from \code{width}/\code{height}.}
 
 \item{datatypes}{Either \code{"all"} or a subset of
 \code{c("catch", "index", "agecomp", "lencomp", "caal", "diet")}.}
@@ -61,24 +58,7 @@ shown after subsetting). Diet entries get an additional color appended.}
 
 \item{width, height}{Figure dimensions in inches.}
 
-\item{res}{Resolution (dpi) for the saved PNG.}
-
-\item{ptsize}{Pointsize passed to \code{png()}.}
-
-\item{margins}{\code{par("mar")} for the plot. Increase the right margin if
-long fleet names are clipped.}
-
-\item{cex}{Character expansion for points showing isolated years.}
-
-\item{lwd}{Line width for runs of consecutive years (subplot 1).}
-
-\item{maxsize}{Max bubble radius (in plot units) for subplot 2.}
-
 \item{alphasize}{Bubble fill transparency (0-1).}
-
-\item{mainTitle}{Logical; if \code{TRUE} add a default title.}
-
-\item{cex.main}{Title character expansion.}
 }
 \value{
 Invisibly, a list with \code{typetable}, the long data frame underlying
