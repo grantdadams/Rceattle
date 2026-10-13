@@ -140,7 +140,7 @@ subdirectory the table names: run them with the working directory at `GOA polloc
 |---|---|---|---|
 | GOA arrowtooth 2026, `mod_26_0` (M fixed) | yes, all 31 length rows joint-sex | 38.6514 -> 38.0811 | 429260 -> 429746 mt (**+0.113%**) |
 | GOA arrowtooth 2026, `mod_26_1` (M estimated) | same | 0.1475 -> -0.3021 | 331426 -> 330639 mt (**-0.238%**) |
-| GOA pollock 2025 | yes -- `max|A-I|` 0.3550, 74 length rows, all COMBINED-sex | unmeasured, the script cannot run (below) | |
+| GOA pollock 2025 | yes -- `max\|A-I\|` 0.3550, 74 length rows, all COMBINED-sex | unmeasured, the script cannot run (below) | |
 | EBS pollock 2024 | no -- identity matrix, 0 length rows | 713.6765 unchanged in kind | |
 | Pacific hake (MSE_yr2024) | no | all four references reproduce exactly | |
 

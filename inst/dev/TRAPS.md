@@ -91,6 +91,23 @@ your change. Either regenerate everything under one version deliberately, or `gi
 unrelated churn and keep only the `.Rd` you meant to change. A matching version is necessary but
 not sufficient — the build environment can rewrite `man/` and `NAMESPACE` too.
 
+**Compiling a header standalone without `-DTMBAD_FRAMEWORK` tests a translation unit the package
+never builds.** `src/TMB/compile.R` passes `framework = "TMBad"`, so the shipped model is built
+with TMBad, which undefines `CPPAD_FRAMEWORK`, `KEEP_COL`, `KEEP_ROW` and `eval` relative to
+CppAD. A quick syntax or instantiation check of one `.hpp` that omits the flag therefore exercises
+a different AD scalar type from the one the model uses, and whatever it reports — including a
+"bug" — is about code that is never compiled. Pass the flag, or check through a real
+`pkgload::load_all(".")`.
+
+**Reading a randomized cross-check's bare correlation is not reading agreement.** `compResidual`
+(Trijoulet et al. 2023) draws its composition residuals randomly, so the best score any method
+could get against it is its own seed-to-seed correlation. Report the RATIO to that ceiling.
+Measured on `BS2017SS` 2026-10-12 by `tools/verify/verify-osa-compresidual.R`: fleet 2 scores
+0.648, which looks poor until the ceiling there is 0.661 — a ratio of 0.98 — and the ceiling is
+low only because 41% of that fleet's cells hold less than one fish. Fleets 1 and 4 sit at 1.00.
+Fleet 3 returns NaN from `resMulti()`, an instability on their side rather than a disagreement.
+The bare number produced a false "fleet 2 diverges" on the first run.
+
 ## Shared parameter blocks
 
 **Fleets sharing a `Selectivity_index` / `Catchability_index` share ONE parameter block.**
