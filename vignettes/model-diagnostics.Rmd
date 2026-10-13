@@ -656,7 +656,9 @@ The `retrospective()` function returns a list with two elements:
 
 The `nyrs_forecast` argument (default 3) also evaluates rho for years projected beyond each terminal peel, so a single call quantifies forecast skill alongside retrospective bias.
 
-A peel that did not converge is dropped and a message reports how many, so `Rceattle_list` can be shorter than `peels + 1`. Index it by name rather than position, with a peel missing, `Rceattle_list[[3]]` is not the 3-year peel. If no peel converges, Mohn's rho is `NaN` and the call warns.
+A peel that did not converge is dropped and a warning reports how many, so `Rceattle_list` can be shorter than `peels + 1`. Index it by name rather than position, with a peel missing, `Rceattle_list[[3]]` is not the 3-year peel. If no peel converges, Mohn's rho is `NaN` and the call warns.
+
+A separate warning means something different: under `getsd = TRUE` a peel whose standard errors could not be rebuilt is **kept**, with its point estimates intact and no `sdrep` at all, so its uncertainty band is absent rather than drawn at zero width. Mohn's rho reads point estimates only and is unaffected. `print()` reports how many peels that happened to, and each carries the reason in `attr(peel, "sd_report_error")`.
 
 ## Jitter testing
 

@@ -12,6 +12,65 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.59.2
+
+## Bug fixes
+
+* **A retrospective peel whose standard-error rebuild fails now carries no `sdrep`, rather than
+  the forecast refit's zero standard errors.** Each peel is fitted twice, and the second refit
+  holds every hindcast parameter fixed, so reported from it every quantity in the peel's own
+  hindcast has a standard error of exactly 0 -- which is why `getsd = TRUE` rebuilds the peel at
+  those same parameters with the hindcast free and reports from there. When that rebuild threw, the
+  handler fell back to the refit's own `sdrep`: the very object the rebuild exists to replace. The
+  peel then presented a zero uncertainty band as a measured one, which reads as a certain quantity
+  rather than an unmeasured one. It now holds no `sdrep` at all -- the state `getsd = FALSE`
+  already leaves.
+
+* **Both ways the rebuild can fail are handled, not just the throw.** `TMB::sdreport()` does not
+  error on a Hessian it cannot factor; it returns an object with `pdHess = FALSE`, which was being
+  assigned as though it were usable. The returned object is now judged too -- the analogue of what
+  `.refit_converged()` judges on a fit -- and the warning says which condition fired, since an
+  unfactorable Hessian and a report with no finite standard error are different problems.
+
+* The peel is **kept**, not dropped, and `print()` now reports how many peels could not report
+  standard errors. The reason is also on the peel as `attr(peel, "sd_report_error")`. The failure is
+  deliberately *not* recorded on `.conv_hindcast$sd_present`: `.refit_converged()` drops a peel on
+  `sd_requested && !sd_present`, so recording it there would turn a missing band into a dropped
+  peel and change the number of peels Mohn's rho averages over.
+
+* **The warning saying so is no longer discarded.** It was raised inside `run_one_peel()`, which
+  runs in a `.parallel_lapply()` worker at the default `cores`, where a `warning()` is lost. It is
+  carried out on the peel and re-raised once after dispatch, naming each affected peel and its
+  terminal year. A peel that cannot be reported is still not a peel that failed: it is kept, and it
+  is counted separately from the dropped-peel tally.
+
+**Whose fits move:** none. The rebuild never re-estimates anything, so no point estimate, no
+objective and no Mohn's rho changes, and the regression test asserts both against a
+`getsd = FALSE` run. What changes is `retrospective()$Rceattle_list[[i]]$sdrep` on a peel whose
+rebuild **threw or came back unusable**: previously the forecast refit's `sdreport` in the first
+case and the unusable rebuilt one in the second, now absent in both. `vcov()` on such a peel returns
+`NULL`, where before it returned a covariance over the peeled-year `log_F` alone (throw) or the
+rebuilt `cov.fixed` (unusable). The per-peel warnings also become one warning per call, so a handler
+matching `"^Peel 3:"` no longer fires; the phrase "could not report hindcast standard errors" is
+unchanged.
+
+**Figures change where a rebuild fails.** A band that was drawn at zero width is now declined with a
+`warning()`, so `plot_biomass()` / `plot_ssb()` / `plot_recruitment()` with `add_ci = TRUE` over a
+peel list leave that peel's ribbon rows `NA` instead of collapsing the ribbon onto the line;
+ggplot2 then reports the removed rows at draw, so expect two warnings rather than one. Measured with
+a before/after `ggplot_build()` diff of `plot_ssb(add_ci = TRUE)` on a one-peel `BS2017SS`
+retrospective **with the report build forced to fail** -- it succeeds on an unmodified run, so the
+"before" state cannot be reproduced without forcing it. The ribbon layer holds 231 rows either way
+(3 species x 39 unpeeled years + 3 x 38 peel years), of which **114 were finite and exactly zero
+width** before and **0** after, leaving the unpeeled model's 117 real rows. Those 114 were the
+fabricated band.
+
+No bundled configuration is known to hit the failure -- measured on `BS2017SS`, one peel,
+single-species, `random_rec = FALSE`. Across the sibling repos 30 live `retrospective()` calls pass
+no `getsd`, so each inherits its input fit's setting, which is `TRUE` wherever that fit holds an
+`sdrep` (`fit_control()`'s default); the random-effect peels there are where a failure is most
+likely.
+
 # Rceattle 5.59.1
 
 ## Documentation

@@ -651,6 +651,22 @@ peels that survive, so **two runs of the same model can report different rho** d
 `getsd`. `test-functions-retrospective.R` compares the two runs peel by peel over the shared
 names for exactly this reason.
 
+**And since 5.58.2 a KEPT peel can also have no `sdrep`, so `is.null(peel$sdrep)` no longer
+implies `getsd = FALSE`.** Under `getsd = TRUE` each peel's standard errors are rebuilt from a
+free-hindcast `estimateMode = 3` build, because the forecast refit's own `sdreport` reports
+exactly 0 across the span the peel is drawn over. Where that rebuild throws, cannot factor its
+Hessian, or reports nothing finite, the peel keeps its point estimates and carries no `sdrep` at
+all — previously it carried the refit's zero-error object and drew a zero-width band as a measured
+one. Read `attr(peel, "sd_report_error")`, or `print()`'s count, to tell this apart from
+`getsd = FALSE`.
+
+**The failure is deliberately NOT recorded on `.conv_hindcast$sd_present`, and must not be.**
+`.refit_converged()` drops a peel on `sd_requested && !sd_present` (`R/0-convergence.R`), and the
+forecast refit records both as TRUE — so writing `sd_present <- FALSE` to make the convergence
+battery notice would convert a missing band into a **dropped peel** and change the denominator
+Mohn's rho averages over. A reviewer proposed exactly that; it was measured as wrong before it
+shipped.
+
 **~~`fit_mod(d, config = cfg)` replaces `d$model_config`, linkages and all.~~ Fixed in
 5.36.0** (`65259384`): `R/6-fit_mod.R:333-363` overlays only the fields the config's `"set"`
 attribute names, keeps the data's for the rest, and warns where the two differ. Kept because the
@@ -1298,7 +1314,8 @@ section above.
 - **`fit_control()` bundles the optimizer and uncertainty knobs** — `getsd`, `bias.correct`,
   `loopnum`, `newtonsteps`, `getJointPrecision`, `nlminb_control`, and the bias-adjustment
   flags. `getsd = FALSE` leaves `sdrep` NULL, so `vcov()` returns NULL and uncertainty bands
-  are NA. The refit diagnostics forward `phase`, `getsd`, the bias-adjust flags and
+  are NA — but a NULL `sdrep` does not imply `getsd = FALSE` on a retrospective peel (above).
+  The refit diagnostics forward `phase`, `getsd`, the bias-adjust flags and
   `projection_uncertainty` — the last two are read back off `data_list`, because a freshly
   built `fit_control()` would silently reset them to its own defaults.
 - **`run_mse()` pins the OM's stock-recruit and suitability windows to the pristine `om$`**, not
