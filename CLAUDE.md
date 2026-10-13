@@ -46,14 +46,15 @@ keep them alive. **A guard that cannot fire is not safety:** name the input that
 leave it out — PR #181 deleted five such guards, four refusals and a defensive early return,
 because the check above had already thrown for every input that could arrive. Name that input and
 the guard has earned its place: the failure mode here is a plausible wrong number, so a guard
-that *can* fire is cheap. Adding to `data_check()` (2,254 lines) or `fit_mod()` (1,668) means a
+that *can* fire is cheap. Adding to `data_check()` (2,175 lines) or `fit_mod()` (1,637) means a
 named helper beside the existing ones, not another inline block. If the structure of a change
 needs a paragraph to justify it, propose it before writing it.
 
 **3. Write for a fisheries scientist, briefly.** A comment is one or two lines and a `@param` is
 one sentence; anything longer belongs in `@details`, a vignette, or `inst/dev/`. Comment and
-roxygen lines are already 39% of `R/` (16,141 of 41,059), so match a file's *idiom*, never its
-longest block — 16 roxygen blocks run past 80 lines and one reaches 395. Give the assessment
+roxygen lines are already 38% of `R/` (15,265 of 40,367; 41% of non-blank lines), so match a
+file's *idiom*, never its longest block — 16 roxygen blocks run past 80 lines and the longest
+reaches 128 (`R/6-fit_mod.R`). Give the assessment
 reason, the units and the convention, then stop; what stays however long is under "Comments", and
 a literature citation is the specification — never strip one. **You may shorten what is already
 there:** tightening a comment or roxygen block in a file your change is already editing belongs
@@ -238,7 +239,7 @@ Two external guides settle what this file doesn't — the
 [tidyverse style guide](https://style.tidyverse.org) for R, the
 [Google C++ style guide](https://google.github.io/styleguide/cppguide.html) for C++ — as
 tie-breakers only: the surrounding file wins, and so does TMB/Eigen idiom. Both already describe
-most of what is here (snake_case, two-space R indents, ~80 columns: 37,911 of 41,059 R lines), so
+most of what is here (snake_case, two-space R indents, ~80 columns: 37,410 of 40,367 R lines), so
 what matters is where they don't:
 
 - **C++ free functions stay snake_case** — `calculate_ration()`, `first_difference()` — not
@@ -384,7 +385,7 @@ section holds every entry below in full).
 - **`jnll_comp` columns count fleets on rows 1–8 AND row 22, species on 9–20, and neither on row 21** — the fleet axis is NOT contiguous (row 21 is the model-wide linkage REs, row 22 the initial equilibrium catch, by fleet); `.JNLL_ROW_AXIS` is the registry, so `rowSums()` mixes axes and an axis guess that stops at row 20 is wrong.
 - **A reference point CEATTLE never estimated is a number, not a gap**: `Ftarget`/`Flimit` = 1, `MSSB0` = 999 mt, per-recruit quantities 0 under `msmMode > 0`.
 - **Under `HCR = 0 & msmMode > 0` the depletions divide by last-projection-year biomass**, not `SB0`; don't blank them with a placeholder `SB0`.
-- **A fit reports 99 quantities**: enumerate `names(fit$quantities)`, not a `REPORT(` grep; `quantity_dictionary()` is the registry.
+- **A fit reports 102 quantities, or 104 under `selectivity_se = TRUE`**: `quantity_dictionary()` has all 104, and the two it adds are `log_sel_at_age` / `log_sel_at_age_index`. Enumerate `names(fit$quantities)`, not a `REPORT(` grep — and say which `selectivity_se` you counted under, because that is why three different totals are on record.
 - **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps**, so Mohn's rho can differ.
 - **`unweighted_jnll_comp` is written for 5 of its 22 rows**; the rest are structurally zero.
 - **`fit_mod(d, config = cfg)` replaces `d$model_config`**: build `cfg` with `run_config(d, ...)` or every linkage is dropped.

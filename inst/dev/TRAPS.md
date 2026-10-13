@@ -599,8 +599,16 @@ full schedule for a one-sex species only. **SPR reaches the objective only under
 
 **A grep for `REPORT(` over `ceattle.cpp` over-counts.** `mature_females`, `sex_ratio_hat`,
 `N_at_age_dB0` / `N_at_age_dBF` and the whole Kinzey functional-response block sit behind
-comments. A fit reports **99** quantities, identical single- and multi-species; enumerate from
-`names(fit$quantities)`, not from the source.
+comments. Enumerate from `names(fit$quantities)`, not from the source.
+
+**And the count depends on `selectivity_se`, which is why three totals are on record
+(99, 101, 104).** Measured on `dev` 5.58.0, `BS2017SS` at `estimateMode = 3`: a default fit
+reports **102** quantities, `fit_control(selectivity_se = TRUE)` reports **104**, and
+`nrow(quantity_dictionary())` is **104** — the two it adds are `log_sel_at_age` and
+`log_sel_at_age_index`, which exist only when that flag is on. Multispecies is also 102, so the
+count is identical single- and multi-species as the entry above says; it is the flag, not the
+mode, that moves it. Quote the figure with the `selectivity_se` it was counted under, or it will
+disagree with the next person's.
 
 **A missing OSA CDF term returns 0, not an error.** `oneStepPredict(method = "cdf")` reads
 `Fx = 1 / (1 + exp(nlcdf.lower - nlcdf.upper))`. A likelihood that supplies no
@@ -1145,9 +1153,11 @@ section above.
 - **The depletions do not simply divide by `SB0`** — under `HCR = 0 & msmMode > 0` they divide
   by biomass in the last projection year, so blanking them alongside a placeholder `SB0`
   discards a valid series.
-- **A grep for `REPORT(` over `ceattle.cpp` over-counts** — several sit behind comments. A fit
-  reports 101 quantities at 5.41.0 (99 at 5.24.0); enumerate from `names(fit$quantities)`. `quantity_dictionary()` is the
-  registry, and `test-schema-quantity-dictionary.R` holds the two together.
+- **A grep for `REPORT(` over `ceattle.cpp` over-counts** — several sit behind comments. A default
+  fit reports **102** quantities at 5.58.0 and **104** under `selectivity_se = TRUE`, which is the
+  whole of `quantity_dictionary()`; enumerate from `names(fit$quantities)` and say which flag you
+  counted under. `quantity_dictionary()` is the registry, and
+  `test-schema-quantity-dictionary.R` holds the two together.
 - **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps** — the non-PD Hessian
   check only runs when an `sdreport` exists — so Mohn's rho can differ between the two.
 - **`unweighted_jnll_comp` is written for 5 of its 22 rows** — composition, CAAL, stomach and the
