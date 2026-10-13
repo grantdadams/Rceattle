@@ -282,6 +282,42 @@
   out
 }
 
+
+# Numbers-at-age for a species with `estDynamics > 0` are an input, not a
+# forecast, so the MSE does not supply the projection years itself: carrying the
+# terminal year forward would invent data and hold the population flat. A year
+# the input does not cover reads 0 out of `rearrange_data()`'s array, which the
+# template multiplies into `N_at_age`, so the species has no numbers at all for
+# those years -- which is what this warns about. Raised in the main process,
+# before the parallel dispatch, since a warning from a `.parallel_lapply()`
+# worker is discarded. Extracted to be testable without fitting a model, as the
+# three helpers above are.
+.mse_require_fixed_natage <- function(data_list, proj_yrs) {
+  est <- data_list$estDynamics
+  if (is.null(est) || !any(est > 0)) return(invisible(NULL))
+
+  nb <- data_list$NByageFixed
+  have <- if (is.null(nb) || !nrow(nb)) data.frame(Species = integer(), Year = numeric())
+          else data.frame(Species = as.numeric(as.character(nb$Species)),
+                          Year = as.numeric(as.character(nb$Year)))
+
+  miss <- lapply(which(est > 0), function(sp) setdiff(proj_yrs, have$Year[have$Species == sp]))
+  short <- lengths(miss) > 0
+  if (!any(short)) return(invisible(NULL))
+
+  sp <- which(est > 0)[short]
+  yrs <- sort(unique(unlist(miss[short])))
+  warning("`NByageFixed` does not cover every projection year for species ",
+          paste(sp, collapse = ", "), " (`estDynamics > 0`): ",
+          length(yrs), " year(s) missing, ", min(yrs), "-", max(yrs),
+          ". Numbers-at-age are an input there, so run_mse() neither forecasts ",
+          "them nor holds the terminal year -- those years get numbers-at-age ",
+          "of 0, and the species contributes no biomass, catch or predation. ",
+          "Supply a row per projection year, or set `estDynamics = 0` to ",
+          "estimate them.", call. = FALSE)
+  invisible(sp)
+}
+
 #' Run a management strategy evaluation
 #'
 #' @description Runs a forward-projecting management strategy evaluation (MSE).
@@ -289,7 +325,10 @@
 #'   held at the operating model's terminal hindcast year, survey SD is the
 #'   average over the historical series, and composition sample size is held at
 #'   the last year. There is no implementation error and no observation error on
-#'   catch.
+#'   catch. Fixed numbers-at-age (`estDynamics > 0`) are an input rather than a
+#'   forecast, so they are NOT held forward: supply `NByageFixed` rows for every
+#'   projection year, or the uncovered years read 0 and that species contributes
+#'   nothing, with a warning naming it.
 #'
 #' @param om CEATTLE model object exported from \code{Rceattle}
 #' @param em CEATTLE model object exported from \code{Rceattle}
@@ -597,15 +636,13 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   om$data_list$index_data <- dplyr::arrange(om$data_list$index_data, Fleet_code, abs(Year))
 
   # -- Nbyage
-  if(nrow(om$data_list$NByageFixed) > 0){
-    proj_nbyage <- om$data_list$NByageFixed |>
-      dplyr::group_by(Species, Sex) |>
-      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
-      dplyr::mutate(Year = om_proj_yrs)
-    proj_nbyage <- proj_nbyage[which(om_proj_yrs %!in% om$data_list$NByageFixed$Year),] # Subset rows already forcasted
-    om$data_list$NByageFixed  <- rbind(om$data_list$NByageFixed, proj_nbyage)
-    om$data_list$NByageFixed <- dplyr::arrange(om$data_list$NByageFixed, Species, Year)
-  }
+  # NOT expanded, unlike weight and ration_data. Numbers-at-age under
+  # estDynamics > 0 are an INPUT, so holding the terminal year across the
+  # projection would invent data and pin the population flat for the whole MSE.
+  # A projection year the input does not cover reads 0 out of the array
+  # rearrange_data() builds, which is a zero population rather than a gap, so
+  # warn naming the species and the years.
+  .mse_require_fixed_natage(om$data_list, om_proj_yrs)
 
   # -- comp_data
   if(nrow(om$data_list$comp_data) > 0){

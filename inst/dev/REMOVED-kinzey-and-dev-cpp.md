@@ -29,7 +29,7 @@ keeping, since the structure is recoverable from the citation):
 | `R/6-phaser.R` | all six at phase 6, annotated "not used in MSVPA functional form" |
 | `R/3-build_map.R` (`build_map_predation`, was sections 2 and 3) | 56 lines of per-`msmMode` map logic — see "The map logic, stated carefully" below |
 | `R/7-plot_ceattle.R` (`plot_form()`) | 82 lines computing and plotting the response surfaces from `H_1`…`H_4`, on a mode encoding that **disagreed** with the rest of the package — see below |
-| `src/TMB/ceattle.cpp` | the `PARAMETER_*` declarations and the `H_1 = exp(logH_1.array())` derivations — deleted in 5.58.1, see below |
+| `src/TMB/ceattle.cpp` | the `PARAMETER_*` declarations and the `H_1 = exp(logH_1.array())` derivations — deleted in 5.59.1, see below |
 
 ### The map logic, stated carefully
 
@@ -96,7 +96,7 @@ the CAAL support in `ceattle.cpp`.
 `wham_v0.cpp` 2 -- not the 5 the backlog had attributed to `caal.hpp` alone. The backlog's total
 and per-area breakdown were re-derived in the same commit.
 
-## The C++ remnants — removed in 5.58.1
+## The C++ remnants — removed in 5.59.1
 
 There were **five**, not the three an earlier version of this section listed, and two of its three
 line ranges had drifted. All were commented out, so none could reach the compiler; they are now

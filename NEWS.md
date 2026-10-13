@@ -12,7 +12,7 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
-# Rceattle 5.58.1
+# Rceattle 5.59.1
 
 ## Documentation
 
@@ -110,8 +110,8 @@ version throughout.
   three codes are settable but only mode 0 has an effect, which `?fit_mod` already
   said and the template's declaration comment now says too.
 
-* **Comment volume.** `R/` falls 97 lines (doc share 37.8% to 37.7%),
-  `src/TMB/` 377, and `man/` 515. 83 `#-#-#-#` decoration lines carrying no text
+* **Comment volume.** `R/` falls 112 lines (doc share 37.8% to 37.7%),
+  `src/TMB/` 380, and `man/` 513. 83 `#-#-#-#` decoration lines carrying no text
   were removed; all but two bracketed a section header that holds the RStudio fold
   itself, and none had the trailing dashes that would make it a section. Thirteen
   comments narrating past defects were cut to what the code does now. 24 internal
@@ -119,6 +119,79 @@ version throughout.
   files to 169); none was listed in `_pkgdown.yml`. `inst/dev/CLEANUP_BACKLOG.md`'s
   marker census is re-derived with its own documented command: 35 remain, against
   a stated 47 and a measured 45 before this release.
+
+* **A second survey covered what the first sweep never opened** -- the 274-file
+  test suite, the vignettes, `inst/dev/`, `tools/` and `.claude/`, plus a second
+  pass over `R/` and `src/TMB/`. It reported about 1,900 condensable lines and
+  sixty defects; this release takes the defects.
+
+* **Two slash commands told an agent something false.** `/verify` listed
+  `verify-mse-schedule.R` among the "before/after digests -- run twice, compare",
+  and that harness has no `commandArgs()` and no compare path, so an agent runs
+  it twice, reads two identical PASS lines and reports a change as verified --
+  the failure mode the same file's own text names. The real digest set is three,
+  not four, and `verify-data-check-conditions.R` was missing from the command
+  altogether; six harnesses take a COUNT as their first argument, not one.
+  `/new-column` described `Bin_first_selected` as an absolute age offset by
+  `minage`, where the schema says the opposite in capitals and
+  `rearrange_data()` applies a plain `- 1` to it while applying `sel_bin_offset`
+  to its neighbours (rule 10).
+
+* **Wrong switch codes, against `hcr_map` and the estimateMode map.**
+  `build_hcr_map()` called HCR 1 "Constant catch" ten lines above the code that
+  turns `log_Ftarget` on for CMSY -- the last such claim in the repo.
+  `test-dynamics-brps.R`, which exercises the whole reference-point surface,
+  carried 22 wrong labels: `estimateMode = 0` called "Run projection only" 15
+  times when 0 fits the hindcast AND the projection, HCR 4 called Tier 3 (it is
+  `ConstantFSPR`), HCR 3 called Constant F (it is `ConstantFSSB`), and
+  `DynamicHCR = FALSE` described as dynamic. Its five correct `HCR = 5` Tier 3
+  labels stand.
+
+* **`?build_M1` and the refusal a user sees had the two-sex rule backwards.**
+  Both said `M1_model = 2` needs two sexes "except for `M1_re` 1 and 4". The
+  gate sits INSIDE the `M1_re %in% c(1, 4)` arm, with a measured justification
+  (22 zero-gradient rows in the inner Hessian on `GOA2018SS`).
+
+* **`vignette("introduction")` printed `mohns[1,2]` as a Mohn's rho** in a figure
+  title. Column 2 is `Forecast year`, so the first vignette an assessment author
+  reads always showed "mohns = 0"; it now reads the rho by name.
+  `vignette("data-without-excel")` listed `Selectivity` only to code 7, hiding
+  `DoubleNormal`, `NonParametricPM`, `LogisticPM`, `NonParametricIntegrable` and
+  `DoubleNormalSS3` -- the list now matches `sel_map` exactly -- documented
+  `PowerEquation` as working where the schema marks it unimplemented, and omitted
+  `AnalyticalArith`.
+
+* **`?plot_data` documented nine base-graphics arguments as live controls.**
+  Measured 0 body references for all nine against a signature spanning lines
+  52-70: the `plot_maturity` defect three times over, on a published page. They
+  are now documented as retained-and-ignored.
+
+* **Two claims this sweep itself got wrong are corrected here.** `ceattle.cpp`
+  carried a FOURTH orphaned Kinzey header, misspelled "Kinzery", so the grep
+  behind the earlier "the word Kinzey no longer appears" validated an absence
+  over surviving content; and line 88 still held a table-of-contents entry for
+  the change log that was deleted. Separately, a global `S` -> `S_at_age` rename
+  had mangled the stock-recruit prose on the six `SB0` / `B0` / `DynamicSB0`
+  declarations an ABC derives from.
+
+* Smaller, each checked against the code it describes: three stale `ceattle.cpp`
+  citations in tests that had drifted 360-430 lines onto unrelated likelihood
+  blocks; three dangling `tests-Growth/` and `tests-Linkage/` paths in a flat
+  suite; two renamed test files; `fit_control(osa = TRUE)`, an argument it has
+  never had; `sel_curve_pen`'s column description, wrong twice; `8.2` -> `8.2b`
+  and two `SPR0` -> `SPRFinit` annotations; `spr.hpp`'s `6.5` -> `6.4`;
+  `max_nsex` and `beta_rec_pars`, neither of which exists; a "see 1.3c below"
+  with no 1.3c; `TMBphase()`'s `silent` default and five identical M1 parameter
+  tags of which four were wrong; `env_data`'s "Catchability = 5 or 6" where
+  `data_check()` errors on 6; `UobsAge`, absent from the package; Cheng 2025 ->
+  2024; Wassermann 2024 -> 2025; "twelve checks" where thirteen are registered;
+  and `test-plot-save-paths.R`'s claim that a file-level `skip_on_cran()` is the
+  `test-plot-*` convention, against 15 files of which 6 skip at file level and 6
+  carry none.
+
+* **The 87 lines of deferred 5.49.0 findings move to `CLEANUP_BACKLOG.md`**
+  Tier 2, where open-and-unfixed work is recorded, rather than sitting in
+  `SESSION_HANDOFF.md`, which is for work in flight.
 
 * **No fit can move.** Of 31 changed `R/` files, exactly one differs at parse
   level -- `R/0-column_schema.R`, by the single `other_food` `doc` string above,
@@ -128,6 +201,35 @@ version throughout.
   with a negative control. The only other code change is one assertion in
   `test-schema-cpp-dispatch.R`, which pinned that the dead `switch (msmMode)`
   was present and now pins that no `msmMode` dispatch exists at all.
+# Rceattle 5.59.0
+
+## Behaviour changes
+
+* **`run_mse()` no longer extends `NByageFixed` into the projection.** Numbers-at-age for a
+  species with `estDynamics > 0` are an input, not a forecast, so holding the terminal hindcast
+  year across the projection invented data and pinned that species' population flat for the whole
+  MSE. It now carries only the years the input supplies.
+* **A fixed-numbers species whose input stops short of the projection is warned about**, naming
+  the species and the uncovered years. The warning says what follows, because the MSE still runs:
+  `rearrange_data()` leaves those years at the array's initialised 0 and the template computes
+  `N_at_age = pop_scalar * NByageFixed(...)`, so the species contributes no biomass, catch or
+  predation in them. Raised before the parallel dispatch, since a warning from a
+  `.parallel_lapply()` worker is discarded.
+
+## Bug fixes
+
+* **The expansion it replaces also dropped all but the first species.** It built one block of
+  projection rows per `(Species, Sex)` group, then subset them with
+  `which(om_proj_yrs %!in% NByageFixed$Year)` -- positions within `om_proj_yrs`, not row positions
+  in the grouped frame. With one group the two coincide, which is why it went unnoticed. Measured
+  on `GOA2018SS` (4 groups, 32 projection years): **128 rows built, 32 kept**, so species 2 (both
+  sexes) and species 3 received no projection rows at all.
+
+**Whose MSEs move:** none that run today. No `run_mse()` caller in the bundled examples, the
+vignettes or the sibling repos sets `estDynamics`, so every one of them projects estimated
+numbers and never reaches this path. An MSE that does set it was previously running on invented
+numbers for every species but the first, and on flat-held numbers for that one.
+
 # Rceattle 5.58.0
 
 ## Bug fixes

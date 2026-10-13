@@ -792,6 +792,27 @@ is age 5. `minage = 1` hides it everywhere it is currently written, so the colum
 Three of this repo's most valuable checks have been guarded off in a way nothing verified. All
 the same shape: a speed optimization, or a green-looking job, that silently removes coverage.
 
+**Anything short of an ERROR passes R-CMD-check here, so a green check can be naming your
+mistake.** `.github/workflows/R-CMD-check.yaml:127` sets `error-on: '"error"'` — one step looser
+than the action's own `"warning"` default — so NOTEs *and* WARNINGs conclude SUCCESS. It is
+deliberate (the comment above it cites a spurious rtools45 + GCC 14.3 `-Warray-bounds` inside SSE2
+intrinsics), so don't tighten it without checking what that would reintroduce.
+
+**The baseline to compare against, measured on a clean PR (#229): four runners `Status: OK`, and
+`macos-latest (release)` at `Status: 1 WARNING`.** So any NOTE at all is new, and a second warning
+would be new. Note the macOS warning is NOT the Windows one the setting's comment describes: it is
+`checking whether package 'Rceattle' can be installed ... WARNING` over three
+`-Wbitwise-instead-of-logical` diagnostics in `ceattle.cpp` (see `CLEANUP_BACKLOG.md`). `--as-cran`
+is also expected to flag an installed-size NOTE once `data/` grows, per the `args:` comment, so
+re-measure the baseline rather than assuming this one.
+
+How it bit: PR #226 shipped a scratch test-runner at the repository root, and all five runners
+printed `checking top-level files ... NOTE / Non-standard file/directory found at top level:
+'suite226.R' / Status: 1 NOTE` while reporting pass. It was read as 12 of 12 green and merged, and
+the file reached `dev`, where it shipped — in neither `.gitignore` nor `.Rbuildignore`. **Read the
+`Status:` line against that baseline, not the check's conclusion**, and keep scratch runners out of
+the worktree: write them to a temp directory, since `git add -A` cannot tell them from the change.
+
 **A job that checks "did this guard measure anything" must check per BLOCK, not per file.**
 Building `source-guards.yaml` (5.49.5) produced the defect twice in a row. First a heuristic
 exempted any file whose `test_that` blocks were all followed within two lines by
