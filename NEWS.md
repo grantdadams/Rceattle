@@ -111,7 +111,7 @@ version throughout.
   said and the template's declaration comment now says too.
 
 * **Comment volume.** `R/` falls 112 lines (doc share 37.8% to 37.7%),
-  `src/TMB/` 380, and `man/` 513. 83 `#-#-#-#` decoration lines carrying no text
+  `src/TMB/` 380, and `man/` 533. 83 `#-#-#-#` decoration lines carrying no text
   were removed; all but two bracketed a section header that holds the RStudio fold
   itself, and none had the trailing dashes that would make it a section. Thirteen
   comments narrating past defects were cut to what the code does now. 24 internal
