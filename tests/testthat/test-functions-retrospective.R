@@ -626,6 +626,9 @@ testthat::test_that("a peel reports standard errors for its own hindcast", {
     se <- ssb_se(m)
     testthat::expect_true(all(is.finite(se)))
     testthat::expect_true(all(se > 0))   # the defect: every one was exactly 0
+    # The positive case for the pdHess arm of the usability check below: a
+    # healthy rebuild must pass it, or a real band would be declined instead.
+    testthat::expect_true(isTRUE(m$sdrep$pdHess))
   }
 
   # The report model is built at estimateMode 3, which skips the projection
@@ -661,6 +664,169 @@ testthat::test_that("a peel reports standard errors for its own hindcast", {
                      function(x) x$data_list$endyr_peel < full_endyr, logical(1))
   testthat::expect_true(all(vapply(r_no$Rceattle_list[no_refit],
                                    function(m) is.null(m$sdrep), logical(1))))
+})
+
+
+# A peel whose standard-error rebuild fails used to fall back to the forecast
+# refit's own sdrep -- the object the rebuild exists to replace, whose hindcast
+# standard errors are all exactly 0 (the documented defect behind the test
+# above, which asserts the complement: the REBUILT errors are > 0). The band was
+# then drawn as a certain quantity rather than an unmeasured one, and the
+# warning saying so was raised inside a .parallel_lapply() worker, where it is
+# discarded. The peel now carries no sdrep at all, which is the state
+# getsd = FALSE already leaves, and the warning is re-raised after dispatch.
+# A rebuild fails three ways -- it throws, cannot factor its Hessian, or reports
+# nothing finite -- and each is covered below.
+testthat::test_that("a peel whose sd rebuild fails carries no sdrep, and says so", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  data(BS2017SS, envir = environment())
+  d <- BS2017SS
+  d$projyr <- 2020
+  d$fleet_control$Proj_F_proportion <- rep(1, 7)
+
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 0,
+    random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, getsd = TRUE, verbose = 0))))
+
+  # Fail only the report build. It is the one .refit_like() call made at
+  # estimateMode 3, so the two fitting refits are untouched and the peel still
+  # converges -- which is the point: a missing band is not a failed peel.
+  real_refit <- Rceattle:::.refit_like
+  r <- NULL
+  local({
+    testthat::local_mocked_bindings(
+      .refit_like = function(...) {
+        a <- list(...)
+        if (identical(a$estimateMode, 3)) stop("forced report-build failure")
+        do.call(real_refit, a)
+      }, .package = "Rceattle")
+
+    testthat::expect_warning(
+      r <<- suppressMessages(
+        retrospective(fit, peels = 1, cores = 1, getsd = TRUE)),
+      "could not report hindcast standard errors")
+  })
+
+  full_endyr <- fit$data_list$endyr
+  is_refit <- vapply(r$Rceattle_list,
+                     function(x) x$data_list$endyr_peel < full_endyr, logical(1))
+  testthat::expect_true(any(is_refit))
+
+  # Absent, not zero.
+  for (m in r$Rceattle_list[is_refit]) {
+    testthat::expect_null(m$sdrep)
+  }
+
+  # The unpeeled model is passed through untouched and keeps its own sdrep, so
+  # the change cannot be mistaken for "getsd stopped working".
+  testthat::expect_false(is.null(r$Rceattle_list[[length(r$Rceattle_list)]]$sdrep))
+
+  # Nothing about the fit moved: a missing band costs no point estimate.
+  r_no <- suppressMessages(suppressWarnings(
+    retrospective(fit, peels = 1, cores = 1, getsd = FALSE)))
+  shared <- intersect(names(r$Rceattle_list), names(r_no$Rceattle_list))
+  testthat::expect_gt(length(shared), 0)
+  for (nm in shared) {
+    testthat::expect_equal(r$Rceattle_list[[nm]]$quantities$ssb,
+                           r_no$Rceattle_list[[nm]]$quantities$ssb)
+    # The objective too: this is what stops the report pass being "improved"
+    # into a refit.
+    testthat::expect_equal(r$Rceattle_list[[nm]]$opt$objective,
+                           r_no$Rceattle_list[[nm]]$opt$objective)
+  }
+
+  # The run above is sequential (`peels = 1`), where a warning() is never lost,
+  # so on its own it does not test the half of this that matters: the warning is
+  # raised inside a .parallel_lapply() worker, where it IS discarded. Two peels
+  # on two cores takes that path, and the warning must still arrive.
+  #
+  # FORK only. A PSOCK worker runs `library(Rceattle)` into a pristine namespace,
+  # so the mock below does not reach it, the rebuild succeeds and nothing warns.
+  testthat::skip_on_os("windows")
+  rp <- NULL
+  local({
+    testthat::local_mocked_bindings(
+      .refit_like = function(...) {
+        a <- list(...)
+        if (identical(a$estimateMode, 3)) stop("forced report-build failure")
+        do.call(real_refit, a)
+      }, .package = "Rceattle")
+
+    testthat::expect_warning(
+      rp <<- suppressMessages(
+        retrospective(fit, peels = 2, cores = 2, getsd = TRUE)),
+      "could not report hindcast standard errors")
+  })
+
+  # And the peels it named are the ones carrying no band.
+  refits_p <- vapply(rp$Rceattle_list,
+                     function(x) x$data_list$endyr_peel < full_endyr, logical(1))
+  testthat::expect_true(any(refits_p))
+  for (m in rp$Rceattle_list[refits_p]) testthat::expect_null(m$sdrep)
+
+  # The two non-throwing failures. One stub per arm, each asserting its OWN
+  # message: a single stub setting both conditions would stay green if either
+  # half of the predicate were deleted. The stub is reached only through the
+  # mocked rebuild, so the fitting refits get the real sdreport and the peel
+  # still converges.
+  real_sdreport <- TMB::sdreport
+  stub <- structure(list(), class = "rce_stub_obj")
+
+  run_bad_rebuild <- function(fake) {
+    res <- NULL
+    warns <- character()
+    local({
+      testthat::local_mocked_bindings(
+        .refit_like = function(...) {
+          a <- list(...)
+          if (identical(a[["estimateMode"]], 3)) return(list(obj = stub))
+          do.call(real_refit, a)
+        }, .package = "Rceattle")
+      testthat::local_mocked_bindings(
+        sdreport = function(obj, ...) {
+          if (inherits(obj, "rce_stub_obj")) return(fake)
+          real_sdreport(obj, ...)
+        }, .package = "TMB")
+      withCallingHandlers(
+        res <<- suppressMessages(
+          retrospective(fit, peels = 1, cores = 1, getsd = TRUE)),
+        warning = function(w) {
+          warns <<- c(warns, conditionMessage(w))
+          invokeRestart("muffleWarning")
+        })
+    })
+    list(fit = res, warns = warns)
+  }
+
+  check_no_band <- function(got, pattern) {
+    testthat::expect_true(any(grepl(pattern, got$warns)))
+    refits_b <- vapply(got$fit$Rceattle_list,
+                       function(x) x$data_list$endyr_peel < full_endyr,
+                       logical(1))
+    # Kept, not dropped: recording the failure on .conv_hindcast$sd_present
+    # instead would have made .refit_converged() drop the peel, changing the
+    # number of peels Mohn's rho averages over.
+    testthat::expect_equal(sum(refits_b), 1L)
+    for (m in got$fit$Rceattle_list[refits_b]) {
+      testthat::expect_null(m$sdrep)          # absent, not an object of NaN
+      testthat::expect_false(is.null(attr(m, "sd_report_error", exact = TRUE)))
+    }
+  }
+
+  # Arm 1: an unfactorable Hessian, but the report itself is finite.
+  check_no_band(
+    run_bad_rebuild(structure(list(pdHess = FALSE, sd = 1, value = c(ssb = 0)),
+                              class = "sdreport")),
+    "not positive definite")
+
+  # Arm 2: a factorable Hessian that still reports nothing finite.
+  check_no_band(
+    run_bad_rebuild(structure(list(pdHess = TRUE, sd = NA_real_,
+                                   value = c(ssb = 0)), class = "sdreport")),
+    "no finite standard error")
 })
 
 

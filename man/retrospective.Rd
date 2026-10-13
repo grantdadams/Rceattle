@@ -73,6 +73,10 @@ was fit through. Equal to each other.}
 retrospective forecast ends.}
 \item{\code{projyr}}{the end of the harvest-control-rule projection.}
 }
+A peel whose standard errors could not be rebuilt carries
+\code{attr(peel, "sd_report_error")}, a one-line reason naming the peel and
+its terminal year; it is absent on every other peel.
+
 Take the forecast years as
 \code{endyr_peel + seq_len(endyr_full - endyr_peel)}, which is empty for the
 unpeeled model, rather than \code{(endyr_peel + 1):endyr_full}, which counts
@@ -107,7 +111,12 @@ estimating only the peeled years' F. The second holds every hindcast
 parameter fixed, so on its own it reports a standard error of zero across the
 hindcast. Under \code{getsd = TRUE} the peel is therefore rebuilt at those same
 parameters with the hindcast free in the map and reported from there; nothing
-is re-estimated, so no point estimate moves.
+is re-estimated, so no point estimate moves. Where that rebuild fails -- it
+throws, or comes back with a Hessian it could not factor, or with no finite
+standard error -- the peel keeps its point estimates and carries no \code{sdrep}
+at all, rather than the forecast refit's zero standard errors. The reason is
+named in one warning per call and carried on the peel; \code{print()} reports how
+many peels could not report standard errors.
 }
 \examples{
 \donttest{
