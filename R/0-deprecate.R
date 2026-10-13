@@ -1,4 +1,3 @@
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Renamed-argument support
 #
 # The diagnostics used six different names for the same thing -- the fitted
@@ -21,7 +20,6 @@
 # `.parallel_lapply()` catches -- so every peel, jitter and self-test would
 # silently drop to serial on Windows while reporting a memory problem. FORK
 # (macOS/Linux) skips clusterExport entirely and would never show it.
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 #' Should a renamed argument warn?
 #'

@@ -30,7 +30,6 @@ model_average <- function(object = NULL, weights = NULL, uncertainty = FALSE, nb
   # --------------------------------------------------------------------------------------------
   # Average derived quantities of models
   # --------------------------------------------------------------------------------------------
-  # Convert single one into a list
   if(inherits(object, "Rceattle")){
     stop("Only one model provided")
   }
@@ -107,7 +106,9 @@ model_average <- function(object = NULL, weights = NULL, uncertainty = FALSE, nb
 
     # Assuming asymptotic multivariate normal
     # - Must have estimated joint precision matrix
-    length_ran <- sapply(object, function(x) !is.null(x$sdrep$par.random)) # All parameters random effects
+    # TRUE where the model's sdrep carries a random block; a getsd = FALSE fit
+    # reads FALSE.
+    length_ran <- sapply(object, function(x) !is.null(x$sdrep$par.random))
     joint_est <- sapply(object, function(x) is.null(x$sdrep$jointPrecision))
     if(sum(length_ran) > 0){
       if(sum(joint_est) > 0){

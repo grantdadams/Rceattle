@@ -87,7 +87,7 @@ inline void rceattle_stratum_range(int id, int n_levels, int& lo, int& hi) {
  * for every (species, sex, year) the row applies to. Growth is not age-stratified.
  * See the block comment above for the two-scale (log / identity) consume convention.
  *
- * @param growth_offset [in,out] Offset tensor [nspp, max_nsex, nyrs, n_growth_params].
+ * @param growth_offset [in,out] Offset tensor [nspp, max_sex, nyrs, n_growth_params].
  * @param link_code Link scale to consume (1 = log, 0 = identity).
  * @param linkage_X Environmental covariate matrix; rows are years.
  * @param beta Per-row effect sizes (0-length = no-op).
@@ -149,7 +149,7 @@ void rceattle_apply_growth_linkages(
  * (species, sex, age_bin, year) each consumed M row applies to. Age-stratified
  * (unlike growth); only log_M1 is exposed as a target so far.
  *
- * @param M_offset [in,out] Offset tensor [nspp, max_nsex, max_age, nyrs].
+ * @param M_offset [in,out] Offset tensor [nspp, max_sex, max_age, nyrs].
  * @param link_code Link scale to consume (1 = log, 0 = identity).
  * @param linkage_X Environmental covariate matrix; rows are years.
  * @param beta Per-row effect sizes (0-length = no-op).

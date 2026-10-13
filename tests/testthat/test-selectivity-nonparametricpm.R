@@ -85,7 +85,7 @@ testthat::test_that("NonParametricPM penalty matches the ADMB form (time-invaria
                                      fit_control = fit_control(verbose = 0)))
 
   # Pollock fishery selectivity (sel_at_age index 1, jnll_comp column 8 - same as
-  # the type-2 test test-nonparametric-selectivity.R)
+  # the type-2 test test-selectivity-nonparametric.R)
   log_sel_fsh <- c(log_selcoffs, rep(log_selcoffs[n_sel_bins], GOA2018SS$nages[1] - n_sel_bins))
   log_sel_fsh <- log_sel_fsh - log(mean(exp(log_sel_fsh)))
 
