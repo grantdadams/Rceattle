@@ -5,21 +5,49 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**`dev` is at 5.58.0** (`3386fca2`). Seven PRs landed after 5.57.0; **four** carried a version.
+**`dev` is at 5.58.0** (`a9826cda`, 2026-10-12). Seven PRs landed after 5.57.0 (`07b9f0a3`, the
+#219 merge); **four** carried a version. A handoff cites a SHA that merging it invalidates, so
+trust the version and `git log -1 afsc/dev`, not this hash.
 
 | PR | version | what it did |
 |---|---|---|
 | #222 | 5.57.1 | the documentation condensing, +3962/-5579, measured comment-only rather than read |
-| #223 | -- | `TRAPS.md`: the two-stage DoubleNormal sentinel |
-| #224 | -- | the three-file doctrine contract enforced by a test |
+| #225 | -- | this file, at 5.57.0 |
 | #227 | 5.57.2 | the WITHIN-YEAR growth branch tested the age-slot INDEX where it meant the cohort's Jan-1 AGE. At `minage = 0`, mean length was discontinuous in the season -- a fish shrank 11.9% across July 1 |
 | #229 | 5.57.3 | the JAN-1 growth cohort-boundary test compared the slot's age to `max(minage, 1)`, where the first slot above the anchor is at `max(minage, floor(age_L1) + 1)`. +35.3% on a test fit; the two growth routines disagreed by 3.939 cm about the same cohort at the same instant |
 | #226 | 5.58.0 | an intercept `init`/`bounds` on a shared block is now written per BLOCK, so it reaches the parameter instead of being averaged away by `TMB:::updateMap()` |
+| #230 | -- | removed `suite226.R`, a scratch runner #226 shipped at the repository root, and recorded why CI hid it |
+| #231 | -- | this file, brought current |
 
-**#230 is open**: removes `suite226.R`, a scratch runner that #226 shipped at the repository root,
-and records why CI hid it. No version bump -- the file is inert cargo.
+**Verified, with the gate named.** #229: full suite **269 files / 10,672 assertions / 0 failures /
+4 skips** (all four pre-existing and unrelated -- input validation, a fit-sanity baseline, MSVPA
+suitability, a comp-panel fixture); golden **21 assertions / 0 skips** with
+`fixtures/golden-reference.rds` and the pinned literals untouched, so nothing was re-pinned; the
+growth family **404 / 0 / 0 skips**. #226: its own suite **268 files / 10,621 / 0**, then after the
+dev merge the two changed areas together (growth + linkage, 52 files) **1,510 / 0 / 0 skips** on a
+forced-clean rebuild. #230: R-CMD-check back to the baseline, **4 `Status: OK` + 1 `Status:
+1 WARNING`, zero NOTEs**.
+
+**`/golden-check` is NOT evidence for either growth fix.** `BS2017SS` and `GOA2018SS` carry no
+`growth_model`, so `growth.hpp:660` gates the whole routine off and `estimate_growth()` is never
+entered. `test-growth-*` is the only net. It was run and was green; it just measures something
+else.
+
+**#233 is open (5.59.0), reviewed and verified, not merged.** `run_mse()` no longer extends
+`NByageFixed` into the projection: numbers-at-age under `estDynamics > 0` are an input, so holding
+the terminal hindcast year invented data and pinned that species flat for the whole MSE. The
+expansion was also dropping all but the FIRST species -- on `GOA2018SS` (4 groups, 32 projection
+years) it built 128 rows and kept 32. **The backlog row's own proposed fix was wrong**, and so was
+a first implementation that routed the block through `.mse_expand_fixed_input()`: both repair the
+indexing and leave the expansion, and the expansion is the defect. A species whose input stops
+short now warns (Grant's call over a refusal), naming it and saying those years read 0 and so
+contribute no biomass, catch or predation. 155 MSE assertions, 0 skips. **No MSE that runs today
+is affected** -- no `run_mse()` caller anywhere sets `estDynamics`.
+
 **#228 is open and belongs to another session** (`docs/comment-sweep-2`, 73 files): dead Kinzey C++
-plus a comment sweep, renumbered to 5.58.1. Don't resolve it; it has an owner.
+plus a comment sweep, renumbered to 5.58.1. Don't resolve it; it has an owner. Its worktree is
+under a different session id, and the git author matches this repo's others because every session
+pushes as Grant -- so author is not evidence of ownership.
 
 **The numbers a next session should not re-derive:**
 
@@ -45,15 +73,24 @@ plus a comment sweep, renumbered to 5.58.1. Don't resolve it; it has an owner.
   * **The suite is 269 files / 10,672 assertions** at `NOT_CRAN=true` serial, ~2h30m. Golden is
     inside it; it is 6 blocks / 21 assertions and must show **skip=0**.
 
-**The method, unchanged and reconfirmed four more times:** every probe needs a POSITIVE CONTROL,
-because every failure this session was an under-measurement reported green. Four fresh instances:
+**The method, unchanged and reconfirmed five more times:** every probe needs a POSITIVE CONTROL,
+because every failure this session was an under-measurement reported green. Five fresh instances:
 a `Growth_Age_for_L1` grep that matched 1 of 229 control files because SS 3.30 renamed the label;
 a CI waiter testing `.conclusion == null` when pending reports `""`, so it declared "settled" in
 under a second with all 12 checks running; reading `12/12 green` on a PR whose `R CMD check`
-printed `Status: 1 NOTE` naming the file it shipped; and counting 30 CLAUDE.md bullets against 28
-`TRAPS.md` mirror entries as drift when the two lists paraphrase rather than mirror. Every one
-failed toward the flattering answer. **The one that reached `dev` was caught by a peer session
-reading `dev` itself** -- not by four adversarial reviewers, who audited the diff they were shown.
+printed `Status: 1 NOTE` naming the file it shipped; counting 30 CLAUDE.md bullets against 28
+`TRAPS.md` mirror entries as drift when the two lists paraphrase rather than mirror; and this
+file being declared current while `## Next` still assigned work that shipped in 5.55.0 and
+5.56.0. Every one failed toward the flattering answer.
+
+**Two lessons with teeth, both earned the hard way here.** First: **the one that reached `dev` was
+caught by a peer session reading `dev` itself** -- not by four adversarial reviewers, who audited
+the diff they were shown and had no reason to look at what the branch left behind. Review the
+diff AND the tree. Second: the R-CMD-check baseline immediately paid for itself in the other
+direction -- #231 came back with five NOTEs on a one-file documentation change, which read as
+alarming and was benign: its CI ran 44 minutes before #230 merged, so the merge ref still held
+`suite226.R`. A baseline does not tell you whether a signal is a defect. It tells you there is
+something to explain, which is the whole difference between a green tick and a read.
 
 ## Next, in the order I would take them
 
@@ -729,8 +766,19 @@ older line.
 
 ## Resume here
 
-**`dev` is at 5.54.3 (`433f02eb`).** The repo holds **264** `test-*.R` files. Check `gh pr list`
-before assuming nothing is in flight -- several PRs were open when this was written.
+**`dev` is at 5.58.0, 2026-10-12.** The repo holds **269** `test-*.R` files. Check `gh pr list`
+before assuming nothing is in flight -- #228 was open and owned elsewhere when this was written.
+
+**Two things are waiting on Grant and nothing else.** Neither is a patch; both turn on what the
+code is meant to mean, so don't settle them from the code:
+
+  * **`growth_age_L1 = 0`** -- `## Next` item 2. SS3's own default, in 44 of the 188 control files
+    reachable here, and Rceattle returns the lowest population bin edge where SS3 returns `l1`.
+  * **`CLAUDE.md`'s claim about its own traps list** -- "(the last section holds every entry below
+    in full)" is false for any bullet added after 2026-09-14, the 5.44.0 shared-block one included.
+    `TRAPS.md`'s mirror section says in its own header that it is a frozen snapshot of that date,
+    so the cheap repair is to CLAUDE.md's sentence, not to the section -- re-freezing the snapshot
+    reintroduces the hand-synced hazard doctrine 2 warns about.
 
 **Tier 0 item 1 is narrowed, not open as first written** -- read its row before picking it up.
 The working order is `CLEANUP_BACKLOG.md`'s own, and its first rule matters most here:
