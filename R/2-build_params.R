@@ -250,7 +250,7 @@ build_params <- function(data_list) {
   # by `pool_linkages()` inside `fit_mod`). Initial values come from
   # the `init` column of the table; (Intercept) rows are forced to 0
   # because they're mapped out of estimation -- the base parameter
-  # carries the level instead (see 1.3c below). Absent table =>
+  # carries the level instead. Absent table =>
   # length-0 vector.
   if (!is.null(data_list$linkage_table) &&
       nrow(data_list$linkage_table) > 0L) {

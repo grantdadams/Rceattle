@@ -561,7 +561,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
            "). Every M1 deviation would be mapped out, so M would be constant ",
            "rather than time-varying. Random effects on M1 are available for ",
            "M1_model 0 (input schedule), 1 and 2",
-           if(M1_model == 2) " -- and 2 needs two sexes unless M1_re is 1 or 4" else "",
+           if(M1_model == 2) " -- and 2 needs two sexes when M1_re is 1 or 4" else "",
            "; or set M1_re = 0.", call. = FALSE)
     }
   }

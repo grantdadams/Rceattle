@@ -40,7 +40,7 @@
 // List-of-matrices data structure: reads an R list() of numeric matrices into a
 // vector<matrix<Type>>. Used for the per-fleet survey-index covariance matrices
 // (Sigma) supplied when Index_loglike == "MVN"/"MVNORM" (the AMAK/ebswp DoCovBTS
-// covariance survey likelihood; see sections 8.2 and 13.1). Non-covariance fleets
+// covariance survey likelihood; see sections 8.2b and 13.1). Non-covariance fleets
 // pass a 1x1 inert dummy so the list is always length n_flt and can be indexed by
 // fleet code.
 template<class Type>
@@ -85,7 +85,6 @@ struct LOM_t : vector<matrix<Type> > {
  *  13. Likelihood components
  *  14. Report section
  *  15. Model return/end
- *  16. Change log
  *
  */
 
@@ -527,7 +526,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( log_sel_apical );              // per-sex log multiplier on the whole curve, after the form and before normalization; n = [n_selectivities, nsex]
   PARAMETER_ARRAY( sel_dn6 );                     // DoubleNormalSS3 (SS3 pattern 24) parameters on SS3's scales: peak, logit top, log asc, log desc, logit init, logit final; n = [6, n_selectivities, nsex]
   PARAMETER_VECTOR( sel_dev_log_sd );              // Log standard deviation of selectivity; n = [1, n_selectivities]
-  PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
+  PARAMETER_MATRIX( sel_curve_pen );              // Non-parametric selectivity penalty; column 0's SIGN picks the shape and column 1 weights the curvature
 
   // -- 3.6. Data variance
   //FIXME: remove log_sd terms below
@@ -540,8 +539,6 @@ Type objective_function<Type>::operator() () {
 
   PARAMETER_VECTOR( diet_comp_weights );          // Weights for diet composition data
   vector<Type>  DM_diet_pars = exp(diet_comp_weights);// Dirichlet-multinomial scalars
-
-  // -- 3.7. Kinzery predation function parameters
 
   // 3.8. Gamma selectivity parameters
   PARAMETER_VECTOR( log_gam_a );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
@@ -638,9 +635,9 @@ Type objective_function<Type>::operator() () {
   array<Type>   NByageF(nspp, max_sex, max_age, nyrs); NByageF.setZero();                 // Numbers at age at mean recruitment and F = Ftarget; the age structure behind SBF
   array<Type>   N_at_age_dB0(nspp, max_sex, max_age, nyrs); N_at_age_dB0.setZero();   // Numbers at age at F = 0 (accounts for annual recruitment)
   array<Type>   N_at_age_dBF(nspp, max_sex, max_age, nyrs); N_at_age_dBF.setZero();   // Female numbers at age at F = Ftarget (accounts for annual recruitment)
-  matrix<Type>  DynamicSB0(nspp, nyrs); DynamicSB0.setZero();                       // Estimated dynamic spawning biomass at F = 0 (accounts for S_at_age-R curve)
-  matrix<Type>  DynamicB0(nspp, nyrs); DynamicB0.setZero();                         // Estimated dynamic  biomass at F = 0 (accounts for S_at_age-R curve)
-  matrix<Type>  DynamicSBF(nspp, nyrs); DynamicSBF.setZero();                       // Estimated dynamic spawning biomass at F = Ftarget (accounts for S_at_age-R curve)
+  matrix<Type>  DynamicSB0(nspp, nyrs); DynamicSB0.setZero();                       // Estimated dynamic spawning biomass at F = 0 (accounts for S-R curve)
+  matrix<Type>  DynamicB0(nspp, nyrs); DynamicB0.setZero();                         // Estimated dynamic  biomass at F = 0 (accounts for S-R curve)
+  matrix<Type>  DynamicSBF(nspp, nyrs); DynamicSBF.setZero();                       // Estimated dynamic spawning biomass at F = Ftarget (accounts for S-R curve)
   // Zeroed explicitly, like every other array here: the recursion writes only
   // ages below a species' own nages, and nothing at all under predation, so the
   // rest is read from the REPORT as whatever it was initialised to.
@@ -649,9 +646,9 @@ Type objective_function<Type>::operator() () {
   vector<Type>  SPRtarget(nspp); SPRtarget.setZero();                               // Estimated Ptarget SPR
   vector<Type>  SPR0(nspp); SPR0.setZero();                                         // Estimated spawning biomass per recruit at F = 0
   vector<Type>  SPRFinit(nspp); SPRFinit.setZero();                                 // Estimated spawning biomass per recruit at Finit
-  matrix<Type>  SB0(nspp, nyrs); SB0.setZero();                                     // Estimated spawning stock biomass at F = 0 (Accounts for S_at_age-R)
-  matrix<Type>  SBF(nspp, nyrs); SBF.setZero();                                     // Estimated spawning stock biomass at F = target (Accounts for S_at_age-R)
-  matrix<Type>  B0(nspp, nyrs); B0.setZero();                                       // Estimated biomass at F = 0 (Accounts for S_at_age-R)
+  matrix<Type>  SB0(nspp, nyrs); SB0.setZero();                                     // Estimated spawning stock biomass at F = 0 (Accounts for S-R)
+  matrix<Type>  SBF(nspp, nyrs); SBF.setZero();                                     // Estimated spawning stock biomass at F = target (Accounts for S-R)
+  matrix<Type>  B0(nspp, nyrs); B0.setZero();                                       // Estimated biomass at F = 0 (Accounts for S-R)
   vector<Type>  Flimit = exp(log_Flimit);                                            // Limit F (FOFL proxy, e.g. F35%) on natural scale
   vector<Type>  Ftarget = exp(log_Ftarget);                                          // Target F (max FABC proxy, e.g. F40%) on natural scale
   vector<Type>  Finit = exp(log_Finit);                                              // Initial F for non-equilibrium age-structure
@@ -1810,7 +1807,7 @@ Type objective_function<Type>::operator() () {
           // reported rather than used: Beverton-Holt recruitment is a function
           // of alpha, Beta and SSB, not of R0.
           R0(sp, 0) = (alpha(sp, 0) - 1.0/SPR0(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
-          R_init(sp) = (alpha(sp, 0) - 1.0/SPRFinit(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
+          R_init(sp) = (alpha(sp, 0) - 1.0/SPRFinit(sp)) / Beta(sp, 0); // (Alpha-1/SPRFinit)/beta
           // Same floor as R in 6.6.1: an identity-link alpha offset can make both negative.
           if (rec_floor_on) { Type pen_R = 0; R0(sp, 0) = posfun(R0(sp, 0), Type(1e-3), pen_R); R_init(sp) = posfun(R_init(sp), Type(1e-3), pen_R); zero_N_pen(sp) += pen_R; }
         }
@@ -1830,7 +1827,7 @@ Type objective_function<Type>::operator() () {
           // reported rather than used: Beverton-Holt recruitment is a function
           // of alpha, Beta and SSB, not of R0.
           R0(sp, 0) = (alpha(sp, 0) - 1.0/SPR0(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
-          R_init(sp) = (alpha(sp, 0) - 1.0/SPRFinit(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
+          R_init(sp) = (alpha(sp, 0) - 1.0/SPRFinit(sp)) / Beta(sp, 0); // (Alpha-1/SPRFinit)/beta
           // Same floor as R in 6.6.1: an identity-link alpha offset can make both negative.
           if (rec_floor_on) { Type pen_R = 0; R0(sp, 0) = posfun(R0(sp, 0), Type(1e-3), pen_R); R_init(sp) = posfun(R_init(sp), Type(1e-3), pen_R); zero_N_pen(sp) += pen_R; }
         }
@@ -2454,7 +2451,7 @@ Type objective_function<Type>::operator() () {
             F_flt(flt, yr) = proj_F_prop(flt) * proj_F(sp, yr);
             for(age = 0; age < nages(sp); age++) {
               for(sex = 0; sex < nsex(sp); sex ++){
-                F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
+                F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // Projection F uses the terminal hindcast year's selectivity
                 if(flt_type(flt) == 1){
                   F_at_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
                 }
@@ -2887,13 +2884,13 @@ Type objective_function<Type>::operator() () {
         // By weight
         if(flt_units(flt) == 1){
           catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr) * weight_hat( wt_idx_flt, sex, age, flt_yr ); // 5.5.
-          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * weight_hat( wt_idx_flt, sex, age, flt_yr ) * sel_at_age(flt, sex, age, flt_yr) * proj_F_prop(flt); // FIXME using last year of selectivity;
+          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * weight_hat( wt_idx_flt, sex, age, flt_yr ) * sel_at_age(flt, sex, age, flt_yr) * proj_F_prop(flt);
         }
 
         // By numbers
         if(flt_units(flt) == 2){
           catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr);
-          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * sel_at_age(flt, sex, age, flt_yr) * proj_F_prop(flt); // FIXME using last year of selectivity;
+          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * sel_at_age(flt, sex, age, flt_yr) * proj_F_prop(flt);
         }
       }
     }
@@ -2976,7 +2973,7 @@ Type objective_function<Type>::operator() () {
       for(yr = 0; yr < nyrs; yr++) {
         for(age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            exploitable_biomass(sp, yr) += N_at_age(sp, sex, age, yr) * weight_hat( wt_idx_flt, sex, age, yr ) * sel_at_age(flt, sex, age, yr) * proj_F_prop(flt); // FIXME using last year of selectivity;
+            exploitable_biomass(sp, yr) += N_at_age(sp, sex, age, yr) * weight_hat( wt_idx_flt, sex, age, yr ) * sel_at_age(flt, sex, age, yr) * proj_F_prop(flt);
           }
         }
       }

@@ -6,7 +6,7 @@ argument-hint: "[optional: a harness name, to run just that one]"
 `/golden-check` fits four models and diffs the result. It does **not** reach the diagnostic refit
 paths, the simulation draws, or any figure. `tools/verify/` holds the harnesses that do.
 
-**They are not all the same shape.** Four are before/after digests you run twice; nine are
+**They are not all the same shape.** Three are before/after digests you run twice; ten are
 self-contained checks you run once. Running a self-contained check on two commits and comparing
 the two "PASS" lines verifies nothing — that is the failure mode this section exists to prevent.
 
@@ -21,8 +21,8 @@ These take an output path and an optional `compare` argument.
 | Harness | Covers |
 |---|---|
 | `verify-refit-like.R` | the `.refit_like()` refit path, via 6 of its callers |
-| `verify-mse-schedule.R` | assessment schedules, year-indexed `catch_mult`, common random numbers |
 | `verify-mse-repro.R` | fixed-seed multi-year MSE trajectory fingerprint |
+| `verify-data-check-conditions.R` | every `data_check()` condition over the bundled datasets |
 
 ```
 git worktree add /tmp/rce-base <merge-base>
@@ -38,6 +38,8 @@ These take **no path argument** and assert an invariant or a recovery property d
 pass them a `.rds` path.
 
 `verify-mse-hindcast-invariant.R` (the MSE must not perturb the hindcast) ·
+`verify-mse-schedule.R` (assessment schedules, year-indexed `catch_mult`, common random
+numbers -- it takes NO path, so running it twice and diffing the PASS lines compares nothing) ·
 `verify-sim-centering.R` · `verify-sim-diet.R` · `verify-sim-index-families.R` ·
 `verify-sim-linkage-re.R` · `verify-sim-local-optimum.R` · `verify-sim-process-error.R` ·
 `verify-sim-recovery.R` · `verify-sim-recovery-process.R`
@@ -46,8 +48,12 @@ pass them a `.rds` path.
 export PATH=/usr/bin:$PATH && NOT_CRAN=true Rscript tools/verify/<harness>.R
 ```
 
-`verify-sim-recovery-M.R` also takes one argument, but it is **`nrep`** (default 8), not a path.
-Passing it a filename silently yields `NA_integer_`.
+Six harnesses take one argument that is a **count**, not a path. Passing a filename
+silently yields `NA_integer_` in five of them; `verify-osa-cdf.R` falls back to its default
+instead, which is quieter still: `verify-sim-recovery-M.R` (`nrep`, default 8),
+`verify-sim-recovery-apical.R` (40), `verify-sim-recovery-np-integrable.R` (12),
+`verify-sim-recovery-r-init.R` (20), `verify-sim-recovery-srr-msm.R` (30) and
+`verify-osa-cdf.R` (20).
 
 ### Which to run
 

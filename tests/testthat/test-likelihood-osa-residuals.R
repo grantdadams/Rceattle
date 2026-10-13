@@ -1,4 +1,5 @@
-# One-step-ahead (OSA) residuals -- Phase 1 (aggregate catch + index).
+# One-step-ahead (OSA) residuals: catch, index, composition, CAAL, diet, MVN
+# index, the parallel retry and the discrete override.
 #
 # A gold-standard "joint nll is numerically unchanged by the obsvec/keep
 # refactor" check (comparing against a DLL built from the pre-change source) is
@@ -245,7 +246,7 @@ testthat::test_that("process_residuals() runs on a converging model", {
   testthat::expect_true(all(c("Source", "Species", "Year", "Residual") %in% names(r)))
 
   # Composition OSA data is built on demand, so comp residuals work from any fit
-  # -- no fit_control(osa = TRUE) needed.
+  # -- nothing has to be set at fit time.
   osa_comp <- osa_residuals(fit, source = "comp")
   testthat::expect_s3_class(osa_comp, "rceattle_osa")
   testthat::expect_true(all(is.finite(osa_comp$residual)))
@@ -352,7 +353,7 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
 
 
 # Reference diet Pearson residual, written out on the scale the stomach-content
-# likelihood works in (ceattle.cpp:4815-4860): each stomach carries an "other
+# likelihood works in (ceattle.cpp, the JNLL_STOMACH block): each stomach carries an "other
 # prey" balance that enters the density but not the residual frame, observed and
 # fitted are each normalized by their own offset-inflated total over prey + other,
 # and the counts are formed AFTER that normalization, so the total is N_s.
@@ -465,7 +466,7 @@ testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet mode
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  # Small multispecies model with diet (same fixture as test-diet-likelihood.R);
+  # Small multispecies model with diet (same fixture as test-likelihood-dietelihood.R);
   # estimateMode = 3 builds the report (diet_hat) without optimizing.
   nyrs <- 10L; nspp <- 2L
   Fmort  <- c(seq(0.02, 0.3, length.out = nyrs / 2), seq(0.3, 0.05, length.out = nyrs / 2))

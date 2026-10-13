@@ -426,7 +426,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #'
 #'
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param file name of a file to identified the files exported by the function.
+#' @param file Path/prefix for the saved figure. `NULL` (default) draws without saving.
 #' @param species Species names for legend
 #'
 #' @return Returns and saves a figure

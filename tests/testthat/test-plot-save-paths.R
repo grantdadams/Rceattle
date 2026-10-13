@@ -18,15 +18,15 @@
 # 29 of the 31 exported plotters write a file on the single-species BS2017SS
 # fixture at `estimateMode = 3`. Only `plot_form` (a stub with no `file`
 # formal) and `plot_profile` (needs an `Rceattle_profile`) do not, and they are
-# named as exclusions. An earlier version of this file covered 10 and said the
-# other 19 "need a multispecies fit, diet data, a profile object or comp/OSA
-# inputs" -- that was wrong for 18 of the 19, including every diet plotter,
-# which this fixture drives.
+# named as exclusions.
 #
-# WHERE THIS RUNS: nightly, not on a pull request. The file-level
-# `skip_on_cran()` is the convention for the whole `test-plot-*.R` family (all
-# 14 carry one) because each builds a real `fit_mod()` object, and
-# `R-CMD-check.yaml` sets `NOT_CRAN: "false"`. `test-coverage` runs it but
+# WHERE THIS RUNS: nightly, not on a pull request, because THIS file carries a
+# file-level `skip_on_cran()` and builds a real `fit_mod()` object, and
+# `R-CMD-check.yaml` sets `NOT_CRAN: "false"`. That is not the family
+# convention: of the 15 `test-plot-*.R` files only 6 skip at file level and 6
+# carry no skip at all, so `test-plot-helpers.R` and `test-plot-profile.R` do
+# run on a PR -- `test-plot-helpers.R` needs no fitted model and says so.
+# `test-coverage` runs it but
 # passes `stop_on_failure = FALSE`. So `deep-checks.yaml` is the only job where
 # a failure here is fatal -- run this by hand in the PR that changes a save
 # path rather than trusting CI to catch it.

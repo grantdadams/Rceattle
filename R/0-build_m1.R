@@ -147,10 +147,11 @@ M_LINKAGE_PARAMS <- c("M1")
 #'   by-age families are refused under `3` because an age-varying
 #'   deviation and an age-specific level are not separately
 #'   identifiable, and `4` and `5` are refused entirely (use a
-#'   catchability-style linkage instead). `M1_model = 2` also needs two
-#'   sexes, except for `1` and `4`; `fit_mod()` downgrades it to `1` on
-#'   a single-sex species, so that distinction shows only in a direct
-#'   `build_map()` call.
+#'   catchability-style linkage instead). Under `M1_re` `1` and `4`,
+#'   `M1_model = 2` additionally needs two sexes: on a single-sex species
+#'   the deviations would land in the padding sex slot, free and scored by
+#'   no density. `fit_mod()` downgrades `M1_model` to `1` there, so the
+#'   distinction shows only in a direct `build_map()` call.
 #' @param updateM1 If using initial parameters, use M1 fixed effects
 #'   from data (`M1_base`) instead. Default `FALSE`.
 #' @param M1_use_prior Vector or scalar; if `TRUE` and `M2_use_prior` is `FALSE`, apply the

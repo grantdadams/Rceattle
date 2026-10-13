@@ -50,9 +50,8 @@
 #' \item{Tcl}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
 #' \item{CK1}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
 #' \item{CK4}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
-#' \item{env_data}{Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5 or 6. Will use the mean for missing years. Temperature should be in Celsius.}
+#' \item{env_data}{Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5. Will use the mean for missing years. Temperature should be in Celsius.}
 #' \item{ration_data}{Annual relative foraging rate by age or input consumption at age. Multiplied by pvalue and fday to scale maximum consumption to the number of days in a year that foraging occurs.}
-#' \item{UobsAge}{Stomach proportion by numbers for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
 #' \item{UobsWtAge}{Stomach proportion by weight for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
 #' }
 #'

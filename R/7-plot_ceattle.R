@@ -1040,8 +1040,8 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #'   component at a time, never their sum, [plot_m_at_age()] draws total M
 #'   (M1 + M2) as a time series.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
+#' @param file Path/prefix for the saved figure. `NULL` (default) draws
+#'   without saving.
 #' @param Rceattle A single [fit_mod()] object. A list of more than one is an
 #'   error; call it per model.
 #' @param incl_proj Include the projection years (TRUE/FALSE)
@@ -1184,8 +1184,8 @@ plot_mortality <-
 #'
 #' @description Function that plots the maturity of each species
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
+#' @param file Path/prefix for the saved figure. `NULL` (default) draws
+#'   without saving.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col,lwd Deprecated base-graphics arguments, retained for

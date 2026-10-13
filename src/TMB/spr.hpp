@@ -15,7 +15,7 @@
  *
  * The reference points are not the only consumer. Under Beverton-Holt or Ricker
  * recruitment, SPR0 sets steepness and R0 and SPRFinit sets R_init (section
- * 6.3), and R_init scales the initial age structure (section 6.5) -- so these
+ * 6.3), and R_init scales the initial age structure (section 6.4) -- so these
  * values reach the hindcast and the objective under any harvest control rule.
  *
  * Not defined under predation: total mortality then carries M2, which scales
