@@ -5,49 +5,55 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**`dev` is at 5.57.0** (`07b9f0a3`). Six PRs landed after 5.54.3; **two** carried a version.
+**`dev` is at 5.58.0** (`3386fca2`). Seven PRs landed after 5.57.0; **four** carried a version.
 
 | PR | version | what it did |
 |---|---|---|
-| #217 | 5.56.0 | DoubleNormal (type 8) started at peak 0 and a logit floor of 10, giving a curve flat at ~1 and no gradient. Derived starts: peak at the mid-range BIN ORDINAL `(nages + 1) / 2`, floor at logit 0. Objective 3085.98 -> **914.10** on the GOApollock fishery |
-| #218 | -- | three doctrines at the top of `CLAUDE.md`; `AGENTS.md` and a new `.github/copilot-instructions.md`; `CONTRIBUTING.md` split |
-| #219 | 5.57.0 | a sel/q linkage on a shared block estimated one FREE coefficient per member, so mirrored fleets fitted different curves. Now one coefficient, plus four refusals |
-| #221 | -- | `source-guards.R` said 17 where `EXPECTED` held 18 |
-| #223 | -- | `TRAPS.md`: a map built from a skeleton model freezes both DoubleNormalSS3 ends |
-| #224 | -- | the three-file doctrine contract is now enforced by a test, not declared |
+| #222 | 5.57.1 | the documentation condensing, +3962/-5579, measured comment-only rather than read |
+| #223 | -- | `TRAPS.md`: the two-stage DoubleNormal sentinel |
+| #224 | -- | the three-file doctrine contract enforced by a test |
+| #227 | 5.57.2 | the WITHIN-YEAR growth branch tested the age-slot INDEX where it meant the cohort's Jan-1 AGE. At `minage = 0`, mean length was discontinuous in the season -- a fish shrank 11.9% across July 1 |
+| #229 | 5.57.3 | the JAN-1 growth cohort-boundary test compared the slot's age to `max(minage, 1)`, where the first slot above the anchor is at `max(minage, floor(age_L1) + 1)`. +35.3% on a test fit; the two growth routines disagreed by 3.939 cm about the same cohort at the same instant |
+| #226 | 5.58.0 | an intercept `init`/`bounds` on a shared block is now written per BLOCK, so it reaches the parameter instead of being averaged away by `TMB:::updateMap()` |
 
-**#222 is open and reviewed, not merged.** Titled "condense the documentation" at +3962/-5579, but
-it touches the schema and the template, so the numeric surface was measured rather than read:
-**all six `src/TMB/` files are comment-only** (strip `//` and `/* */`, diff the remainder), **20 of
-23 `R/` files are comment/roxygen only** (compare deparsed `parse()`), and the schema's **86
-columns, their order and every non-`doc` argument are identical**. The whole code delta is three
-string literals, one of them a message now pointing at `vignette("model-diagnostics")`. It overlaps
-#219 on four files, so it wants a real merge, not a fast-forward.
+**#230 is open**: removes `suite226.R`, a scratch runner that #226 shipped at the repository root,
+and records why CI hid it. No version bump -- the file is inert cargo.
+**#228 is open and belongs to another session** (`docs/comment-sweep-2`, 73 files): dead Kinzey C++
+plus a comment sweep, renumbered to 5.58.1. Don't resolve it; it has an owner.
 
 **The numbers a next session should not re-derive:**
 
-  * **Open Tier 0 rows: 9 under the strict rule, 19 counting every `**Open` variant.** Say which
-    you mean: `**Open**` matches 9 in-table rows; `**Open, low**`, `**Open.**`, `**Open, latent**`
-    and the rest bring it to 19. Count IN-TABLE rows only -- the section's own prose line is a hit
-    and is not a row. (Was 10/20; #219 closed the shared-block row.)
-  * **An intercept `init` on the DONOR of a shared block does not reach the optimizer's starting
-    value** -- new Tier 0 row, found writing #219 and deliberately not fixed there. The push writes
-    the donor's cell, the others keep their build default, and `TMB:::updateMap()` starts the level
-    at their mean: `log(0.5) = -0.693147` asked for, **-0.096574** actual. Pinned as current
-    behaviour in `test-linkage-intercept-base-param.R`. Fixing it moves any fit that sets one.
-  * **A linkage offset is applied PER FLEET** (`inf_offset(param, flt, sex, yr)`), the apical height
-    included. Only a PRIOR is re-targeted onto the shared base. So "put it on the lead fleet" is
-    wrong for a design column, and the pre-5.57.0 apical refusal said it anyway.
-  * **The suite is 266 files / 1651 blocks / 10,567 assertions** at `NOT_CRAN=true` serial, ~2h50m.
-    Golden is inside it; it is 6 blocks / 21 assertions and must show **skip=0**.
+  * **Open Tier 0 rows: 10 under the strict rule, 20 counting every `**Open` variant.** Count
+    IN-TABLE rows only -- the section's own prose line is a hit and is not a row. (#226 closed the
+    intercept row, #229 closed two growth rows; the bitwise-boolean row is new and is explicitly
+    not a defect.)
+  * **`growth_age_L1` has NO validation anywhere** -- absent from the schema, `switch_check()`,
+    `data_check()`, `build_growth()` and `fit_mod()`, which NA-fills only. The SS3 bridge reads it
+    straight from the ctl.
+  * **`growth_age_L1 = 0` is SS3's own default** (`SS_readcontrol_330.tpl:914`) and sits in 44 of
+    the 188 control files reachable here. Rceattle gives age 0 the lowest population bin edge where
+    SS3 gives `l1`, 80% low. **Open, and it needs a decision, not a patch**: matching SS3 changes a
+    computed length for an input accepted today. Do NOT close it by refusing `<= 0` -- that rejects
+    the reference implementation's default.
+  * **Every anchor value in use is 0.5 or an integer** (1 x113, 0 x44, 0.5 x30, 3 x1), so neither
+    growth fix moves a shipping configuration. Measured from the exact reroute rule, not by
+    inspection.
+  * **R-CMD-check's baseline is four runners `Status: OK` plus `macos-latest` at 1 WARNING**, and
+    `error-on: '"error"'` passes NOTEs and WARNINGs alike. So any NOTE is new. The macOS warning is
+    three `-Wbitwise-instead-of-logical` sites in `ceattle.cpp`, NOT the Windows `-Warray-bounds`
+    its own comment cites.
+  * **The suite is 269 files / 10,672 assertions** at `NOT_CRAN=true` serial, ~2h30m. Golden is
+    inside it; it is 6 blocks / 21 assertions and must show **skip=0**.
 
-**The method that found everything today, and the only one worth carrying forward:** every probe
-needs a POSITIVE CONTROL -- a case that must come back non-empty -- because every failure this
-session was an under-measurement reported green. Flatten prose with `tr '\n' ' '` before counting
-(a line-based grep of a wrapping sentence returns a confident 0: this bit four times, once inside
-a control experiment that therefore proved nothing), parse rather than grep for code, and scope the
-probe to the CLAIM rather than to the file you edited. Two real defects in #219's own fix were found
-this way after a green suite; neither would have surfaced otherwise.
+**The method, unchanged and reconfirmed four more times:** every probe needs a POSITIVE CONTROL,
+because every failure this session was an under-measurement reported green. Four fresh instances:
+a `Growth_Age_for_L1` grep that matched 1 of 229 control files because SS 3.30 renamed the label;
+a CI waiter testing `.conclusion == null` when pending reports `""`, so it declared "settled" in
+under a second with all 12 checks running; reading `12/12 green` on a PR whose `R CMD check`
+printed `Status: 1 NOTE` naming the file it shipped; and counting 30 CLAUDE.md bullets against 28
+`TRAPS.md` mirror entries as drift when the two lists paraphrase rather than mirror. Every one
+failed toward the flattering answer. **The one that reached `dev` was caught by a peer session
+reading `dev` itself** -- not by four adversarial reviewers, who audited the diff they were shown.
 
 ## Next, in the order I would take them
 
@@ -70,12 +76,17 @@ says catch advice is wrong. So the order below is the backlog, not the plan.
    species, or deciding the R-side mask is the contract and documenting it where a direct-report
    consumer reads. `/golden-check` is green either way -- no reference model sets
    `estDynamics > 0`.
-2. **The two DoubleNormal rows, as one PR.** From the default starts the curve fits flat at 1.000
-   at every age (`GOApollock` fishery, static selectivity, phased: objective 3085.98 against
-   914.10 from `inits`), and DoubleNormal + `RandomWalkAscending` silently fits 220 parameters
-   instead of 316 with no message. A new user following `adding-a-selectivity-form.Rmd` hits
-   both, and `test-selectivity-double-normal.R` sets its own starts, which is why the suite does
-   not see the first one.
+2. **`growth_age_L1 = 0`: a decision, not a patch.** It is SS3's own default
+   (`SS_readcontrol_330.tpl:914` sets `AFIX = 0.`) and sits in 44 of the 188 control files
+   reachable here, so the SS3 bridge can hand it over -- and `growth_age_L1` is validated
+   nowhere. At that anchor Rceattle's ramp test (`current_age <= age_L1`) takes slot 0 and
+   returns the lowest population bin edge, where SS3's strict `<` sends it to the transition
+   branch (`real_age == AFIX -> lin_grow = 1.0`) and returns `l1`: 80% low on the measured
+   parameters, every year. **Do NOT close it by refusing `<= 0`** -- that rejects the reference
+   implementation's default, which is what this row first proposed. Matching SS3 changes a
+   computed length for an input accepted today, so it turns on reading Rceattle's intent as SS3
+   parity. Maintainer call. A negative anchor is separate and genuinely refusable: SS3 does not
+   handle it either, since its `AFIX != 0.0` test yields a negative denominator.
 3. **Whether the GOA multispecies assessment's own fit moves is still unmeasured**, and the
    decision not to refit was taken while this file said phasing made it moot. It does not:
    `R/02_fit_models.R:76` sets `phase = FALSE` on the headline multispecies fit. One fit, and the
