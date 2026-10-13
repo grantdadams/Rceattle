@@ -21,7 +21,7 @@ plots, documentation and messages).
    plainly an improvement, and even when you are already in the file for another reason. File the
    idea as one row in `inst/dev/SIMPLIFY-LOG.md` and finish the task you were given — though a
    silent wrong number is a defect, not a wish, and belongs in
-   `inst/dev/CLEANUP_BACKLOG.md` or an issue. The package ships, and the repositories in
+   `../Rceattle-dev/CLEANUP_BACKLOG.md` or an issue. The package ships, and the repositories in
    `inst/dev/SIBLING-REPOS.md` consume it. What this rule is
    *not*: a refactor behind an unchanged API is free, and so is a defect fix — refusing a
    configuration the model never actually fitted, correcting a number the model computed

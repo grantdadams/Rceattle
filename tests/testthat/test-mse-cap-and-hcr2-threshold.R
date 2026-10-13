@@ -1,4 +1,4 @@
-# Provenance: inst/dev/CLEANUP_BACKLOG.md Tier 0, two markers.
+# Provenance: the developer backlog, Tier 0 -- two markers.
 #
 # 1. R/10-run_mse.R "does not work for assessments that don't occur annually".
 #    `dat_fill_ind` indexes every filled catch row in the assessment interval,

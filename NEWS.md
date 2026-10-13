@@ -12,6 +12,31 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.58.3
+
+## Documentation
+
+* **The developer working notes have moved out of the package.** `inst/dev/` shipped in the
+  tarball, so the triaged cleanup backlog, the contributor notes, the per-subsystem `TODO-*.md`
+  records and the equilibrium-catch specification went to every user — 193 KB of half-diagnosed
+  defect detail for a model whose output sets federal catch limits, which is not something to
+  publish before it is settled. They now live in a separate maintainer repository.
+
+  *What still ships, and is unchanged:* `inst/dev/TRAPS.md` (the verified traps with their
+  measured numbers), `SIBLING-REPOS.md`, `SIMPLIFY-LOG.md`, `REMOVED-kinzey-and-dev-cpp.md` and
+  the two runnable selectivity examples.
+
+  *Where the open items went:* four of the moved notes were cited from comments in shipped `R/`
+  and `src/TMB/` code. Each is now a GitHub issue, and the comment cites the issue rather than a
+  file path — [#234](https://github.com/afsc-assessments/Rceattle/issues/234) the identity-link
+  recruitment floor, [#235](https://github.com/afsc-assessments/Rceattle/issues/235) the
+  NonParametric shape penalties, [#236](https://github.com/afsc-assessments/Rceattle/issues/236)
+  `Sel_norm_scope` on Hake, and
+  [#237](https://github.com/afsc-assessments/Rceattle/issues/237) the MSE operating-model horizon.
+
+  Nothing executable changed: the edits are comments, test provenance headers, agent instructions
+  and the developer-guide article. No function, argument, default or reported quantity moved.
+
 # Rceattle 5.58.0
 
 ## Bug fixes

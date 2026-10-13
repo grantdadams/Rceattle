@@ -777,7 +777,7 @@ assessment moved 2019 catch by **2.1%** — a year whose advice is identical by 
 the same 2018 assessment under both schedules. Per-year seeding took it to 0.53%; refitting over
 the whole projection took it to 0.003%, which is optimizer noise rather than the draws. Both
 landed in 5.18.0, and the 9% the shortening was worth on a Bering Sea multispecies MSE went with
-it — see `inst/dev/TODO-mse-horizon.md` for how to get it back.
+it — see issue #237 for how to get it back.
 
 **What is still open.** Seeding is keyed to the **assessment** year, but one `sim_mod()` call
 draws every year in the interval. A year sitting inside a longer interval is drawn under that
@@ -1227,7 +1227,7 @@ section above.
   schedule (2.1% on a year whose advice was identical by construction). Before touching the
   horizon, the row count, or the draw order, ask what it does to a comparison of two schedules,
   not just to one run's reproducibility. Common random numbers are still incomplete between
-  assessments; `inst/dev/TODO-mse-horizon.md` has the design and the measured numbers.
+  assessments; issue #237 has the design and the measured numbers.
 - **The guards are not themselves guarded.** `test-golden-regression.R` is `skip_on_cran()` AND
   `skip_on_covr()`, so until 5.16.0 it ran in no CI job at all; the `deep-checks` workflow now
   runs it nightly and asserts it produced assertions. `NOT_CRAN=false` must be step-level `env:`

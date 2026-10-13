@@ -58,7 +58,7 @@ testthat::test_that("the Ianelli penalty projects the mean of R / R_hat over the
     testthat::expect_equal(unique(fixed[sp, ]), log(mean(ratio[sp, ])))
   }
   # Resampling draws log(R / R_hat) from every hindcast year, the documented
-  # difference from the penalty-year mean (inst/dev/TODO-srr-multispecies.md).
+  # difference from the penalty-year mean.
   set.seed(1)
   drawn <- proj_devs(m, TRUE)
   pool  <- (log(m$quantities$R) - log(m$quantities$R_hat))[, seq_len(hind), drop = FALSE]

@@ -1,4 +1,4 @@
-# Provenance: inst/dev/CLEANUP_BACKLOG.md Tier 0, the ceattle.cpp marker
+# Provenance: the developer backlog, Tier 0 -- the ceattle.cpp marker
 # "will blow up if nlengths is less than nages".
 #
 # age_hat and age_obs_hat are written at AGE indices -- nages for a

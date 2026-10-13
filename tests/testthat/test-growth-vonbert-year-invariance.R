@@ -143,7 +143,7 @@ testthat::test_that("slot 0 stays off the recursion, anchor floored", {
   # instead, 6.23 cm low at realistic parameters.
   # Slot 0 itself is NOT asserted -- at this anchor it returns the lowest
   # population bin edge where SS3 returns `l1`, which is an open defect in
-  # `inst/dev/CLEANUP_BACKLOG.md`, not something to pin here.
+  # the developer backlog, not something to pin here.
   res <- .anchor_fit("vonBertalanffy", minage = 0, age_L1 = 0)
   nyrs <- res$data_list$endyr - res$data_list$styr + 1L
   lhat <- res$quantities$length_hat[1, 1, , seq_len(nyrs)]

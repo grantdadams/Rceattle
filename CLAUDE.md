@@ -29,7 +29,7 @@ number the model computed wrongly, or freeing a parameter it fused, mapped out o
 Make those — measure them under rule 2, and name in `NEWS.md` whose fits move, with
 `/ecosystem-sweep` for which sibling scripts stop. Adding a message is additive; changing or
 removing one is not. And a silent wrong number is never a `SIMPLIFY-LOG.md` row: that file holds
-design wishes, while a known defect belongs in `inst/dev/CLEANUP_BACKLOG.md` or an issue.
+design wishes, while a known defect belongs in `../Rceattle-dev/CLEANUP_BACKLOG.md` or an issue.
 
 Where a trigger and a carve-out both fit — a bad starting value is both a default and a badly
 started parameter; a message at the wrong severity is both a message change and a defect — fix
@@ -70,7 +70,7 @@ how this package is written; very little over what it means.
 
 ## Read first
 
-1. `inst/dev/SESSION_HANDOFF.md` — what is in flight, what is verified, where to resume.
+1. `../Rceattle-dev/SESSION_HANDOFF.md` — what is in flight, what is verified, where to resume.
 2. `R/0-column_schema.R` — the source of truth for every workbook column and switch.
 3. `vignettes/articles/developer-guide.Rmd` — the pipeline, the switch system, the schema, the
    linkage grammar.
@@ -100,8 +100,9 @@ how this package is written; very little over what it means.
    vignette, in the same commit** — plus `_pkgdown.yml` when a documented topic appears or
    disappears. `/doc-sync` checks this. Exempt from it: the agent instructions (`CLAUDE.md`,
    `AGENTS.md`, `CONTRIBUTING.md`, `.claude/`, `.github/`), repo tooling (`tools/`), and
-   developer notes (`inst/dev/`). The first five are in `.Rbuildignore`; `tools/ci/` and all but
-   three files of `inst/dev/` *do* ship, so don't put anything there a user must not read.
+   developer notes (`inst/dev/`). The first five are in `.Rbuildignore`; `tools/ci/` and **all of**
+   `inst/dev/` ship, so nothing may go there that a user must not read — the working notes that
+   did live in `../Rceattle-dev/`.
    Correcting a figure in an already-released `NEWS.md` entry is not a new change and owes no
    bump (precedent: 389cd4a6). **"Breaking" means no back-compat path**: a
    deprecation that keeps old fits working, or refusing a configuration that never fitted the

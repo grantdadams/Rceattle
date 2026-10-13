@@ -1,4 +1,4 @@
-# Provenance: inst/dev/CLEANUP_BACKLOG.md Tier 0, the ceattle.cpp marker
+# Provenance: the developer backlog, Tier 0 -- the ceattle.cpp marker
 # "will bomb if minage > 1".
 #
 # Recruits arriving at age minage in year yr were spawned in yr - minage, so for

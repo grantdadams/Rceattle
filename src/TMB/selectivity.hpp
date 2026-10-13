@@ -600,7 +600,7 @@ void calculate_selectivity(
 
             // Normalized per sex here, not in normalize_and_project_selectivity(),
             // so both sexes reach 1: Sel_norm_scope is inert on Hake, which cannot
-            // carry a sex difference in level. inst/dev/TODO-selectivity.md
+            // carry a sex difference in level. See issue #236.
             max_sel = -1e10;
             if (sel_norm_bin1(flt) >= 0 && sel_norm_bin2(flt) < 0) {
               max_sel = is_length_based ? sel_at_length(flt, sex, sel_norm_bin1(flt), yr) : sel_at_age(flt, sex, sel_norm_bin1(flt), yr);

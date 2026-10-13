@@ -796,8 +796,7 @@ osa_residuals <- function(object = NULL,
 #' The retry is kept because it is cheap in the common case (it runs only when
 #' something is already non-finite) and it does recover a genuinely transient
 #' failure, but **no such case has been observed**: see `?osa_residuals` for
-#' the limitation this leaves, and `inst/dev/SESSION_HANDOFF.md` for where to
-#' take it next.
+#' the limitation this leaves.
 #'
 #' @param res Result frame from one group, with a `residual` column.
 #' @param rerun Function of a starting row index, returning a frame of the same
