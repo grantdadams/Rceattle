@@ -27,9 +27,7 @@ build_params <- function(data_list) {
   nyrs_proj <- length(yrs_proj)
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 1. Population dynamics parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
   param_list$dummy = 0  # Variable to test derived quantities given input parameters; n = [1]
 
@@ -252,7 +250,7 @@ build_params <- function(data_list) {
   # by `pool_linkages()` inside `fit_mod`). Initial values come from
   # the `init` column of the table; (Intercept) rows are forced to 0
   # because they're mapped out of estimation -- the base parameter
-  # carries the level instead (see 1.3c below). Absent table =>
+  # carries the level instead. Absent table =>
   # length-0 vector.
   if (!is.null(data_list$linkage_table) &&
       nrow(data_list$linkage_table) > 0L) {
@@ -324,9 +322,7 @@ build_params <- function(data_list) {
     param_list$log_obs_sd_linkage <- numeric(0)
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 2. Observation model parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
   # * 2.1. Catchability parameters ----
   # - Catchability on log scale
@@ -507,9 +503,7 @@ build_params <- function(data_list) {
   param_list$caal_weights = data_list$fleet_control$CAAL_weights
   names(param_list$caal_weights) <- data_list$fleet_control$Fleet_name
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 3. Predation model parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 
   # * 3.1. Diet composition weighting ----
@@ -715,10 +709,10 @@ build_params <- function(data_list) {
 #' @description
 #' `log_M1` is dimensioned to the widest species, so a species with fewer sexes
 #' or ages leaves padding cells that no `nages(sp)`-bounded loop in the template
-#' reads. `NA` or `-Inf` there is never an intended natural mortality: the two
-#' fill paths disagreed on the value through 5.49.4, a loop bound that widened
-#' to the padding would read `exp(-Inf)` as an M1 of 0, and under
-#' `M1_model >= 1` the padding sex cells are estimated rather than constant.
+#' reads. `NA` or `-Inf` there is never an intended natural mortality: a loop
+#' bound that widened to the padding would read `exp(-Inf)` as an M1 of 0, and
+#' under `M1_model >= 1` the padding sex cells are estimated rather than
+#' constant.
 #'
 #' @param log_M1 The filled `log_M1` array.
 #' @param where Name of the calling path, for the message.

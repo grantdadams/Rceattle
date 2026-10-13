@@ -26,8 +26,8 @@ plot_mortality(
 \item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object. A list of more than one is an
 error; call it per model.}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Path/prefix for the saved figure. \code{NULL} (default) draws
+without saving.}
 
 \item{incl_proj}{Include the projection years (TRUE/FALSE)}
 

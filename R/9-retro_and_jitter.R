@@ -34,7 +34,12 @@
 #' parameter fixed, so on its own it reports a standard error of zero across the
 #' hindcast. Under `getsd = TRUE` the peel is therefore rebuilt at those same
 #' parameters with the hindcast free in the map and reported from there; nothing
-#' is re-estimated, so no point estimate moves.
+#' is re-estimated, so no point estimate moves. Where that rebuild fails -- it
+#' throws, or comes back with a Hessian it could not factor, or with no finite
+#' standard error -- the peel keeps its point estimates and carries no `sdrep`
+#' at all, rather than the forecast refit's zero standard errors. The reason is
+#' named in one warning per call and carried on the peel; `print()` reports how
+#' many peels could not report standard errors.
 #'
 #' @return a list of 1. a list of Rceattle models and 2. Mohn's rho per species.
 #'
@@ -58,6 +63,10 @@
 #'       retrospective forecast ends.}
 #'     \item{\code{projyr}}{the end of the harvest-control-rule projection.}
 #'   }
+#'   A peel whose standard errors could not be rebuilt carries
+#'   \code{attr(peel, "sd_report_error")}, a one-line reason naming the peel and
+#'   its terminal year; it is absent on every other peel.
+#'
 #'   Take the forecast years as
 #'   \code{endyr_peel + seq_len(endyr_full - endyr_peel)}, which is empty for the
 #'   unpeeled model, rather than \code{(endyr_peel + 1):endyr_full}, which counts
@@ -137,7 +146,6 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   }
   use_parallel <- peels > 1L && cores > 1L
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Stored-map divergence ----
   # Each peel's hindcast fit reuses `object$map`, deliberately: Mohn's rho needs
   # the parameterisation the model was ORIGINALLY fitted with. The cost is that
@@ -175,10 +183,8 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
             call. = FALSE)
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-peel closure ----
   # Each peel only reads the original model, so peels are independent.
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_peel <- function(i) {
 
     # * Get end year of peel ----
@@ -429,7 +435,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
         object$map$mapList$log_F[, (nyrs_peel + 1):nyrs]
       sd_map$mapFactor$log_F <- factor(sd_map$mapList$log_F)
 
-      newmod$sdrep <- tryCatch({
+      sd_try <- tryCatch({
         report_mod <- suppressWarnings(suppressMessages(
           .refit_like(
             data_list        = data_list,
@@ -440,15 +446,39 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
             srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
             srr_hat_endyr    = min(data_list$srr_hat_endyr, endyr_peel),
             suit_endyr       = pmin(data_list$suit_endyr, endyr_peel))))
-        TMB::sdreport(report_mod$obj)
-      }, error = function(e) {
-        # A peel that cannot be reported is not a peel that failed: keep the
-        # fit and its point estimates, and say why the band is missing.
-        warning("Peel ", i, ": could not report hindcast standard errors (",
-                conditionMessage(e), "). Point estimates are unaffected.",
-                call. = FALSE)
-        newmod$sdrep
-      })
+        list(sdrep = TMB::sdreport(report_mod$obj))
+      }, error = function(e) list(error = conditionMessage(e)))
+
+      # A rebuild fails two ways and only one throws: TMB::sdreport() returns
+      # pdHess = FALSE on a Hessian it cannot factor rather than erroring. Both
+      # mean no usable band, so judge the returned object too, and name which
+      # condition fired -- they are different problems for the reader.
+      if (is.null(sd_try[["error"]])) {
+        .sdr <- sd_try[["sdrep"]]
+        if (isFALSE(.sdr[["pdHess"]])) {
+          sd_try <- list(
+            error = "the rebuilt hindcast Hessian is not positive definite")
+        } else if (!any(is.finite(.sdr[["sd"]]))) {
+          sd_try <- list(
+            error = "the rebuilt hindcast reported no finite standard error")
+        }
+      }
+
+      if (is.null(sd_try[["error"]])) {
+        newmod$sdrep <- sd_try[["sdrep"]]
+      } else {
+        # A peel that cannot be reported is not a peel that failed: keep its
+        # point estimates and leave the band absent, the state getsd = FALSE
+        # leaves. The refit's own sdrep is what this block replaces -- a
+        # standard error of 0 across the whole span the peel is drawn over.
+        newmod$sdrep <- NULL
+        # Not recorded on .conv_hindcast$sd_present: .refit_converged() drops a
+        # peel on `sd_requested && !sd_present`, which would move Mohn's rho.
+        # And a warning() dies in a .parallel_lapply() worker, so carry the
+        # reason out on the peel and re-raise it once after dispatch.
+        attr(newmod, "sd_report_error") <-
+          paste0("peel ", i, " (through ", endyr_peel, "): ", sd_try[["error"]])
+      }
     }
 
 
@@ -496,9 +526,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     }
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch peels (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     peel_results <- .parallel_lapply(1:peels, run_one_peel, min(cores, peels), environment())
   } else {
@@ -510,6 +538,19 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # A warning, not a message: rho below is averaged over the peels that
   # survive, so a drop changes the number that gets reported.
   .report_dropped(peels - length(peel_results), peels, "peel", warn = TRUE)
+
+  # Raised here rather than in the worker that found it (see above). A missing
+  # band is not a dropped peel, so this is separate from the tally above: the
+  # peel is kept and its point estimates stand.
+  sd_errs <- unlist(lapply(
+    peel_results, function(m) attr(m, "sd_report_error", exact = TRUE)))
+  if (length(sd_errs)) {
+    warning(length(sd_errs), " peel(s) could not report hindcast standard ",
+            "errors, so they carry no `sdrep` and their uncertainty bands are ",
+            "NA: ", paste(sd_errs, collapse = "; "),
+            ". Point estimates and Mohn's rho are unaffected.", call. = FALSE)
+  }
+
   mod_list <- c(list(object), peel_results)
 
   # Mohn's rho averages the peels against the full model, so with none left the
@@ -522,9 +563,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   }
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Calculate Mohs rho ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # * Data frame to save ----
   objects <- c("biomass", "ssb", "R", "F_spp")
   mohns <- data.frame(matrix(0, nrow = length(objects) * (nyrs_forecast+1), ncol = 3 + data_list$nspp))
@@ -670,6 +709,17 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
         "\n", sep = "")
   }
 
+  # A kept peel can still have no band. The call warned, but a saved object has
+  # only the attribute, so say it here too -- rho is unaffected either way.
+  n_noband <- sum(vapply(
+    x$Rceattle_list,
+    function(m) !is.null(attr(m, "sd_report_error", exact = TRUE)),
+    logical(1)))
+  if (n_noband > 0L) {
+    cat("  ", n_noband, " peel(s) carry no standard errors",
+        " (the hindcast report failed to rebuild)\n", sep = "")
+  }
+
   if (nrow(term)) {
     show <- term
     show$.tag <- vapply(seq_len(nrow(show)), function(i) {
@@ -775,9 +825,7 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
   }
   use_parallel <- njitter > 1L && cores > 1L
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-jitter closure ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_jitter <- function(i) {
 
     set.seed(seed + i) # unique seed per jitter for reproducibility under parallel
@@ -825,9 +873,7 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
   } # End run_one_jitter closure
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch jitters (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     mod_list <- .parallel_lapply(1:njitter, run_one_jitter, min(cores, njitter), environment())
   } else {
@@ -852,10 +898,9 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
 
 
   # Return ----
-  # Still the same list -- $Rceattle_list and $nll are unchanged. `njitter` is
-  # carried so the print method can report the fraction of STARTS that reached
-  # the optimum: the converged runs alone cannot say how many were attempted,
-  # and that fraction is the result jitter() exists to produce.
+  # `njitter` is carried so the print method can report the fraction of STARTS
+  # that reached the optimum: the converged runs alone cannot say how many were
+  # attempted, and that fraction is the result jitter() exists to produce.
   structure(list(Rceattle_list = mod_list, nll = unname(jnll),
                  njitter = njitter),
             class = "Rceattle_jitter")

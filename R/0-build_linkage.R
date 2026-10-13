@@ -373,6 +373,7 @@ linkage_spec <- function(formula,
 #' @param param target parameter name (character scalar).
 #' @return The spec, with `param` set.
 #' @keywords internal
+#' @noRd
 .set_linkage_param <- function(spec, param) {
   param <- as.character(param)
   cur <- spec$param

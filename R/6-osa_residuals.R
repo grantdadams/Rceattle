@@ -783,15 +783,11 @@ osa_residuals <- function(object = NULL,
 #' and the same 1880 rows residualized ON THEIR OWN give 1 failure, so they are
 #' not intrinsically bad observations.
 #'
-#' The hypothesis this helper was written for was a warm-start cascade: TMB's cdf
-#' loop is `nll <- fn(observation(k)); lp <- env$last.par; ...; env$last.par <- lp`
-#' (TMB 1.9.21), capturing the warm start AFTER the evaluation, so a NaN solve
-#' would be restored as the start for everything after it. **Measurement refuted
-#' that.** Redoing the tail on a fresh call, which is what clears any poisoned
-#' warm start, recovers nothing: 1879 before, 1879 after. What differs between
-#' the failing call and the successful isolated one is not the warm start but the
-#' DEPTH OF CONDITIONING (2658 prior observations against none), so the Laplace
-#' inner problem is failing on the conditioning itself.
+#' What differs is the DEPTH OF CONDITIONING, not a poisoned warm start: redoing
+#' the tail on a fresh call recovers nothing (1879 before, 1879 after), and the
+#' failing call differs from the successful isolated one by 2658 prior
+#' observations against none, so the Laplace inner problem fails on the
+#' conditioning itself.
 #'
 #' The retry is kept because it is cheap in the common case (it runs only when
 #' something is already non-finite) and it does recover a genuinely transient

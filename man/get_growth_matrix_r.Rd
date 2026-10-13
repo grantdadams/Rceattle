@@ -34,7 +34,7 @@ get_growth_matrix_r(
 
 \item{minage_sp}{Numeric. The reference age (L1) for growth estimation.}
 
-\item{maxage_sp}{Numeric. The age at which growth enters the asymptotic phase.}
+\item{maxage_sp}{Unused by the body; \code{helpers-make-msm-data.R} passes it.}
 
 \item{growth_params_sp}{Array. Dimensions (sex, yr, 4).
 Params: K, L1, Linf, Richards m.}

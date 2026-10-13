@@ -598,17 +598,17 @@ full schedule for a one-sex species only. **SPR reaches the objective only under
 `HCR = "ConstantF"` or an SPR-based rule (`HCR > 3`)**, so most fits cannot move at all.
 
 **A grep for `REPORT(` over `ceattle.cpp` over-counts.** `mature_females`, `sex_ratio_hat`,
-`N_at_age_dB0` / `N_at_age_dBF` and the whole Kinzey functional-response block sit behind
+`N_at_age_dB0` / `N_at_age_dBF` sit behind
 comments. Enumerate from `names(fit$quantities)`, not from the source.
 
 **And the count depends on `selectivity_se`, which is why three totals are on record
-(99, 101, 104).** Measured on `dev` 5.58.0, `BS2017SS` at `estimateMode = 3`: a default fit
-reports **102** quantities, `fit_control(selectivity_se = TRUE)` reports **104**, and
+(99, 101, 104).** Measured on `BS2017SS` at `estimateMode = 3`: a default fit reports **102**
+quantities, `fit_control(selectivity_se = TRUE)` reports **104**, and
 `nrow(quantity_dictionary())` is **104** — the two it adds are `log_sel_at_age` and
 `log_sel_at_age_index`, which exist only when that flag is on. Multispecies is also 102, so the
-count is identical single- and multi-species as the entry above says; it is the flag, not the
-mode, that moves it. Quote the figure with the `selectivity_se` it was counted under, or it will
-disagree with the next person's.
+count is identical single- and multi-species; it is the flag, not the mode, that moves it. Quote
+the figure with the `selectivity_se` it was counted under, or it will disagree with the next
+person's.
 
 **A missing OSA CDF term returns 0, not an error.** `oneStepPredict(method = "cdf")` reads
 `Fx = 1 / (1 + exp(nlcdf.lower - nlcdf.upper))`. A likelihood that supplies no
@@ -676,6 +676,22 @@ peels that survive, so **two runs of the same model can report different rho** d
 `getsd`. `test-functions-retrospective.R` compares the two runs peel by peel over the shared
 names for exactly this reason.
 
+**And since 5.58.2 a KEPT peel can also have no `sdrep`, so `is.null(peel$sdrep)` no longer
+implies `getsd = FALSE`.** Under `getsd = TRUE` each peel's standard errors are rebuilt from a
+free-hindcast `estimateMode = 3` build, because the forecast refit's own `sdreport` reports
+exactly 0 across the span the peel is drawn over. Where that rebuild throws, cannot factor its
+Hessian, or reports nothing finite, the peel keeps its point estimates and carries no `sdrep` at
+all — previously it carried the refit's zero-error object and drew a zero-width band as a measured
+one. Read `attr(peel, "sd_report_error")`, or `print()`'s count, to tell this apart from
+`getsd = FALSE`.
+
+**The failure is deliberately NOT recorded on `.conv_hindcast$sd_present`, and must not be.**
+`.refit_converged()` drops a peel on `sd_requested && !sd_present` (`R/0-convergence.R`), and the
+forecast refit records both as TRUE — so writing `sd_present <- FALSE` to make the convergence
+battery notice would convert a missing band into a **dropped peel** and change the denominator
+Mohn's rho averages over. A reviewer proposed exactly that; it was measured as wrong before it
+shipped.
+
 **~~`fit_mod(d, config = cfg)` replaces `d$model_config`, linkages and all.~~ Fixed in
 5.36.0** (`65259384`): `R/6-fit_mod.R:333-363` overlays only the fields the config's `"set"`
 attribute names, keeps the data's for the rest, and warns where the two differ. Kept because the
@@ -718,6 +734,72 @@ lost.
 likelihood reads the column as a log (`DM_pars_comp = exp(comp_weights)`); a multinomial reads it
 as a natural-scale multiplier. `write_template()` seeds 1. `fit_mod()` reports this since 5.11.0.
 
+**A bundled maturity above 1 is a data defect, not a sex-ratio convention, and on a TWO-SEX
+species it doubles SSB.** `GOA2018SS` and `GOAcod` carry Pacific cod maturity = **2.0 at
+Age1-Age12** — every age those models use (`nages[cod] = 12`). It looks harmless only because cod
+is `nsex = 1` with `sex_ratio = 0.5` and `ceattle.cpp:1025` multiplies by the sex ratio **for
+one-sex species only**; `mature_females` is otherwise a plain copy of `maturity`
+(`ceattle.cpp:1015`), so a two-sex species takes the value at face value. Measured by doubling
+two-sex Arrowtooth's row in `GOA2018SS` at the golden reference parameters: `ssb[endyr]`
+1,044,496.91 -> 2,088,993.82, `SB0` 1,047,684.48 -> 2,095,368.97, `SPR0` 1.230019 -> 2.460037 —
+all exactly x2 — with the objective **unchanged**.
+
+Why it is a defect rather than a convention, measured across all 11 bundled datasets: 14 one-sex
+species rows carry maturity <= 1 and exactly 2 carry 2.0, both the same stock. The control is
+decisive — **BS2017SS/MS Cod** is the same species, also `nsex = 1`, also `sex_ratio = 0.5`, and
+carries an ordinary ogive topping at **0.99728**. The row also mixes two scales: Age1-12 read a
+flat 2, while the *unused* padding at Age13-20 reads 0.99828 -> 0.99965, an ogive tail on the
+undoubled scale. GOA Pcod's real maturity is a **length** ogive (the SS3 model the bridge targets
+sets `maturity_option: 1 = length logistic`), so the age sheet was never a proportion-at-age, and
+`Rceattle-models/GOA cod/2024_pcod.R` already overrides it with `maturity[,-1] <- 1`.
+
+Three reasons nothing caught it. `data_check()` has a lower bound only —
+`R/1-data_check.R` reads `if(any(mat_vals < 0, na.rm = TRUE)){   # | mat_vals > 1`, the upper half
+**written and commented out in the commit that introduced it** (`ab9872bf`) and never live.
+`plot_maturity()` sets `coord_cartesian(ylim = c(0, 1.1))`, so the one figure that would show a
+2.0 clips it out of the panel. And no test would move if the data were corrected: the five
+`GOA2018SS` tests touching SSB or SPR either overwrite maturity first or recompute the expectation
+from `d$maturity` itself. Across every workbook in the ecosystem, 70 of 528 maturity rows exceed
+1; **all 70 are exactly 2.0**, every one a cod row in the GOA/AI lineage, including the live
+`GOA-multispecies-assessment/data/raw/GOA_25_data_1977_2025.xlsx`.
+
+**Documented, not fixed (Grant's call, 2026-10-12.)** Enabling the upper bound would refuse two
+bundled datasets and 70 rows of live assessment workbooks, and the correct cod ogive has to be
+recovered from the length-based model rather than guessed. Do not "fix" the data before that is
+settled; the maturity note in the maintainer repository carries the full diagnosis.
+
+**Mohn's rho has two live conventions differing by the PEEL COUNT, and r4ss returns both from one
+function.** `r4ss::SSmohnsrho()` gives `$SSB` as `sum(rel_error)` over peels and
+`$AFSC_Hurtado_SSB` as `sum(rel_error)/n`; SAM's `mohn.samset()` uses `colMeans`. **Rceattle is
+the MEAN form** — it accumulates `rel_error` and divides by `N` (`R/9-retro_and_jitter.R`) — so an
+Rceattle rho compares against r4ss's `AFSC_Hurtado_*` and SAM's output, **never against r4ss's
+plain `$SSB`**, which is `n_peels` times larger. At the default `peels = 5` that turns a clean
+0.04 into 0.20, exactly the band edge.
+
+Verified 2026-10-12 on three peels of `BS2017SS` (terminal years 2014-2016, `estimateMode = 0`,
+`phase = FALSE`), recomputing both forms from `$Rceattle_list` and comparing to `$mohns` at
+`Forecast year == 0`:
+
+| quantity | Rceattle (Pollock) | mean form | max abs diff | sum form / Rceattle |
+|---|---|---|---|---|
+| `ssb` | 0.08874500767 | 0.08874500767 | 3.5e-18 | exactly 3 |
+| `biomass` | 0.058518029015 | 0.058518029015 | 1.4e-17 | exactly 3 |
+| `R` | 0.5109766466 | 0.5109766466 | 5.6e-17 | exactly 3 |
+
+Cod and Arrowtooth agree to the same precision, and the ratio is `n_peels` on every cell. The
+absolute values are not an assessment result — `phase = FALSE` biases rho toward zero — only the
+agreement between forms is being measured. Pinned by
+`test-functions-retrospective.R` ("Mohn's rho is the mean over peels, not the sum"), which also
+asserts the sum form is `n` times larger so a convention switch fails loudly.
+
+**This is what makes the +/-0.2 band legitimate.** r4ss labels the mean form `AFSC_Hurtado`, and
+the Hurtado-Ferro et al. (2015) ranges `print(retro, band = )` cites (-0.15 to 0.20 long-lived,
+-0.22 to 0.30 short-lived) are on the mean — so Rceattle applies the band to the quantity those
+ranges were derived for. Two further differences, neither a defect: r4ss also offers a
+"Wood's Hole" all-years rho (averaging the relative error over `styr+1 .. peel endyr`, then summing
+over peels) which **Rceattle does not implement** — measured 0.05167 against the terminal 0.08875
+on the fit above; and SAM's `lagR` option changes only a column label, not a value.
+
 **Golden reference: `BS2017SS = 10241.0304272585`,** measured on `dev` 2026-08-21 with the
 `/golden-check` recipe (every fit at `newtonsteps = 3`). Other values have been quoted in this
 repo's tooling and were wrong. The constants are platform-independent (verified across Windows
@@ -746,7 +828,7 @@ iteration. `tools/verify/verify-mse-hindcast-invariant.R` checks the invariant.
 ## The SIMULATE contract
 
 Every observation and process error is drawn in a `SIMULATE{}` block **beside the density that
-scores it** (`ceattle.cpp` sections 5.12b and 5.13, plus one per likelihood slot; the
+scores it** (`ceattle.cpp` sections 5.2 and 5.13, plus one per likelihood slot; the
 multivariate draws live in `comp_sim.hpp`). `sim_mod()` implements no observation model in R — it
 calls `obj$simulate()` once and writes the result back. **A new likelihood family therefore owes
 a draw.** Three rules, with their reasons:
@@ -816,6 +898,49 @@ is age 5. `minage = 1` hides it everywhere it is currently written, so the colum
 
 Three of this repo's most valuable checks have been guarded off in a way nothing verified. All
 the same shape: a speed optimization, or a green-looking job, that silently removes coverage.
+
+**A registry guard that builds its check-set WITH a regex and then floors it at
+`expect_gt(length(.), 0)` cannot fail for the drift it exists to catch.** The floor is satisfied
+by whatever survives, so a rename, a respelling or a reformat shrinks the set and the test still
+passes — reporting green while measuring less. Measured 2026-10-12 by mutating a scratch copy of
+`ceattle.cpp` and running the three real guard files verbatim against it: **9 of 15 mutations were
+invisible**, every one of them a change the guard was written to catch, and in every case the pass
+count was identical to pristine, so `tools/ci/source-guards.R`'s own per-block "asserted nothing"
+check was satisfied too.
+
+The sharpest three, all since closed:
+
+* `test-dynamics-sex-index-bounds.R` anchored its pattern at `^\s*`, so
+  `if(true) N_at_age(sp, 1, 0, 0) = Type(0.0);` and a respelled `N_at_age(sp,1,0,yr)` both left the
+  set at 10 hits. Its array list was also hand-written and **missed `N_eq` entirely** — 4 of the
+  real 15 sex-index-1 writes were outside the census permanently.
+* `test-composition-age-hat-width.R`: **deleting one line** (the per-row widening
+  `if(comp_row_cols > max_age_cols){ ... }`) reinstated the out-of-bounds write and the set merely
+  fell 4 to 3.
+* `test-dynamics-recruitment-minage.R`: rebinding a lag through a differently-named local took the
+  set 4 to 3, and the site that left it stopped being checked at all.
+
+**The fix is to pin the set by name and count, never to floor it.** `tools/ci/source-guards.R`'s
+own `EXPECTED` vector is the in-repo pattern: a `setequal()` plus a message naming what appeared
+and what disappeared. After pinning, 14 of the 15 mutations are caught; the one that is not
+(removing a lag local's clamp, which reinstates the original negative-column read) is outside a
+line-scoped grep's reach and the test now says so rather than implying it is covered.
+
+**Two implementation traps, both measured.** Count per array with a SEPARATE `grepl()` each: R's
+default engine is leftmost-longest, so one alternation capture attributes a line holding two of
+these arrays to only the last — `N_eq(sp, 1, age) = N_at_age(sp, 1, age, 0);` (`ceattle.cpp:2019`)
+is such a line, which is why **15 writes sit on 14 lines** and both numbers need pinning. And do
+NOT strip comment lines before a positional lookback: the window is counted in lines, so removing
+some lets a neighbouring block's guard drift into range and satisfy it.
+
+**And on a pull request these three have no second line of defence.**
+`.github/workflows/R-CMD-check.yaml` sets step-level `NOT_CRAN: "false"`, so every `skip_on_cran()`
+fit block in the same files skips; `test-coverage` runs at `NOT_CRAN=true` but
+`tools/ci/coverage-shard.R` passes `stop_on_failure = FALSE` and nothing reads the result;
+`deep-checks` runs them fatally but nightly, gating no merge; and `source-guards.yaml`'s own header
+records that the workflow makes the check *appear* on a PR without making it **required**. For the
+sex-index and age-width guards the consequence is an unchecked write, which is not observable from
+R at all — so the static pin is the only cover there is.
 
 **Anything short of an ERROR passes R-CMD-check here, so a green check can be naming your
 mistake.** `.github/workflows/R-CMD-check.yaml:127` sets `error-on: '"error"'` — one step looser
@@ -1022,6 +1147,13 @@ across the boundary.
 - **The simulation draws.** `tools/verify/verify-sim-*.R`.
 - **Any figure.** A plotter can change every number it draws and stay green. The net is
   `tests/testthat/test-plot-*.R` plus a before/after `ggplot_build()` diff at the merge base.
+- **Anything the likelihood does not read.** `GOA2018SS` sets no `srr_fun` and no `srr_pred_fun`,
+  the corner where SSB is pure derived output, so `maturity` never enters the objective there:
+  every maturity perturbation gives `dObj = +0.0000e+00` on both `goa_ss` and `goa_ms` (positive
+  controls on the same probe: an index observation x1.5 moves it +3.7664, a fitted catch row x1.5
+  moves it +32.674). Golden therefore cannot see the cod maturity defect above, and correcting the
+  data would leave both objectives bit-unchanged. Maturity reaches the objective only where
+  `srr_pred_fun > 0` or `srr_fun > 1`, through `R_hat` into `jnll_comp(JNLL_SRR_PENALTY)`.
 - **Linkage rows.** The four golden models carry none. The constructive linkage tests
   (`test-dynamics-recruitment-linkage.R`, `test-linkage-random-effects.R`) are the net.
 - **Selectivity normalization.** No bundled dataset enters the normalization block in
@@ -1209,7 +1341,8 @@ section above.
 - **`fit_control()` bundles the optimizer and uncertainty knobs** — `getsd`, `bias.correct`,
   `loopnum`, `newtonsteps`, `getJointPrecision`, `nlminb_control`, and the bias-adjustment
   flags. `getsd = FALSE` leaves `sdrep` NULL, so `vcov()` returns NULL and uncertainty bands
-  are NA. The refit diagnostics forward `phase`, `getsd`, the bias-adjust flags and
+  are NA — but a NULL `sdrep` does not imply `getsd = FALSE` on a retrospective peel (above).
+  The refit diagnostics forward `phase`, `getsd`, the bias-adjust flags and
   `projection_uncertainty` — the last two are read back off `data_list`, because a freshly
   built `fit_control()` would silently reset them to its own defaults.
 - **`run_mse()` pins the OM's stock-recruit and suitability windows to the pristine `om$`**, not

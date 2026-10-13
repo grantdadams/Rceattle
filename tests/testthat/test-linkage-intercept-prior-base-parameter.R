@@ -2,8 +2,8 @@
 # Intercept-row priors must be re-targeted to the BASE parameter and contribute
 # to the likelihood (jnll slot "Linkage-table priors" / row 20).
 #
-# The existing prior tests (tests-Growth/test-growth-linkage-species.R,
-# tests-Linkage/test-priors.R) only exercise priors on SLOPE terms (temp, PDO),
+# The existing prior tests (test-growth-linkage-species.R,
+# test-linkage-priors.R) only exercise priors on SLOPE terms (temp, PDO),
 # where the prior is evaluated directly on beta_linkage. For an (Intercept) row
 # the linkage coefficient is mapped out (beta_linkage(i) == 0) and the level is
 # carried by the base parameter (log_growth_pars / log_M1). The cpp (Slot 19 /

@@ -22,28 +22,23 @@ Updated \code{map_list}.
 Maps base selectivity parameters (\code{log_sel_slp}, \code{sel_inf},
 \code{sel_coff}) and time-varying deviations, based on \code{Selectivity}
 and \code{Time_varying_sel} settings in \code{fleet_control}.
+}
+\details{
+\code{Selectivity} sets the curve's shape and \code{Time_varying_sel} whether it
+varies over time; for the allowed values of both, see
+"3. Selectivity (per fleet)" in
+\code{vignette("model-options-and-functionality")}, or
+\link{rceattle_switch_maps} for the code-to-name maps themselves.
+\code{N_sel_bins} is how many age or length bins the non-parametric and AR1 forms
+estimate (\code{Selectivity} 2, 5, 6, 7, 9 or 13); it is unused otherwise.
+\code{random_sel} in \code{\link[=fit_mod]{fit_mod()}} treats the deviations as random effects and
+estimates their variance.
 
-\code{Selectivity} in \code{fleet_control} of the data determines shape of selectivity curve:
-\code{0} = "Fixed" empirical selectivity provided in \code{emp_sel} in the data
-\code{1} = "Logistic"
-\code{2} = "NonParametric" selectivity sensu Ianelli et al 2018
-\code{3} = "DoubleLogistic"
-\code{4} = "DescendingLogistic"
-\code{5} = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)
-\code{6} = "2DAR1" across age x year
-\code{7} = "3DAR1" across age x cohort x year (Cheng et al 2024)
-\code{8} = "DoubleNormal" Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
-Parameters: \code{sel_inf[1]} = peak; \code{sel_inf[2]} = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
-\code{log_sel_slp[1]} = log(sigma_asc); \code{log_sel_slp[2]} = log(sigma_desc).
-right_floor->0: dome-shaped; right_floor->1: logistic ascending only.
-
-\code{N_sel_bins}	Number of age/length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, 9, or 13). Not used otherwise
-
-\code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-\code{0} = 'Off'
-\code{1} = 'IID' penalized deviates given \code{sel_sd_prior}
-\code{3} = 'Block' time blocks with no penalty
-\code{4} = 'RandomWalk' random walk
-\code{5} = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
-\code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
+The double-normal forms blend Gaussian ascending and descending limbs at the
+peak. \code{DoubleNormal} reads its four parameters from the shared arrays:
+\code{sel_inf[1]} = peak, \code{sel_inf[2]} = logit(right_floor) (the right-tail floor,
+SS3 P6/\code{end_logit}), \code{log_sel_slp[1]} = log(sigma_asc) and
+\code{log_sel_slp[2]} = log(sigma_desc). right_floor -> 0 is dome-shaped;
+right_floor -> 1 is logistic ascending only. \code{DoubleNormalSS3} instead
+carries its own six-parameter array (\code{sel_dn6}).
 }

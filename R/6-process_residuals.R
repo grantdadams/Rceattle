@@ -99,6 +99,7 @@ process_residuals <- function(object = NULL,
 
 #' Process residuals for a single deviation parameter
 #' @keywords internal
+#' @noRd
 .process_residual_one <- function(fit, process, par_name) {
   obj <- fit$obj
 
@@ -165,6 +166,7 @@ process_residuals <- function(object = NULL,
 #' order used by TMB and the covariance matrices, to their species/fleet,
 #' year/age labels, and the process prior mean and SD.
 #' @keywords internal
+#' @noRd
 .process_prior_spec <- function(fit, process, par_name, n) {
   d    <- fit$data_list
   obj  <- fit$obj

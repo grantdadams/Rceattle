@@ -1,4 +1,4 @@
-# Verify the linkage random-effect simulator (ceattle.cpp section 5.12b).
+# Verify the linkage random-effect simulator (ceattle.cpp section 5.2).
 #
 # Time-varying recruitment, M and growth are all written as a random linkage on
 # the process, so one block draws all of them. The draw switches on the group's

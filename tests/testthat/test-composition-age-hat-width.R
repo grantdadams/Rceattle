@@ -129,6 +129,26 @@ test_that("the template sizes the age matrices per composition row, not from com
   expect_gt(length(sizing), 0)
   expect_false(any(grepl("max_age", gsub("max_age_cols", "", sizing), fixed = TRUE)))
 
+  # The four sizing statements pinned by ROLE, as fixed strings, plus the exact
+  # count. Measured 2026-10-12: deleting the per-row widening line on its own,
+  # or rebuilding the two matrices from comp_obs.cols() directly, reinstates the
+  # out-of-bounds write while leaving this block green under the old floor --
+  # the match set shrank from 4 to 3 and to 2 and nothing noticed. The count is
+  # what catches a FIFTH max_age_cols line re-widening the matrices, which the
+  # four strings alone would not.
+  EXPECTED_SIZING <- c(
+    floor_at_comp_obs = "int max_age_cols = static_cast<int>(comp_obs.cols());",
+    widen_per_row     = "if(comp_row_cols > max_age_cols){ max_age_cols = comp_row_cols; }",
+    age_hat           = "matrix<Type>  age_hat(comp_obs.rows(), max_age_cols); age_hat.setZero();",
+    age_obs_hat       = "matrix<Type>  age_obs_hat(comp_obs.rows(), max_age_cols); age_obs_hat.setZero();")
+  for (role in names(EXPECTED_SIZING)) {
+    expect_true(any(grepl(EXPECTED_SIZING[[role]], src, fixed = TRUE)),
+                info = paste("age-matrix sizing statement gone:", role))
+  }
+  expect_equal(length(sizing), length(EXPECTED_SIZING),
+               info = paste("max_age_cols appears on", length(sizing),
+                            "lines, expected", length(EXPECTED_SIZING)))
+
   # Sized from the per-row age width instead, joint-sex rows included. Keep in
   # lockstep with comp_age_width() above.
   expect_true(any(grepl("int comp_row_cols = (comp_ctl(comp_row, 2) == 3) ? nages(comp_row_sp) * 2 : nages(comp_row_sp);",

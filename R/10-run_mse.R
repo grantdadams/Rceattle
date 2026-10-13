@@ -3,7 +3,8 @@
 # Shared by run_mse() and mse_summary() so the retained set stays in one place.
 .mse_keep_quantities <- c(
   "catch_hat", "catch_sd", "index_hat", "index_sd",
-  "log_catch_sd", "log_index_sd",          # deprecated spellings, dropped next release
+  # deprecated aliases rename_output() still writes
+  "log_catch_sd", "log_index_sd",
   "ssb_depletion", "biomass_depletion", "biomass", "ssb",
   "BO", "SB0", "SBF", "F_spp", "R",
   "M1_at_age", "M_at_age", "avg_rec",
@@ -203,7 +204,7 @@
 # those rows ARE the projection, so they cannot be dropped like the index and
 # composition rows: they are blanked to NA, the state `clean_data()` creates a
 # projection row in. Nothing the fit uses is lost -- no harvest control rule
-# reads observed catch (HCR 1, constant catch, sums `catch_hat`), and section 3
+# reads observed catch (CMSY, HCR 1, sums `catch_hat`), and section 3
 # of the assessment loop overwrites every year in the interval with the
 # operating model's realized catch.
 #
@@ -281,6 +282,42 @@
   out
 }
 
+
+# Numbers-at-age for a species with `estDynamics > 0` are an input, not a
+# forecast, so the MSE does not supply the projection years itself: carrying the
+# terminal year forward would invent data and hold the population flat. A year
+# the input does not cover reads 0 out of `rearrange_data()`'s array, which the
+# template multiplies into `N_at_age`, so the species has no numbers at all for
+# those years -- which is what this warns about. Raised in the main process,
+# before the parallel dispatch, since a warning from a `.parallel_lapply()`
+# worker is discarded. Extracted to be testable without fitting a model, as the
+# three helpers above are.
+.mse_require_fixed_natage <- function(data_list, proj_yrs) {
+  est <- data_list$estDynamics
+  if (is.null(est) || !any(est > 0)) return(invisible(NULL))
+
+  nb <- data_list$NByageFixed
+  have <- if (is.null(nb) || !nrow(nb)) data.frame(Species = integer(), Year = numeric())
+          else data.frame(Species = as.numeric(as.character(nb$Species)),
+                          Year = as.numeric(as.character(nb$Year)))
+
+  miss <- lapply(which(est > 0), function(sp) setdiff(proj_yrs, have$Year[have$Species == sp]))
+  short <- lengths(miss) > 0
+  if (!any(short)) return(invisible(NULL))
+
+  sp <- which(est > 0)[short]
+  yrs <- sort(unique(unlist(miss[short])))
+  warning("`NByageFixed` does not cover every projection year for species ",
+          paste(sp, collapse = ", "), " (`estDynamics > 0`): ",
+          length(yrs), " year(s) missing, ", min(yrs), "-", max(yrs),
+          ". Numbers-at-age are an input there, so run_mse() neither forecasts ",
+          "them nor holds the terminal year -- those years get numbers-at-age ",
+          "of 0, and the species contributes no biomass, catch or predation. ",
+          "Supply a row per projection year, or set `estDynamics = 0` to ",
+          "estimate them.", call. = FALSE)
+  invisible(sp)
+}
+
 #' Run a management strategy evaluation
 #'
 #' @description Runs a forward-projecting management strategy evaluation (MSE).
@@ -288,7 +325,10 @@
 #'   held at the operating model's terminal hindcast year, survey SD is the
 #'   average over the historical series, and composition sample size is held at
 #'   the last year. There is no implementation error and no observation error on
-#'   catch.
+#'   catch. Fixed numbers-at-age (`estDynamics > 0`) are an input rather than a
+#'   forecast, so they are NOT held forward: supply `NByageFixed` rows for every
+#'   projection year, or the uncovered years read 0 and that species contributes
+#'   nothing, with a warning naming it.
 #'
 #' @param om CEATTLE model object exported from \code{Rceattle}
 #' @param em CEATTLE model object exported from \code{Rceattle}
@@ -383,9 +423,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     stop("`em` must be an Rceattle model object (see ?fit_mod).")
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # MSE SETUP ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   '%!in%' <- function(x,y)!('%in%'(x,y))
   set.seed(regenerate_seed)
 
@@ -544,9 +582,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     dplyr::filter(abs(Year) <= em$data_list$endyr)
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Regenerate past data from OM and refit EM ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if(regenerate_past){
 
     # - Simulate index and comp data and updatae EM
@@ -588,9 +624,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     }
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Expand OM data-dim ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- index_data
   proj_srv <- om$data_list$index_data |>
     dplyr::group_by(Fleet_code) |>
@@ -602,15 +636,13 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   om$data_list$index_data <- dplyr::arrange(om$data_list$index_data, Fleet_code, abs(Year))
 
   # -- Nbyage
-  if(nrow(om$data_list$NByageFixed) > 0){
-    proj_nbyage <- om$data_list$NByageFixed |>
-      dplyr::group_by(Species, Sex) |>
-      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
-      dplyr::mutate(Year = om_proj_yrs)
-    proj_nbyage <- proj_nbyage[which(om_proj_yrs %!in% om$data_list$NByageFixed$Year),] # Subset rows already forcasted
-    om$data_list$NByageFixed  <- rbind(om$data_list$NByageFixed, proj_nbyage)
-    om$data_list$NByageFixed <- dplyr::arrange(om$data_list$NByageFixed, Species, Year)
-  }
+  # NOT expanded, unlike weight and ration_data. Numbers-at-age under
+  # estDynamics > 0 are an INPUT, so holding the terminal year across the
+  # projection would invent data and pin the population flat for the whole MSE.
+  # A projection year the input does not cover reads 0 out of the array
+  # rearrange_data() builds, which is a zero population rather than a gap, so
+  # warn naming the species and the years.
+  .mse_require_fixed_natage(om$data_list, om_proj_yrs)
 
   # -- comp_data
   if(nrow(om$data_list$comp_data) > 0){
@@ -657,9 +689,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   om$data_list$ration_data <- .mse_expand_fixed_input(
     om$data_list$ration_data, "Species", om$data_list$endyr, om_proj_yrs)
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Expand EM data-dim ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
   #FIXME - assuming same as terminal year of hindcast
   # -- EM emp_sel - Use terminal year
@@ -700,9 +730,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # TODO: extract run_one_sim as a top-level internal helper with
   # explicit args (om, em, seed, assess_yrs, ...) for testability.
   # Inline closure for now to ship the foreach -> parLapply migration.
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-simulation closure (run_one_sim) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_sim <- function(sim) {
 
     set.seed(seed = seed + sim) # setting unique seed for each simulation
@@ -736,9 +764,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     # Run through assessment years
     for(k in 1:length(assess_yrs)){
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 1. Get recommended catch from the EM-HCR ----
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       new_years <- om_proj_yrs[which(om_proj_yrs <= assess_yrs[k] & om_proj_yrs > om_use$data_list$endyr)]
 
       # - Get projected catch data from EM
@@ -793,10 +819,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$data_list$catch_data <- new_catch_data
 
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 2. Update the OM ----
       # - Estimate Fdev and update dynamics
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Update endyr of OM
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
@@ -933,11 +957,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       om_fit <- om_use
 
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 3. Get actual catch from OM ----
       # - Maybe the OM can't support the TAC
       # (should be minimal with the < exploitable biomass check)
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
       # - Get realized catch data from OM
       new_catch_data <- om_use$data_list$catch_data
@@ -949,9 +971,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$data_list$catch_data <- new_catch_data
 
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 4. Simulate data from OM ----
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Simulate new survey and comp data
       # Seeded on this assessment's year, not on wherever the stream happened
       # to be left by the assessments before it.
@@ -1029,9 +1049,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
         rbind(new_caal_data) |>
         dplyr::arrange(Fleet_code, abs(Year))
 
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 5. Update EM and HCR ----
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # Update end year and re-estimate
       em_use$data_list$endyr <- assess_yrs[k]
 
@@ -1116,9 +1134,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
       sim_list$EM[[k+1]] <- em_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 6. End year loop ----
-      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     }
 
 
@@ -1200,9 +1216,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     })
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch sims (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     # FORK where possible (inherits the loaded package + the large OM/EM objects
     # via copy-on-write); PSOCK fallback exports them. See .parallel_lapply().

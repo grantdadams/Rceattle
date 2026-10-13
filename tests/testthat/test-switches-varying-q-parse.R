@@ -6,7 +6,7 @@
 # those rows unconverted. "Environmental" (Catchability = 5) may carry a
 # comma-separated list ("1,3"), which as.integer() turned into NA with a
 # coercion warning. TMB reads the resulting `index_varying_q` vector at
-# ceattle.cpp:3042/3049/3058 and process_residuals() tests it
+# ceattle.cpp (two sites, in the time-varying q block) and process_residuals() tests it
 # against 4, so the NA silently poisoned a branch test.
 #
 # Environmental fleets must now emit an explicit 0 ("not applicable") --

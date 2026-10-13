@@ -61,6 +61,7 @@
 #' @param model_list List of fits.
 #' @param model_names Labels, or `NULL` for positional ones.
 #' @keywords internal
+#' @noRd
 .model_labels <- function(model_list, model_names = NULL) {
   n <- length(model_list)
   if (!is.null(model_names)) {
@@ -85,6 +86,7 @@
 #' strips, a light panel border, and the legend along the bottom.
 #' @param base_size Base font size.
 #' @keywords internal
+#' @noRd
 .rceattle_theme <- function(base_size = 12) {
   ggplot2::theme_classic(base_size = base_size) +
     ggplot2::theme(
@@ -107,6 +109,7 @@
 #'
 #' Reference: Okabe & Ito (2008), "Color Universal Design".
 #' @keywords internal
+#' @noRd
 .okabe_ito <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7",
                 "#56B4E9", "#E69F00", "#000000", "#F0E442")
 
@@ -116,6 +119,7 @@
 #' scale never errors on a many-model overlay; beyond 8 series it interpolates
 #' the Okabe-Ito anchors (rare enough that CVD-optimality is not guaranteed).
 #' @keywords internal
+#' @noRd
 .okabe_ito_pal <- function(n) {
   if (n <= length(.okabe_ito)) return(.okabe_ito[seq_len(n)])
   grDevices::colorRampPalette(.okabe_ito)(n)
@@ -233,6 +237,7 @@
 #' @param line_col User-supplied colours, or `NULL` for the package default.
 #'   Recycled over the mapped variable's levels in plotting order.
 #' @keywords internal
+#' @noRd
 .rceattle_scale <- function(p, discrete = TRUE,
                             aesthetics = c("colour", "fill"),
                             line_col = NULL) {
@@ -280,6 +285,7 @@
 #' @param suffix Appended to `file` to form the PNG name.
 #' @param width,height Figure size in inches.
 #' @keywords internal
+#' @noRd
 .save_ggplot <- function(p, file = NULL, suffix = "plot",
                          width = 7, height = 6.5) {
   if (!is.null(file)) {
@@ -315,8 +321,7 @@
 # -----------------------------------------------------------------------------
 # One resolver per shared argument, so every plot_*() reads `species`, `lwd`,
 # `lty`, `line_col`, `minyr`/`maxyr`, `incl_proj`, `incl_mean` and `add_ci` the
-# same way. Before these existed, plot_timeseries() was the only plotter that
-# honoured any of them and the rest declared them as formals and ignored them.
+# same way.
 # =============================================================================
 
 #' Resolve the `species` / `spnames` pair to indices and labels
@@ -752,7 +757,7 @@
 #' Feeds `.rce_mean_line()`, which has to cut each model at its own `endyr`.
 #'
 #' @param models A list of `Rceattle` fits.
-#' @param labels Plot labels for those models, from [.model_labels()].
+#' @param labels Plot labels for those models, from `.model_labels()`.
 #' @keywords internal
 #' @noRd
 .rce_model_endyr <- function(models, labels) {
@@ -765,10 +770,9 @@
 
 #' Horizontal long-term mean line(s)
 #'
-#' `incl_mean` was documented as "include time series mean as horizontal line"
-#' on four plotters and implemented on none. The mean is taken over **hindcast
-#' years only**: a mean that folded in the projection would not be a historical
-#' reference, and would move when the projection horizon changed. `hind_endyr`
+#' The mean is taken over **hindcast years only**: a mean that folded in the
+#' projection would not be a historical reference, and would move when the
+#' projection horizon changed. `hind_endyr`
 #' is therefore required, not optional, a caller that forgot it would silently
 #' get the projection-contaminated mean this exists to avoid.
 #'
