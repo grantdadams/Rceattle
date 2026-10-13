@@ -830,7 +830,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # observation row, so a shorter horizon would carry fewer rows, advance
       # the random stream less far, and make the draws depend on when the next
       # assessment falls; a comparison of two schedules needs those draws held
-      # fixed. inst/dev/TODO-mse-horizon.md has the design for recovering the
+      # fixed. Issue #237 has the design for recovering the
       # runtime saving without that dependence.
 
       # * Update parameters ----

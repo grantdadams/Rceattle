@@ -37,7 +37,7 @@ their preconditions, and — more importantly — what they do **not** cover:
 | `/doc-sync` | NEWS / DESCRIPTION / vignettes / pkgdown |
 | `/pkgdown-check` | the pkgdown build a PR to `dev` otherwise never gets |
 | `/ecosystem-sweep` | the sibling assessment repos |
-| `/handoff` | `inst/dev/SESSION_HANDOFF.md` |
+| `/handoff` | `../Rceattle-dev/SESSION_HANDOFF.md` |
 
 `agents/density-reviewer.md` is an adversarial statistical reviewer for likelihood and
 AD-taping changes. It is read-only by construction.

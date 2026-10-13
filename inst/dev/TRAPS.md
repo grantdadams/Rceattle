@@ -91,6 +91,23 @@ your change. Either regenerate everything under one version deliberately, or `gi
 unrelated churn and keep only the `.Rd` you meant to change. A matching version is necessary but
 not sufficient — the build environment can rewrite `man/` and `NAMESPACE` too.
 
+**Compiling a header standalone without `-DTMBAD_FRAMEWORK` tests a translation unit the package
+never builds.** `src/TMB/compile.R` passes `framework = "TMBad"`, so the shipped model is built
+with TMBad, which undefines `CPPAD_FRAMEWORK`, `KEEP_COL`, `KEEP_ROW` and `eval` relative to
+CppAD. A quick syntax or instantiation check of one `.hpp` that omits the flag therefore exercises
+a different AD scalar type from the one the model uses, and whatever it reports — including a
+"bug" — is about code that is never compiled. Pass the flag, or check through a real
+`pkgload::load_all(".")`.
+
+**Reading a randomized cross-check's bare correlation is not reading agreement.** `compResidual`
+(Trijoulet et al. 2023) draws its composition residuals randomly, so the best score any method
+could get against it is its own seed-to-seed correlation. Report the RATIO to that ceiling.
+Measured on `BS2017SS` 2026-10-12 by `tools/verify/verify-osa-compresidual.R`: fleet 2 scores
+0.648, which looks poor until the ceiling there is 0.661 — a ratio of 0.98 — and the ceiling is
+low only because 41% of that fleet's cells hold less than one fish. Fleets 1 and 4 sit at 1.00.
+Fleet 3 returns NaN from `resMulti()`, an instability on their side rather than a disagreement.
+The bare number produced a false "fleet 2 diverges" on the first run.
+
 ## Shared parameter blocks
 
 **Fleets sharing a `Selectivity_index` / `Catchability_index` share ONE parameter block.**
@@ -582,8 +599,16 @@ full schedule for a one-sex species only. **SPR reaches the objective only under
 
 **A grep for `REPORT(` over `ceattle.cpp` over-counts.** `mature_females`, `sex_ratio_hat`,
 `N_at_age_dB0` / `N_at_age_dBF` sit behind
-comments. A fit reports **99** quantities, identical single- and multi-species; enumerate from
-`names(fit$quantities)`, not from the source.
+comments. Enumerate from `names(fit$quantities)`, not from the source.
+
+**And the count depends on `selectivity_se`, which is why three totals are on record
+(99, 101, 104).** Measured on `BS2017SS` at `estimateMode = 3`: a default fit reports **102**
+quantities, `fit_control(selectivity_se = TRUE)` reports **104**, and
+`nrow(quantity_dictionary())` is **104** — the two it adds are `log_sel_at_age` and
+`log_sel_at_age_index`, which exist only when that flag is on. Multispecies is also 102, so the
+count is identical single- and multi-species; it is the flag, not the mode, that moves it. Quote
+the figure with the `selectivity_se` it was counted under, or it will disagree with the next
+person's.
 
 **A missing OSA CDF term returns 0, not an error.** `oneStepPredict(method = "cdf")` reads
 `Fx = 1 / (1 + exp(nlcdf.lower - nlcdf.upper))`. A likelihood that supplies no
@@ -741,7 +766,7 @@ from `d$maturity` itself. Across every workbook in the ecosystem, 70 of 528 matu
 **Documented, not fixed (Grant's call, 2026-10-12.)** Enabling the upper bound would refuse two
 bundled datasets and 70 rows of live assessment workbooks, and the correct cod ogive has to be
 recovered from the length-based model rather than guessed. Do not "fix" the data before that is
-settled. See `inst/dev/TODO-maturity.md` Open 2.
+settled; the maturity note in the maintainer repository carries the full diagnosis.
 
 **Mohn's rho has two live conventions differing by the PEEL COUNT, and r4ss returns both from one
 function.** `r4ss::SSmohnsrho()` gives `$SSB` as `sum(rel_error)` over peels and
@@ -834,7 +859,7 @@ assessment moved 2019 catch by **2.1%** — a year whose advice is identical by 
 the same 2018 assessment under both schedules. Per-year seeding took it to 0.53%; refitting over
 the whole projection took it to 0.003%, which is optimizer noise rather than the draws. Both
 landed in 5.18.0, and the 9% the shortening was worth on a Bering Sea multispecies MSE went with
-it — see `inst/dev/TODO-mse-horizon.md` for how to get it back.
+it — see issue #237 for how to get it back.
 
 **What is still open.** Seeding is keyed to the **assessment** year, but one `sim_mod()` call
 draws every year in the interval. A year sitting inside a longer interval is drawn under that
@@ -1260,9 +1285,11 @@ section above.
 - **The depletions do not simply divide by `SB0`** — under `HCR = 0 & msmMode > 0` they divide
   by biomass in the last projection year, so blanking them alongside a placeholder `SB0`
   discards a valid series.
-- **A grep for `REPORT(` over `ceattle.cpp` over-counts** — several sit behind comments. A fit
-  reports 101 quantities at 5.41.0 (99 at 5.24.0); enumerate from `names(fit$quantities)`. `quantity_dictionary()` is the
-  registry, and `test-schema-quantity-dictionary.R` holds the two together.
+- **A grep for `REPORT(` over `ceattle.cpp` over-counts** — several sit behind comments. A default
+  fit reports **102** quantities at 5.58.0 and **104** under `selectivity_se = TRUE`, which is the
+  whole of `quantity_dictionary()`; enumerate from `names(fit$quantities)` and say which flag you
+  counted under. `quantity_dictionary()` is the registry, and
+  `test-schema-quantity-dictionary.R` holds the two together.
 - **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps** — the non-PD Hessian
   check only runs when an `sdreport` exists — so Mohn's rho can differ between the two.
 - **`unweighted_jnll_comp` is written for 5 of its 22 rows** — composition, CAAL, stomach and the
@@ -1333,7 +1360,7 @@ section above.
   schedule (2.1% on a year whose advice was identical by construction). Before touching the
   horizon, the row count, or the draw order, ask what it does to a comparison of two schedules,
   not just to one run's reproducibility. Common random numbers are still incomplete between
-  assessments; `inst/dev/TODO-mse-horizon.md` has the design and the measured numbers.
+  assessments; issue #237 has the design and the measured numbers.
 - **The guards are not themselves guarded.** `test-golden-regression.R` is `skip_on_cran()` AND
   `skip_on_covr()`, so until 5.16.0 it ran in no CI job at all; the `deep-checks` workflow now
   runs it nightly and asserts it produced assertions. `NOT_CRAN=false` must be step-level `env:`

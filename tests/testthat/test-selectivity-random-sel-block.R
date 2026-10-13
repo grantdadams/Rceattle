@@ -1,4 +1,4 @@
-# Provenance: inst/dev/CLEANUP_BACKLOG.md Tier 0, the R/3-build_map.R marker
+# Provenance: the developer backlog, Tier 0 -- the R/3-build_map.R marker
 # "will fail if random_sel = TRUE?" on the Time_varying_sel = "Block" arm.
 #
 # Confirmed 2026-08-23 against dev. build_map() maps the block parameters into

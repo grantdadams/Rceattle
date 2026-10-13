@@ -42,7 +42,7 @@ the others keep. Change a doctrine and that test tells you which files are now o
    computed wrongly, or freeing a parameter it fused, mapped out or started badly. Make those,
    and say which fits move and which scripts stop. A silent wrong number is never a
    `SIMPLIFY-LOG.md` row: that file holds design wishes, while a known defect belongs in
-   `inst/dev/CLEANUP_BACKLOG.md` or an issue.
+   `../Rceattle-dev/CLEANUP_BACKLOG.md` or an issue.
 3. **A change that can move a fit needs the golden regression**, plus the `tools/verify/`
    harness covering what golden does not — and golden does not cover the refit paths, the
    simulation draws, or any figure.
