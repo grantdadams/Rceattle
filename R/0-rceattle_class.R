@@ -228,10 +228,9 @@ plot.Rceattle <- function(x, what = "biomass", ...) {
     recruitment  = plot_recruitment(x, ...),
     depletion    = plot_depletion(x, ...),
     # SSB depletion against SB0 is the management quantity under the
-    # Amendment-56 proxies, and this dispatcher could not reach it: "depletion"
-    # is plot_depletion(), which draws TOTAL biomass depletion. Note the current
-    # plotter is plot_depletionSSB(); plot_ssb_depletion() is its deprecated
-    # alias.
+    # Amendment-56 proxies. "depletion" is plot_depletion(), which draws TOTAL
+    # biomass depletion; the SSB plotter is plot_depletionSSB(), and
+    # plot_ssb_depletion() is its deprecated alias.
     ssb_depletion = plot_depletionSSB(x, ...),
     index        = plot_index(x, ...),
     catch        = plot_catch(x, ...),
@@ -809,10 +808,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #' Each stomach holds an "other prey" balance that enters the density but not
 #' the residual frame, so the normalizing total is rebuilt from it. Proportions
 #' are renormalized before scaling by the stomach sample size
-#' (`ceattle.cpp:4837`), so the count total is `N_s`. The predicted other-prey
-#' bin is floored at 1e-5, which is within 1e-5 of the C++ `posfun()` it stands
-#' in for, `posfun()` decays towards zero once the prey proportions sum past
-#' one, where a flat floor holds. A difference at the scale of the offset itself,
+#' (`ceattle.cpp`, section 13.2), so the count total is `N_s`. The predicted
+#' other-prey bin is floored at 1e-5, within 1e-5 of the C++ `posfun()` it
+#' stands in for; `posfun()` decays towards zero once the prey proportions sum
+#' past one, where a flat floor holds. A difference at the scale of the offset itself,
 #' on a bin that is a residual balance rather than an observation.
 #'
 #' @param object The fitted model.

@@ -3,7 +3,7 @@
 #
 # Two things make those differ. Under a multinomial (and the AFSC
 # pseudo-likelihood) the weight column multiplies the log-likelihood, so it is an
-# effective sample size -- ceattle.cpp:3758 draws the simulated composition at
+# effective sample size -- ceattle.cpp's composition SIMULATE block draws at
 # `n_nom * comp_weights(flt)`, which states the assumed variance outright. Under
 # a Dirichlet-multinomial the proportions are overdispersed by
 # (n + conc)/(1 + conc). Before v5.29.0 both were ignored: every composition

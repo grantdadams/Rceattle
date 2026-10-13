@@ -29,7 +29,7 @@ TMBphase(
 
 \item{model_name}{A string describing the model name. Must be the name of your .cpp file}
 
-\item{silent}{logical. If TRUE, suppresses output from TMB (default = TRUE).}
+\item{silent}{logical. Suppress TMB's output. No default; phased fits set it.}
 
 \item{use_gradient}{logical. If TRUE, uses gradient in optimization (default = TRUE).}
 

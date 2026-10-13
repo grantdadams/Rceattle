@@ -260,8 +260,8 @@ void convert_length_selectivity(
  * @param nyrs_hind Number of hindcast years.
  * @param styr Start year (for indexing empirical data).
  * @param nsex Vector of number of sexes per species.
- * @param nages Vector of max age bins per species.
- * @param nlengths Vector of max length bins per species.
+ * @param nages Vector of the number of age bins per species.
+ * @param nlengths Vector of the number of length bins per species.
  * @param lengths Matrix of length bin boundaries (nspp x max_length_bins).
  * @param flt_spp Vector mapping fleet index to species index.
  * @param flt_sel_type Vector of selectivity form.

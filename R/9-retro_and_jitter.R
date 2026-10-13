@@ -137,7 +137,6 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   }
   use_parallel <- peels > 1L && cores > 1L
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Stored-map divergence ----
   # Each peel's hindcast fit reuses `object$map`, deliberately: Mohn's rho needs
   # the parameterisation the model was ORIGINALLY fitted with. The cost is that
@@ -175,10 +174,8 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
             call. = FALSE)
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-peel closure ----
   # Each peel only reads the original model, so peels are independent.
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_peel <- function(i) {
 
     # * Get end year of peel ----
@@ -496,9 +493,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     }
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch peels (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     peel_results <- .parallel_lapply(1:peels, run_one_peel, min(cores, peels), environment())
   } else {
@@ -522,9 +517,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   }
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Calculate Mohs rho ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # * Data frame to save ----
   objects <- c("biomass", "ssb", "R", "F_spp")
   mohns <- data.frame(matrix(0, nrow = length(objects) * (nyrs_forecast+1), ncol = 3 + data_list$nspp))
@@ -775,9 +768,7 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
   }
   use_parallel <- njitter > 1L && cores > 1L
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-jitter closure ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_jitter <- function(i) {
 
     set.seed(seed + i) # unique seed per jitter for reproducibility under parallel
@@ -825,9 +816,7 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
   } # End run_one_jitter closure
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch jitters (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     mod_list <- .parallel_lapply(1:njitter, run_one_jitter, min(cores, njitter), environment())
   } else {
@@ -852,10 +841,9 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
 
 
   # Return ----
-  # Still the same list -- $Rceattle_list and $nll are unchanged. `njitter` is
-  # carried so the print method can report the fraction of STARTS that reached
-  # the optimum: the converged runs alone cannot say how many were attempted,
-  # and that fraction is the result jitter() exists to produce.
+  # `njitter` is carried so the print method can report the fraction of STARTS
+  # that reached the optimum: the converged runs alone cannot say how many were
+  # attempted, and that fraction is the result jitter() exists to produce.
   structure(list(Rceattle_list = mod_list, nll = unname(jnll),
                  njitter = njitter),
             class = "Rceattle_jitter")

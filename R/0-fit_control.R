@@ -52,8 +52,8 @@
 #'   Dirichlet-multinomial likelihood, so an empty bin is not `log(0)`. Stored
 #'   on `data_list`, so the fitted likelihood, the OSA observation vector and
 #'   any internal refit share it. `NULL` (default) inherits
-#'   `data_list$comp_offset` if set, else `1e-5`. Does not apply to diet
-#'   compositions.
+#'   `data_list$comp_offset` if set, else `1e-5`. Diet compositions take the
+#'   same offset.
 #' @param bias_adjust_obs logical, default `TRUE`. Apply a bias adjustment
 #'   (mean - sd^2/2) to lognormal data likelihoods.
 #' @param bias_adjust_proc logical, default `TRUE`. Shift lognormal process

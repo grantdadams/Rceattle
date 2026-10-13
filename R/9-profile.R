@@ -382,9 +382,7 @@ profile.Rceattle <- function(fitted = NULL,
     do.call("[<-", c(list(arr), as.list(idx), list(val)))
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-grid-point closure ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_point <- function(i) {
 
     inits     <- fitted$estimated_params
@@ -446,9 +444,7 @@ profile.Rceattle <- function(fitted = NULL,
   } # End run_one_point closure
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     mod_list <- .parallel_lapply(seq_len(ngrid), run_one_point, min(cores, ngrid), environment())
   } else {
@@ -462,10 +458,9 @@ profile.Rceattle <- function(fitted = NULL,
 
   names(mod_list) <- paste0("Fit_", seq_len(ngrid))
 
-  # Still the same list -- $Rceattle_list, $grid, $nll, $param and $slots are
-  # unchanged, so `prof$grid$slot_1` and `prof$nll - min(prof$nll)` index as
-  # before. The class adds a print method that says whether the grid brackets
-  # the minimum, which the bare vectors never did; see print.Rceattle_profile().
+  # A plain list underneath: `prof$grid$slot_1` and `prof$nll - min(prof$nll)`
+  # index directly. The class adds a print method that reports when the grid
+  # fails to bracket the minimum; see print.Rceattle_profile().
   structure(list(
     Rceattle_list = mod_list,
     grid          = grid,
@@ -594,9 +589,7 @@ print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
 }
 
 
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Likelihood components across a profile ----
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 # Which axis each row of `jnll_comp` is accumulated over, i.e. what its columns
 # count. The data, selectivity and catchability rows are filled per fleet; the
