@@ -49,8 +49,8 @@ and predicted composition and CAAL bins before the multinomial /
 Dirichlet-multinomial likelihood, so an empty bin is not \code{log(0)}. Stored
 on \code{data_list}, so the fitted likelihood, the OSA observation vector and
 any internal refit share it. \code{NULL} (default) inherits
-\code{data_list$comp_offset} if set, else \code{1e-5}. Does not apply to diet
-compositions.}
+\code{data_list$comp_offset} if set, else \code{1e-5}. Diet compositions take the
+same offset.}
 
 \item{bias_adjust_obs}{logical, default \code{TRUE}. Apply a bias adjustment
 (mean - sd^2/2) to lognormal data likelihoods.}

@@ -12,6 +12,210 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.59.1
+
+## Documentation
+
+* **Dead Kinzey & Punt (2009) code removed from the template.** Eight
+  commented-out block spans, not the three an earlier note listed, and two of its
+  line ranges had drifted: the `PARAMETER_*` declarations, the
+  `H_1 = exp(logH_1.array())` derivations, the `avgnMode` switch, the Kinzey diet
+  likelihood, two disabled `REPORT` blocks, the functional-response implementation
+  in `predation.hpp`, and the 42-line change log at the foot of `ceattle.cpp`.
+  Three section headers left heading nothing went too -- `3.7` and `4.14` in
+  `ceattle.cpp`, `8.2` in `predation.hpp` -- and a fourth was relabelled rather
+  than removed: `14.10. Kinzey predation functions` had come to head a live
+  `REPORT(mort_sum)`, the initial-state mortality accumulator, nothing to do
+  with predation. `src/TMB/`
+  falls 380 lines, `predation.hpp` from 738 to 517 with its FIXME/TODO count from
+  5 to 0, and `ceattle.cpp` from 5,986 to 5,827. The word "Kinzey" no longer
+  appears in the template.
+
+  All of it sat inside `/* */`, so the preprocessor already discarded it: stripping
+  comments and normalising whitespace leaves `ceattle.cpp`, `predation.hpp` and
+  `selectivity.hpp` byte-identical to 5.58.0, and `clang -E -P` output matches per
+  file. `data_check()` refuses `msmMode %in% 3:9` in any case.
+  `inst/dev/REMOVED-kinzey-and-dev-cpp.md` records what was taken and now gives
+  the commit to recover it from, since there is no longer anything to uncomment.
+
+* **`?build_srr`'s `Bmsy_lim` described the wrong scale and the wrong
+  direction.** It said the limit "carries the same scaling" as the Ricker `beta`,
+  which is estimated divided by 1e6, and that the penalty applies when beta is
+  estimated above it. The template divides `Bmsy_lim` by 1e6 before comparing, so
+  the scaling cancels and the value is **metric tons**; and `posfun()` fires when
+  `1/beta` exceeds the limit, which is beta *below* it. A limit supplied on the
+  parameter's scale is 1e6 too large, so the penalty on the Ricker SSB-MSY proxy
+  never fires.
+
+* **`man/build_map_selectivity.Rd` hid four shipping selectivity forms.** Its
+  hand-copied `Selectivity` table stopped at code 8, omitting `NonParametricPM`
+  (9), `LogisticPM` (11), `NonParametricIntegrable` (13) and `DoubleNormalSS3`
+  (15), all four in `sel_map`; its `Time_varying_sel` list was likewise stale, and
+  it attributed IID deviates to `sel_sd_prior`, the alias `Sel_sd_prior`
+  miscased rather than the canonical `Time_varying_sel_sd`. The page is published, so an
+  assessment author was told four forms do not exist. Both tables are replaced by
+  a pointer to "3. Selectivity (per fleet)" in
+  `vignette("model-options-and-functionality")` and to `rceattle_switch_maps`,
+  which removes the staleness rather than re-syncing it. The `DoubleNormal`
+  array-slot mapping and the `N_sel_bins` form list, neither of which the vignette
+  carries, are kept. The block also had two `@description` tags, which roxygen
+  concatenates.
+
+* **`?plot_maturity` documented three arguments the function does not honour.**
+  `line_col` is never read and the line width is fixed at 1, so both are now
+  documented as retained-and-ignored, the phrasing already used by
+  `plot_stock_recruit()` and `plot_selectivity_vs_maturity()`. `species` labels
+  the facet strips and does not subset, so `plot_maturity(fit, species = 1)` drew
+  every species and labelled the rest `NA`.
+
+* **Harvest control rule 1 was named "constant catch" in the MSE pipeline.**
+  `hcr_map` has `CMSY = 1` -- maximize joint catch across species -- and there is
+  no constant-catch rule. One of the two copies is the stated reason for blanking
+  projection catch before each assessment and now names CMSY; the copy in
+  `mse_summary()` points at the registry and `?build_hcr` rather than restating
+  the codes.
+
+* **`?fit_control`'s `comp_offset` said it does not apply to diet compositions.**
+  The template adds it to both `obs_diet_prop` and `pred_diet_prop`, and its own
+  declaration comment now says comp/caal/diet rather than comp/caal.
+
+* **`other_food` was declared in kilograms and is metric tons.** It is summed
+  into the available-food denominator beside `suit * prey_N * prey_wt` --
+  numbers-at-age in thousands times weight-at-age in kg, which is mt by the
+  same convention the rest of the package uses -- so a value supplied in kg enters
+  1000x too large, overstating how much non-modelled prey a predator has
+  available. `pred_mort_scalar` divides by that denominator, so it deflates
+  predation mortality on the modelled species. The
+  schema `doc`, the template's `DATA_VECTOR` comment and `R/data.R`'s `@format`
+  now all say mt, and `inst/extdata/meta_data_names.xlsx` is regenerated (103
+  rows) because the schema's `doc` strings ship into it verbatim. Note that
+  under `msmMode = 2` the prey term in that sum is squared, so the denominator
+  is not a biomass in any unit there; the label describes `msmMode = 1`, which
+  is what every bundled dataset and live assessment runs.
+
+* Smaller corrections, each checked against the code it describes:
+  `check_composition_data()` and `check_caal_data()` were documented as refusing
+  zero-sum rows, a check that is commented out, and carried a bare `throws` line
+  that roxygen folded into the preceding `@param`; a `build_map()` comment gave the
+  `index_data` input as a CV, where it is `Log_sd` -- a log-scale sd under the
+  lognormal family and an absolute natural-scale sd under `Index_distribution` 3
+  and 4; `selectivity.hpp` described `nages`/`nlengths` as maximum bins rather
+  than counts (rule 11); a `ceattle.cpp` section numbered `5.12b` between 5.1 and
+  5.3 where `5.2` was unused, renumbered and its twelve citations across five
+  files swept, since five of them sat outside the template and would otherwise
+  dangle; a cross-reference to section `13.4`, which does not exist, and one to
+  `14.6` where the random-effect density actually lives in `14.6b`; a stale
+  `ceattle.cpp` line citation for the diet renormalization; `@param maxage_sp`,
+  unused by `get_growth_matrix_r()`'s body and kept only because a test helper
+  passes it; a "dropped next release" promise on two deprecated spellings still
+  present; a `model_average()` comment describing a conversion the code refuses,
+  and another labelling a `sdrep$par.random` test "All parameters random
+  effects"; and a stale `4.4` version in the template banner. `avgnMode`'s
+  three codes are settable but only mode 0 has an effect, which `?fit_mod` already
+  said and the template's declaration comment now says too.
+
+* **Comment volume.** `R/` falls 112 lines (doc share 37.8% to 37.7%),
+  `src/TMB/` 380, and `man/` 533. 83 `#-#-#-#` decoration lines carrying no text
+  were removed; all but four -- two pairs -- bracketed a section header that holds
+  the RStudio fold itself, and none had the trailing dashes that would make it a section. Thirteen
+  comments narrating past defects were cut to what the code does now. 24 internal
+  helpers gained `@noRd`, so they no longer generate `man/dot-*.Rd` (193 `.Rd`
+  files to 169); none was listed in `_pkgdown.yml`. `inst/dev/CLEANUP_BACKLOG.md`'s
+  marker census is re-derived: 49 `TODO`/`FIXME` markers on the 5.59.0 base and
+  **35** here, counting a line as a marker only if it marks work -- three point at
+  an `inst/dev/TODO-*.md` note instead. The file's old recipe undercounted by four,
+  dropping genuine `ceattle.cpp` markers whose text cites one of those notes.
+
+* **A second survey covered what the first sweep never opened** -- the 274-file
+  test suite, the vignettes, `inst/dev/`, `tools/` and `.claude/`, plus a second
+  pass over `R/` and `src/TMB/`. It reported about 1,900 condensable lines and
+  sixty defects; this release takes the defects.
+
+* **Two slash commands told an agent something false.** `/verify` listed
+  `verify-mse-schedule.R` among the "before/after digests -- run twice, compare",
+  and that harness has no `commandArgs()` and no compare path, so an agent runs
+  it twice, reads two identical PASS lines and reports a change as verified --
+  the failure mode the same file's own text names. The real digest set is three,
+  not four, and `verify-data-check-conditions.R` was missing from the command
+  altogether; six harnesses take a COUNT as their first argument, not one.
+  `/new-column` described `Bin_first_selected` as an absolute age offset by
+  `minage`, where the schema says the opposite in capitals and
+  `rearrange_data()` applies a plain `- 1` to it while applying `sel_bin_offset`
+  to its neighbours (rule 10).
+
+* **Wrong switch codes, against `hcr_map` and the estimateMode map.**
+  `build_hcr_map()` called HCR 1 "Constant catch" ten lines above the code that
+  turns `log_Ftarget` on for CMSY -- the last such claim in the repo.
+  `test-dynamics-brps.R`, which exercises the whole reference-point surface,
+  carried 22 wrong labels: `estimateMode = 0` called "Run projection only" 15
+  times when 0 fits the hindcast AND the projection, HCR 4 called Tier 3 (it is
+  `ConstantFSPR`), HCR 3 called Constant F (it is `ConstantFSSB`), and
+  `DynamicHCR = FALSE` described as dynamic. Its five correct `HCR = 5` Tier 3
+  labels stand.
+
+* **`?build_M1` and the refusal a user sees scoped the two-sex rule wrongly.**
+  Both said `M1_model = 2` needs two sexes "except for `M1_re` 1 and 4". All
+  three random-effect arms gate it on two sexes, so with one sex no arm frees a
+  deviation and the refusal fires under every family; the measured justification
+  (22 zero-gradient rows in the inner Hessian on `GOA2018SS`) sits in the 1/4
+  arm, which is what made the narrower reading look right.
+
+* **`vignette("introduction")` printed `mohns[1,2]` as a Mohn's rho** in a figure
+  title. Column 2 is `Forecast year`, so the first vignette an assessment author
+  reads always showed "mohns = 0"; it now reads the rho by name.
+  `vignette("data-without-excel")` listed `Selectivity` only to code 7, hiding
+  `DoubleNormal`, `NonParametricPM`, `LogisticPM`, `NonParametricIntegrable` and
+  `DoubleNormalSS3` -- the list now matches `sel_map` exactly -- documented
+  `PowerEquation` as working where the schema marks it unimplemented, and omitted
+  `AnalyticalArith`.
+
+* **`?plot_data` documented nine base-graphics arguments as live controls.**
+  Measured 0 body references for all nine, against a signature spanning lines
+  52-70 of the 5.59.0 file: the `plot_maturity` defect three times over, on a
+  published page. They are now documented as retained-and-ignored, the page no
+  longer promises a `_data_plot2.png` that `.save_ggplot()` never writes, and
+  `@return` states what the point area means -- catch in metric tons, 1/SE for
+  indices, sample size for compositions.
+
+* **Two claims this sweep itself got wrong are corrected here.** `ceattle.cpp`
+  carried a FOURTH orphaned Kinzey header, misspelled "Kinzery", so the grep
+  behind the earlier "the word Kinzey no longer appears" validated an absence
+  over surviving content; and line 88 still held a table-of-contents entry for
+  the change log that was deleted. Separately, a global `S` -> `S_at_age` rename
+  had mangled the stock-recruit prose on the six `SB0` / `B0` / `DynamicSB0`
+  declarations an ABC derives from.
+
+* Smaller, each checked against the code it describes: three stale `ceattle.cpp`
+  citations in tests, drifted 410, ~480 and ~1,750 lines onto unrelated
+  blocks; three dangling `tests-Growth/` and `tests-Linkage/` paths in a flat
+  suite; two renamed test files; `fit_control(osa = TRUE)`, an argument removed in
+  `c839f764`; `sel_curve_pen`'s column description, wrong twice; `8.2` -> `8.2b`
+  and two `SPR0` -> `SPRFinit` annotations; `spr.hpp`'s `6.5` -> `6.4`;
+  `max_nsex` and `beta_rec_pars`, neither of which exists; a "see 1.3c below"
+  with no 1.3c; `TMBphase()`'s `silent` default and five identical M1 parameter
+  tags of which four were wrong; `env_data`'s "Catchability = 5 or 6" where
+  `data_check()` errors on 6; `UobsAge`, which `build_data()` recognises by name but no
+  template reads and no bundled dataset carries, so it round-trips to nothing; Cheng 2025 ->
+  2024; Wassermann 2024 -> 2025; "twelve checks" where thirteen are registered;
+  and `test-plot-save-paths.R`'s claim that a file-level `skip_on_cran()` is the
+  `test-plot-*` convention, against 15 files of which 6 skip at file level and 6
+  carry no `skip_on_cran()` at all.
+
+* **The 87 lines of deferred 5.49.0 findings are recorded in
+  `CLEANUP_BACKLOG.md`** Tier 2, where open-and-unfixed work belongs rather than
+  in `SESSION_HANDOFF.md`, which is for work in flight. The handoff copy is left
+  in place for the open pull request on that file to remove.
+
+* **No fit can move.** Of 35 changed `R/` files, two differ at parse level, by
+  three string literals in all: the `other_food` and `env_data` `doc` strings in
+  `R/0-column_schema.R`, which are data the workbook reader and the generated
+  xlsx consume, and the `M1_re` refusal text in `R/3-build_map.R`. No likelihood
+  reads any of them, and no test pins the old wording. Every changed `src/TMB/`
+  file is byte-identical to the 5.59.0 base once `/* */` and `//` are stripped
+  and whitespace normalised, each check run with a negative control. The only other code change is one assertion in
+  `test-schema-cpp-dispatch.R`, which pinned that the dead `switch (msmMode)`
+  was present and now pins that no `msmMode` dispatch exists at all.
+
 # Rceattle 5.59.0
 
 ## Behaviour changes

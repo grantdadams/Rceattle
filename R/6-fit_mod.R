@@ -252,12 +252,10 @@ fit_mod <-
     # parameter and the function used in its default share a name.
     if (is.null(fit_control)) fit_control <- Rceattle::fit_control()
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Deprecation catch ----
     # The optimizer / sdreport / phasing knobs live on `fit_control`, but the
     # old per-argument names are still accepted from `...`, warned about and
     # forwarded, so existing assessment scripts keep running.
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     .deprecated_ctl_args <- c(
       "phase", "getsd", "bias.correct", "use_gradient", "rel_tol",
       "control", "getJointPrecision", "getReportCovariance",
@@ -293,12 +291,10 @@ fit_mod <-
       )
     }
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Unpack fit_control ----
     # The optimizer / sdreport / phasing knobs all live in fit_control;
     # expand them to local variables so the rest of the function body
     # can refer to them by name without rewriting every reference.
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (!inherits(fit_control, "Rceattle_fit_control")) {
       stop("`fit_control` must be created with fit_control().")
     }
@@ -324,9 +320,7 @@ fit_mod <-
     # map (build_hcr_map(), 0-build_hcr.R) is applied during projection below.
     # ---------------------------------------------------------------------
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 0 - Start ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     mod_objects <- list()
     start_time  <- Sys.time()
 
@@ -355,9 +349,7 @@ fit_mod <-
     }
 
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 1 - Load data and switches ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(data_list)) {
       stop("Missing data_list object")
     }
@@ -712,9 +704,7 @@ fit_mod <-
     # the N(0, sigma) density. Correlated structures (rw()/ar1()) are still
     # rejected upstream in .materialize_re_design() until their densities land.
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 2: Load/build parameters ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.character(inits) | is.null(inits)) {
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
     } else {
@@ -795,9 +785,7 @@ fit_mod <-
     if (verbose > 0) { message("Step 1: Parameter build complete") }
 
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 3: Load/build map ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
       # build_map() warns where the caller asked for something it will not get:
       # sex-specific mortality on a single-sex species, a Time_varying_sel the
@@ -856,18 +844,14 @@ fit_mod <-
       data_list$linkage_table, map, verbose = verbose)
 
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 4: Get bounds ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(bounds)) {
       bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
     }
     if (verbose > 0) { message("Step 3: Parameter bounds complete") }
 
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 5: Setup random effects ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Turns on the Laplace approximation.
     #
     # The two "is it free?" guards below are NOT protecting MakeADFun: TMB
@@ -985,9 +969,7 @@ fit_mod <-
       random_vars <- c(random_vars, "beta_linkage_re")
     }
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 6: Reorganize data ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (!is.null(TMBfilename)) {
       TMB::compile(paste0(TMBfilename, ".cpp"),
                    PKG_CXXFLAGS = "",
@@ -1375,9 +1357,7 @@ fit_mod <-
     # carries (a subset stored map) would become a parameter with no start value.
     map$mapFactor <- lapply(map$mapFactor, function(f) if (is.factor(f)) droplevels(f) else f)
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 7: Set up parameter bounds ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     L <- c()
     U <- c()
     L_block <- c()   # which parameter each bound belongs to, for the reorder below
@@ -1406,9 +1386,7 @@ fit_mod <-
     }
 
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 8: Phase hindcast ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.logical(phase)) {
       if (phase) {
         phaseList <- set_phases()
@@ -1450,9 +1428,7 @@ fit_mod <-
     }
 
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 9: Fit hindcast ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # * Build ----
     if (sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0) { stop("Map of length 0: all NAs") }
     obj <- TMB::MakeADFun(
@@ -1589,9 +1565,7 @@ fit_mod <-
       last_par <- obj$env$parList(par=obj$env$last.par.best)
     }
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 10: Run projection ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (estimateMode %in% c(0, 2, 4)) {
       if (data_list$HCR != "NoFishing") { # all HCRs except no F and fixed F
 
@@ -1739,9 +1713,7 @@ fit_mod <-
     } # End projection
 
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 11: Save output ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     mod_objects$estimated_params <- last_par
     mod_objects$obj              <- obj
 

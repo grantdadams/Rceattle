@@ -116,16 +116,10 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
     params_on <- c(1:data_list$nspp)[which(data_list$HCRorder <= HCRiter)]
   }
 
-  # Turn on Fspr parameters depending on HCR ----
-  # -- HCR = 0: No catch - Params off
-  # -- HCR = 1: Constant catch - Params off
-  # -- HCR = 2: Constant input F - Params off
-  # -- HCR = 3: F that achieves X% of SSB0 in the end of the projection - Ftarget on
-  # -- HCR = 4: Constant target Fspr - Ftarget on
-  # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
-  # -- HCR = 6: PFMC Cat 1 - Flimit on
-  # -- HCR = 7: SESSF Tier 1 - Flimit and Ftarget on
-  # --- Dynamic BRPS - 1 value per species and year
+  # Turn on the reference-point parameters each rule estimates. `hcr_map`
+  # (R/0-switches.R) and this file's own `@param HCR` are the registry for which
+  # code is which; the branches below name the rule they serve. Dynamic BRPs
+  # carry one value per species and year.
   if(!debug){
     if(data_list$HCR == "CMSY"){ # CMSY
       map$mapList$log_Ftarget[params_on] <- params_on

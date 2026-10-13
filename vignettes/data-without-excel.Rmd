@@ -164,7 +164,7 @@ simData$sigma_rec <- rep(1, nspp)
 # multi-species mode to prevent unrealistically high predation mortality when
 # modeled prey are scarce. Setting this too low forces predators to over-eat
 # modeled prey; too high dilutes the predation signal.
-simData$other_food <- rep(1e5, nspp)
+simData$other_food <- rep(1e5, nspp)   # metric tons of non-modelled prey
 ```
 
 ## 2. Fleet control table
@@ -186,6 +186,12 @@ Each row defines one fleet (fishery or survey) and controls how it is modeled. M
 #   "Hake"               (5), non-parametric selectivity à la Taylor et al. (Pacific hake)
 #   "2DAR1"              (6), 2D autoregressive random effects (bin × year)
 #   "3DAR1"              (7), 3D autoregressive random effects (bin × year × cohort)
+#   "DoubleNormal"       (8), Gaussian ascending/descending limbs blended at peak
+#   "NonParametricPM"    (9), Ianelli non-parametric, ADMB AMAK penalty
+#   "LogisticPM"        (11), AMAK logistic with multiplicative deviations
+#   "NonParametricIntegrable" (13), deviations with a proper density (random_sel)
+#   "DoubleNormalSS3"   (15), SS3 size pattern 24, six-parameter
+#   (sel_map in R/0-switches.R is the registry; 10, 12 and 14 are unused)
 #
 # Selectivity_dimension: "Age" or "Length"
 #   Length-based selectivity requires an age-to-length transition matrix (see below).
@@ -195,7 +201,8 @@ Each row defines one fleet (fishery or survey) and controls how it is modeled. M
 #   "Estimated"            (1), freely estimated on log scale
 #   "Estimated-with-prior" (2), estimated with a lognormal prior (Catchability_init, Catchability_prior_sd)
 #   "Analytical"           (3), Walters & Ludwig (1994) analytical Q
-#   "PowerEquation"        (4), power-equation Q (habitat area scaling)
+#   "PowerEquation"        (4), NOT YET IMPLEMENTED; data_check() refuses it
+#   "AnalyticalArith"      (7), arithmetic-mean analytical Q
 #   "Environmental"        (5), mu_q + X * beta, where X is a covariate in env_data
 #   "AR1"                  (6), REMOVED in 5.12.0; data_check() errors. Use a q
 #                                  linkage with ar1(1 | Year) and observe = <column>

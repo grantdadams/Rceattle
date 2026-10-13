@@ -65,8 +65,9 @@ alpha and beta, one per species, used only where the curve estimates them.}
 \item{srr_indices}{Defunct: supplying it is an error; express an
 environmental effect through \code{linkages}.}
 
-\item{Bmsy_lim}{Upper limit for Ricker-based SSB-MSY (e.g. 1/beta), adding a
-likelihood penalty if beta is estimated above it. Default \code{NA} is unused.}
+\item{Bmsy_lim}{Upper limit on Ricker SSB-MSY (1/beta) in metric tons, adding
+a likelihood penalty once estimated SSB-MSY rises above it. Default \code{NA} is
+unused.}
 
 \item{linkages}{Named list of \code{\link[=linkage_spec]{linkage_spec()}} objects keyed by \code{"R0"},
 \code{"alpha"}, \code{"beta"} or \code{"R_init"} -- note the key is a unitless log-scale
@@ -98,8 +99,9 @@ estimated.
 Both curves are the deterministic mean; realized recruitment applies the
 annual log deviation, \eqn{R_y \cdot exp(R_{dev,y})}. For numerical stability
 the Ricker \eqn{\beta_{srr}} is estimated divided by 1,000,000, so the fitted
-\code{beta} is 1e6 times the coefficient above, and \code{Bmsy_lim} carries
-the same scaling.
+\code{beta} is 1e6 times the coefficient above. \code{Bmsy_lim} is on the
+natural scale: the template divides it by 1e6 before comparing, so supply it
+in metric tons.
 
 With \code{srr_pred_fun > 0} and \code{srr_fun = 0}, the hindcast estimates
 recruitment as in the mean form while the curve is fitted between

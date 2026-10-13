@@ -1191,9 +1191,8 @@ switch_check <- function(data_list){
   data_list$fleet_control$Index_distribution <- .rce_apply_default(data_list$fleet_control$Index_distribution, "Index_distribution", .sch)  # survey index likelihood family; default preserves the historical lognormal fit
   # Also fill per-element NAs: setting Index_distribution for one fleet (e.g. only
   # the covariance survey) leaves the other rows NA, which should take the same
-  # default. Read it from the schema rather than repeating the literal -- the
-  # value belongs in one place, and this line sat three lines below the
-  # schema-driven call that already knows it.
+  # default. Read it from the schema rather than repeating the literal, so the
+  # value lives in one place.
   data_list$fleet_control$Index_distribution[is.na(data_list$fleet_control$Index_distribution)] <-
     .sch[["Index_distribution"]]$default
   # Same for Selectivity_dimension: .rce_apply_default() fills a MISSING column,

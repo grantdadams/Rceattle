@@ -59,5 +59,5 @@ units where a model mixes the two families, which is why the y scale is free
 per fleet.
 
 Index residual figures made before 5.9.0 are mirrored about zero relative to
-these, so a figure carried forward from one needs redrawing (see \code{NEWS.md}).
+these, so a figure carried forward from one needs redrawing.
 }

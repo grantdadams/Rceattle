@@ -146,9 +146,10 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @param nages,nlengths Per-species bin counts (the `rceattle_osa` `"nages"` /
 #'   `"nlengths"` attributes), used to split joint-sex (Sex == 3) bins onto a
 #'   single age/length axis, matching [plot_comp()].
-#' @param add_sdnr_ci,add_qq_quantiles Passed to [.osa_qqplot()].
+#' @param add_sdnr_ci,add_qq_quantiles Passed to `.osa_qqplot()`.
 #' @return A named list of `cowplot`/`ggplot` objects.
 #' @keywords internal
+#' @noRd
 .osa_composition_figures <- function(comp, pearson = NULL, combine = TRUE,
                                      nages = NULL, nlengths = NULL,
                                      add_sdnr_ci = TRUE,
@@ -196,9 +197,10 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @param comp Composition rows with `source` and `.side` columns.
 #' @param pear Reshaped Pearson rows with `source` and `.side` columns, or `NULL`.
 #' @param side `"age"` or `"length"`.
-#' @param add_sdnr_ci,add_qq_quantiles Passed to [.osa_qqplot()].
+#' @param add_sdnr_ci,add_qq_quantiles Passed to `.osa_qqplot()`.
 #' @return A stacked `cowplot`/`ggplot` object, or `NULL` if no rows on that side.
 #' @keywords internal
+#' @noRd
 .osa_comp_side <- function(comp, pear, side, add_sdnr_ci = TRUE,
                            add_qq_quantiles = TRUE) {
   cs <- comp[comp$.side == side, , drop = FALSE]
@@ -221,6 +223,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' Stack ggplot panels vertically (cowplot if available)
 #' @param panels A list of ggplot objects.
 #' @keywords internal
+#' @noRd
 .osa_stack <- function(panels) {
   panels <- Filter(Negate(is.null), panels)
   if (length(panels) == 1L) return(panels[[1]])
@@ -236,6 +239,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' Map an `index_label` to the bin side ("age" left, "length" right)
 #' @param index_label Character vector (`"age"`, `"length"`, or `NA`).
 #' @keywords internal
+#' @noRd
 .osa_bin_side <- function(index_label) {
   ifelse(!is.na(index_label) & index_label == "length", "length", "age")
 }
@@ -259,6 +263,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #'   and `source` columns.
 #' @param nages,nlengths Per-species bin counts (or `NULL` to skip the split).
 #' @keywords internal
+#' @noRd
 .osa_jointsex <- function(df, nages, nlengths) {
   if (is.null(df) || nrow(df) == 0 || is.null(nages) ||
       is.null(df$sex) || is.null(df$species)) {
@@ -287,6 +292,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @param add_qq_quantiles Annotate the tail order statistics and their nulls.
 #' @return A `ggplot` object.
 #' @keywords internal
+#' @noRd
 .osa_qqplot <- function(osa, add_sdnr_ci = TRUE, add_qq_quantiles = TRUE) {
   # Per-source quantile points and SDNR/tail annotation.
   srcs <- split(osa, osa$source, drop = TRUE)
@@ -343,6 +349,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @param osa An `rceattle_osa` data frame with a `source` column.
 #' @return A `ggplot` object.
 #' @keywords internal
+#' @noRd
 .osa_resid_year_plot <- function(osa) {
   osa$sign <- ifelse(osa$residual >= 0, "positive", "negative")
   ggplot2::ggplot(osa, ggplot2::aes(x = .data$year, y = .data$residual)) +
@@ -429,6 +436,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #'   and `index_label` columns.
 #' @return Character vector of labels (one per row).
 #' @keywords internal
+#' @noRd
 .osa_source_label <- function(osa) {
   flt <- if (!is.null(osa$fleet_name)) {
     ifelse(is.na(osa$fleet_name), paste("fleet", osa$fleet), osa$fleet_name)
