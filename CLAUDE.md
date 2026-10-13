@@ -383,6 +383,7 @@ section holds the fuller text as of 2026-09-14).
 - **`Index_distribution` has a second registry**: a new family must also be classified in `.index_rows_natural_scale()`, or it gets the log-scale residual.
 - **`jnll_comp` columns count fleets on rows 1–8 AND row 22, species on 9–20, and neither on row 21** — the fleet axis is NOT contiguous (row 21 is the model-wide linkage REs, row 22 the initial equilibrium catch, by fleet); `.JNLL_ROW_AXIS` is the registry, so `rowSums()` mixes axes and an axis guess that stops at row 20 is wrong.
 - **A reference point CEATTLE never estimated is a number, not a gap**: `Ftarget`/`Flimit` = 1, `MSSB0` = 999 mt, per-recruit quantities 0 under `msmMode > 0`.
+- **`GOA2018SS`/`GOAcod` cod maturity is 2.0 at every age they use, and it is a data defect, not a sex-ratio convention**: inert there because `nsex = 1` cancels it against `sex_ratio = 0.5`, but on a two-sex species it doubles SSB exactly, and `data_check()`'s upper bound is commented out. Golden cannot see it.
 - **Under `HCR = 0 & msmMode > 0` the depletions divide by last-projection-year biomass**, not `SB0`; don't blank them with a placeholder `SB0`.
 - **A fit reports 99 quantities**: enumerate `names(fit$quantities)`, not a `REPORT(` grep; `quantity_dictionary()` is the registry.
 - **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps**, so Mohn's rho can differ.

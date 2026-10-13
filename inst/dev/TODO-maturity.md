@@ -72,16 +72,26 @@ round-trips to nothing), and the population-grid bin decision above.
 
 ## Open 2 — `GOA2018SS` Cod maturity is 2.0 at ages 1-12, and nothing checks the range
 
-**Status: found, not diagnosed.** Pre-existing; noticed while answering Open 1, not introduced by
-5.46.0.
+**Status: DIAGNOSED 2026-10-12 — it is the first branch below (the data is wrong), not a
+convention. Documented, not fixed; the remedy is Grant's call.** Full evidence, with the measured
+two-sex doubling and the golden blindness, is in `TRAPS.md` under "Silent-wrong-number traps".
+Pre-existing; noticed while answering Open 1, not introduced by 5.46.0.
 
-Measured on the bundled dataset, 2026-09-29:
+Measured on the bundled dataset, 2026-09-29, **over every Age column**:
 
 ```
 species 1 (Pollock)             min 0        max 0.9931
 species 2 (Arrowtooth flounder) min 0        max 1
 species 3 (Cod)                 min 0.9983   max 2       <- 2.0 for ages 1-12
 ```
+
+Two corrections to those figures (2026-10-12). Read over the ages the model actually **uses**
+(`nages = c(10, 21, 12)`), Cod is **min 2.0, max 2.0**: the 0.9983 is the Age13-20 padding, which
+is beyond Cod's 12 ages and never read — and that padding is an ogive tail on the *undoubled*
+scale, which is itself evidence the used cells were overwritten. And when reading the sheet,
+drop the `Species` ID column first (`R/5-rearrange_data.R` does, via `select(contains("Age"))`);
+including it makes species 2 and 3 report maxima of 2.0 and 3.0 in *every* dataset, which is a
+trap of its own.
 
 `maturity` is read straight into the template as a proportion: `mature_females(sp, age) =
 maturity(sp, age) * sex_ratio(sp, age)` for a one-sex species (`ceattle.cpp:1015`), and Cod is
@@ -92,14 +102,29 @@ the depletions and the SPR reference points.
 `[0, 1]` check anywhere (grepped `R/1-data_check.R`, 2026-09-29; the maturity rules there are
 column count at `:451` and the NA/gap rules at `:479`).
 
-Two possibilities and no evidence for either yet:
+Two possibilities were open. **The first is the answer** (2026-10-12):
 
-- the bundled GOA2018SS Cod ogive is wrong, in which case Cod's SSB has been inflated for as long
-  as it has been bundled, and `test-golden-regression.R` has pinned that number rather than
-  caught it (golden pins what the model does, so it cannot see this);
-- there is a convention for `maturity > 1` that is not in the schema, `R/data.R` or the vignettes.
+- ~~the bundled GOA2018SS Cod ogive is wrong~~ — **this one.** 14 one-sex species rows across the
+  11 bundled datasets carry maturity <= 1 and exactly 2 carry 2.0, both GOA Pacific cod. The
+  control is decisive: BS2017SS/MS Cod is the same species, also `nsex = 1`, also
+  `sex_ratio = 0.5`, and carries an ordinary ogive topping at 0.99728.
+- ~~there is a convention for `maturity > 1`~~ — no. Greps over `R/`, `src/TMB/`, `vignettes/` and
+  `inst/dev/` find no statement of one, and the per-dataset pattern a convention would produce is
+  absent.
 
-**Do not "fix" the data before settling which.** If it is the first, changing it moves the two GOA
-golden references and needs the re-pin recorded per `/golden-check`. Either way a range check in
-`data_check()` is owed, and it should be an error rather than a message: a proportion above 1
-cannot be a rounding artefact.
+Three things the earlier version of this item did not have. **Cod's SSB is not in fact inflated**:
+`ceattle.cpp:1025` multiplies by `sex_ratio` for a one-sex species, so `2.0 x 0.5 = 1.0`. The
+exposure is a **two-sex** species, where that multiply does not apply and a 2.0 doubles spawning
+output — measured exactly x2 on `GOA2018SS` Arrowtooth, objective unchanged. **Golden cannot see
+it either way**, because `GOA2018SS` sets no `srr_fun`/`srr_pred_fun` and maturity never enters the
+objective there (`dObj = 0`, against working positive controls), so correcting the data leaves both
+GOA references bit-unchanged and no re-pin is owed. And the anomaly is **not confined to the stale
+bundled copy**: 70 of 528 maturity rows across the ecosystem exceed 1, all exactly 2.0, all cod,
+including the live GOA 2025 workbook.
+
+**Still do not "fix" the data.** What Cod's maturity-at-age should be has to come from the
+length-based ogive the SS3 model uses (`maturity_option: 1`), not from a guess, and the live
+assessment workbooks would need the same correction. The range check in `data_check()` is still
+owed — the upper half is already written and commented out at `R/1-data_check.R` (`# | mat_vals > 1`,
+born commented in `ab9872bf`) — and enabling it as an **error** would refuse two bundled datasets
+and 70 live rows, so it wants a warning first or a data fix alongside. Grant's call, 2026-10-12.
