@@ -693,6 +693,38 @@ lost.
 likelihood reads the column as a log (`DM_pars_comp = exp(comp_weights)`); a multinomial reads it
 as a natural-scale multiplier. `write_template()` seeds 1. `fit_mod()` reports this since 5.11.0.
 
+**Mohn's rho has two live conventions differing by the PEEL COUNT, and r4ss returns both from one
+function.** `r4ss::SSmohnsrho()` gives `$SSB` as `sum(rel_error)` over peels and
+`$AFSC_Hurtado_SSB` as `sum(rel_error)/n`; SAM's `mohn.samset()` uses `colMeans`. **Rceattle is
+the MEAN form** — it accumulates `rel_error` and divides by `N` (`R/9-retro_and_jitter.R`) — so an
+Rceattle rho compares against r4ss's `AFSC_Hurtado_*` and SAM's output, **never against r4ss's
+plain `$SSB`**, which is `n_peels` times larger. At the default `peels = 5` that turns a clean
+0.04 into 0.20, exactly the band edge.
+
+Verified 2026-10-12 on three peels of `BS2017SS` (terminal years 2014-2016, `estimateMode = 0`,
+`phase = FALSE`), recomputing both forms from `$Rceattle_list` and comparing to `$mohns` at
+`Forecast year == 0`:
+
+| quantity | Rceattle (Pollock) | mean form | max abs diff | sum form / Rceattle |
+|---|---|---|---|---|
+| `ssb` | 0.08874500767 | 0.08874500767 | 3.5e-18 | exactly 3 |
+| `biomass` | 0.058518029015 | 0.058518029015 | 1.4e-17 | exactly 3 |
+| `R` | 0.5109766466 | 0.5109766466 | 5.6e-17 | exactly 3 |
+
+Cod and Arrowtooth agree to the same precision, and the ratio is `n_peels` on every cell. The
+absolute values are not an assessment result — `phase = FALSE` biases rho toward zero — only the
+agreement between forms is being measured. Pinned by
+`test-functions-retrospective.R` ("Mohn's rho is the mean over peels, not the sum"), which also
+asserts the sum form is `n` times larger so a convention switch fails loudly.
+
+**This is what makes the +/-0.2 band legitimate.** r4ss labels the mean form `AFSC_Hurtado`, and
+the Hurtado-Ferro et al. (2015) ranges `print(retro, band = )` cites (-0.15 to 0.20 long-lived,
+-0.22 to 0.30 short-lived) are on the mean — so Rceattle applies the band to the quantity those
+ranges were derived for. Two further differences, neither a defect: r4ss also offers a
+"Wood's Hole" all-years rho (averaging the relative error over `styr+1 .. peel endyr`, then summing
+over peels) which **Rceattle does not implement** — measured 0.05167 against the terminal 0.08875
+on the fit above; and SAM's `lagR` option changes only a column label, not a value.
+
 **Golden reference: `BS2017SS = 10241.0304272585`,** measured on `dev` 2026-08-21 with the
 `/golden-check` recipe (every fit at `newtonsteps = 3`). Other values have been quoted in this
 repo's tooling and were wrong. The constants are platform-independent (verified across Windows

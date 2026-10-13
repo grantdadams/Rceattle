@@ -249,6 +249,72 @@ testthat::test_that("retrospective survives dropped peels (regression)", {
 })
 
 
+# Mohn's rho has TWO live conventions in this field, differing by exactly the
+# number of peels, and r4ss returns both from one function: `SSmohnsrho()` gives
+# `$SSB` as sum(rel_error) and `$AFSC_Hurtado_SSB` as sum(rel_error)/n. SAM's
+# `mohn.samset()` uses colMeans, i.e. the mean. Rceattle accumulates and divides
+# by N, so it is the MEAN form, and that is what makes `print(retro, band = 0.2)`
+# legitimate: the Hurtado-Ferro et al. (2015) ranges the band comes from are on
+# the mean. Verified 2026-10-12 against both implementations on the same three
+# peels of BS2017SS -- agreement to 5.6e-17 or better, and the sum form exactly
+# n x larger on every quantity and species.
+#
+# Pinned because a switch between the two is invisible in a fit: rho would move
+# by a factor of the peel count and still look like a rho. At the default
+# peels = 5 a clean 0.04 becomes 0.20, the band edge.
+testthat::test_that("Mohn's rho is the mean over peels, not the sum", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  data(BS2017SS, envir = environment())
+  d <- BS2017SS
+  d$projyr <- 2020
+  d$fleet_control$Proj_F_proportion <- rep(1, 7)
+
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, inits = NULL, file = NULL,
+    estimateMode = 1,            # hindcast only; rho reads the terminal year
+    random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, getsd = FALSE, verbose = 0))))
+
+  n_ask <- 3
+  r <- suppressMessages(suppressWarnings(
+    retrospective(fit, peels = n_ask, cores = 1, getsd = FALSE)))
+
+  styr <- fit$data_list$styr
+  endyr <- fit$data_list$endyr
+  nspp <- fit$data_list$nspp
+  full <- r$Rceattle_list[[length(r$Rceattle_list)]]
+  peels <- r$Rceattle_list[vapply(
+    r$Rceattle_list, function(x) x$data_list$endyr_peel < endyr, logical(1))]
+  testthat::expect_equal(length(peels), n_ask)
+
+  m <- as.data.frame(r$mohns)
+  spp <- setdiff(names(m), c("Object", "Forecast year", "N"))
+
+  for (q in c("ssb", "biomass", "R")) {
+    # Each peel's relative error at its OWN terminal year -- the quantity all
+    # three implementations agree on before they aggregate.
+    re <- t(vapply(peels, function(p) {
+      k <- p$data_list$endyr_peel - styr + 1
+      (p$quantities[[q]][, k] - full$quantities[[q]][, k]) /
+        full$quantities[[q]][, k]
+    }, numeric(nspp)))
+
+    row <- m[m$Object == q & m[["Forecast year"]] == 0, , drop = FALSE]
+    rce <- suppressWarnings(as.numeric(unlist(row[, spp, drop = FALSE])))
+
+    testthat::expect_equal(row[["N"]], n_ask)
+    testthat::expect_equal(rce, unname(colMeans(re)), tolerance = 1e-10)
+
+    # And it is NOT the sum form. With n peels the two differ by exactly n, so
+    # this fails loudly if the convention is ever switched.
+    testthat::expect_equal(unname(colSums(re)) / rce,
+                           rep(n_ask, length(rce)), tolerance = 1e-8)
+  }
+})
+
+
 testthat::test_that("each peel reports its own terminal year, and rho is unmoved", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
