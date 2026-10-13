@@ -464,6 +464,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
 #' @return A 0-row data frame with the columns used to map each `obsvec` element
 #'   back to its observation. See [build_osa_data()].
 #' @keywords internal
+#' @noRd
 .new_obs_ctl <- function() {
   data.frame(
     obs_pos        = integer(0),

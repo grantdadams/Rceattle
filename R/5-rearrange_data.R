@@ -895,29 +895,14 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
 #' Check and Clean Composition Data
 #'
-#' This function checks the composition data for zero sum rows, handles NA values,
-#' and verifies that the composition data spans the required range of ages/lengths.
+#' Converts NAs in `comp_obs` to 0 and refuses a `comp_obs` with fewer columns
+#' than the species' age/length bins, doubled for joint-sex rows.
 #'
-#' @param data_list A list containing the following components:
-#'   - comp_obs: A matrix or data frame of composition observations.
-#'   - comp_data: A data frame with metadata including species, sex, and age/length information.
-#'   - nsex: A vector of sex counts by species.
-#'   - nages: A vector of age counts by species.
-#'   - nlengths: A vector of length counts by species.
-#' throws An error if any rows of `comp_obs` sum to 0 or if the composition data does not span the range of ages/lengths.
+#' @param data_list A list carrying `comp_obs`, `comp_data`, `nsex`, `nages` and
+#'   `nlengths`.
 #'
 #' @return The modified `data_list` with NA values in `comp_obs` converted to 0.
-#' @examples
-#' data_list <- list(
-#'   comp_obs = matrix(c(1, 2, 3, 4, 5, 6), nrow = 2),
-#'   comp_data = data.frame(Species = c(1, 2), Sex = c(1, 1), Age0_Length1 = c(0, 0)),
-#'   nsex = c(1, 1),
-#'   nages = c(3, 3),
-#'   nlengths = c(3, 3)
-#' )
-#' cleaned_data_list <- check_composition_data(data_list)
 #'
-#' @keywords internal
 #' @noRd
 check_composition_data <- function(data_list) {
 
@@ -963,8 +948,8 @@ check_composition_data <- function(data_list) {
 
 #' Check and Clean CAAL Data
 #'
-#' This function checks the CAAL data for zero sum rows, handles NA values,
-#' and verifies that the CAAL data spans the required range of ages
+#' Converts NAs in `caal_obs` to 0 and refuses a `caal_obs` with fewer columns
+#' than the species' age bins, doubled for joint-sex rows.
 #'
 #' @param data_list A list containing the following components:
 #'   - caal_obs: A matrix or data frame of composition observations.
@@ -972,7 +957,6 @@ check_composition_data <- function(data_list) {
 #'   - nsex: A vector of sex counts by species.
 #'   - nages: A vector of age counts by species.
 #'   - nlengths: A vector of length counts by species.
-#' throws An error if any rows of `caal_obs` sum to 0 or if the composition data does not span the range of ages
 #'
 #' @return The modified `data_list` with NA values in `caal_obs` converted to 0.
 #' cleaned_data_list <- check_caal_data(data_list)

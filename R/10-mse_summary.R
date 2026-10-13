@@ -219,11 +219,8 @@ mse_summary <- function(mse, om_only = FALSE){
   Ptarget <- extend_length(mse[[1]]$EM[[1]]$data_list$Ptarget, nspp)
   Plimit <- extend_length(mse[[1]]$EM[[1]]$data_list$Plimit, nspp)
   Alpha <- extend_length(mse[[1]]$EM[[1]]$data_list$Alpha, nspp)
-  # HCR codes, as the comparisons below read them: 0 = no catch, 1 = constant
-  # catch, 2 = constant input F (no reference point estimated); 3 = F that
-  # achieves X% of SSB0 by the end of the projection and 4 = constant target
-  # Fspr (Ftarget); 5 = NPFMC Tier 3 and 7 = SESSF Tier 1 (Flimit and Ftarget);
-  # 6 = PFMC Cat 1 (Flimit).
+  # HCR codes 0-7 as the comparisons below read them; `hcr_map`
+  # (R/0-switches.R) and ?build_hcr are the registry.
 
   ## MSE specifications
   nsim <- length(mse)
@@ -419,7 +416,6 @@ mse_summary <- function(mse, om_only = FALSE){
 
   # -- Tier 3 for single-species models
   # - Produces vectors of Flimits given depletion and input Flimit (Fspr)
-  # - Note, it doesnt have Plimit because thats for cod
   flimit_tier3_fun <- function(ssb_depletion, ssb, SBF, plimit, alpha, Flimit){
     # No Flimit, no Tier 3 limit.
     if (length(Flimit) != 1 || is.na(Flimit)) return(rep(NA_real_, length(ssb)))

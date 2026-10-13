@@ -16,9 +16,8 @@ cpp_source <- function() {
 }
 
 # Names in an ACTIVE (non-commented) REPORT()/ADREPORT() call. A commented-out
-# REPORT is the reason a bare grep over the template over-counts: mature_females,
-# sex_ratio_hat and the whole Kinzey functional-response block sit behind
-# comments and are not on any fit.
+# REPORT is the reason a bare grep over the template over-counts:
+# mature_females and sex_ratio_hat sit behind comments and are not on any fit.
 reported_names <- function(src, macro = "REPORT") {
   src <- trimws(src)
   src <- src[!grepl("^(//|/\\*|\\*)", src)]

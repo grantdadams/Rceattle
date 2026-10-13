@@ -276,6 +276,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #' @param species Optional species code(s) to keep.
 #' @return A data frame, or `NULL` when there are no composition residuals.
 #' @keywords internal
+#' @noRd
 .comp_resid_long <- function(Rceattle, species = NULL) {
   r <- stats::residuals(Rceattle, type = "pearson", source = "comp",
                         species = species)
@@ -355,7 +356,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #' is slightly narrower than one that held the estimation uncertainty in
 #' `p_hat` as well.
 #'
-#' @param d One panel's rows from [.comp_resid_long()].
+#' @param d One panel's rows from `.comp_resid_long()`.
 #' @param endyr Last year the composition likelihood fits, or `NULL` to keep
 #'   every hindcast row. Default `NULL`.
 #' @return A data frame with `bin`, `sex_grp`, the pooled `obs` / `hat`
@@ -364,6 +365,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #'   assumed effective sample sizes `ISS` / `ESS`, and the sex-mirrored drawing
 #'   columns `y_obs`, `y_hat`, `y_lwr`, `y_upr`.
 #' @keywords internal
+#' @noRd
 .comp_aggregate <- function(d, endyr = NULL) {
   d <- d[d$Year > 0, , drop = FALSE]              # hindcast only
   # The C++ composition likelihood gates on Year <= endyr, so a projection row
@@ -424,7 +426,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #'
 #'
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param file name of a file to identified the files exported by the function.
+#' @param file Path/prefix for the saved figure. `NULL` (default) draws without saving.
 #' @param species Species names for legend
 #'
 #' @return Returns and saves a figure

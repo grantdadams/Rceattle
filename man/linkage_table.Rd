@@ -15,8 +15,8 @@ estimation phase.
 }
 \details{
 The motivation is that the historical Rceattle pattern of one wide
-parameter array per process (e.g. \code{beta_rec_pars[nspp, n_env]},
-\code{M1_beta[nspp, nsex, n_env]}) does not generalize cleanly across
+parameter array per process (e.g. \code{M1_beta[nspp, nsex, n_env]})
+does not generalize cleanly across
 processes that need different stratifications. A long-format table
 grows only with the linkages the user actually requests, regardless
 of the underlying species/sex/age dimensionality.

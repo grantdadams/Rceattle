@@ -44,8 +44,8 @@ short now warns (Grant's call over a refusal), naming it and saying those years 
 contribute no biomass, catch or predation. 155 MSE assertions, 0 skips. **No MSE that runs today
 is affected** -- no `run_mse()` caller anywhere sets `estDynamics`.
 
-**#228 is open and belongs to another session** (`docs/comment-sweep-2`, 73 files): dead Kinzey C++
-plus a comment sweep, renumbered to 5.58.1. Don't resolve it; it has an owner. Its worktree is
+**#228 is open and belongs to another session** (`docs/comment-sweep-2`, 98 files): dead Kinzey C++
+plus a comment sweep, renumbered to 5.59.1. Don't resolve it; it has an owner. Its worktree is
 under a different session id, and the git author matches this repo's others because every session
 pushes as Grant -- so author is not evidence of ownership.
 

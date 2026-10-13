@@ -167,9 +167,7 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
   }
   use_parallel <- nsim > 1L && cores > 1L
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-simulation closure ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_sim <- function(i) {
 
     set.seed(seed + i) # unique seed per sim for reproducibility under parallel
@@ -221,9 +219,7 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
   } # End run_one_sim closure
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch sims (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     mod_list <- .parallel_lapply(1:nsim, run_one_sim, min(cores, nsim), environment())
   } else {
@@ -274,11 +270,9 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
 }
 
 
-# Still the same list of models: `sims[["Sim_1"]]`, `length(sims)`,
-# `plot_biomass(c(sims, list(fit)))` and compare_sim() all read it exactly as
-# before -- c() and [ drop the class, which is right, because what they return
-# is a plain list of fits. Only class() gains an entry and print() gets an
-# opinion.
+# A plain list of fits underneath: `sims[["Sim_1"]]`, `length(sims)` and
+# `compare_sim()` read it directly, and `c()` and `[` drop the class, which is
+# right, because what they return is a plain list too.
 #
 # `nsim` is carried because the returned runs cannot say how many were
 # attempted: the non-converged ones are dropped, and the fraction that reached

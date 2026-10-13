@@ -75,6 +75,7 @@ GROWTH_LINKAGE_PARAMS <- c("K", "L1", "Linf", "m", "sd_L1", "sd_Linf")
 #' excluded here.
 #'
 #' @keywords internal
+#' @noRd
 .GROWTH_MEAN_PARAMS <- c("K", "L1", "Linf", "m")
 
 

@@ -414,7 +414,7 @@ plot_catch <- function(Rceattle,
 #' per fleet.
 #'
 #' Index residual figures made before 5.9.0 are mirrored about zero relative to
-#' these, so a figure carried forward from one needs redrawing (see `NEWS.md`).
+#' these, so a figure carried forward from one needs redrawing.
 #'
 #' @inheritParams plot_index
 #' @param residual_type `"pearson"` (index residuals on the fleet's own scale)

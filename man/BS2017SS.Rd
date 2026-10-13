@@ -21,7 +21,9 @@ Control
 \item{ssb_wt_index}{Weight-at-age index used to compute each species' female spawning-stock biomass (SSB)}
 \item{pop_age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities of the population to convert age to length (also used in length-based predation estimation)}
 \item{sigma_rec}{Standard deviation of the log-scale recruitment deviations (fixed, or an initial value if estimated)}
-\item{other_food}{Other food in the ecosystem for each species}
+\item{other_food}{Other food in the ecosystem for each species, in metric
+tons: it is summed into the available-food denominator beside
+numbers-at-age (thousands) times weight-at-age (kg)}
 \item{estDynamics}{Estimate or fix numbers-at-age. Accepts integer codes or the equivalent readable strings: 0 / "Estimated" = estimate dynamics; 1 / "Fixed" = use input numbers-at-age in NByageFixed; 2 / "FixedScaled" = multiply input numbers-at-age (NByageFixed) by a single scaling coefficient, estimated under predation (msmMode > 0) and fixed at 1 otherwise.}
 \item{M1_model}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1.}
 \item{fleet_control}{Survey and fishery data specifications}
@@ -49,9 +51,8 @@ Control
 \item{Tcl}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
 \item{CK1}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
 \item{CK4}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
-\item{env_data}{Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5 or 6. Will use the mean for missing years. Temperature should be in Celsius.}
+\item{env_data}{Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5. Will use the mean for missing years. Temperature should be in Celsius.}
 \item{ration_data}{Annual relative foraging rate by age or input consumption at age. Multiplied by pvalue and fday to scale maximum consumption to the number of days in a year that foraging occurs.}
-\item{UobsAge}{Stomach proportion by numbers for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
 \item{UobsWtAge}{Stomach proportion by weight for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
 }
 

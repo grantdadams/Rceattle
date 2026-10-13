@@ -179,7 +179,7 @@
     .rce_col("slope_mat_len", "control", "Numeric: slope (per cm, positive) of logistic maturity-at-length, maturity = 1 / (1 + exp(-slope_mat_len * (length - L50_mat_len))). NA uses the age-based maturity sheet.", tmb_target = "mat_len_pars"),
     .rce_col("pop_age_transition_index", "control", "Integer: age transition matrix (e.g. growth trajectory) index to use deriving length-based predation", type = "integer"),
     .rce_col("sigma_rec", "control", "Numeric: fixed or initial value of standard deviation for recruitment deviates", aliases = "sigma_rec_prior"),
-    .rce_col("other_food", "control", "Numeric: other food in the ecosystem for each species (kg)"),
+    .rce_col("other_food", "control", "Numeric: other food in the ecosystem for each species (mt)"),
     .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient, estimated under predation (msmMode > 0) and fixed at 1 otherwise.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp)); documentation-only", tmb_target = "estDynamics"),
 
     # ======================================================================
@@ -585,7 +585,7 @@
 
 # env_data / ration_data / diet_data headers sit after the bioenergetics block.
 .RCE_META_SHEET_HEADERS_TAIL <- list(
-  c("env_data",    "Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5 or 6. Will use the mean for missing years. Temperature should be in Celsius."),
+  c("env_data",    "Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5. Will use the mean for missing years. Temperature should be in Celsius."),
   c("ration_data", "Annual relative foraging rate by age. Multiplied by pvalue and fday to scale maximum consumption to the number of days in a year that foraging occurs."),
   c("diet_data",   "Stomach proportion by weight for each predator, prey, predator age, prey age combination. Multiple diet-data formats can be included:\r\n\r\n1) If Pred_age >= 0 and Prey_age >= 0, data is assumed to be  diet proportion of prey-at-age/sex in predator-at-age/sex. \r\n2) If Pred_age >= 0 and Prey_age < 0, data is assumed to be mean diet proportion of prey-spp in predator-at-age/sex (sum across prey ages and sexes)\r\n3) If Pred_age < 0 and Prey_age < 0, data is assumed to be  mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take mean across predator ages/sexes)\r\n4) If Pred_age < -500 and Prey_age < 0, data is assumed to be weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take weighted mean across predator ages/sexes). Weights are estimated predators-at-age. \r\n\r\nIf \"Year = 0\", the diet will be assumed to be the average between \"suit_styr\" and \"suit_endyr\". \r\n\r\nOnly diet-data type 1 can be used for MSVPA based suitability")
 )
@@ -646,7 +646,6 @@
 }
 
 
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Model-level switches
 #
 # The switches that configure the MODEL rather than a workbook column --
@@ -659,7 +658,6 @@
 # workbook columns, and write_data(), read_data(), the meta sheet and the
 # R/data.R drift guard all iterate that list, so a non-column added to it
 # would land in the workbook.
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 #' One model-level switch
 #'
