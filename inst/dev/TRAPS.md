@@ -824,6 +824,49 @@ is age 5. `minage = 1` hides it everywhere it is currently written, so the colum
 Three of this repo's most valuable checks have been guarded off in a way nothing verified. All
 the same shape: a speed optimization, or a green-looking job, that silently removes coverage.
 
+**A registry guard that builds its check-set WITH a regex and then floors it at
+`expect_gt(length(.), 0)` cannot fail for the drift it exists to catch.** The floor is satisfied
+by whatever survives, so a rename, a respelling or a reformat shrinks the set and the test still
+passes — reporting green while measuring less. Measured 2026-10-12 by mutating a scratch copy of
+`ceattle.cpp` and running the three real guard files verbatim against it: **9 of 15 mutations were
+invisible**, every one of them a change the guard was written to catch, and in every case the pass
+count was identical to pristine, so `tools/ci/source-guards.R`'s own per-block "asserted nothing"
+check was satisfied too.
+
+The sharpest three, all since closed:
+
+* `test-dynamics-sex-index-bounds.R` anchored its pattern at `^\s*`, so
+  `if(true) N_at_age(sp, 1, 0, 0) = Type(0.0);` and a respelled `N_at_age(sp,1,0,yr)` both left the
+  set at 10 hits. Its array list was also hand-written and **missed `N_eq` entirely** — 4 of the
+  real 15 sex-index-1 writes were outside the census permanently.
+* `test-composition-age-hat-width.R`: **deleting one line** (the per-row widening
+  `if(comp_row_cols > max_age_cols){ ... }`) reinstated the out-of-bounds write and the set merely
+  fell 4 to 3.
+* `test-dynamics-recruitment-minage.R`: rebinding a lag through a differently-named local took the
+  set 4 to 3, and the site that left it stopped being checked at all.
+
+**The fix is to pin the set by name and count, never to floor it.** `tools/ci/source-guards.R`'s
+own `EXPECTED` vector is the in-repo pattern: a `setequal()` plus a message naming what appeared
+and what disappeared. After pinning, 14 of the 15 mutations are caught; the one that is not
+(removing a lag local's clamp, which reinstates the original negative-column read) is outside a
+line-scoped grep's reach and the test now says so rather than implying it is covered.
+
+**Two implementation traps, both measured.** Count per array with a SEPARATE `grepl()` each: R's
+default engine is leftmost-longest, so one alternation capture attributes a line holding two of
+these arrays to only the last — `N_eq(sp, 1, age) = N_at_age(sp, 1, age, 0);` (`ceattle.cpp:2019`)
+is such a line, which is why **15 writes sit on 14 lines** and both numbers need pinning. And do
+NOT strip comment lines before a positional lookback: the window is counted in lines, so removing
+some lets a neighbouring block's guard drift into range and satisfy it.
+
+**And on a pull request these three have no second line of defence.**
+`.github/workflows/R-CMD-check.yaml` sets step-level `NOT_CRAN: "false"`, so every `skip_on_cran()`
+fit block in the same files skips; `test-coverage` runs at `NOT_CRAN=true` but
+`tools/ci/coverage-shard.R` passes `stop_on_failure = FALSE` and nothing reads the result;
+`deep-checks` runs them fatally but nightly, gating no merge; and `source-guards.yaml`'s own header
+records that the workflow makes the check *appear* on a PR without making it **required**. For the
+sex-index and age-width guards the consequence is an unchecked write, which is not observable from
+R at all — so the static pin is the only cover there is.
+
 **Anything short of an ERROR passes R-CMD-check here, so a green check can be naming your
 mistake.** `.github/workflows/R-CMD-check.yaml:127` sets `error-on: '"error"'` — one step looser
 than the action's own `"warning"` default — so NOTEs *and* WARNINGs conclude SUCCESS. It is
