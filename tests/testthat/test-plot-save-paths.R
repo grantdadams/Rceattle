@@ -24,7 +24,7 @@
 # file-level `skip_on_cran()` and builds a real `fit_mod()` object, and
 # `R-CMD-check.yaml` sets `NOT_CRAN: "false"`. That is not the family
 # convention: of the 15 `test-plot-*.R` files only 6 skip at file level and 6
-# carry no skip at all, so `test-plot-helpers.R` and `test-plot-profile.R` do
+# carry no `skip_on_cran()` at all (two of those six do carry a `skip_if`), so `test-plot-helpers.R` and `test-plot-profile.R` do
 # run on a PR -- `test-plot-helpers.R` needs no fitted model and says so.
 # `test-coverage` runs it but
 # passes `stop_on_failure = FALSE`. So `deep-checks.yaml` is the only job where

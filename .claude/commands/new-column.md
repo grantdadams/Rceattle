@@ -23,7 +23,8 @@ Stop and ask rather than guess if any of these is unclear:
 - **Is it a bin index? The two conventions are opposite, so say which (rule 10).**
   `Sel_norm_bin`, `Sel_norm_bin_upper`, `Sel_pen_first_bin`, `Sel_pen_last_bin` and
   `Sel_cap_bin` are an absolute **age** on an age-based fleet, so `rearrange_data()` subtracts
-  the `minage` offset (`sel_bin_offset`). `Bin_first_selected` is the opposite: a **1-based bin
+  the `minage` offset (`sel_bin_offset`); on a length-based fleet they are 1-based length-bin
+  ordinals and the offset is 1. `Bin_first_selected` is the opposite: a **1-based bin
   ordinal** on the fleet's own `Selectivity_dimension` -- 3 means the third bin, which on a
   stock with `minage` 3 is age 5 -- and it takes a plain `- 1`. `N_sel_bins` is neither; it is
   a count. The cpp penalties loop over `nbins`, not `nages`.

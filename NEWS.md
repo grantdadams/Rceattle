@@ -22,11 +22,13 @@ version throughout.
   `H_1 = exp(logH_1.array())` derivations, the `avgnMode` switch, the Kinzey diet
   likelihood, two disabled `REPORT` blocks, the functional-response implementation
   in `predation.hpp`, and the 42-line change log at the foot of `ceattle.cpp`.
-  Three section headers left heading nothing went too, including a `14.10. Kinzey
-  predation functions` that had come to label a live `REPORT(mort_sum)` — the
-  initial-state mortality accumulator, nothing to do with predation. `src/TMB/`
-  falls 377 lines, `predation.hpp` from 738 to 517 with its FIXME/TODO count from
-  5 to 0, and `ceattle.cpp` from 5,986 to 5,830. The word "Kinzey" no longer
+  Three section headers left heading nothing went too -- `3.7` and `4.14` in
+  `ceattle.cpp`, `8.2` in `predation.hpp` -- and a fourth was relabelled rather
+  than removed: `14.10. Kinzey predation functions` had come to head a live
+  `REPORT(mort_sum)`, the initial-state mortality accumulator, nothing to do
+  with predation. `src/TMB/`
+  falls 380 lines, `predation.hpp` from 738 to 517 with its FIXME/TODO count from
+  5 to 0, and `ceattle.cpp` from 5,986 to 5,827. The word "Kinzey" no longer
   appears in the template.
 
   All of it sat inside `/* */`, so the preprocessor already discarded it: stripping
@@ -49,8 +51,8 @@ version throughout.
   hand-copied `Selectivity` table stopped at code 8, omitting `NonParametricPM`
   (9), `LogisticPM` (11), `NonParametricIntegrable` (13) and `DoubleNormalSS3`
   (15), all four in `sel_map`; its `Time_varying_sel` list was likewise stale, and
-  it attributed IID deviates to `sel_sd_prior`, which is neither the canonical
-  `Time_varying_sel_sd` nor either of its aliases. The page is published, so an
+  it attributed IID deviates to `sel_sd_prior`, the alias `Sel_sd_prior`
+  miscased rather than the canonical `Time_varying_sel_sd`. The page is published, so an
   assessment author was told four forms do not exist. Both tables are replaced by
   a pointer to "3. Selectivity (per fleet)" in
   `vignette("model-options-and-functionality")` and to `rceattle_switch_maps`,
@@ -69,8 +71,9 @@ version throughout.
 * **Harvest control rule 1 was named "constant catch" in the MSE pipeline.**
   `hcr_map` has `CMSY = 1` -- maximize joint catch across species -- and there is
   no constant-catch rule. One of the two copies is the stated reason for blanking
-  projection catch before each assessment, so the comment now points at the
-  registry and `?build_hcr` rather than restating the codes.
+  projection catch before each assessment and now names CMSY; the copy in
+  `mse_summary()` points at the registry and `?build_hcr` rather than restating
+  the codes.
 
 * **`?fit_control`'s `comp_offset` said it does not apply to diet compositions.**
   The template adds it to both `obs_diet_prop` and `pred_diet_prop`, and its own
@@ -79,9 +82,10 @@ version throughout.
 * **`other_food` was declared in kilograms and is metric tons.** It is summed
   into the available-food denominator beside `suit * prey_N * prey_wt` --
   numbers-at-age in thousands times weight-at-age in kg, which is mt by the
-  same convention the rest of the package uses -- so a value supplied in kg is
-  1000x too small and understates how much non-modelled prey a predator has
-  available, which inflates predation mortality on the modelled species. The
+  same convention the rest of the package uses -- so a value supplied in kg enters
+  1000x too large, overstating how much non-modelled prey a predator has
+  available. `pred_mort_scalar` divides by that denominator, so it deflates
+  predation mortality on the modelled species. The
   schema `doc`, the template's `DATA_VECTOR` comment and `R/data.R`'s `@format`
   now all say mt, and `inst/extdata/meta_data_names.xlsx` is regenerated (103
   rows) because the schema's `doc` strings ship into it verbatim. Note that
@@ -105,20 +109,22 @@ version throughout.
   unused by `get_growth_matrix_r()`'s body and kept only because a test helper
   passes it; a "dropped next release" promise on two deprecated spellings still
   present; a `model_average()` comment describing a conversion the code refuses,
-  and another reading `sdrep$par.random` as though a `getsd = FALSE` fit had no
-  random effects; and a stale `4.4` version in the template banner. `avgnMode`'s
+  and another labelling a `sdrep$par.random` test "All parameters random
+  effects"; and a stale `4.4` version in the template banner. `avgnMode`'s
   three codes are settable but only mode 0 has an effect, which `?fit_mod` already
   said and the template's declaration comment now says too.
 
 * **Comment volume.** `R/` falls 112 lines (doc share 37.8% to 37.7%),
   `src/TMB/` 380, and `man/` 533. 83 `#-#-#-#` decoration lines carrying no text
-  were removed; all but two bracketed a section header that holds the RStudio fold
-  itself, and none had the trailing dashes that would make it a section. Thirteen
+  were removed; all but four -- two pairs -- bracketed a section header that holds
+  the RStudio fold itself, and none had the trailing dashes that would make it a section. Thirteen
   comments narrating past defects were cut to what the code does now. 24 internal
   helpers gained `@noRd`, so they no longer generate `man/dot-*.Rd` (193 `.Rd`
   files to 169); none was listed in `_pkgdown.yml`. `inst/dev/CLEANUP_BACKLOG.md`'s
-  marker census is re-derived with its own documented command: 35 remain, against
-  a stated 47 and a measured 45 before this release.
+  marker census is re-derived: 49 `TODO`/`FIXME` markers on the 5.59.0 base and
+  **35** here, counting a line as a marker only if it marks work -- three point at
+  an `inst/dev/TODO-*.md` note instead. The file's old recipe undercounted by four,
+  dropping genuine `ceattle.cpp` markers whose text cites one of those notes.
 
 * **A second survey covered what the first sweep never opened** -- the 274-file
   test suite, the vignettes, `inst/dev/`, `tools/` and `.claude/`, plus a second
@@ -147,10 +153,12 @@ version throughout.
   `DynamicHCR = FALSE` described as dynamic. Its five correct `HCR = 5` Tier 3
   labels stand.
 
-* **`?build_M1` and the refusal a user sees had the two-sex rule backwards.**
-  Both said `M1_model = 2` needs two sexes "except for `M1_re` 1 and 4". The
-  gate sits INSIDE the `M1_re %in% c(1, 4)` arm, with a measured justification
-  (22 zero-gradient rows in the inner Hessian on `GOA2018SS`).
+* **`?build_M1` and the refusal a user sees scoped the two-sex rule wrongly.**
+  Both said `M1_model = 2` needs two sexes "except for `M1_re` 1 and 4". All
+  three random-effect arms gate it on two sexes, so with one sex no arm frees a
+  deviation and the refusal fires under every family; the measured justification
+  (22 zero-gradient rows in the inner Hessian on `GOA2018SS`) sits in the 1/4
+  arm, which is what made the narrower reading look right.
 
 * **`vignette("introduction")` printed `mohns[1,2]` as a Mohn's rho** in a figure
   title. Column 2 is `Forecast year`, so the first vignette an assessment author
@@ -162,9 +170,12 @@ version throughout.
   `AnalyticalArith`.
 
 * **`?plot_data` documented nine base-graphics arguments as live controls.**
-  Measured 0 body references for all nine against a signature spanning lines
-  52-70: the `plot_maturity` defect three times over, on a published page. They
-  are now documented as retained-and-ignored.
+  Measured 0 body references for all nine, against a signature spanning lines
+  52-70 of the 5.59.0 file: the `plot_maturity` defect three times over, on a
+  published page. They are now documented as retained-and-ignored, the page no
+  longer promises a `_data_plot2.png` that `.save_ggplot()` never writes, and
+  `@return` states what the point area means -- catch in metric tons, 1/SE for
+  indices, sample size for compositions.
 
 * **Two claims this sweep itself got wrong are corrected here.** `ceattle.cpp`
   carried a FOURTH orphaned Kinzey header, misspelled "Kinzery", so the grep
@@ -175,32 +186,36 @@ version throughout.
   declarations an ABC derives from.
 
 * Smaller, each checked against the code it describes: three stale `ceattle.cpp`
-  citations in tests that had drifted 360-430 lines onto unrelated likelihood
+  citations in tests, drifted 410, ~480 and ~1,750 lines onto unrelated
   blocks; three dangling `tests-Growth/` and `tests-Linkage/` paths in a flat
-  suite; two renamed test files; `fit_control(osa = TRUE)`, an argument it has
-  never had; `sel_curve_pen`'s column description, wrong twice; `8.2` -> `8.2b`
+  suite; two renamed test files; `fit_control(osa = TRUE)`, an argument removed in
+  `c839f764`; `sel_curve_pen`'s column description, wrong twice; `8.2` -> `8.2b`
   and two `SPR0` -> `SPRFinit` annotations; `spr.hpp`'s `6.5` -> `6.4`;
   `max_nsex` and `beta_rec_pars`, neither of which exists; a "see 1.3c below"
   with no 1.3c; `TMBphase()`'s `silent` default and five identical M1 parameter
   tags of which four were wrong; `env_data`'s "Catchability = 5 or 6" where
-  `data_check()` errors on 6; `UobsAge`, absent from the package; Cheng 2025 ->
+  `data_check()` errors on 6; `UobsAge`, which `build_data()` recognises by name but no
+  template reads and no bundled dataset carries, so it round-trips to nothing; Cheng 2025 ->
   2024; Wassermann 2024 -> 2025; "twelve checks" where thirteen are registered;
   and `test-plot-save-paths.R`'s claim that a file-level `skip_on_cran()` is the
   `test-plot-*` convention, against 15 files of which 6 skip at file level and 6
-  carry none.
+  carry no `skip_on_cran()` at all.
 
-* **The 87 lines of deferred 5.49.0 findings move to `CLEANUP_BACKLOG.md`**
-  Tier 2, where open-and-unfixed work is recorded, rather than sitting in
-  `SESSION_HANDOFF.md`, which is for work in flight.
+* **The 87 lines of deferred 5.49.0 findings are recorded in
+  `CLEANUP_BACKLOG.md`** Tier 2, where open-and-unfixed work belongs rather than
+  in `SESSION_HANDOFF.md`, which is for work in flight. The handoff copy is left
+  in place for the open pull request on that file to remove.
 
-* **No fit can move.** Of 31 changed `R/` files, exactly one differs at parse
-  level -- `R/0-column_schema.R`, by the single `other_food` `doc` string above,
-  which is data the workbook reader and the generated xlsx consume and which no
-  likelihood reads. Every changed `src/TMB/` file is byte-identical to 5.58.0
-  once `/* */` and `//` are stripped and whitespace normalised, each check run
-  with a negative control. The only other code change is one assertion in
+* **No fit can move.** Of 35 changed `R/` files, two differ at parse level, by
+  three string literals in all: the `other_food` and `env_data` `doc` strings in
+  `R/0-column_schema.R`, which are data the workbook reader and the generated
+  xlsx consume, and the `M1_re` refusal text in `R/3-build_map.R`. No likelihood
+  reads any of them, and no test pins the old wording. Every changed `src/TMB/`
+  file is byte-identical to the 5.59.0 base once `/* */` and `//` are stripped
+  and whitespace normalised, each check run with a negative control. The only other code change is one assertion in
   `test-schema-cpp-dispatch.R`, which pinned that the dead `switch (msmMode)`
   was present and now pins that no `msmMode` dispatch exists at all.
+
 # Rceattle 5.59.0
 
 ## Behaviour changes

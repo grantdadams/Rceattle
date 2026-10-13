@@ -14,8 +14,7 @@
 #'   bundled datasets such as `BS2017MS`).
 #' @param file Path/prefix used to save the figure. If `NULL` (default) the
 #'   plot is drawn to the active device only. When supplied, the figure is
-#'   written to `paste0(file, "_data_plot.png")` (and `_data_plot2.png` for
-#'   the bubble subplot).
+#'   written to `paste0(file, "_data_plot.png")`.
 #' @param datatypes Either `"all"` or a subset of
 #'   `c("catch", "index", "agecomp", "lencomp", "caal", "diet")`.
 #' @param fleets Either `"all"` or an integer vector of `Fleet_code`s to
@@ -31,11 +30,13 @@
 #' @param alphasize Bubble fill transparency (0-1).
 #' @param subplots,res,ptsize,margins,cex,lwd,maxsize,mainTitle,cex.main
 #'   Deprecated base-graphics arguments, retained for back-compatibility and
-#'   ignored. Both subplots are always drawn; size, resolution and titles come
+#'   ignored. One faceted figure is drawn; size, resolution and titles come
 #'   from the ggplot theme and from `width`/`height`.
 #'
 #' @return Invisibly, a list with `typetable`, the long data frame underlying
-#'   the plot (year, fleet, data type, relative size).
+#'   the plot (year, fleet, data type, relative size). Point area is scaled
+#'   within each data type: catch in metric tons, 1/SE for indices, sample
+#'   size for compositions.
 #'
 #' @export
 plot_data <- function(Rceattle,

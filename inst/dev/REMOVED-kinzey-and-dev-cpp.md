@@ -64,8 +64,8 @@ encoding and make `plot_form()` follow `data_check()`, not the reverse.**
 error is behaviour, not history: it is what a user who asks for `msmMode` 3–9 sees. It was kept.
 
 **To revive this:** the C++ is no longer in the tree to uncomment. Recover the six blocks from
-`git show 3b173924:src/TMB/ceattle.cpp` and `git show 3b173924:src/TMB/predation.hpp` (the last commit
-that carried them, 5.57.1), then restore the five R-side pieces above from this file and from git
+`git show 3b173924:src/TMB/ceattle.cpp` and `git show 3b173924:src/TMB/predation.hpp` (5.57.1, the last commit
+to modify them), then restore the five R-side pieces above from this file and from git
 history, then lift the `data_check()` refusal of `msmMode` 3–9. Two parts are not mechanical and both are written out above: the per-mode map logic,
 and reconciling `plot_form()`'s mode encoding with `data_check()`'s.
 
@@ -104,7 +104,7 @@ deleted. Located by matching block-comment spans against the Kinzey symbols rath
 number, after confirming `logH_1`, `H_1`–`H_4`, `N_eaten` and `ration_hat` appear **zero** times
 in either file once `/* */` and `//` are stripped.
 
-The sizes below are the Kinzey blocks only; `ceattle.cpp` loses 158 lines in
+The sizes below are the Kinzey blocks only; `ceattle.cpp` loses 159 lines in
 total, the rest being its change log and the comment corrections beside it.
 
 | File | Block | Size |

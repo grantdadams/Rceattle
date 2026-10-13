@@ -466,7 +466,7 @@ testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet mode
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  # Small multispecies model with diet (same fixture as test-likelihood-dietelihood.R);
+  # Small multispecies model with diet (same fixture as test-likelihood-diet.R);
   # estimateMode = 3 builds the report (diet_hat) without optimizing.
   nyrs <- 10L; nspp <- 2L
   Fmort  <- c(seq(0.02, 0.3, length.out = nyrs / 2), seq(0.3, 0.05, length.out = nyrs / 2))

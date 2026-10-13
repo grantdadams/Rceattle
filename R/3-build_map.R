@@ -555,13 +555,13 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       stop("M1_re = ", M1_re_model, " is not implemented for M1_model = ",
            M1_model, " (species ", sp,
            # Sex is the reason only under M1_model 2, which needs two of them
-           # outside the by-age family. Saying it anywhere else sends the
+           # under every M1_re family. Saying it anywhere else sends the
            # reader after a second sex that would not help.
            if(M1_model == 2 && nsex_sp == 1) ", which is single-sex" else "",
            "). Every M1 deviation would be mapped out, so M would be constant ",
            "rather than time-varying. Random effects on M1 are available for ",
            "M1_model 0 (input schedule), 1 and 2",
-           if(M1_model == 2) " -- and 2 needs two sexes when M1_re is 1 or 4" else "",
+           if(M1_model == 2) " -- and 2 needs two sexes" else "",
            "; or set M1_re = 0.", call. = FALSE)
     }
   }

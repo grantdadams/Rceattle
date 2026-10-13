@@ -11,18 +11,20 @@ Three tiers: a **known defect** is a wrong answer waiting for the right input an
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
 marking a judgement call for Grant, and is never resolved by an agent.
 
-**35 remain**, re-derived with the command below rather than carried forward — the old running
-total had drifted. The chain: 57 at 5.41.0, **56** on `dev` at 5.49.1 (`b066015f`), then **−7** for
-`src/TMB/Dev/` and **−2** for the Kinzey & Punt blocks, both deleted as dead code
-(`REMOVED-kinzey-and-dev-cpp.md`), and **−10** at 5.59.1 when the rest of the Kinzey C++ and the
-`ceattle.cpp` change log went. Note `src/TMB/Dev/` held 7 markers, not the 5 this file previously
-attributed to `caal.hpp` alone, and the figure here was 47 against a measured 45 before 5.59.1.
+**35 remain**, measured rather than carried forward — the old running total had drifted, and so
+had the recipe under it. There were **49** on the 5.59.0 base, so 5.59.1 removes **14**: 9 from
+`ceattle.cpp` and 5 from `predation.hpp`, with the rest of the Kinzey C++ and the `ceattle.cpp`
+change log. (`src/TMB/Dev/` held 7 markers, not the 5 this file once attributed to `caal.hpp`
+alone.)
 Counts by area: `src/TMB/ceattle.cpp` 18 · `R/10-run_mse.R` 4 ·
 `R/3-build_map.R` 3 · `R/9-retro_and_jitter.R` 3 · `R/0-rceattle_class.R` 3 ·
-`R/6-fit_mod.R` 2 · `R/7-plot_osa.R` 1 · `R/5-rearrange_data.R` 1. `predation.hpp` now holds none. Re-derive with
-`grep -rnE 'TODO|FIXME' R/ src/TMB/ | grep -v 'todo <-' | grep -v 'TODO-'` -- the `-E` is
-needed for the alternation, the first filter drops a variable in `R/6-process_residuals.R`, and
-the second drops pointers to `inst/dev/TODO-*.md` notes, which are not markers.
+`R/6-fit_mod.R` 2 · `R/7-plot_osa.R` 1 · `R/5-rearrange_data.R` 1. `predation.hpp` now holds none.
+Re-derive with `grep -rnE 'TODO|FIXME' R/ src/TMB/ | grep -v 'todo <-'` -- the `-E` is needed for
+the alternation and the filter drops a variable in `R/6-process_residuals.R` -- which returns 38,
+then subtract the three lines that point at an `inst/dev/TODO-*.md` note instead of marking work
+(`R/10-run_mse.R:833`, `R/3-build_map.R:697`, `src/TMB/selectivity.hpp:603`). Do **not** filter on
+`TODO-`: that drops four genuine `ceattle.cpp` markers whose text happens to cite one of those
+notes, and returns 31.
 
 
 ## How to work one

@@ -49,8 +49,8 @@ export PATH=/usr/bin:$PATH && NOT_CRAN=true Rscript tools/verify/<harness>.R
 ```
 
 Six harnesses take one argument that is a **count**, not a path. Passing a filename
-silently yields `NA_integer_` in five of them; `verify-osa-cdf.R` falls back to its default
-instead, which is quieter still: `verify-sim-recovery-M.R` (`nrep`, default 8),
+yields `NA_integer_` in five of them, with a non-fatal "NAs introduced by coercion"
+warning; `verify-osa-cdf.R` falls back to its default instead, which is quieter still: `verify-sim-recovery-M.R` (`nrep`, default 8),
 `verify-sim-recovery-apical.R` (40), `verify-sim-recovery-np-integrable.R` (12),
 `verify-sim-recovery-r-init.R` (20), `verify-sim-recovery-srr-msm.R` (30) and
 `verify-osa-cdf.R` (20).

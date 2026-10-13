@@ -38,10 +38,9 @@ model. Either an integer code or the equivalent string alias:
 by-age families are refused under \code{3} because an age-varying
 deviation and an age-specific level are not separately
 identifiable, and \code{4} and \code{5} are refused entirely (use a
-catchability-style linkage instead). Under \code{M1_re} \code{1} and \code{4},
-\code{M1_model = 2} additionally needs two sexes: on a single-sex species
-the deviations would land in the padding sex slot, free and scored by
-no density. \code{fit_mod()} downgrades \code{M1_model} to \code{1} there, so the
+catchability-style linkage instead). \code{M1_model = 2} needs two sexes
+under every \code{M1_re} family, because a single-sex species would take its
+deviations in the padding sex slot, free and scored by no density. \code{fit_mod()} downgrades \code{M1_model} to \code{1} there, so the
 distinction shows only in a direct \code{build_map()} call.}
 
 \item{updateM1}{If using initial parameters, use M1 fixed effects

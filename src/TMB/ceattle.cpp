@@ -526,7 +526,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( log_sel_apical );              // per-sex log multiplier on the whole curve, after the form and before normalization; n = [n_selectivities, nsex]
   PARAMETER_ARRAY( sel_dn6 );                     // DoubleNormalSS3 (SS3 pattern 24) parameters on SS3's scales: peak, logit top, log asc, log desc, logit init, logit final; n = [6, n_selectivities, nsex]
   PARAMETER_VECTOR( sel_dev_log_sd );              // Log standard deviation of selectivity; n = [1, n_selectivities]
-  PARAMETER_MATRIX( sel_curve_pen );              // Non-parametric selectivity penalty; column 0's SIGN picks the shape and column 1 weights the curvature
+  PARAMETER_MATRIX( sel_curve_pen );              // Non-parametric selectivity penalty columns (Sel_curve_pen1-3), read differently per form -- see 4408, 4443 and 4630
 
   // -- 3.6. Data variance
   //FIXME: remove log_sd terms below

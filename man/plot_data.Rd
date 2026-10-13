@@ -33,11 +33,10 @@ bundled datasets such as \code{BS2017MS}).}
 
 \item{file}{Path/prefix used to save the figure. If \code{NULL} (default) the
 plot is drawn to the active device only. When supplied, the figure is
-written to \code{paste0(file, "_data_plot.png")} (and \verb{_data_plot2.png} for
-the bubble subplot).}
+written to \code{paste0(file, "_data_plot.png")}.}
 
 \item{subplots, res, ptsize, margins, cex, lwd, maxsize, mainTitle, cex.main}{Deprecated base-graphics arguments, retained for back-compatibility and
-ignored. Both subplots are always drawn; size, resolution and titles come
+ignored. One faceted figure is drawn; size, resolution and titles come
 from the ggplot theme and from \code{width}/\code{height}.}
 
 \item{datatypes}{Either \code{"all"} or a subset of
@@ -62,7 +61,9 @@ shown after subsetting). Diet entries get an additional color appended.}
 }
 \value{
 Invisibly, a list with \code{typetable}, the long data frame underlying
-the plot (year, fleet, data type, relative size).
+the plot (year, fleet, data type, relative size). Point area is scaled
+within each data type: catch in metric tons, 1/SE for indices, sample
+size for compositions.
 }
 \description{
 Plots a timeline of presence/absence (and optionally relative quantity) of

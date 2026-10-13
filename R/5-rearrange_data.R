@@ -895,8 +895,8 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
 #' Check and Clean Composition Data
 #'
-#' Converts NAs in `comp_obs` to 0 and refuses a `comp_obs` narrower than the
-#' fleet's age/length range.
+#' Converts NAs in `comp_obs` to 0 and refuses a `comp_obs` with fewer columns
+#' than the species' age/length bins, doubled for joint-sex rows.
 #'
 #' @param data_list A list carrying `comp_obs`, `comp_data`, `nsex`, `nages` and
 #'   `nlengths`.
@@ -948,8 +948,8 @@ check_composition_data <- function(data_list) {
 
 #' Check and Clean CAAL Data
 #'
-#' Converts NAs in `caal_obs` to 0 and refuses a `caal_obs` narrower than the
-#' fleet's age range.
+#' Converts NAs in `caal_obs` to 0 and refuses a `caal_obs` with fewer columns
+#' than the species' age bins, doubled for joint-sex rows.
 #'
 #' @param data_list A list containing the following components:
 #'   - caal_obs: A matrix or data frame of composition observations.
