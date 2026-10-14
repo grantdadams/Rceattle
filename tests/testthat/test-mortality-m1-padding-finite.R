@@ -20,8 +20,9 @@
 # Three of the template's four log_M1 readers are bounded by the species' own
 # dimensions -- the M1_at_age block by sex < nsex(sp) and age < nages(sp), the
 # M prior by its nsex_tmp / nage_tmp, and growth.hpp by
-# log_M1(sp, sex, nages(sp) - 1). The fourth, the linkage-intercept prior at
-# ceattle.cpp:5189, indexes by the linkage row's stratum and stays in range
+# log_M1(sp, sex, nages(sp) - 1). The fourth, the linkage-intercept prior
+# (JNLL_LINKAGE_PRIOR's dnorm(log_b_nat, ...) in ceattle.cpp), indexes by
+# the linkage row's stratum and stays in range
 # because fit_mod() builds per-species strata -- an R-side bound, not a
 # template one. So no fit moved, which is why this needs a structural test:
 # an objective cannot show it. Verified inert across msmMode 0/1 cold fits,
