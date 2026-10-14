@@ -149,8 +149,9 @@ testthat::test_that("every exported plotter is covered or named as excluded", {
   # An exclusion for something no longer exported is a stale exclusion.
   testthat::expect_equal(setdiff(names(.SAVE_NONE), exported), character(0))
 
-  # `file` is not always a formal: plot_logindex is `function(...)` forwarding
-  # to plot_index(), so a formals test would drop it -- and
+  # `file` is not always a formal: plot_logindex and plot_depletionSSB are
+  # `function(...)` forwarding to plot_index() and plot_ssb_depletion(), so a
+  # formals test would drop them -- and
   # GOA-ATF-ESP/R/Run_2025_ceattle.R:274 calls it with `file =`. The tables
   # above are keyed on what a plotter WRITES, which is why they catch it.
   takes_file <- Filter(function(f) {
@@ -158,6 +159,9 @@ testthat::test_that("every exported plotter is covered or named as excluded", {
   }, exported)
   testthat::expect_false("plot_logindex" %in% takes_file)
   testthat::expect_true("plot_logindex" %in% names(.SAVE_ONE))
+  # Same shape since 5.60.0: plot_depletionSSB forwards to plot_ssb_depletion.
+  testthat::expect_false("plot_depletionSSB" %in% takes_file)
+  testthat::expect_true("plot_depletionSSB" %in% names(.SAVE_ONE))
 })
 
 
@@ -181,7 +185,7 @@ testthat::test_that("two save paths collide, and one filename is unusable", {
   testthat::expect_match(.SAVE_MANY[["plot_diet_comp"]]$re, "Pred- ",
                          fixed = TRUE)
 
-  # plot_biomass / plot_timeseries and plot_depletionSSB / plot_ssb_depletion
+  # plot_biomass / plot_timeseries and plot_ssb_depletion / plot_depletionSSB
   # also share a filename, but each pair draws the SAME figure (one is an alias
   # or a default of the other), so those are correct.
   testthat::expect_equal(.SAVE_ONE[["plot_biomass"]],

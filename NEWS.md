@@ -12,6 +12,34 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.60.0
+
+## Breaking changes
+
+* **`plot_depletionSSB()` is deprecated in favour of `plot_ssb_depletion()`**, which is the
+  snake_case spelling the rest of the package uses. The two have always drawn the same figure --
+  one was a bare alias of the other -- but **neither carried a `.Deprecated()` call**, so nothing
+  told a reader which name was canonical. The roxygen said `plot_ssb_depletion()` was the
+  deprecated one; that is now reversed.
+
+  *What still works:* every existing call. `plot_depletionSSB()` forwards to
+  `plot_ssb_depletion()` and warns, exactly as `plot_logindex()` forwards to `plot_index()`.
+  Nothing breaks; scripts gain a deprecation warning.
+
+  *Whose scripts warn:* **17 call sites across the sibling assessment repositories**, including
+  `Rceattle-models/Pacific hake/MSE_yr2024.R`, which is rule 15's MSE and predation check. The
+  new canonical name had **0** call sites there, so this deprecates the name consumers actually
+  use -- a deliberate choice to make the package's own style rule hold. Update at leisure, or not
+  at all.
+
+  *Inside the package:* the S3 dispatcher (`plot(fit, what = "ssb_depletion")`), five vignettes
+  and four `examples/` scripts called the old name and would have made the package
+  deprecation-warn at itself; all ten now call the canonical one.
+
+  `plot_diet_comp1()` was reviewed alongside this and deliberately **left alone**: its roxygen
+  records it as a named entry point provided so scripts can call it beside `plot_diet_comp2()`,
+  and `plot_diet_comp()` is already snake_case, so the style argument does not apply.
+
 # Rceattle 5.59.3
 
 ## Documentation

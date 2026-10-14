@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R
 \name{plot_ssb_depletion}
 \alias{plot_ssb_depletion}
-\title{Plot SSB depletion (deprecated name)}
+\title{Plot SSB depletion}
 \usage{
 plot_ssb_depletion(
   Rceattle,
@@ -94,7 +94,10 @@ if \code{line_col} is supplied.}
 \item{ylab}{Y-axis label. \code{NULL} (default) derives one from \code{output} and the
 model's \code{minage}.}
 }
+\value{
+Returns and saves a figure with the SSB depletion trajectory.
+}
 \description{
-Deprecated alias for \code{\link{plot_depletionSSB}}. Please use
-\code{plot_depletionSSB()} instead.
+Plots the mean SSB depletion and 95\\% CI trends as estimated from Rceattle.
+Depletion reference lines for Ptarget and Plimit are drawn in blue and red respectively.
 }

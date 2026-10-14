@@ -85,7 +85,7 @@ testthat::test_that("minyr and maxyr narrow what the timeseries plotters draw", 
 })
 
 # The per-species reference-point frame a plot carries, ordered by species.
-# plot_f() and plot_depletionSSB() build it through the same helper, so one
+# plot_f() and plot_ssb_depletion() build it through the same helper, so one
 # accessor reads both.
 ref_lines <- function(p) {
   d <- Filter(function(l) "target" %in% names(l$data), p$layers)[[1]]$data
@@ -334,14 +334,14 @@ testthat::test_that("depletion reference lines come from one model, per species"
 
   # One horizontal line per panel can only show one model's value: the first.
   for (mods in list(list(a, b), list(b, a))) {
-    d <- ref_lines(Rceattle::plot_depletionSSB(mods, model_names = c("x", "y")))
+    d <- ref_lines(Rceattle::plot_ssb_depletion(mods, model_names = c("x", "y")))
     d <- d[match(a$data_list$spnames, as.character(d$Species)), ]
     testthat::expect_equal(d$target, as.numeric(mods[[1]]$data_list$Ptarget))
     testthat::expect_equal(d$limit, as.numeric(mods[[1]]$data_list$Plimit))
   }
 
   # A single model is unaffected, which is every bundled example.
-  d1 <- ref_lines(Rceattle::plot_depletionSSB(a))
+  d1 <- ref_lines(Rceattle::plot_ssb_depletion(a))
   testthat::expect_equal(d1$target[order(as.character(d1$Species))],
                          as.numeric(a$data_list$Ptarget)[
                            order(a$data_list$spnames)])

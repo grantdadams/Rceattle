@@ -253,7 +253,7 @@ reference:
   - plot_ssb
   - plot_recruitment
   - plot_depletion
-  - plot_depletionSSB
+  - plot_ssb_depletion
   - plot_exploitable_biomass
 
 - title: "Plotting — fishing and natural mortality"
@@ -346,4 +346,4 @@ reference:
     emit a deprecation message; use the named replacement in new code.
   contents:
   - plot_logindex
-  - plot_ssb_depletion
+  - plot_depletionSSB

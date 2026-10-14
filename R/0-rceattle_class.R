@@ -229,9 +229,9 @@ plot.Rceattle <- function(x, what = "biomass", ...) {
     depletion    = plot_depletion(x, ...),
     # SSB depletion against SB0 is the management quantity under the
     # Amendment-56 proxies. "depletion" is plot_depletion(), which draws TOTAL
-    # biomass depletion; the SSB plotter is plot_depletionSSB(), and
-    # plot_ssb_depletion() is its deprecated alias.
-    ssb_depletion = plot_depletionSSB(x, ...),
+    # biomass depletion; the SSB plotter is plot_ssb_depletion(), and
+    # plot_depletionSSB() is its deprecated alias.
+    ssb_depletion = plot_ssb_depletion(x, ...),
     index        = plot_index(x, ...),
     catch        = plot_catch(x, ...),
     selectivity  = plot_selectivity(x, ...),
