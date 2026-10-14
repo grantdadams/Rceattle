@@ -66,7 +66,7 @@ rich.colors.short <- function(n,alpha=1){
 #'   if `line_col` is supplied.
 #' @param ref_lines Internal. `function(models, sp_sel)` returning per-species
 #'   reference-point layers, added before the figure is saved. Supplied by
-#'   [plot_f()] and [plot_depletionSSB()] through `.ts_wrapper()`; `sp_sel` is
+#'   [plot_f()] and [plot_ssb_depletion()] through `.ts_wrapper()`; `sp_sel` is
 #'   the species resolution the panels were built from.
 #' @param suffix Internal. Overrides the `<file>_<suffix>.png` stem, which
 #'   otherwise names the series.
@@ -647,17 +647,21 @@ plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass", zero_y = TRUE)
 #' @export
 #'
 #' @return Returns and saves a figure with the SSB depletion trajectory.
-plot_depletionSSB <- .ts_wrapper("ssb_depletion", zero_y = TRUE,
-                                 ref_lines = .depletion_reference_lines)
+plot_ssb_depletion <- .ts_wrapper("ssb_depletion", zero_y = TRUE,
+                                  ref_lines = .depletion_reference_lines)
 
 #' Plot SSB depletion (deprecated name)
 #'
-#' @description Deprecated alias for \code{\link{plot_depletionSSB}}. Please use
-#'   \code{plot_depletionSSB()} instead.
+#' @description Deprecated alias for \code{\link{plot_ssb_depletion}}, which is
+#'   the snake_case spelling the rest of the package uses. Please use
+#'   \code{plot_ssb_depletion()} instead.
 #'
 #' @inheritParams plot_timeseries
 #' @export
-plot_ssb_depletion <- plot_depletionSSB
+plot_depletionSSB <- function(...) {
+  .Deprecated("plot_ssb_depletion")
+  plot_ssb_depletion(...)
+}
 
 #' Plot biomass depletion
 #'

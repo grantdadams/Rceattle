@@ -63,7 +63,7 @@ plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 plot_m_at_age(Rceattle = mod_list, model_names = mod_names, age = 2)
 plot_m2_at_age_prop(Rceattle = mod_list, model_names = mod_names) # Predation M by each species
-plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
+plot_ssb_depletion(Rceattle = mod_list, model_names = mod_names)
 plot_depletion(Rceattle = mod_list, model_names = mod_names)
 
 

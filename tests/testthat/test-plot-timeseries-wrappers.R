@@ -19,14 +19,17 @@ test_that("plot_* timeseries wrappers forward the pinned output and pass args th
     plot_recruitment         = "R",
     plot_ssb                 = "ssb",
     plot_exploitable_biomass = "exploitable_biomass",
-    plot_depletionSSB        = "ssb_depletion",
+    plot_ssb_depletion       = "ssb_depletion",
     plot_depletion           = "biomass_depletion",
-    plot_ssb_depletion       = "ssb_depletion" # deprecated alias
+    plot_depletionSSB        = "ssb_depletion" # deprecated alias
   )
 
   for (fn in names(expected)) {
     captured <- NULL
-    get(fn, envir = asNamespace("Rceattle"))("dummy_model", add_ci = TRUE, lwd = 5)
+    # plot_depletionSSB is the deprecated alias, so suppress its warning here;
+    # that it warns at all is asserted in its own block below.
+    suppressWarnings(
+      get(fn, envir = asNamespace("Rceattle"))("dummy_model", add_ci = TRUE, lwd = 5))
     expect_identical(captured$output, expected[[fn]], info = fn)
     # ylab is left NULL so plot_timeseries() can derive it from minage
     expect_null(captured$ylab, info = fn)
@@ -93,7 +96,7 @@ test_that("generated wrappers keep the documented public argument list", {
                 "width", "height", "minyr", "maxyr", "incl_proj", "mod_cex",
                 "lty", "alpha", "mod_avg", "mse", "OM", "reference", "ylab")
   for (fn in c("plot_biomass", "plot_recruitment", "plot_ssb",
-               "plot_exploitable_biomass", "plot_depletionSSB", "plot_depletion")) {
+               "plot_exploitable_biomass", "plot_ssb_depletion", "plot_depletion")) {
     expect_identical(names(formals(get(fn, envir = asNamespace("Rceattle")))),
                      api_args, info = fn)
   }
@@ -116,7 +119,7 @@ testthat::test_that("a single-species model gets no species facet", {
     !identical(class(ggplot2::ggplot_build(p)$layout$facet)[1], "FacetNull")
   }
   for (f in c(Rceattle::plot_biomass, Rceattle::plot_ssb,
-              Rceattle::plot_recruitment, Rceattle::plot_depletionSSB)) {
+              Rceattle::plot_recruitment, Rceattle::plot_ssb_depletion)) {
     p <- suppressWarnings(suppressMessages(f(fit)))
     testthat::expect_false(is_faceted(p))
   }
@@ -307,4 +310,31 @@ test_that("as.data.frame() and the plotter report the same interval", {
   expect_equal(both$upper95, both$upr / 1e6, tolerance = 1e-8)
   # ...and the interval is right-skewed, not symmetric about the estimate.
   expect_true(all((both$upr - both$value.y) > (both$value.y - both$lwr)))
+})
+
+
+# plot_depletionSSB was the definition and plot_ssb_depletion its alias until
+# 5.60.0, when they swapped: the snake_case spelling is the one the rest of the
+# package uses. The camelCase name keeps working, so no script breaks, but it
+# has to SAY it is deprecated -- an alias that is silent about which name is
+# canonical is what this change was fixing, and the pair was silent both ways
+# before (neither carried a .Deprecated() call).
+testthat::test_that("plot_depletionSSB is deprecated and forwards unchanged", {
+  # Mock plot_timeseries() FIRST. Both names are .ts_wrapper() closures that
+  # call it, and the real one indexes `x$data_list`, so a bare string argument
+  # errors before the assertion can read the warning.
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    plot_timeseries = function(Rceattle, output, ...) {
+      seen <<- c(seen, output)
+      invisible(NULL)
+    }, .package = "Rceattle")
+
+  testthat::expect_warning(
+    Rceattle::plot_depletionSSB("dummy_model"),
+    "deprecated")
+
+  # And it asks for the same quantity the canonical name does.
+  Rceattle::plot_ssb_depletion("dummy_model")
+  testthat::expect_identical(seen, c("ssb_depletion", "ssb_depletion"))
 })
