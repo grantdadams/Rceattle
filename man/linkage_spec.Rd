@@ -121,15 +121,7 @@ latent tracks it exactly and a free \code{obs_sd} collapses toward 0.}
 
 \item{integrate}{whether the random effect's deviations are integrated out by
 the Laplace approximation, default \code{TRUE}. \code{FALSE} estimates them as a
-\strong{penalized fixed effect} instead: the deviations stay in the objective as
-a plain penalty and are reported with standard errors. That reproduces the
-ADMB/AMAK convention behind the legacy \code{Time_varying_sel} /
-\code{Time_varying_q} switches, which a Laplace-integrated \code{rw()} cannot match,
-because the marginal likelihood carries a log-determinant term the
-penalized form has no counterpart for. Permitted only with a fixed SD
-(\code{init = list(sigma = )}, no \code{sigma} prior, plus a fixed \code{rho} for \code{ar1}),
-since estimating deviations and their SD jointly as fixed effects is
-degenerate, and never with \code{observe}, which must stay integrated.}
+penalized fixed effect instead; see Details for when that is permitted.}
 }
 \value{
 An \code{Rceattle_linkage_spec} object.
@@ -143,6 +135,16 @@ random-effect deviation SD and, for \code{ar1}, the correlation. \code{sigma} me
 different things by structure -- the innovation (per-step) SD for \code{rw()},
 the marginal (stationary) SD for \code{ar1()} -- so the two are not comparable
 across structures; see \code{vignette("environmental-linkages-and-priors")}.
+
+\code{integrate = FALSE} leaves the deviations in the objective as a plain
+penalty and reports them with standard errors. That reproduces the
+ADMB/AMAK convention behind the legacy \code{Time_varying_sel} /
+\code{Time_varying_q} switches, which a Laplace-integrated \code{rw()} cannot match,
+because the marginal likelihood carries a log-determinant term the
+penalized form has no counterpart for. Permitted only with a fixed SD
+(\code{init = list(sigma = )}, no \code{sigma} prior, plus a fixed \code{rho} for \code{ar1}),
+since estimating deviations and their SD jointly as fixed effects is
+degenerate, and never with \code{observe}, which must stay integrated.
 }
 \examples{
 # A covariate on a growth parameter, one coefficient per species. Attach to a

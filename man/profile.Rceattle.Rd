@@ -19,23 +19,10 @@
 \arguments{
 \item{fitted}{an Rceattle model fit using \code{\link{fit_mod}}}
 
-\item{param}{Name of the parameter to profile, either a raw slot in
-\code{Rceattle$estimated_params} (with \code{slots} indexing the full array
-and \code{transform} setting the scale) or a natural-scale alias, which
-implies \code{transform = "log"} and, for \code{rec_pars}, fills in the
-column so \code{slots} needs only the species index:
-\describe{
-\item{\code{"sigmaR"}, \code{"R_sd"}}{\code{R_log_sd}}
-\item{\code{"M1"}}{\code{log_M1}}
-\item{\code{"R0"}, \code{"alpha"}, \code{"beta"}}{\code{rec_pars}
-columns 1, 2 and 3}
-\item{\code{"q"}}{\code{index_log_q}, base catchability, one entry per
-fleet; \code{slots} takes a fleet index or name. Fleets sharing a
-\code{Catchability_index} share one q, so naming any of them profiles
-the group: the rest are added with a message and \code{joint} becomes
-\code{"value"}.}
-}
-\code{transform} is ignored with a warning when an alias is used.}
+\item{param}{Name of the parameter to profile: a raw slot in
+\code{Rceattle$estimated_params}, or one of the natural-scale aliases
+\code{"sigmaR"}, \code{"R_sd"}, \code{"M1"}, \code{"R0"}, \code{"alpha"},
+\code{"beta"}, \code{"q"}. See Details.}
 
 \item{slots}{A list of integer index vectors, one per cell to fix, each as
 long as the resolved parameter has dimensions: 1 for \code{R_log_sd}, 2 for
@@ -62,22 +49,8 @@ reads only \code{nll}, so \code{FALSE} is faster and changes nothing.
 \code{NULL} (default) inherits the input model's setting (\code{TRUE} only if it holds an
 \code{sdrep}).}
 
-\item{joint}{How the grid moves the cells in \code{slots}. A joint mode
-profiles a vector-valued parameter such as an empirical age-based M, where
-\code{"none"} over ten ages and 13 values would be \code{13^10} fits:
-\describe{
-\item{\code{"none"}}{(default) each slot gets its own grid and they cross.}
-\item{\code{"multiply"}}{one grid multiplying every cell, so the schedule
-keeps its shape; \code{1} is the fitted model.}
-\item{\code{"add"}}{one grid added to every cell, so the schedule keeps
-the differences between cells; \code{0} is the fitted model.}
-\item{\code{"value"}}{one grid; every cell takes that value.}
-}
-A joint mode needs \code{values} to be one vector, and
-\code{"multiply"}/\code{"add"} work in natural units, so \code{transform}
-must be \code{"log"} or \code{"identity"}. A value that would take a
-log-scale parameter to zero or below is an error naming the cell, not a
-failed fit.}
+\item{joint}{How the grid moves the cells in \code{slots}: \code{"none"}
+(default), \code{"multiply"}, \code{"add"} or \code{"value"}. See Details.}
 
 \item{...}{Unused; present for consistency with the \code{stats::profile}
 generic.}
@@ -111,6 +84,41 @@ crosses several, such as \code{log_M1[1, 1, 1]} against
 \code{log_M1[1, 2, 1]} for residual M in males versus females. For each
 grid point the targeted cells are fixed in the TMB map and everything else
 is re-estimated.
+}
+\details{
+\strong{Natural-scale aliases.} An alias implies \code{transform = "log"}
+and, for \code{rec_pars}, fills in the column so \code{slots} needs only the
+species index. \code{transform} is ignored with a warning when an alias is
+used. A raw slot instead has \code{slots} index the full array and
+\code{transform} set the scale.
+\describe{
+\item{\code{"sigmaR"}, \code{"R_sd"}}{\code{R_log_sd}}
+\item{\code{"M1"}}{\code{log_M1}}
+\item{\code{"R0"}, \code{"alpha"}, \code{"beta"}}{\code{rec_pars}
+columns 1, 2 and 3}
+\item{\code{"q"}}{\code{index_log_q}, base catchability, one entry per
+fleet; \code{slots} takes a fleet index or name. Fleets sharing a
+\code{Catchability_index} share one q, so naming any of them profiles
+the group: the rest are added with a message and \code{joint} becomes
+\code{"value"}.}
+}
+
+\strong{Joint modes.} A joint mode profiles a vector-valued parameter such as
+an empirical age-based M, where \code{"none"} over ten ages and 13 values
+would be \code{13^10} fits.
+\describe{
+\item{\code{"none"}}{(default) each slot gets its own grid and they cross.}
+\item{\code{"multiply"}}{one grid multiplying every cell, so the schedule
+keeps its shape; \code{1} is the fitted model.}
+\item{\code{"add"}}{one grid added to every cell, so the schedule keeps
+the differences between cells; \code{0} is the fitted model.}
+\item{\code{"value"}}{one grid; every cell takes that value.}
+}
+A joint mode needs \code{values} to be one vector, and
+\code{"multiply"}/\code{"add"} work in natural units, so \code{transform}
+must be \code{"log"} or \code{"identity"}. A value that would take a
+log-scale parameter to zero or below is an error naming the cell, not a
+failed fit.
 }
 \examples{
 \donttest{
