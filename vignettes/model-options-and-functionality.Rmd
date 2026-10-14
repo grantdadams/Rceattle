@@ -131,6 +131,14 @@ Where year-specific diet data are not supplied (`Year = 0` in `diet_data`),
 suitability is averaged across `suit_styr:suit_endyr`, the full hindcast by
 default.
 
+A *predicted* diet needs estimated suitability **and** a predation model:
+`suitMode` 2, 4 or 6 with `msmMode > 0`. Under `suitMode = 0` the model reads
+suitability from `diet_data` rather than predicting stomach proportions, and
+under `msmMode = 0` no predation is computed at all, so in both cases there is
+no fitted diet to compare against. `residuals(source = "diet")`,
+`plot_diet_comp()`, `plot_diet_comp1()` and `plot_diet_comp2()` refuse on such a
+fit instead of reporting every observation as a complete misfit.
+
 ## 3. Selectivity (per fleet)
 
 > Equations: see vignette 8 [§Selectivity parameterizations](model-parameterizations.html#selectivity-parameterizations).

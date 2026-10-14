@@ -91,11 +91,14 @@ saved_files <- function(fit, fn, ...) {
     re = paste0("^p_comp_(pearson|annual_fleet[0-9]+_(age|length)",
                 "|aggregated_fleet[0-9]+_(age|length))[.]png$")),
   plot_diet_comp = list(
-    n = 9L, re = "^p_aggregated_diet_comps_year[0-9]+_Pred- .+_prey_.+[.]png$"),
+    n = 9L, re = "^p_aggregated_diet_comps_year[0-9]+_Pred- .+_prey_.+[.]png$",
+    fixture = "diet"),
   plot_diet_comp1 = list(
-    n = 9L, re = "^p_aggregated_diet_comps_year[0-9]+_Pred- .+_prey_.+[.]png$"),
+    n = 9L, re = "^p_aggregated_diet_comps_year[0-9]+_Pred- .+_prey_.+[.]png$",
+    fixture = "diet"),
   plot_diet_comp2 = list(
-    n = 9L, re = "^p_diet_bubble_Pred[0-9]+_Prey[0-9]+_Yr[0-9]+[.]png$"))
+    n = 9L, re = "^p_diet_bubble_Pred[0-9]+_Prey[0-9]+_Yr[0-9]+[.]png$",
+    fixture = "diet"))
 
 # Each needs something this fixture cannot supply. Anything exported and not
 # here must write a file.
@@ -112,6 +115,17 @@ saved_files <- function(fit, fn, ...) {
 }
 
 
+# The diet plotters read residuals(source = "diet"), which needs a predicted
+# diet: msmMode > 0 AND estimated suitability. The fixture above is msmMode = 0,
+# where diet_hat is structurally zero and the plotters refuse.
+.save_fixture_diet <- function() {
+  data("BS2017MS", package = "Rceattle", envir = environment())
+  suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = BS2017MS, estimateMode = 3, msmMode = 1, suitMode = 4,
+    fit_control = Rceattle::fit_control(verbose = 0))))
+}
+
+
 testthat::test_that("every plotter writes the file names it writes today", {
   testthat::skip_if_not_installed("TMB")
   ss <- .save_fixture()
@@ -124,9 +138,15 @@ testthat::test_that("every plotter writes the file names it writes today", {
     testthat::expect_gt(got$sizes[1], 1000, label = paste(fn, "file size"))
   }
 
+  diet_fit <- NULL
   for (fn in names(.SAVE_MANY)) {
     spec <- .SAVE_MANY[[fn]]
-    got <- saved_files(ss, fn)
+    fit <- ss
+    if (identical(spec$fixture, "diet")) {
+      if (is.null(diet_fit)) diet_fit <- .save_fixture_diet()
+      fit <- diet_fit
+    }
+    got <- saved_files(fit, fn)
     testthat::expect_length(got$names, spec$n)
     testthat::expect_equal(got$names[!grepl(spec$re, got$names)],
                            character(0), info = fn)
