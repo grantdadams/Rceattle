@@ -1,24 +1,20 @@
 // =====================================================================
 // linkage.hpp
 //
-// Generic accumulator for the Rceattle long-format linkage table. The R
-// side encodes the pooled `Rceattle_linkage_table` into parallel
-// IVECTORs/VECTORs and a dense design matrix `linkage_X`; this header
-// turns each row into a yearly coefficient contribution and accumulates
-// it into per-process tensors of year-varying offsets that the
-// recruitment, mortality, growth, catchability and selectivity modules
-// add to their linear-predictor parameters.
+// Turns each row of the Rceattle linkage table -- encoded by R into parallel
+// IVECTORs/VECTORs and the design matrix `linkage_X` -- into a tensor of
+// year-varying offsets that the recruitment, mortality, growth, catchability
+// and selectivity modules add to their parameters.
 //
-// Process and parameter codes are kept in lockstep with R/0-linkage_encode.R
+// Process and parameter codes are in lockstep with R/0-linkage_encode.R
 // (LINKAGE_PROCESS_CODES / LINKAGE_PARAM_CODES):
 //   PROC: recruitment=0, M=1, growth=2, q=3, sel=4, comp=5
 //   PARAM is a per-process namespace: growth K=0, L1=1, Linf=2, m=3
 //     (natural-scale names) plus the SD endpoints 4/5; M1=0 for M.
 //
-// Stratum sentinels: a 0 in `linkage_species`, `linkage_sex`, or
-// `linkage_age_bin` means "applies to every level of that stratum".
-// Otherwise the value is a 1-based index into 1..nspp / 1..nsex(sp) /
-// 1..nages(sp).
+// A stratum id of 0 in `linkage_species`, `linkage_sex`, `linkage_age_bin` or
+// `linkage_fleet` applies the row to every level of that stratum; otherwise it
+// is a 1-based index into that stratum's levels.
 // =====================================================================
 #ifndef RCEATTLE_LINKAGE_HPP
 #define RCEATTLE_LINKAGE_HPP
@@ -31,13 +27,12 @@
 #define RCEATTLE_PROC_SEL     4
 #define RCEATTLE_PROC_COMP    5   // prior-only: DM composition-weighting overdispersion
 
-// Number of growth parameters tracked in the offset tensor
-// (log_K, log_L1, log_Linf, log_m).
+// Growth parameters in the offset tensor: log_K, log_L1, log_Linf, log_m.
 #define RCEATTLE_N_GROWTH_PARAMS 4
 
-// Number of recruitment parameters tracked in the offset tensor
-// (R0, alpha, beta -- natural-scale names; stored as log_R0 etc. in TMB -- plus
-// R_init, the initial recruitment level, which is read at year 0 only).
+// Recruitment parameters in the offset tensor: R0, alpha and beta, held on the
+// log scale in `rec_pars`, plus R_init, the initial recruitment level, read at
+// year 0 only.
 #define RCEATTLE_N_REC_PARAMS 4
 #define RCEATTLE_REC_R0    0
 #define RCEATTLE_REC_ALPHA 1
@@ -47,9 +42,8 @@
 /**
  * @brief Expand a stratum sentinel id into the half-open iteration range [lo, hi).
  *
- * A stratum id of 0 means "applies to every level of this stratum"; otherwise it
- * is a 1-based index. The range is clamped to the levels this species actually
- * has (e.g. a sex-2 row applied to a single-sex stock resolves to an empty range).
+ * Clamped to the levels this species actually has, so a sex-2 row on a
+ * single-sex stock resolves to an empty range.
  *
  * @param id 1-based stratum id, or 0 for "all levels".
  * @param n_levels Number of levels this stratum has for the current species.
@@ -70,22 +64,19 @@ inline void rceattle_stratum_range(int id, int n_levels, int& lo, int& hi) {
 //
 // `link_code` picks which rows a call consumes: 1 = log (added inside the exp),
 // 0 = identity (added to the natural-scale value after it), 3 = exponential
-// (MULTIPLIES the log, raising the parameter to exp(beta * x); catchability
-// only). The consumer combines them as
-//   exp((log_base + log_offset) * exp(log_mult) + dev) + nat_offset.
+// (MULTIPLIES the log, raising the parameter to exp(beta * x); catchability only,
+// where index_q = exp((index_log_q + log_offset) * exp(log_mult) + dev) + nat_offset).
 // Years past linkage_X.rows() keep a zero offset, so env_data need not span the
-// projection. See vignette("environmental-linkages-and-priors") for the
-// exponential link.
+// projection. See vignette("environmental-linkages-and-priors").
 // ---------------------------------------------------------------------
 
 
 /**
- * @brief Accumulate growth linkage offsets into the growth offset tensor.
+ * @brief Accumulate growth offsets into `growth_offset[sp, sex, yr, param]`.
  *
- * For each growth linkage row consumed on this link scale, expand the stratum
- * sentinels and add `beta * X(yr, col)` into `growth_offset[sp, sex, yr, param]`
- * for every (species, sex, year) the row applies to. Growth is not age-stratified.
- * See the block comment above for the two-scale (log / identity) consume convention.
+ * Not age-stratified, so the age_bin sentinel is ignored. The growth SD codes
+ * (sd_L1 = 4, sd_Linf = 5) are skipped by the param-range guard below: they
+ * live on `growth_log_sd` and consume intercept rows only.
  *
  * @param growth_offset [in,out] Offset tensor [nspp, max_sex, nyrs, n_growth_params].
  * @param link_code Link scale to consume (1 = log, 0 = identity).
@@ -143,11 +134,9 @@ void rceattle_apply_growth_linkages(
 
 
 /**
- * @brief Accumulate natural-mortality (log_M1) linkage offsets.
+ * @brief Accumulate natural-mortality offsets into `M_offset[sp, sex, age, yr]`.
  *
- * Adds `beta * X(yr, col)` into `M_offset[sp, sex, age_bin, yr]` for every
- * (species, sex, age_bin, year) each consumed M row applies to. Age-stratified
- * (unlike growth); only log_M1 is exposed as a target so far.
+ * Age-stratified, unlike growth; `log_M1` (M1 = 0) is the only param code.
  *
  * @param M_offset [in,out] Offset tensor [nspp, max_sex, max_age, nyrs].
  * @param link_code Link scale to consume (1 = log, 0 = identity).
@@ -206,12 +195,11 @@ void rceattle_apply_M_linkages(
 
 
 /**
- * @brief Accumulate recruitment linkage offsets (R0 / alpha / beta).
+ * @brief Accumulate recruitment offsets into `rec_offset[sp, param, yr]`.
  *
- * Adds `beta * X(yr, col)` into `rec_offset[sp, param, yr]` for every
- * (species, year) each consumed recruitment row applies to. Recruitment happens
- * at age 0 with no sex stratification on the parameter itself (sex_ratio splits
- * recruits downstream), so the sex / age_bin sentinels are accepted and ignored.
+ * Recruitment happens at age 0 with no sex stratification on the parameter
+ * itself (`sex_ratio` splits recruits downstream), so the sex and age_bin
+ * sentinels are ignored. Param codes R0 = 0, alpha = 1, beta = 2, R_init = 3.
  *
  * @param rec_offset [in,out] Offset tensor [nspp, n_rec_params, nyrs].
  * @param link_code Link scale to consume (1 = log, 0 = identity).
@@ -264,12 +252,11 @@ void rceattle_apply_recruitment_linkages(
 
 
 /**
- * @brief Accumulate catchability (q) linkage offsets.
+ * @brief Accumulate catchability offsets into `q_offset[fleet, yr]`.
  *
- * Adds `beta * X(yr, col)` into `q_offset[fleet, yr]` for every (fleet, year)
- * each consumed q row applies to. Catchability is indexed by fleet rather than
- * species/sex/age (a fleet already implies its species through fleet_control),
- * so those sentinels are accepted and ignored; only q itself is exposed.
+ * Indexed by fleet rather than species/sex/age -- a fleet already implies its
+ * species through `fleet_control` -- so those sentinels are ignored, and `q`
+ * (q = 0) is the only param code.
  *
  * @param q_offset [in,out] Offset matrix [n_flt, nyrs].
  * @param link_code Link scale to consume (1 = log, 0 = identity).
@@ -323,12 +310,11 @@ void rceattle_apply_q_linkages(
 
 
 /**
- * @brief Accumulate selectivity linkage offsets into three parameter-family tensors.
+ * @brief Accumulate selectivity offsets into the five parameter-family tensors.
  *
- * Fills one of three offset tensors per row, routed by the row's param code, for
- * every (fleet, sex, year) the row applies to. Selectivity is indexed by fleet
- * and sex (mirroring is collapsed by the TMB map, so the parameter arrays are
- * effectively per-fleet). Called once per link scale, like the other processes.
+ * Routed by the row's param code, for every (fleet, sex, year) the row applies
+ * to. The tensors are dimensioned per fleet and sex; fleets sharing a
+ * `Selectivity_index` are collapsed onto one parameter block by the TMB map.
  *
  * Param codes: `0`/`1` -> log_sel_slp[asc/desc] (`slp_offset`);
  *              `2`/`3` -> sel_inf[asc/desc]      (`inf_offset`);
