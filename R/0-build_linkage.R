@@ -21,6 +21,8 @@
 NULL
 
 
+# linkage_spec() ----
+
 #' Capture a linkage specification
 #'
 #' @param formula one-sided R formula whose RHS describes the linear
@@ -302,6 +304,8 @@ linkage_spec <- function(formula,
 }
 
 
+# Spec validators ----
+
 #' Generic linkage-list validator used by `build_*()` helpers
 #'
 #' Each `build_*()` function has near-identical validation:
@@ -472,6 +476,8 @@ linkage_spec <- function(formula,
 }
 
 
+# Argument coercion ----
+
 #' Accept `intercept` as a spelling of the design column `(Intercept)`
 #'
 #' `init` / `bounds` / `priors` are keyed by design-matrix column name. Every
@@ -532,6 +538,8 @@ linkage_spec <- function(formula,
   }
   sex
 }
+
+# Strata ----
 
 #' Coerce a `species` / `fleet` selector to ids-or-names.
 #'
@@ -721,6 +729,8 @@ linkage_spec <- function(formula,
 }
 
 
+# Priors ----
+
 #' Resolve the prior to apply on a specific (column, species, sex) row.
 #'
 #' Walks the nested `priors` list: scalar -> applies to all,
@@ -757,6 +767,8 @@ linkage_spec <- function(formula,
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
 
+# print() ----
+
 #' @export
 print.Rceattle_linkage_spec <- function(x, ...) {
   cat("<Rceattle linkage spec>\n")
@@ -787,6 +799,8 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   invisible(x)
 }
 
+
+# materialize_linkage() ----
 
 #' Materialize a linkage spec into linkage-table rows
 #'
@@ -1175,6 +1189,8 @@ materialize_linkage <- function(spec, process, env_data, strata = list(), quiet 
 }
 
 
+# Random-effect design ----
+
 #' Build the indicator design for random-effect (bar) terms
 #'
 #' @description
@@ -1304,6 +1320,8 @@ materialize_linkage <- function(spec, process, env_data, strata = list(), quiet 
 }
 
 
+# Environmental data ----
+
 #' Drop env_data rows outside the model years
 #'
 #' Linkages align env_data by position (row r -> model year styr + r - 1), so a
@@ -1431,6 +1449,8 @@ materialize_linkage <- function(spec, process, env_data, strata = list(), quiet 
   invisible()
 }
 
+
+# pool_linkages() ----
 
 #' Pool a collection of linkage specs into a global table + design matrix
 #'
@@ -1562,6 +1582,8 @@ pool_linkages <- function(spec_groups, env_data, strata = list(), quiet = FALSE)
   )
 }
 
+
+# Random-effect registry ----
 
 #' Assign the random-effect registry on a pooled linkage table
 #'

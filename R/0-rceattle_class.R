@@ -1,3 +1,8 @@
+# S3 methods for the `Rceattle` class: what a fitted model prints, plots and
+# hands back as a data frame, plus the residual machinery behind residuals().
+
+# Fit methods: print, summary, plot, coef, vcov, logLik ----
+
 #' Print method for fitted Rceattle models
 #'
 #' Provides a compact summary so that auto-printing inside R Markdown /
@@ -299,6 +304,8 @@ logLik.Rceattle <- function(object, ...) {
   ll
 }
 
+
+# residuals() ----
 
 #' Residuals from an Rceattle fit
 #'
@@ -700,6 +707,8 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 }
 
 
+# Residual helpers ----
+
 #' The composition proportion offset the fit used
 #'
 #' Added to both observed and fitted proportions before every composition
@@ -1076,6 +1085,8 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 }
 
 
+# Confidence intervals ----
+
 # Confidence bounds for a derived series, shared by as.data.frame.Rceattle()
 # and plot_timeseries() so the table and the figure cannot disagree.
 #
@@ -1115,6 +1126,8 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 }
 
 
+# Quantity registry ----
+
 # Catalogue of derived quantities that as.data.frame.Rceattle() can extract,
 # keyed by REPORT name, with their shape: "sy" = matrix(nspp, nyrs);
 # "ssay" = array(nspp, max_sex, max_age, nyrs). Quantities that are also
@@ -1146,6 +1159,8 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   NByageF             = list(shape = "ssay", adreport = FALSE)
 )
 
+
+# as.data.frame() ----
 
 #' Tidy long-format derived quantities from an Rceattle fit
 #'
@@ -1322,6 +1337,8 @@ as.data.frame.Rceattle <- function(x,
   do.call(rbind, c(unname(out), list(make.row.names = FALSE)))
 }
 
+
+# simulate() ----
 
 #' Simulate data from a fitted Rceattle model
 #'
