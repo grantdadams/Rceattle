@@ -116,7 +116,9 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
 testthat::test_that("Equilibrium MSVPA suitability dynamics match", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
-  testthat::skip() # Haven't figured out quite why there is a minor difference, maybe bias in diet weighting? Old EBS CEATTLE still matches
+  # This block averages the diet over one window and leaves the model averaging
+  # over another (suit_styr/suit_endyr); aligning them agrees to 1e-13 (#243).
+  testthat::skip("see issue #243: the diet and suitability windows disagree")
 
   # Prepare small deterministic dataset using helper
   #source(file.path("tests", "testthat", "helpers.R"))
