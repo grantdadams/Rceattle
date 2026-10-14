@@ -12,6 +12,53 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.60.2
+
+## Documentation
+
+* **The `src/TMB/` comment surface is condensed and corrected**: 3,130 comment
+  lines to 2,707 (-423, 13.5%) across all twelve translation units. **No code
+  changed.** Three independent checks agree, each with a positive control proving
+  it detects a one-token mutation: a string-literal-aware comment stripper,
+  `clang -E -P` output per translation unit, and a purpose-written C++ tokenizer
+  (56,498 tokens per side, identical SHA-256). `/golden-check` is not engaged,
+  because nothing the compiler sees moved.
+
+* **Corrections a reader would have acted on.** `selectivity.hpp` said every
+  selectivity form takes annual deviates and linkage offsets: the coefficient
+  forms (2, 5, 6, 7, 9, 13) take no offset -- `build_selectivity()` refuses one,
+  because mean-centring cancels it -- and `DoubleNormalSS3` (15) has no deviate
+  array at all. `growth.hpp`'s Richards within-year branch carried the **von
+  Bertalanffy** closed form, describing a different growth curve from the one the
+  line computes. Five `DATA_IMATRIX` column lists in `ceattle.cpp` named
+  `Fishery_name` / `Survey_code`, columns those matrices do not have. `init_dev`
+  was called a deviation throughout, but under `initMode = 0` it *is* the log
+  initial numbers-at-age and no density scores it. `recruitment.hpp` described
+  `srr_fun` 1, 3 and 5 as carrying environmental effects; they are retired
+  aliases of 0, 2 and 4 that `build_srr()` refuses.
+
+* **Two things the code does that nothing said.** `construct_Q`'s `Omega` is a
+  precision, not a covariance, and its `rho_y` / `rho_a` parameters act on the
+  opposite axes from their names -- the sole caller passes them in the
+  compensating order, so no fit is wrong, and both halves are now written down.
+  `growth_plus_length = 4` advances a Richards species along the von Bertalanffy
+  increment.
+
+* **Units and conventions supplied where they were missing**: numbers-at-age in
+  thousands times weight-at-age in kg is metric tons, `other_food` is mt, and a
+  larger available-food denominator gives *less* predation mortality. `nages` is
+  a count of age bins rather than of age classes (rule 11), and `selectivity.hpp`
+  now records that its x variable is the 1-based bin ordinal with `minage` never
+  added.
+
+* **What was deliberately left alone.** Two `LEGACY (scheduled removal: v4.5.0)`
+  markers and the commented-out `avgnMode` / `est_diet` declarations stay: the
+  5.49.5 entry and `inst/dev/REMOVED-kinzey-and-dev-cpp.md` record them as
+  pending a decision rather than a sweep, and six live cross-references in
+  `inst/dev/TRAPS.md`, two tests and `R/7-plot_ceattle.R` read them. The numbered
+  section index and all 125 section numbers are untouched, since other files cite
+  them.
+
 # Rceattle 5.60.1
 
 ## Documentation

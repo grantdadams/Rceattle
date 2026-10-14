@@ -2,14 +2,11 @@
 /**
  * @file helper_functions.hpp
  * @brief Small differentiable (AD-safe) utilities used across the CEATTLE
- *   template: integer max (imax), positive-constraint penalty (posfun),
- *   Dirichlet-multinomial density (ddirmultinom), correlation transform
- *   (rho_trans), NA / finite tests, square, first_difference, a differentiable
- *   pairwise max (max2), and the separable year x age x cohort GMRF
- *   precision-matrix constructor (construct_Q).
+ *   template: numeric guards and transforms, the Dirichlet-multinomial density,
+ *   and the separable year x age x cohort GMRF precision matrix (construct_Q).
  */
 
-// Function for getting max of an IVECTOR and return an int
+// Max of an IVECTOR, returned as an int.
 template <class Type>
 Type imax(const vector<Type> &x)
 {
@@ -23,13 +20,14 @@ Type imax(const vector<Type> &x)
   return res;
 }
 
-// Function to maintain > limit
+// Smooth positive constraint: returns x where x >= eps, otherwise a value in
+// (0, eps), and adds a quadratic penalty for the shortfall.
 template<class Type>
 Type posfun(Type x, Type eps, Type &penalty) {
   Type denom = 2;
   denom -= x/eps;
-  Type ans = CppAD::CondExpGe(x, eps, x, eps/denom);   // tune a new candidate x given eps
-  penalty += CppAD::CondExpGe(x, eps, Type(0), 0.01 * (x - eps) * (x - eps));  // penalize via x vs eps
+  Type ans = CppAD::CondExpGe(x, eps, x, eps/denom);
+  penalty += CppAD::CondExpGe(x, eps, Type(0), 0.01 * (x - eps) * (x - eps));
   return ans;
 }
 
@@ -54,21 +52,18 @@ Type rho_trans(Type x){
 }
 
 
-// Function for detecting NAs
 template<class Type>
 bool isNA(Type x){
   return R_IsNA(asDouble(x));
 }
 
 
-// Function for detecting Inf
 template<class Type>
 bool isFinite(Type x){
   return R_finite(asDouble(x));
 }
 
 
-//  Function to getting sqaure
 template <class Type> Type square(Type x){return x*x;}
 
 
@@ -76,18 +71,17 @@ template <class Type> Type square(Type x){return x*x;}
  * @brief Concentrated (analytical) sd of a lognormal observation likelihood.
  *
  * Catch and index observations are fit as
- * `log(obs) ~ N(log(pred) - b * sigma^2 / 2, sigma)`, where `b` is the
- * bias-adjustment flag `bias_adjust_obs` (1 = predictions are mean-unbiased,
+ * `log(obs) ~ N(log(pred) - b * sigma^2 / 2, sigma)`, with `b` the
+ * bias-adjustment flag `bias_adjust_obs` (1 = mean-unbiased predictions,
  * Rceattle's default; 0 = median-unbiased). Minimising that density over sigma
  * with `S` = mean squared log residual gives
  *
  *   sigma^2 = 2 * S / (sqrt(1 + b^2 * S) + 1)
  *
- * which is the Walters and Ludwig (1994) estimator `sigma = sqrt(S)` when
- * `b = 0`, and shrinks it as the bias term takes up part of the residual. The
- * form above is the rationalised version of `2 (sqrt(1 + b^2 S) - 1) / b^2`;
- * it needs no branch at `b = 0` and stays accurate for small `b`, where that
- * expression cancels to zero.
+ * the Walters and Ludwig (1994) estimator `sigma = sqrt(S)` at `b = 0`, shrunk as
+ * the bias term takes up part of the residual. This is the rationalised form of
+ * `2 (sqrt(1 + b^2 S) - 1) / b^2`, which needs no branch at `b = 0` and stays
+ * accurate for small `b`, where that expression cancels to zero.
  *
  * @param mean_sq_resid  S, the mean of squared `log(obs) - log(pred)`.
  * @param bias_adjust    b, the bias-adjustment flag applied by the density.
@@ -101,7 +95,6 @@ Type concentrated_lognormal_sd(Type mean_sq_resid, Type bias_adjust)
 }
 
 
-// Function to calculate the first difference
 template <class Type>
 vector<Type> first_difference(const vector<Type> &x)
 {
@@ -109,7 +102,7 @@ vector<Type> first_difference(const vector<Type> &x)
 
   if(length <= 0){
     std::cerr << "Error -- vector size too small in first_difference()" << std::endl;
-    return vector<Type>(0); // explicit empty vector (was an ambiguous `return(0)`)
+    return vector<Type>(0); // no first difference exists below two elements
   }
 
   vector<Type> tmp(length);
@@ -122,7 +115,7 @@ vector<Type> first_difference(const vector<Type> &x)
 }
 
 
-// Function to get max of two values (differentiable)
+// Differentiable max of two values.
 // https://groups.google.com/g/tmb-users/c/QAVmgj66OC0
 template <class Type>
 Type max2(Type x, Type y){
@@ -139,10 +132,8 @@ Type max2(Type x, Type y){
  * level is otherwise unidentified is held at mean selectivity 1. Summed directly,
  * exp() overflows to infinity once a coefficient passes about 709 -- the largest
  * argument it takes in double precision -- and the objective is NaN from there on.
- * Subtracting the largest coefficient first holds every exponent at or below 0, so
- * the sum is at most the number of bins whatever the coefficients are.
- *
- * The shift cancels out of both the result and its derivative.
+ * Subtracting the largest coefficient first holds every exponent at or below 0,
+ * and the shift cancels out of both the result and its derivative.
  *
  * @param x non-empty vector of log-scale values.
  * @return log of the mean of exp(x).
@@ -163,52 +154,55 @@ Type log_mean_exp(const vector<Type> &x)
 /**
  * @brief Construct a sparse GMRF precision matrix separable along year, age, and cohort.
  *
- * Builds Q = (I - B^T) * Omega * (I - B), where B carries the partial
- * correlations by year (rho_y), age (rho_a), and cohort (rho_c), and Omega is
- * the diagonal (co)variance. `Var_Param` selects the conditional (0) or marginal
- * (1) variance parameterization of the GMRF.
+ * Builds Q = (I - B^T) * Omega * (I - B), where B carries the partial correlation
+ * to each neighbouring node and Omega is the diagonal precision (1 / variance).
+ * `Var_Param` selects the conditional (0) or marginal (1) variance
+ * parameterization of the GMRF.
+ *
+ * The sole caller reads these names the other way round: ceattle.cpp's 3D-AR1
+ * selectivity passes its (bin, year, cohort) correlations in and fills `ay_Index`
+ * as (bin, year), so the two inversions cancel. Read the note at that call before
+ * renaming anything here.
  *
  * @param n_years Number of years.
  * @param n_ages Number of ages.
  * @param ay_Index [total_n x 2] age/year index locating each node.
- * @param rho_y Partial correlation across years.
- * @param rho_a Partial correlation across ages.
- * @param rho_c Partial correlation across cohorts.
+ * @param rho_y Partial correlation to the node one back in `ay_Index` column 0.
+ * @param rho_a Partial correlation to the node one back in column 1.
+ * @param rho_c Partial correlation to the node one back in both -- the diagonal,
+ *   which is the cohort when the columns are filled (age, year).
  * @param log_sigma2 Log variance parameter governing the GMRF.
  * @param Var_Param 0 = conditional variance, 1 = marginal variance.
  * @return Sparse precision matrix [total_n x total_n], total_n = n_years * n_ages.
  */
 template<class Type>
-Eigen::SparseMatrix<Type> construct_Q(int n_years, // Integer of years
-                                      int n_ages, // Integer of ages
-                                      matrix<Type> ay_Index, // Index matrix to construct
-                                      Type rho_y, // Partial correlation by years
-                                      Type rho_a, // Partial correlation by ages
-                                      Type rho_c, // Partial correlation by cohort
-                                      Type log_sigma2, // Variance parameter governing GMRF
-                                      int Var_Param // Parameterization of Variance ==0 (Conditional), == 1(Marginal)
+Eigen::SparseMatrix<Type> construct_Q(int n_years,
+                                      int n_ages,
+                                      matrix<Type> ay_Index,
+                                      Type rho_y,
+                                      Type rho_a,
+                                      Type rho_c,
+                                      Type log_sigma2,
+                                      int Var_Param
 ) {
 
-  // Dimension to construct matrices
   int total_n = n_years * n_ages;
 
-  // Construct matrices for precision matrix
-  Eigen::SparseMatrix<Type> B(total_n,total_n); // B matrix
-  Eigen::SparseMatrix<Type> I(total_n,total_n); // Identity matrix
-  I.setIdentity(); // Set I to identity matrix
-  Eigen::SparseMatrix<Type> Omega(total_n,total_n); // Omega matrix (variances)
-  Eigen::SparseMatrix<Type> Q_sparse(total_n, total_n); // Precision matrix
+  Eigen::SparseMatrix<Type> B(total_n,total_n);
+  Eigen::SparseMatrix<Type> I(total_n,total_n);
+  I.setIdentity();
+  Eigen::SparseMatrix<Type> Omega(total_n,total_n);
+  Eigen::SparseMatrix<Type> Q_sparse(total_n, total_n);
 
   for(int n = 0; n < total_n; n++) {
 
-    // Define year and age objects
     Type age = ay_Index(n,0);
     Type year = ay_Index(n,1);
 
-    // Constructing B matrix to determine where the correlation pars should go
+    // B holds the partial correlation from node n to each of its neighbours.
     if(age > 1) {
 
-      // Get column index for years
+      // One step back in ay_Index column 0, same column 1.
       for(int n1 = 0; n1 < total_n; n1++) {
         if(ay_Index(n1, 0) == age - 1 && ay_Index(n1, 1) == year)
           B.coeffRef(n, n1) = rho_y;
@@ -218,7 +212,7 @@ Eigen::SparseMatrix<Type> construct_Q(int n_years, // Integer of years
 
     if(year > 1) {
 
-      // Get column index for years
+      // One step back in column 1, same column 0.
       for(int n1 = 0; n1 < total_n; n1++) {
         if(ay_Index(n1, 0) == age && ay_Index(n1, 1) == year - 1)
           B.coeffRef(n, n1) = rho_a;
@@ -228,17 +222,17 @@ Eigen::SparseMatrix<Type> construct_Q(int n_years, // Integer of years
 
     if(year > 1 && age > 1) {
 
-      // Get column index for years
+      // One step back in both columns: the diagonal (cohort) neighbour.
       for(int n1 = 0; n1 < total_n; n1++) {
         if(ay_Index(n1, 0) == age - 1 && ay_Index(n1, 1) == year - 1)
-          B.coeffRef(n,n1) = rho_c; // correlation by cohort
+          B.coeffRef(n,n1) = rho_c;
       } // n1 loop
 
     } // if both year and age > 1
 
   } // end n loop
 
-  // Fill in Omega matrix here (variances)
+  // Omega is diagonal and holds precisions, 1 / variance.
   if(Var_Param == 0) { // Conditional variance
 
     for(int i = 0; i < total_n; i++) {
@@ -252,30 +246,28 @@ Eigen::SparseMatrix<Type> construct_Q(int n_years, // Integer of years
 
   if(Var_Param == 1) { // Marginal Variance
 
-    // Construct container objects
-    matrix<Type> L(total_n, total_n); // L Matrix
-    matrix<Type> tmp_I_B = I-B; // Temporary Matrix to store I-B
-    L =  tmp_I_B.inverse(); // Invert to get L
-    vector<Type> d(total_n); // Store variance calculations
+    matrix<Type> L(total_n, total_n);
+    matrix<Type> tmp_I_B = I-B;
+    L =  tmp_I_B.inverse();
+    vector<Type> d(total_n);   // conditional variance per node
 
     for(int n = 0; n < total_n; n++) {
       if(n == 0) {
         d(n) = exp(log_sigma2); // marginal variance parameter
       } else{
 
-        Type cumvar = 0; // Cumulative Variance Container
+        Type cumvar = 0;
 
         for(int n1 = 0; n1 < n; n1++) {
           cumvar += L(n, n1) * d(n1) * L(n, n1);
         } // n1 loop
 
-        // Calculate diagonal values for omega
+        // Set d(n) so node n's MARGINAL variance comes out at exp(log_sigma2).
         d(n) = (exp(log_sigma2) - cumvar) / pow(L(n, n), 2);
 
       } // else loop
     } // n loop
 
-    // Now fill in our diagonals for Omega
     for(int i = 0; i < total_n; i++) {
       for(int j = 0; j < total_n; j++) {
         if(i == j) Omega.coeffRef(i,j) = 1/d(i);
@@ -285,10 +277,8 @@ Eigen::SparseMatrix<Type> construct_Q(int n_years, // Integer of years
 
   } // end if marginal variance
 
-  // Now, do calculations to construct (Q = (I - t(B)) %*% Omega %*% (I-B))
-  Eigen::SparseMatrix<Type> B_transpose = B.transpose(); // transpose B matrix
+  Eigen::SparseMatrix<Type> B_transpose = B.transpose();
 
-  // Calculate Precision Matrix
   Q_sparse = (I - B_transpose) * Omega * (I-B);
 
   return(Q_sparse);

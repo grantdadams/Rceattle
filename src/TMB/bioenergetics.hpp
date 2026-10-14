@@ -15,7 +15,7 @@
  * @param nyrs       Number of years.
  * @param Ceq        Vector specifying which consumption equation to use for each species.
  * @param Cindex     Vector specifying which environmental index drives each species.
- * @param Qc         Bioenergetics parameter (QC value / intercept).
+ * @param Qc         Bioenergetics parameter: Q coefficient in equations 1-2, a temperature in 3.
  * @param Tcm        Bioenergetics parameter (Thermal max).
  * @param Tco        Bioenergetics parameter (Thermal optimum).
  * @param Tcl        Bioenergetics parameter (Thermal limit for Thornton/Lessem).
@@ -37,8 +37,8 @@ void calculate_temperature_function(matrix<Type> &fT,
                                     const vector<Type> &CK4,
                                     const matrix<Type> &env_index) {
 
-  // Pre-allocate temporary variables used in Kitchell and Thornton/Lessem equations
-  // Hoisted out of the loops to optimize memory allocation on the AD tape
+  // Kitchell and Thornton/Lessem intermediates, hoisted out of the loops to keep the
+  // AD tape small.
   Type Yc = 0.0;
   Type Zc = 0.0;
   Type Vc = 0.0;
@@ -52,10 +52,10 @@ void calculate_temperature_function(matrix<Type> &fT,
 
   for(int sp = 0; sp < nspp; sp++) {
 
-    // Equations 1-3 read one column of env_index; equation 4 reads none. Cindex
-    // is 0-based here (ceattle.cpp decrements the 1-based input). With no column
-    // to read, consumption takes equation 4's constant fT = 1 -- the model is
-    // built without bounds checking, so the read would return adjacent memory.
+    // Equations 1-3 read one column of env_index; equation 4 reads none. Cindex is
+    // 0-based here (ceattle.cpp decrements the 1-based input), and an out-of-range
+    // column would read adjacent memory (the model is built without bounds
+    // checking), so with no column to read consumption takes equation 4's fT = 1.
     bool has_env = (Cindex(sp) >= 0) && (Cindex(sp) < env_index.cols());
     int  eq      = has_env ? Ceq(sp) : 4;
 
@@ -91,9 +91,8 @@ void calculate_temperature_function(matrix<Type> &fT,
         break;
 
       default:
-        // Ceq outside 1-4 (data_check() refuses it). fT = 1 rather than the zero
-        // left by initialization, which would silently zero consumption and,
-        // under multispecies, predation mortality with it.
+        // Ceq outside 1-4, which data_check() refuses. fT = 1 rather than the zero from
+        // initialization, which would silently zero consumption and M2 with it.
         fT(sp, yr) = 1.0;
         break;
       }
@@ -103,26 +102,24 @@ void calculate_temperature_function(matrix<Type> &fT,
 
 
 /**
- * @brief Calculates the historic daily and annual ration for predators.
+ * @brief Calculates the annual ration of a predator at age, in kg per predator per year.
  *
- * This function calculates the amount of food consumed by a predator of a specific
- * age and sex in a given year. It updates both the `consumption_at_age` and `ration`
- * arrays in place. It supports either full bioenergetics equations (Ceq < 4) or
- * direct empirical input of annual ration (Ceq == 4).
+ * Updates `consumption_at_age` in place, from the bioenergetics equations (Ceq 1-3) or
+ * from directly input consumption (Ceq 4).
  *
  * @param consumption_at_age Array updated with individual consumption (kg/yr) [nspp, max_sex, max_age, nyrs].
  * @param nspp               Total number of species in the model.
  * @param nyrs               Total number of years (hindcast + forecast).
  * @param nyrs_hind          Number of years in the hindcast period.
  * @param nsex               Vector containing the number of sexes modeled for each species.
- * @param nages              Vector containing the number of age classes for each species.
+ * @param nages              Number of age bins per species.
  * @param Ceq                Vector specifying the consumption equation type for each species.
  * @param CA                 Vector of intercepts for the allometric mass function (Cmax = CA * W^(1+CB)).
  * @param CB                 Vector of slopes for the allometric mass function.
  * @param fday               Vector of the number of foraging days per year for each species.
  * @param Pvalue             Vector of the proportion of maximum consumption (scales Cmax).
  * @param fT                 Matrix of the temperature-dependence function [nspp, nyrs].
- * @param ration_data        Array of empirical relative-foraging rates or input ration limits.
+ * @param ration_data        Relative foraging rates (Ceq 1-3), or input consumption (Ceq 4).
  * @param weight_hat         Array of estimated weight-at-age [n_wt_indices, max_sex, max_age, nyrs].
  */
 template <class Type>
@@ -146,20 +143,20 @@ void calculate_ration(array<Type> &consumption_at_age,
       for(int age = 0; age < nages(sp); age++) {
         for(int yr = 0; yr < nyrs; yr++) {
 
-          // Use the last hindcast year's ration data for forecast years
+          // Projection years reuse the last hindcast year's ration data.
           int yr_ind = (yr < nyrs_hind) ? yr : (nyrs_hind - 1);
 
           if(Ceq(sp) < 4){
             int wt_idx_pop = 2 * sp;
 
-            // Step 1: Calculate max consumption (C_max * f(T) * weight * fday) in grams/predator/year
+            // Cmax * fT * fday in grams/predator/year; weight_hat is kg, so x1000 gives grams.
             consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(weight_hat(wt_idx_pop, sex, age, yr) * Type(1000.0), 1.0 + CB(sp)) * fT(sp, yr) * fday(sp);
 
-            // Step 2: Scale by Pvalue and ration_data, then convert to kg/yr
+            // Scale by Pvalue and the relative foraging rate, then grams to kg.
             consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * ration_data(sp, sex, age, yr_ind) / 1000.0;
           }
 
-          // If Ceq == 4, bypass bioenergetics and use empirical inputs directly
+          // Ceq 4 bypasses bioenergetics: input consumption, scaled by Pvalue.
           if(Ceq(sp) == 4){
             consumption_at_age(sp, sex, age, yr) = Pvalue(sp) * ration_data(sp, sex, age, yr_ind);
           }
