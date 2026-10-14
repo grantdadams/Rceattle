@@ -105,8 +105,16 @@ NULL
 #'   latent tracks it exactly and a free `obs_sd` collapses toward 0.
 #' @param integrate whether the random effect's deviations are integrated out by
 #'   the Laplace approximation, default `TRUE`. `FALSE` estimates them as a
-#'   **penalized fixed effect** instead: the deviations stay in the objective as
-#'   a plain penalty and are reported with standard errors. That reproduces the
+#'   penalized fixed effect instead; see Details for when that is permitted.
+#'
+#' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
+#'   random-effect deviation SD and, for `ar1`, the correlation. `sigma` means
+#'   different things by structure -- the innovation (per-step) SD for `rw()`,
+#'   the marginal (stationary) SD for `ar1()` -- so the two are not comparable
+#'   across structures; see `vignette("environmental-linkages-and-priors")`.
+#'
+#'   `integrate = FALSE` leaves the deviations in the objective as a plain
+#'   penalty and reports them with standard errors. That reproduces the
 #'   ADMB/AMAK convention behind the legacy `Time_varying_sel` /
 #'   `Time_varying_q` switches, which a Laplace-integrated `rw()` cannot match,
 #'   because the marginal likelihood carries a log-determinant term the
@@ -114,12 +122,6 @@ NULL
 #'   (`init = list(sigma = )`, no `sigma` prior, plus a fixed `rho` for `ar1`),
 #'   since estimating deviations and their SD jointly as fixed effects is
 #'   degenerate, and never with `observe`, which must stay integrated.
-#'
-#' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
-#'   random-effect deviation SD and, for `ar1`, the correlation. `sigma` means
-#'   different things by structure -- the innovation (per-step) SD for `rw()`,
-#'   the marginal (stationary) SD for `ar1()` -- so the two are not comparable
-#'   across structures; see `vignette("environmental-linkages-and-priors")`.
 #'
 #' @return An `Rceattle_linkage_spec` object.
 #' @examples

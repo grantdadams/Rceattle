@@ -16,34 +16,10 @@ profile_components(
 \item{object}{An \code{"Rceattle_profile"} object from \code{\link[=profile.Rceattle]{profile.Rceattle()}}.}
 
 \item{weighted}{Report the weighted components the optimizer minimized
-(\code{TRUE}, the default) or the unweighted ones (\code{FALSE}). Conflict is
-normally read off the weighted components, since those are what moved the
-fit. \code{unweighted_jnll_comp} exists so Francis and McAllister-Ianelli can
-read a composition likelihood without its \code{Comp_weights} multiplier, so
-only the rows carrying such a multiplier are filled -- composition, CAAL,
-stomach content and the two linkage rows. Every other row is zero there and
-is dropped as unfitted, so \code{weighted = FALSE} returns a much smaller set:
-the index, catch, selectivity, catchability and penalty components are
-absent, not flat.}
+(\code{TRUE}, the default) or the unweighted ones (\code{FALSE}). See Details.}
 
-\item{relative}{How to place each series on the y axis.
-\describe{
-\item{\code{"own"}}{(default) subtract each series' own minimum, so every
-curve starts at zero and its minimum marks the value that component
-prefers. Objective units, so depth still says how strongly.}
-\item{\code{"scaled"}}{as \code{"own"}, then divide by each series' own change over
-the grid, so every curve runs 0 to 1. Use it where one component
-dwarfs the rest and flattens them onto the axis. It \strong{discards
-magnitude} -- a component moving 0.02 draws like one moving 40 -- so
-raise \code{minfraction} with it. A series that does not move stays at zero.}
-\item{\code{"minimum"}}{subtract each series' value at the grid point where
-the total is lowest, showing each component's change away from the
-fitted optimum.}
-\item{\code{"none"}}{the raw negative log-likelihoods.}
-}
-\code{minfraction} and the series ordering are always computed on the raw change
-over the grid, before any of this, so \code{"scaled"} cannot quietly disable the
-filter by making every span 1.}
+\item{relative}{How to place each series on the y axis: \code{"own"} (default),
+\code{"scaled"}, \code{"minimum"} or \code{"none"}. See Details.}
 
 \item{minfraction}{Drop components whose change over the grid is less than
 this fraction of the total's change, as in \code{r4ss::SSplotProfile()}. Default
@@ -90,6 +66,35 @@ says so when they differ. Compare the shapes, not the sums.
 
 \strong{Non-converged grid points} keep their row with a value of \code{NA}, so a
 failed fit leaves a gap in the curve rather than a segment drawn across it.
+
+\strong{Weighted or unweighted components} (\code{weighted}). Conflict is normally read
+off the weighted components, since those are what moved the fit.
+\code{unweighted_jnll_comp} exists so Francis and McAllister-Ianelli can read a
+composition likelihood without its \code{Comp_weights} multiplier, so only the
+rows carrying such a multiplier are filled -- composition, CAAL, stomach
+content and the two linkage rows. Every other row is zero there and is
+dropped as unfitted, so \code{weighted = FALSE} returns a much smaller set: the
+index, catch, selectivity, catchability and penalty components are absent,
+not flat.
+
+\strong{Placing each series on the y axis} (\code{relative}).
+\describe{
+\item{\code{"own"}}{(default) subtract each series' own minimum, so every curve
+starts at zero and its minimum marks the value that component prefers.
+Objective units, so depth still says how strongly.}
+\item{\code{"scaled"}}{as \code{"own"}, then divide by each series' own change over
+the grid, so every curve runs 0 to 1. Use it where one component dwarfs
+the rest and flattens them onto the axis. It \strong{discards magnitude} -- a
+component moving 0.02 draws like one moving 40 -- so raise \code{minfraction}
+with it. A series that does not move stays at zero.}
+\item{\code{"minimum"}}{subtract each series' value at the grid point where the
+total is lowest, showing each component's change away from the fitted
+optimum.}
+\item{\code{"none"}}{the raw negative log-likelihoods.}
+}
+\code{minfraction} and the series ordering are always computed on the raw change
+over the grid, before any of this, so \code{"scaled"} cannot quietly disable the
+filter by making every span 1.
 }
 \examples{
 \donttest{
