@@ -45,12 +45,14 @@ version throughout.
   absence means a hand-built list or a fit predating the field, and refusing there would break a
   saved fit rather than catch a misreading.
 
+# Rceattle 5.60.1
+
 ## Documentation
 
 * **Seven `@param` entries across five help pages had grown into mini-vignettes; each now gives
-  the argument's meaning, allowed values and default, with the rest under Details**: `param` and
-  `joint` in `profile.Rceattle()`, `weighted` and `relative` in `profile_components()`, `start`
-  in `self_test()`, `M1_re` in `build_M1()` and `integrate` in `linkage_spec()`. The longest ran
+  the argument's meaning, allowed values and default, with the rest under Details**: `param` and `joint` in
+  `profile.Rceattle()`, `weighted` and `relative` in `profile_components()`, `start` in
+  `self_test()`, `M1_re` in `build_M1()` and `integrate` in `linkage_spec()`. The longest ran
   18 lines. Nothing was rewritten -- the prose moved verbatim, so every claim it made is still
   on the page, in Details rather than in the Arguments table. Allowed-value lists stayed in
   `@param` where that is what they are: `build_hcr()`'s `HCR` is ten lines because it has eight

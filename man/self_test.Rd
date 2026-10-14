@@ -50,21 +50,8 @@ magnitude from a zero gradient and be dropped as non-converged.
 fit, so a model fitted under the package default \code{phase = FALSE} is
 refitted unphased.}
 
-\item{start}{which parameter set each refit starts from. \code{"initial"}
-(default) uses \code{initial_params}, so the estimator travels the same
-distance to the optimum on simulated data as it did on the real data.
-\code{"estimated"} starts from the generating values instead -- the fixed
-effects, and under \code{random_rec = TRUE} the inner Laplace problem too
--- so it is much faster and far likelier to converge, but on a multimodal
-or weakly identified
-surface the optimizer never leaves the basin containing them, so recovery
-is close to guaranteed by construction. Read it as optimistic about
-recovery, not merely less powerful. It is not a complete warm start either
--- \code{fit_mod()} resets \code{log_Ftarget}, \code{proj_F_prop} and the
-stock-recruit \eqn{\alpha}/\eqn{\beta} under both settings -- and
-non-identifiability stays visible either way through
-\code{$convergence}'s Hessian conditioning and estimability checks. What a
-warm start stops testing is \emph{reachability}.}
+\item{start}{Which parameter set each refit starts from: \code{"initial"}
+(default) or \code{"estimated"}. See Details.}
 
 \item{debug}{return every simulation rather than only the converged ones. The
 dropped runs are the interesting ones when a self-test comes back short,
@@ -120,6 +107,22 @@ Simulates data from an Rceattle model and refits the model to
 the simulated data, to check that the fitting procedure recovers the
 operating-model parameters. Pass \code{process} to redraw a process as well as
 the observations.
+}
+\details{
+\strong{What \code{start} costs.} \code{"initial"} uses
+\code{initial_params}, so the estimator travels the same distance to the
+optimum on simulated data as it did on the real data. \code{"estimated"}
+starts from the generating values instead -- the fixed effects, and under
+\code{random_rec = TRUE} the inner Laplace problem too -- so it is much
+faster and far likelier to converge, but on a multimodal or weakly
+identified surface the optimizer never leaves the basin containing them, so
+recovery is close to guaranteed by construction. Read it as optimistic about
+recovery, not merely less powerful. It is not a complete warm start either --
+\code{fit_mod()} resets \code{log_Ftarget}, \code{proj_F_prop} and the
+stock-recruit \eqn{\alpha}/\eqn{\beta} under both settings -- and
+non-identifiability stays visible either way through \code{$convergence}'s
+Hessian conditioning and estimability checks. What a warm start stops
+testing is \emph{reachability}.
 }
 \section{Interpreting the spread}{
 

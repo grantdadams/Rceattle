@@ -85,6 +85,8 @@ LINKAGE_COLS <- c(
 )
 
 
+# Reserved sets and their checks ----
+
 #' Allowed values for fixed enum-like columns
 #' @keywords internal
 LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel", "comp")
@@ -166,6 +168,8 @@ LINKAGE_LINKS_IMPLEMENTED <- c("identity", "log", "exponential")
   invisible(link)
 }
 
+
+# Constructor and validator ----
 
 #' Construct an empty linkage table with the canonical schema
 #'
@@ -344,6 +348,8 @@ validate_linkage_table <- function(x) {
 }
 
 
+# linkage_row() ----
+
 #' Build a single linkage row
 #'
 #' Convenience constructor that returns a one-row linkage table with
@@ -467,6 +473,8 @@ linkage_row <- function(process, param, X_col,
 }
 
 
+# Row indices and slot scales ----
+
 #' Resolve a linkage row's stratum ids against per-species dimensions.
 #'
 #' A row's `species`, `sex`, and `age_bin` are integer ids or `NA` (which
@@ -521,6 +529,8 @@ linkage_row <- function(process, param, X_col,
   as.character(form) %in% c("Logistic", "DoubleLogistic", "DescendingLogistic")
 }
 
+
+# Shared and mirrored blocks ----
 
 #' Is this fleet a follower in a shared selectivity / catchability block?
 #'
@@ -753,6 +763,8 @@ linkage_row <- function(process, param, X_col,
   invisible()
 }
 
+# Argument validators ----
+
 .stop_unless_positive <- function(value, param, target) {
   if (!(value > 0)) {
     stop(sprintf(
@@ -777,6 +789,8 @@ linkage_row <- function(process, param, X_col,
   invisible()
 }
 
+
+# bind_linkage() and print ----
 
 #' Row-bind one or more linkage tables, preserving the schema
 #'
