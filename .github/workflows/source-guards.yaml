@@ -28,10 +28,11 @@
 # them on a source checkout, on every PR, and fails on the result -- in about
 # five seconds of R, though the dependency install in front of it costs minutes.
 #
-# NOTE: adding this workflow makes the check APPEAR on a pull request. It does
-# not make it required -- that is a branch-protection setting on
-# afsc-assessments/Rceattle for `main` and `dev`, and it is not in this repo as
-# code. Until it is marked required, a red result here does not stop a merge.
+# THIS CHECK IS REQUIRED on `main` and `dev`, by the ruleset "Require the guards
+# before merging". The ruleset names it by the string "registry and documentation
+# guards", so renaming the job below silently un-gates it. Rulesets are invisible
+# to the branch-protection endpoint -- `gh api repos/.../branches/dev/protection`
+# answers 404 "Branch not protected" -- so read `gh api repos/.../rulesets`.
 #
 # It fails on three conditions, because two of the three are how a guard dies
 # quietly: a guard failing; a guard returning NO RESULT ROWS (a file-level

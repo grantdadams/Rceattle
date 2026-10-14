@@ -937,10 +937,21 @@ some lets a neighbouring block's guard drift into range and satisfy it.
 `.github/workflows/R-CMD-check.yaml` sets step-level `NOT_CRAN: "false"`, so every `skip_on_cran()`
 fit block in the same files skips; `test-coverage` runs at `NOT_CRAN=true` but
 `tools/ci/coverage-shard.R` passes `stop_on_failure = FALSE` and nothing reads the result;
-`deep-checks` runs them fatally but nightly, gating no merge; and `source-guards.yaml`'s own header
-records that the workflow makes the check *appear* on a PR without making it **required**. For the
-sex-index and age-width guards the consequence is an unchecked write, which is not observable from
-R at all — so the static pin is the only cover there is.
+`deep-checks` runs them fatally but nightly, gating no merge. `source-guards.yaml` is the cover,
+and since the ruleset below it is a required one. For the sex-index and age-width guards the
+consequence of a gap is an unchecked write, which is not observable from R at all — so the static
+pin is the only cover there is.
+
+**`dev` and `main` are governed by a RULESET, which the branch-protection endpoint cannot see.**
+`gh api repos/afsc-assessments/Rceattle/branches/dev/protection` answers 404 "Branch not
+protected", which reads as ungated and is wrong; `gh api repos/.../rulesets` shows "Require the
+guards before merging", active, requiring **six** checks by name: `registry and documentation
+guards` plus all five R-CMD-check legs (`ubuntu-latest` release/devel/oldrel-1, `macos-latest
+(release)`, `windows-latest (release)`). Two consequences. It sets `strict: true`, so a branch
+**`BEHIND` its base cannot merge** and every PR pays another full cycle after anything lands under
+it — `mergeable = MERGEABLE` reports conflict-freedom only, not ruleset satisfaction. And because
+the Windows and macOS legs are required, the intermittent `0xC0000005` and a cancelled macOS runner
+each block the merge until re-run. Renaming a required job un-gates it silently.
 
 **Anything short of an ERROR passes R-CMD-check here, so a green check can be naming your
 mistake.** `.github/workflows/R-CMD-check.yaml:127` sets `error-on: '"error"'` — one step looser
