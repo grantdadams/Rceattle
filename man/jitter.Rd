@@ -14,6 +14,7 @@ jitter(
   getsd = NULL,
   timeout = Inf,
   fit_control = NULL,
+  ...,
   Rceattle = NULL
 )
 }
@@ -54,6 +55,9 @@ function evaluations rather than inside one.}
 \item{fit_control}{optional \code{\link[=fit_control]{fit_control()}} bundle for the refits. Only
 \code{phase} and \code{getsd} are read; see \strong{What \code{fit_control()} reaches}.}
 
+\item{...}{for a numeric \code{object}, passed to \code{base::jitter()};
+otherwise unused.}
+
 \item{Rceattle}{deprecated name for \code{object}, still accepted so existing
 scripts keep working. Supplying both is an error.}
 }
@@ -68,10 +72,15 @@ is what fraction of random starts reach the same optimum.
 Refits the Rceattle model from starting values perturbed by N(0, sd) around the model's initial (pre-fit) parameters, to check convergence robustness.
 }
 \note{
-Attaching Rceattle masks \code{\link[base]{jitter}}, so \code{jitter(x)}
-on a numeric vector reaches this function and reports a missing model rather
-than adding noise to \code{x}. Call \code{base::jitter()} explicitly for the
-base-graphics behaviour.
+Attaching Rceattle masks \code{\link[base]{jitter}}, because that
+function is not generic and this name is exported, so the mask cannot be
+removed by making this an S3 method. It is harmless for the spellings base
+callers use: a numeric first argument is handed straight to
+\code{base::jitter()}, so \code{jitter(1:5)} and
+\code{jitter(1:5, factor = 2)} behave as base does. \code{jitter(x = 1:5)}
+and a positional second argument do not -- this function's first parameter
+is \code{object} and its second is \code{njitter} -- so name base's
+arguments or call \code{base::jitter()} directly.
 }
 \examples{
 \donttest{

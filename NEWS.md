@@ -12,6 +12,35 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.62.0
+
+## Deprecations
+
+* **`plot_indexresidual()` is deprecated in favour of `plot_index_residual()`**, the snake_case
+  spelling the rest of the package uses. The old name forwards and warns, so nothing stops
+  working; it draws the identical figure, which is pinned. Swept across the sibling repositories:
+  **25 call sites of the two renamed functions, 0 of which break** -- 20 of them call
+  `plot_indexresidual()` and now warn.
+
+## Behavior changes
+
+* **`jitter()` no longer breaks `base::jitter()` for the spellings base callers use.** Attaching
+  Rceattle masks `base::jitter()`, and because that function takes a fitted model under `object`,
+  `jitter(1:5)` previously **errored** with "Object is not of class 'Rceattle'". A numeric first
+  argument is now handed straight to `base::jitter()`, so `jitter(1:5)` and
+  `jitter(1:5, factor = 2)` return exactly what base returns (pinned by `identical()`).
+
+  **Making `jitter()` an S3 generic was tried and does not work**, which is worth recording: the
+  mask is caused by exporting the name, not by the function being non-generic, so S3 would not
+  remove it -- and `UseMethod()` errors before any method runs when the dispatch argument is
+  absent, so a generic on `x` could not also accept the model under `object` or `Rceattle`. The
+  live `jitter(Rceattle = mod, ...)` calls in `Rceattle-models` would have broken.
+
+  Two spellings still do not reach base, and are documented in `?jitter` rather than fixed:
+  `jitter(x = 1:5)`, because the first formal is `object`, and a positional second argument,
+  because the second formal is `njitter`. Name base's `factor` / `amount`, or call
+  `base::jitter()` directly.
+
 # Rceattle 5.61.0
 
 ## Breaking changes

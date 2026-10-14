@@ -743,11 +743,18 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
 #'
 #' @description Refits the Rceattle model from starting values perturbed by N(0, sd) around the model's initial (pre-fit) parameters, to check convergence robustness.
 #'
-#' @note Attaching Rceattle masks \code{\link[base]{jitter}}, so \code{jitter(x)}
-#'   on a numeric vector reaches this function and reports a missing model rather
-#'   than adding noise to \code{x}. Call \code{base::jitter()} explicitly for the
-#'   base-graphics behaviour.
+#' @note Attaching Rceattle masks \code{\link[base]{jitter}}, because that
+#'   function is not generic and this name is exported, so the mask cannot be
+#'   removed by making this an S3 method. It is harmless for the spellings base
+#'   callers use: a numeric first argument is handed straight to
+#'   \code{base::jitter()}, so \code{jitter(1:5)} and
+#'   \code{jitter(1:5, factor = 2)} behave as base does. \code{jitter(x = 1:5)}
+#'   and a positional second argument do not -- this function's first parameter
+#'   is \code{object} and its second is \code{njitter} -- so name base's
+#'   arguments or call \code{base::jitter()} directly.
 #'
+#' @param ... for a numeric \code{object}, passed to \code{base::jitter()};
+#'   otherwise unused.
 #' @inheritParams rceattle-refit-args
 #' @param njitter the number of jitters to run
 #' @param sd standard deviation for jitter (default = 0.2)
@@ -788,7 +795,15 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
 #' jitters <- jitter(ss_run, njitter = 10)
 #' }
 #' @export
-jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL, timeout = Inf, fit_control = NULL, Rceattle = NULL) {
+jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL, timeout = Inf, fit_control = NULL, ..., Rceattle = NULL) {
+  # A numeric first argument is base::jitter()'s, not a fitted model. This name
+  # masks base::jitter(), which is not generic and so cannot be dispatched on,
+  # and S3 is no escape: UseMethod() errors before any method runs when the
+  # dispatch argument is absent, so a generic on `x` could not also accept the
+  # model under `object` or `Rceattle`. Forwarding here is what makes the mask
+  # harmless.
+  if (is.numeric(object)) return(base::jitter(object, ...))
+
   # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
   if (!missing(Rceattle))
     object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "jitter")

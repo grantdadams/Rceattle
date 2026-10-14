@@ -182,7 +182,7 @@ testthat::test_that("the analytical sd is refused where the likelihood reads it"
 })
 
 
-testthat::test_that("plot_indexresidual and residuals() agree on sign and scale", {
+testthat::test_that("plot_index_residual and residuals() agree on sign and scale", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
 
@@ -193,7 +193,7 @@ testthat::test_that("plot_indexresidual and residuals() agree on sign and scale"
   for (fam in c("Lognormal", "Normal")) {
     fit <- .ns_fixture(fam, sd = if (fam == "Lognormal") 0.2 else 20)
 
-    plotted <- Rceattle::plot_indexresidual(fit)$data
+    plotted <- Rceattle::plot_index_residual(fit)$data
     direct  <- stats::residuals(fit, type = "response", source = "index",
                                 scale = if (fam == "Lognormal") "log" else "natural")
     testthat::skip_if(!nrow(plotted), "no index residuals")

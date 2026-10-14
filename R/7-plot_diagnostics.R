@@ -405,7 +405,7 @@ plot_catch <- function(Rceattle,
 }
 
 
-# plot_indexresidual() ----
+# plot_index_residual() ----
 
 #' Survey index residuals
 #'
@@ -431,7 +431,7 @@ plot_catch <- function(Rceattle,
 #'   or `"osa"`.
 #' @return A `ggplot` object.
 #' @export
-plot_indexresidual <- function(Rceattle,
+plot_index_residual <- function(Rceattle,
                                file = NULL,
                                model_names = NULL,
                                species = NULL,
@@ -521,4 +521,19 @@ plot_indexresidual <- function(Rceattle,
   if (nlevels(df$Model) < 2L) p <- p + ggplot2::guides(colour = "none")
   .save_ggplot(p, file = file, suffix = "index_residuals",
                width = width, height = height)
+}
+
+
+
+#' Plot survey index residuals (deprecated name)
+#'
+#' @description Deprecated alias for \code{\link{plot_index_residual}},
+#'   which is the snake_case spelling the rest of the package uses. Please
+#'   use \code{plot_index_residual()} instead.
+#'
+#' @inheritParams plot_index_residual
+#' @export
+plot_indexresidual <- function(...) {
+  .Deprecated("plot_index_residual")
+  plot_index_residual(...)
 }

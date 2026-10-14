@@ -432,7 +432,7 @@ instance, and pair with the AMAK arithmetic-mean q (`"AnalyticalArith"`).
 **A family's scale is recorded in two places.** Adding one to
 `index_distribution_map` is not enough: it must also be classified in
 `.index_rows_natural_scale()`, which is what `residuals(type = "pearson")`,
-`plot_index()`'s observation interval and `plot_indexresidual()` read. A
+`plot_index()`'s observation interval and `plot_index_residual()` read. A
 natural-scale family that misses it does not error, it silently gets the
 log-scale formula, whose `σ²/2` term is then a number the size of the index
 squared.
@@ -767,7 +767,7 @@ Pop / mortality / fit / predation / biology plots, all named after the quantity
 they show: `plot_biomass`, `plot_ssb`, `plot_recruitment`, `plot_depletion`,
 `plot_ssb_depletion`, `plot_exploitable_biomass`, `plot_catch`, `plot_f`,
 `plot_mortality`, `plot_m_at_age`, `plot_m2_at_age_prop`, `plot_index`,
-`plot_indexresidual`, `plot_comp`, `plot_data`, `plot_form`, `plot_b_eaten`,
+`plot_index_residual`, `plot_comp`, `plot_data`, `plot_form`, `plot_b_eaten`,
 `plot_b_eaten_prop`, `plot_diet_comp`, `plot_ration`, `plot_selectivity`,
 `plot_selectivity_vs_maturity`, `plot_maturity`, `plot_stock_recruit`,
 `plot_timeseries`. Most accept a single fitted model or a list of models with
