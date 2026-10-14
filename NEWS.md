@@ -12,6 +12,52 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.61.0
+
+## Breaking changes
+
+* **The diet diagnostics refuse a fit that never predicted a diet, where they used to report a
+  complete misfit.** A predicted diet needs estimated suitability **and** a predation model:
+  `predict_stomach_content()` reads `diet_prop_hat`, which only
+  `calculate_msvpa_predation()` writes, under `msmMode > 0`. So `diet_hat` keeps its `setZero()`
+  value both under `suitMode = 0` with any `msmMode` and under `msmMode = 0` with any `suitMode`,
+  and `residuals(source = "diet")` was handing those zeros back as fitted values -- every
+  observation became its own residual. Measured on the shipped `BS2017MS` (2025 diet rows):
+  `suitMode = 0, 0, 0` with `msmMode = 1`, and `suitMode = 4, 4, 4` with `msmMode = 0`, both gave
+  `Fitted` `0 .. 0` and `Residual == Observed` on **2025 of 2025** rows; `suitMode = 4, 4, 4` with
+  `msmMode = 1` gives 1050 non-zero and is unchanged. The existing `is.null(diet_hat)` test could
+  not see it, because the array is present and merely all zero.
+
+  `residuals(source = "diet")` now errors, naming both switches and the fit's own values.
+  **`plot_diet_comp()`, `plot_diet_comp1()` and `plot_diet_comp2()` all read
+  `residuals(source = "diet")`, so all three inherit the refusal.** `plot_comp()` only ever asks
+  for `source = "comp"` and is untouched. `osa_residuals(source = "diet")` already refused these
+  fits, by a different route (`build_osa_data()` skips a predator with `suitMode <= 0`), so the
+  two paths now agree.
+
+  One sibling script is affected: `Rceattle-models/Pacific hake/Dev/ATF_SBF_hake_test.R` calls
+  `plot_diet_comp2()` on a `msmMode = 1, suitMode = 0` fit and now errors -- its own comment
+  ("diet estimate hake canni is good, in this model we do not have ATF predation, hence = 0")
+  is a reader taking the all-zero figure for a result. The other six hake call sites run
+  `suitMode = c(0, 4, 4)` and keep working.
+
+  A `data_list` carrying no `suitMode` is **not** refused: `fit_mod()` always writes it, so
+  absence means a hand-built list or a fit predating the field, and refusing there would break a
+  saved fit rather than catch a misreading.
+
+## Documentation
+
+* **Seven `@param` entries across five help pages had grown into mini-vignettes; each now gives
+  the argument's meaning, allowed values and default, with the rest under Details**: `param` and
+  `joint` in `profile.Rceattle()`, `weighted` and `relative` in `profile_components()`, `start`
+  in `self_test()`, `M1_re` in `build_M1()` and `integrate` in `linkage_spec()`. The longest ran
+  18 lines. Nothing was rewritten -- the prose moved verbatim, so every claim it made is still
+  on the page, in Details rather than in the Arguments table. Allowed-value lists stayed in
+  `@param` where that is what they are: `build_hcr()`'s `HCR` is ten lines because it has eight
+  rules, and `linkage_spec()`'s `strata` lists its four permitted names.
+* **Section markers in the three largest files in `R/` that had none** -- `0-build_linkage.R`,
+  `0-rceattle_class.R` and `0-linkage_table.R`. Source comments only; no help page changed.
+
 # Rceattle 5.60.0
 
 ## Breaking changes

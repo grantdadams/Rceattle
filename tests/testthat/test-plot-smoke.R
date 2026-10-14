@@ -68,6 +68,10 @@ testthat::test_that("multispecies predation plotters run on a fitted model", {
     Rceattle::fit_mod(data_list = BS2017MS,
                       estimateMode = 3,
                       msmMode = 1,   # multispecies (predation on)
+                      # Estimated suitability, not the dataset's suitMode = 0:
+                      # predicted diet needs it, so plot_diet_comp() refuses on
+                      # an empirical-suitability fit and would smoke-test nothing.
+                      suitMode = 4,
                       fit_control = Rceattle::fit_control(verbose = 0))
   ))
 
@@ -170,7 +174,14 @@ testthat::test_that("every exported plotter runs on a minage != 1 model", {
     # These two default to age 1, which no species has at minage = 3. They are
     # asserted to refuse loudly below rather than skipped.
     plot_m_at_age       = "defaults to age 1; asserted to refuse at minage = 3",
-    plot_m2_at_age_prop = "defaults to age 1; asserted to refuse at minage = 3"
+    plot_m2_at_age_prop = "defaults to age 1; asserted to refuse at minage = 3",
+    # This fixture is msmMode = 0, so nothing predicts stomach proportions and
+    # all three refuse. They ran here until 5.61.0 only because they were drawn
+    # off an all-zero diet_hat. test-plot-smoke.R's multispecies block covers
+    # them on a suitMode = 4 fit.
+    plot_diet_comp      = "needs msmMode > 0 with estimated suitability",
+    plot_diet_comp1     = "needs msmMode > 0 with estimated suitability",
+    plot_diet_comp2     = "needs msmMode > 0 with estimated suitability"
   )
   # An exclusion that is no longer exported is a stale exclusion.
   testthat::expect_equal(setdiff(names(excluded), exported), character(0))
@@ -179,7 +190,7 @@ testthat::test_that("every exported plotter runs on a minage != 1 model", {
   # un-exporting a plotter would otherwise shrink the set silently, and a new
   # one would never be considered here. Update both numbers deliberately.
   testthat::expect_equal(length(exported), 31L)
-  testthat::expect_equal(length(excluded), 4L)
+  testthat::expect_equal(length(excluded), 7L)
 
   plotters <- setdiff(exported, names(excluded))
 

@@ -339,7 +339,11 @@ effects for each observation it is expensive, so run it on a converged fit
 builds the required observation data on demand and skips a requested source the
 model has no observations for (it errors only if *none* of them do). `"diet"` is
 the one source not in the default set, it applies only to multispecies models
-and can be slow, so pass `source = "all"` to include it.
+and can be slow, so pass `source = "all"` to include it. It needs a *predicted*
+diet, which means `msmMode > 0` **and** estimated suitability (`suitMode` 2, 4
+or 6); under empirical suitability the model reads suitability from `diet_data`
+rather than predicting stomach proportions, and the diet diagnostics refuse
+rather than report every observation as a complete misfit.
 
 ```{r osa}
 # Aggregate (catch + index) residuals

@@ -404,6 +404,17 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       stop("This model has no fitted diet composition (need msmMode > 0 with ",
            "diet_data).")
     }
+    # diet_hat is present but all zero wherever the template skipped it, so the
+    # NULL test above cannot see it.
+    if (!.rce_diet_is_fitted(object$data_list)) {
+      stop("This model does not predict stomach proportions, so it has no diet ",
+           "residuals. Predicted diet needs estimated suitability AND a ",
+           "predation model: suitMode 2, 4 or 6 (GammaWeight, LognormalWeight, ",
+           "NormalWeight) with msmMode > 0. This fit has msmMode = ",
+           paste(object$data_list$msmMode, collapse = ", "), ", suitMode = ",
+           paste(object$data_list$suitMode, collapse = ", "), ".",
+           call. = FALSE)
+    }
     obs <- dd$Stomach_proportion_by_weight
     hat <- object$quantities$diet_hat[, 2]
     res <- if (type == "pearson") .rce_diet_pearson(object, dd, obs, hat) else
@@ -697,6 +708,30 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 
   if (length(out) == 0) return(empty_row(0))
   .sp_filter(do.call(rbind, out))
+}
+
+
+#' Does this configuration predict stomach proportions?
+#'
+#' Needs estimated suitability AND a predation model. `predict_stomach_content()`
+#' reads `diet_prop_hat`, which only `calculate_msvpa_predation()` writes, and
+#' that runs under `msmMode > 0`. So `diet_hat` keeps its `setZero()` value both
+#' under `suitMode = 0` and under `msmMode = 0` with any `suitMode`, and a
+#' diagnostic reading it reports a total misfit for a diet never fitted.
+#' @param d The model's `data_list`.
+#' @noRd
+.rce_diet_is_fitted <- function(d) {
+  # as.character() first: as.integer() on a factor returns the level index,
+  # which is the trap the switch maps exist for.
+  int  <- function(x) suppressWarnings(as.integer(as.character(x)))
+  suit <- int(d[["suitMode"]])
+  msm  <- int(d[["msmMode"]])
+  # Absence is not evidence: fit_mod() always writes both switches, so a
+  # data_list without them is hand-built or predates them, and refusing there
+  # would break a saved fit rather than catch a misreading.
+  if (!length(suit) || all(is.na(suit))) return(TRUE)
+  any(msm > 2L, na.rm = TRUE) ||
+    (any(msm > 0L, na.rm = TRUE) && any(suit > 0L, na.rm = TRUE))
 }
 
 
