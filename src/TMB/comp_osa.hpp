@@ -2,32 +2,25 @@
  * @file comp_osa.hpp
  * @brief One-step-ahead (OSA) residual helpers for composition data.
  *
- * TMB's oneStepPredict() requires every observation entering the likelihood to
- * live in a flat `obsvec` with a `keep` indicator, and each likelihood term to
- * be multiplied by its keep element. Multinomial and Dirichlet-multinomial
- * composition data are multivariate and discrete, so oneStepPredict cannot use
- * them directly. Following Trijoulet et al. (2023) and WHAM
- * (src/age_comp_osa.hpp), a composition of A bins is decomposed into A-1
- * univariate conditional distributions -- binomials for the multinomial,
- * beta-binomials for the Dirichlet-multinomial -- each gated by its keep
- * element. The final bin is fixed by the sum-to-N constraint and contributes
- * nothing (its residual is not defined and is reported as NA on the R side).
+ * TMB's oneStepPredict() needs every observation in a flat `obsvec`, with its
+ * likelihood term multiplied by its own `keep` element, which multivariate
+ * discrete composition data cannot supply directly. Following Trijoulet et al.
+ * (2023) and WHAM (src/age_comp_osa.hpp), a composition of A bins is decomposed
+ * into A-1 univariate conditionals -- binomials for the multinomial,
+ * beta-binomials for the Dirichlet-multinomial -- each gated by its keep element.
+ * The last bin is fixed by the sum-to-N constraint, contributes nothing, and is
+ * reported as NA on the R side. With every keep at 1 the conditional
+ * log-densities sum to the joint log-density, so OSA changes how the likelihood
+ * is *decomposed*, not its value. The `_osa` suffix and the data_indicator
+ * argument keep these clear of TMB's dmultinom() and of the ddirmultinom() in
+ * helper_functions.hpp that ordinary fitting uses.
  *
- * Key property: with keep == 1 the sum of the conditional log-densities equals
- * the joint multinomial / Dirichlet-multinomial log-density. Turning OSA on
- * therefore changes how the likelihood is *decomposed*, not its value.
- *
- * These functions are named with an `_osa` suffix and take a data_indicator so
- * they never collide with TMB's built-in dmultinom() or the plain
- * ddirmultinom() in helper_functions.hpp used during ordinary fitting.
- *
- * The file also holds the conditional CDFs oneStepPredict(method = "cdf") asks
- * for -- the continuous binomial for a composition bin, and the normal /
- * left-truncated normal for the aggregate series -- gated by
- * keep.cdf_lower / keep.cdf_upper. Under that method the residual is
- * Phi^-1(F(x)) and no conditional mean is ever formed, so nothing can leave the
- * support of a bounded observation. They are computed only when the caller asks
- * (`do_cdf`, driven by osa_mode == 2), so ordinary fitting and the Gaussian OSA
+ * The file also holds the conditional CDFs oneStepPredict(method = "cdf") reads
+ * -- continuous binomial for a composition bin, normal / left-truncated normal
+ * for an aggregate series -- gated by keep.cdf_lower / keep.cdf_upper. That
+ * residual is Phi^-1(F(x)), formed without a conditional mean, so it cannot leave
+ * the support of a bounded observation. The terms are added only when the caller
+ * asks (`do_cdf`, from osa_mode == 2), so ordinary fitting and the Gaussian OSA
  * methods pay nothing for them.
  */
 
@@ -49,10 +42,9 @@ vector<int> osa_order(vector<Type> k){
   return ord;
 }
 
-// Map the closed [0, 1] interval onto the open interval for numerical stability.
-// Identical to TMB's convenience.hpp squeeze() (eps = machine epsilon), which is
-// what WHAM uses in its OSA composition likelihood, so the two implementations
-// agree to the last digit.
+// Map the closed [0, 1] interval onto the open interval. Identical to TMB's
+// convenience.hpp squeeze() (eps = machine epsilon), which WHAM's OSA composition
+// likelihood uses, so the two agree to the last digit.
 template<class Type>
 Type osa_squeeze(Type u){
   Type eps = std::numeric_limits<double>::epsilon();
@@ -62,25 +54,18 @@ Type osa_squeeze(Type u){
 /**
  * @brief Map a CDF onto the open interval before its logarithm is taken.
  *
- * Four machine epsilons wide, where osa_squeeze() uses one, and the extra width
- * is load-bearing. oneStepPredict recovers F from 1/(1 + exp(nlcdf.lower -
- * nlcdf.upper)) in double precision; at one epsilon that denominator is
- * 1 + 1.11e-16, which is exactly the round-half-to-even tie above 1, so it lands
- * on 1 or not depending on the last bits of an objective summed over thousands
- * of observations -- and a denominator of 1 gives F = 1 and an infinite
- * residual. Measured on BS2017SS: 6 of 4538 composition residuals came back
- * infinite at one epsilon and none at four.
+ * Four machine epsilons wide where osa_squeeze() uses one: oneStepPredict
+ * recovers F from 1/(1 + exp(nlcdf.lower - nlcdf.upper)) in double precision, and
+ * at one epsilon that denominator sits on the round-half-to-even tie above 1 --
+ * where it rounds to 1 so does F, and the residual is infinite. Measured on
+ * BS2017SS: 6 of 4538 composition residuals infinite at one epsilon, none at
+ * four. The cost is where |residual| saturates -- 8.04 against 8.13 -- a tail no
+ * Q-Q plot resolves.
  *
- * The cost is where |residual| saturates: 8.04 here against 8.13 at one epsilon
- * and 8.21 for a CDF read straight off. That ceiling is a property of double
- * precision, not of the model -- an observation that far into the tail of its
- * own conditional is beyond what any Q-Q plot resolves.
- *
- * The width is load-bearing a second way: this maps, it does not clamp, so a
- * caller that forms F by subtracting two CDFs relies on it to absorb the
- * cancellation. osa_trunc_norm_cdf_terms() below is the case -- its numerator
- * can round to about -2e-16 at an observation near zero, which this shift
- * carries back above 0 before the log. Narrowing it would return NaN there.
+ * It maps rather than clamps, so a caller that forms F by subtracting two CDFs
+ * relies on it to absorb the cancellation: osa_trunc_norm_cdf_terms()'s numerator
+ * can round to about -2e-16 at an observation near zero, which this shift carries
+ * back above 0 before the log. Narrowing it would return NaN there.
  */
 template<class Type>
 Type osa_squeeze_cdf(Type u){
@@ -91,13 +76,12 @@ Type osa_squeeze_cdf(Type u){
 /**
  * @brief Conditional binomial CDF P(X <= x), X ~ Binomial(n, p), at fractional x.
  *
- * Written through the regularized incomplete beta, 1 - I_p(x + 1, n - x). That
- * equals the binomial CDF at whole counts and stays defined and smooth at the
- * fractional ones composition data carry: a bin count is proportion * effective
- * sample size, so it is only an integer by coincidence. Same expression as the
- * Trijoulet et al. (2023) reference implementation TMB ships
- * (contrib/OSA_multivariate_dists-main/distr.hpp, `dists::pbinom`), so the two
- * agree term for term.
+ * Written through the regularized incomplete beta, 1 - I_p(x + 1, n - x), which
+ * equals the binomial CDF at whole counts and stays smooth at the fractional ones
+ * composition data carry: a bin count is proportion * effective sample size, so
+ * it is an integer only by coincidence. Same expression as the Trijoulet et al.
+ * (2023) reference implementation TMB ships
+ * (contrib/OSA_multivariate_dists-main/distr.hpp, `dists::pbinom`).
  *
  * @param x Count in this bin.
  * @param n Count still unplaced across this bin and every later one.
@@ -105,10 +89,10 @@ Type osa_squeeze_cdf(Type u){
  */
 template<class Type>
 Type osa_pbinom(Type x, Type n, Type p){
-  // n - x is what is left for the later bins. comp_offset adds a positive
-  // amount to every bin, so it is strictly positive on every path that reaches
-  // here; the floor is defensive, because pbeta at a zero shape returns NaN
-  // rather than the limit, and a NaN times a zero cdf gate is still a NaN.
+  // n - x is the count left for the later bins. comp_offset (default 1e-5) is
+  // added to every bin, so it is positive here unless comp_offset is set to 0,
+  // where pbeta at a zero shape returns NaN rather than the limit -- and a NaN
+  // times a zero cdf gate is still a NaN.
   Type nx = CppAD::CondExpLt(n - x, Type(1e-12), Type(1e-12), n - x);
   return Type(1.0) - pbeta(p, x + Type(1.0), nx);
 }
@@ -117,10 +101,10 @@ Type osa_pbinom(Type x, Type n, Type p){
  * @brief One-step-ahead CDF terms for a normal observation.
  *
  * Every aggregate series in CEATTLE is normal on the scale `obsvec` stores it in
- * -- log for lognormal catch and index, natural scale for a "Normal" index, and
- * the whitened L^-1 scale for "MVN" -- so its conditional CDF is `pnorm` of the
- * standardized residual. Returns the term to ADD to the log-likelihood; it is 0
- * whenever the cdf gates are 0, which is every evaluation except the two
+ * -- log for lognormal catch and index, natural scale for a "Normal" index, the
+ * whitened L^-1 scale for "MVN" -- so its conditional CDF is `pnorm` of the
+ * standardized residual. Returns the term to ADD to the log-likelihood, which is
+ * 0 whenever the cdf gates are 0: every evaluation except the two
  * oneStepPredict(method = "cdf") makes per observation.
  *
  * @param x Observation, on the scale it is stored in.
@@ -164,18 +148,14 @@ Type osa_trunc_norm_cdf_terms(Type x, Type mu, Type sd,
 /**
  * @brief Keep-aware multinomial log-density via conditional binomials.
  *
- * With `do_osa`, decomposes the A-bin multinomial into A-1 conditional binomials
- * (each gated by its keep element) so oneStepPredict can consume it; the sum
- * equals the joint multinomial log-density when all keeps are 1.
- *
  * @param x Observed counts (length A; may be non-integer, e.g. Neff * prop).
  * @param p Predicted proportions (length A; normalized internally).
  * @param keep Data indicator for these A bins (from keep.segment(...)).
  * @param do_osa 1 = conditional-binomial decomposition; 0 = plain multinomial.
  * @param give_log 1 = return the log-density.
- * @param do_cdf 1 = also add the keep.cdf_lower / keep.cdf_upper terms that
- *   oneStepPredict(method = "cdf") reads (osa_mode == 2). 0 skips the `pbeta`
- *   entirely, so ordinary fitting and the Gaussian OSA methods are unchanged.
+ * @param do_cdf 1 = also add the keep.cdf_lower / keep.cdf_upper terms
+ *   oneStepPredict(method = "cdf") reads (osa_mode == 2); 0 skips the `pbeta`
+ *   entirely, leaving fitting and the Gaussian OSA methods unchanged.
  */
 template <class Type>
 Type dmultinom_osa(vector<Type> x, vector<Type> p,
@@ -183,29 +163,26 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
                    int do_osa, int give_log, int do_cdf = 0)
 {
   Type logres = 0;
-  // Normalize predicted proportions. Guard the denominator so a length/age bin
-  // with all-zero predicted mass (sum(p) == 0, e.g. a growth-transition row that
-  // is exactly zero in the tails) yields p_x == 0 rather than 0/0 = NaN; the
-  // conditional binomials below then read each squeezed-to-eps probability,
-  // matching WHAM's behaviour for vanishing predicted proportions.
+  // Normalize predicted proportions, guarding the denominator so a bin vector
+  // with no predicted mass (sum(p) == 0, e.g. a growth-transition row that is
+  // exactly zero in the tails) gives p_x == 0 rather than 0/0 = NaN, matching
+  // WHAM's behaviour for vanishing predicted proportions.
   vector<Type> p_x = p / (sum(p) + Type(1e-300));
 
   if(do_osa){
     vector<Type> k = keep;
-    // The cdf gates are separate members of the data_indicator, so they must be
-    // reordered by hand alongside the keep vector. keep.segment() at the call
-    // site already carries them (tmb_core.hpp documents that its segment IS
-    // applied to cdf_lower/cdf_upper); this reorder is the step that is not done
-    // for us, and getting it wrong gates the wrong bin silently.
+    // The cdf gates are separate members of the data_indicator, so they are
+    // reordered by hand alongside keep; keep.segment() at the call site already
+    // carries them (tmb_core.hpp), and gating the wrong bin is silent.
     //
-    // osa_order() branches on keep, which is a PARAMETER under oneStepPredict, so
-    // the sort is taped once at the initial values -- 1 for every bin that will
-    // ever be residualized or conditioned on, 0 for the rest -- and later
-    // per-observation keep changes do not re-sort. Within a composition that
-    // pattern is 1 on every bin but the last, so the order is the identity and the
-    // reorder is a no-op on every sequence this package generates. It is kept
-    // because it is what makes the decomposition right for an arbitrary keep, and
-    // pinned by a test that supplies one directly (test-likelihood-osa-cdf.R).
+    // osa_order() branches on keep, a PARAMETER under oneStepPredict, so the sort
+    // is taped once at the initial values -- 1 for every bin that will ever be
+    // residualized or conditioned on -- and later per-observation keep changes do
+    // not re-sort. Within a composition that pattern is 1 on every bin but the
+    // last, so the order is the identity and this reorder is a no-op on every
+    // sequence the package generates. Kept because it is what makes the
+    // decomposition right for an arbitrary keep (test-likelihood-osa-cdf.R
+    // supplies one directly).
     vector<Type> cl = keep.cdf_lower;
     vector<Type> cu = keep.cdf_upper;
     vector<int> o = osa_order(k);
@@ -225,8 +202,8 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
         p2(0) = osa_squeeze(p2(0));
         // When one bin holds ~all remaining mass the separately-squeezed
         // numerator/denominator can push the ratio marginally above 1; clamp so
-        // p2(1) = 1 - p2(0) stays non-negative (avoids dmultinom log(negative) =
-        // NaN). A no-op for well-behaved compositions.
+        // p2(1) = 1 - p2(0) stays non-negative (dmultinom of a negative
+        // probability is log(negative) = NaN).
         Type eps_clamp = std::numeric_limits<double>::epsilon();
         p2(0) = CppAD::CondExpGt(p2(0), Type(1) - eps_clamp, Type(1) - eps_clamp, p2(0));
         p2(1) = Type(1) - p2(0);
@@ -236,14 +213,12 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
         if(do_cdf) cdf = osa_pbinom(x(i), nUnused, p2(0));
         nUnused -= x(i);
         pUsed   += p_x(i);
-        // Keep pUsed inside (0, 1) so 1 - pUsed never reaches 0 or goes
-        // negative. WHAM does NOT squeeze pUsed itself; it relies on the
-        // squeeze of 1 - pUsed above, which is also applied here. This extra
-        // squeeze is therefore redundant protection and contracts pUsed toward
-        // 0.5 by one machine epsilon per bin, so a composition of A bins sits
-        // O(A * eps) from WHAM's value -- ~1e-15 relative, far below the
-        // reference tolerances, but not bit-identical. Removing it would match
-        // WHAM exactly at the cost of re-pinning the OSA references.
+        // Keep pUsed inside (0, 1) so 1 - pUsed never reaches 0 or goes negative.
+        // WHAM squeezes only 1 - pUsed, so this extra squeeze is redundant
+        // protection that contracts pUsed toward 0.5 by one machine epsilon per
+        // bin: a composition of A bins sits O(A * eps) from WHAM's value, ~1e-15
+        // relative. Removing it would match WHAM exactly at the cost of
+        // re-pinning the OSA references.
         pUsed    = osa_squeeze(pUsed);
       } else {
         logres += k(i) * Type(0);         // last bin: fixed by sum-to-N
@@ -251,8 +226,8 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
       }
       if(do_cdf){
         // Onto the open interval before taking logs: an exactly 0 or 1 CDF puts
-        // a -Inf on the tape, and a -Inf times a zero gate is a NaN. See
-        // osa_squeeze_cdf() for why the width matters and what it caps.
+        // a -Inf on the tape, and a -Inf times a zero gate is a NaN. The width
+        // matters -- see osa_squeeze_cdf().
         cdf = osa_squeeze_cdf(cdf);
         logres += cl(i) * log(cdf);
         logres += cu(i) * log(Type(1) - cdf);
@@ -267,18 +242,14 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
 /**
  * @brief Keep-aware Dirichlet-multinomial log-density via conditional beta-binomials.
  *
- * With `do_osa`, decomposes the A-bin Dirichlet-multinomial into A-1 conditional
- * beta-binomials (each gated by its keep element); the sum equals the joint D-M
- * log-density when all keeps are 1.
- *
- * There is no `do_cdf` counterpart here, so a Dirichlet-multinomial fleet cannot
- * be residualized with oneStepPredict(method = "cdf") and osa_residuals() sends
- * it to a Gaussian method instead. A beta-binomial has no elementary CDF, and
- * the reference implementation's route -- summing the pmf over 0..floor(x)
- * (contrib/OSA_multivariate_dists-main/distr.hpp, `pbetabinom`) -- is not open
- * to us on two counts: it is a step function of a fractional count, and it costs
- * O(x) beta functions per bin, which at CEATTLE sample sizes is thousands of
- * times the multinomial path.
+ * No `do_cdf` counterpart: a beta-binomial has no elementary CDF, and the
+ * reference route -- summing the pmf over 0..floor(x)
+ * (contrib/OSA_multivariate_dists-main/distr.hpp, `pbetabinom`) -- is a step
+ * function of a fractional count and costs O(x) beta functions per bin, which at
+ * CEATTLE sample sizes is thousands of times the multinomial path. So a
+ * Dirichlet-multinomial fleet cannot be residualized with
+ * oneStepPredict(method = "cdf") and osa_residuals() sends it to a Gaussian
+ * method instead.
  *
  * @param obs Observed counts (length A).
  * @param alpha Dirichlet-multinomial concentration parameters (length A).
