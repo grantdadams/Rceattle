@@ -21,6 +21,8 @@
 NULL
 
 
+# linkage_spec() ----
+
 #' Capture a linkage specification
 #'
 #' @param formula one-sided R formula whose RHS describes the linear
@@ -103,8 +105,16 @@ NULL
 #'   latent tracks it exactly and a free `obs_sd` collapses toward 0.
 #' @param integrate whether the random effect's deviations are integrated out by
 #'   the Laplace approximation, default `TRUE`. `FALSE` estimates them as a
-#'   **penalized fixed effect** instead: the deviations stay in the objective as
-#'   a plain penalty and are reported with standard errors. That reproduces the
+#'   penalized fixed effect instead; see Details for when that is permitted.
+#'
+#' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
+#'   random-effect deviation SD and, for `ar1`, the correlation. `sigma` means
+#'   different things by structure -- the innovation (per-step) SD for `rw()`,
+#'   the marginal (stationary) SD for `ar1()` -- so the two are not comparable
+#'   across structures; see `vignette("environmental-linkages-and-priors")`.
+#'
+#'   `integrate = FALSE` leaves the deviations in the objective as a plain
+#'   penalty and reports them with standard errors. That reproduces the
 #'   ADMB/AMAK convention behind the legacy `Time_varying_sel` /
 #'   `Time_varying_q` switches, which a Laplace-integrated `rw()` cannot match,
 #'   because the marginal likelihood carries a log-determinant term the
@@ -112,12 +122,6 @@ NULL
 #'   (`init = list(sigma = )`, no `sigma` prior, plus a fixed `rho` for `ar1`),
 #'   since estimating deviations and their SD jointly as fixed effects is
 #'   degenerate, and never with `observe`, which must stay integrated.
-#'
-#' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
-#'   random-effect deviation SD and, for `ar1`, the correlation. `sigma` means
-#'   different things by structure -- the innovation (per-step) SD for `rw()`,
-#'   the marginal (stationary) SD for `ar1()` -- so the two are not comparable
-#'   across structures; see `vignette("environmental-linkages-and-priors")`.
 #'
 #' @return An `Rceattle_linkage_spec` object.
 #' @examples
@@ -302,6 +306,8 @@ linkage_spec <- function(formula,
 }
 
 
+# Spec validators ----
+
 #' Generic linkage-list validator used by `build_*()` helpers
 #'
 #' Each `build_*()` function has near-identical validation:
@@ -472,6 +478,8 @@ linkage_spec <- function(formula,
 }
 
 
+# Argument coercion ----
+
 #' Accept `intercept` as a spelling of the design column `(Intercept)`
 #'
 #' `init` / `bounds` / `priors` are keyed by design-matrix column name. Every
@@ -532,6 +540,8 @@ linkage_spec <- function(formula,
   }
   sex
 }
+
+# Strata ----
 
 #' Coerce a `species` / `fleet` selector to ids-or-names.
 #'
@@ -721,6 +731,8 @@ linkage_spec <- function(formula,
 }
 
 
+# Priors ----
+
 #' Resolve the prior to apply on a specific (column, species, sex) row.
 #'
 #' Walks the nested `priors` list: scalar -> applies to all,
@@ -757,6 +769,8 @@ linkage_spec <- function(formula,
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
 
+# print() ----
+
 #' @export
 print.Rceattle_linkage_spec <- function(x, ...) {
   cat("<Rceattle linkage spec>\n")
@@ -787,6 +801,8 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   invisible(x)
 }
 
+
+# materialize_linkage() ----
 
 #' Materialize a linkage spec into linkage-table rows
 #'
@@ -1175,6 +1191,8 @@ materialize_linkage <- function(spec, process, env_data, strata = list(), quiet 
 }
 
 
+# Random-effect design ----
+
 #' Build the indicator design for random-effect (bar) terms
 #'
 #' @description
@@ -1304,6 +1322,8 @@ materialize_linkage <- function(spec, process, env_data, strata = list(), quiet 
 }
 
 
+# Environmental data ----
+
 #' Drop env_data rows outside the model years
 #'
 #' Linkages align env_data by position (row r -> model year styr + r - 1), so a
@@ -1431,6 +1451,8 @@ materialize_linkage <- function(spec, process, env_data, strata = list(), quiet 
   invisible()
 }
 
+
+# pool_linkages() ----
 
 #' Pool a collection of linkage specs into a global table + design matrix
 #'
@@ -1562,6 +1584,8 @@ pool_linkages <- function(spec_groups, env_data, strata = list(), quiet = FALSE)
   )
 }
 
+
+# Random-effect registry ----
 
 #' Assign the random-effect registry on a pooled linkage table
 #'

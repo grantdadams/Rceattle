@@ -29,19 +29,11 @@ alias (both forms are accepted; the integer code is canonical):
 \code{linkages} argument instead. See \code{vignette("environmental-linkages-and-priors")}.
 }}
 
-\item{M1_re}{Vector or scalar specifying the M1 random-effects
-model. Either an integer code or the equivalent string alias:
-\code{0} / \code{"none"}, \code{1} / \code{"iid_age"}, \code{2} / \code{"iid_year"},
-\code{3} / \code{"iid_age_year"}, \code{4} / \code{"ar1_age"}, \code{5} / \code{"ar1_year"},
-\code{6} / \code{"ar1_age_year"}. Anything but \code{0} needs an \code{M1_model} of
-\code{0}, \code{1}, \code{2}, or \code{3} with a by-year family (\code{2} / \code{5}); the
-by-age families are refused under \code{3} because an age-varying
-deviation and an age-specific level are not separately
-identifiable, and \code{4} and \code{5} are refused entirely (use a
-catchability-style linkage instead). \code{M1_model = 2} needs two sexes
-under every \code{M1_re} family, because a single-sex species would take its
-deviations in the padding sex slot, free and scored by no density. \code{fit_mod()} downgrades \code{M1_model} to \code{1} there, so the
-distinction shows only in a direct \code{build_map()} call.}
+\item{M1_re}{Vector or scalar specifying the M1 random-effects model, as an
+integer code or the equivalent string alias: \code{0} / \code{"none"},
+\code{1} / \code{"iid_age"}, \code{2} / \code{"iid_year"}, \code{3} / \code{"iid_age_year"},
+\code{4} / \code{"ar1_age"}, \code{5} / \code{"ar1_year"}, \code{6} / \code{"ar1_age_year"}. Default \code{0}.
+Which combinations with \code{M1_model} are allowed is under Details.}
 
 \item{updateM1}{If using initial parameters, use M1 fixed effects
 from data (\code{M1_base}) instead. Default \code{FALSE}.}
@@ -76,6 +68,17 @@ A list of switches for defining the M1 model.
 }
 \description{
 Specify the residual natural mortality (M1) model for Rceattle
+}
+\details{
+\strong{Which \code{M1_re} families work with which \code{M1_model}.} Anything but \code{0} needs
+an \code{M1_model} of \code{0}, \code{1}, \code{2}, or \code{3} with a by-year family (\code{2} / \code{5}); the
+by-age families are refused under \code{3} because an age-varying deviation and an
+age-specific level are not separately identifiable, and \code{4} and \code{5} are
+refused entirely (use a catchability-style linkage instead). \code{M1_model = 2}
+needs two sexes under every \code{M1_re} family, because a single-sex species would
+take its deviations in the padding sex slot, free and scored by no density.
+\code{fit_mod()} downgrades \code{M1_model} to \code{1} there, so the distinction shows only
+in a direct \code{build_map()} call.
 }
 \section{\code{M1_base} completeness}{
 

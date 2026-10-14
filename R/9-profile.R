@@ -8,23 +8,10 @@
 #'   is re-estimated.
 #'
 #' @param fitted an Rceattle model fit using \code{\link{fit_mod}}
-#' @param param Name of the parameter to profile, either a raw slot in
-#'   \code{Rceattle$estimated_params} (with \code{slots} indexing the full array
-#'   and \code{transform} setting the scale) or a natural-scale alias, which
-#'   implies \code{transform = "log"} and, for \code{rec_pars}, fills in the
-#'   column so \code{slots} needs only the species index:
-#'   \describe{
-#'     \item{\code{"sigmaR"}, \code{"R_sd"}}{\code{R_log_sd}}
-#'     \item{\code{"M1"}}{\code{log_M1}}
-#'     \item{\code{"R0"}, \code{"alpha"}, \code{"beta"}}{\code{rec_pars}
-#'       columns 1, 2 and 3}
-#'     \item{\code{"q"}}{\code{index_log_q}, base catchability, one entry per
-#'       fleet; \code{slots} takes a fleet index or name. Fleets sharing a
-#'       \code{Catchability_index} share one q, so naming any of them profiles
-#'       the group: the rest are added with a message and \code{joint} becomes
-#'       \code{"value"}.}
-#'   }
-#'   \code{transform} is ignored with a warning when an alias is used.
+#' @param param Name of the parameter to profile: a raw slot in
+#'   \code{Rceattle$estimated_params}, or one of the natural-scale aliases
+#'   \code{"sigmaR"}, \code{"R_sd"}, \code{"M1"}, \code{"R0"}, \code{"alpha"},
+#'   \code{"beta"}, \code{"q"}. See Details.
 #' @param slots A list of integer index vectors, one per cell to fix, each as
 #'   long as the resolved parameter has dimensions: 1 for \code{R_log_sd}, 2 for
 #'   \code{rec_pars}, 3 for \code{log_M1}. The \code{"R0"}/\code{"alpha"}/
@@ -38,22 +25,8 @@
 #' @param transform How user values map onto the internal scale before
 #'   substitution: \code{"log"} (default), \code{"identity"}, or a unary
 #'   function such as \code{qlogis}, applied element-wise.
-#' @param joint How the grid moves the cells in \code{slots}. A joint mode
-#'   profiles a vector-valued parameter such as an empirical age-based M, where
-#'   \code{"none"} over ten ages and 13 values would be \code{13^10} fits:
-#'   \describe{
-#'     \item{\code{"none"}}{(default) each slot gets its own grid and they cross.}
-#'     \item{\code{"multiply"}}{one grid multiplying every cell, so the schedule
-#'       keeps its shape; \code{1} is the fitted model.}
-#'     \item{\code{"add"}}{one grid added to every cell, so the schedule keeps
-#'       the differences between cells; \code{0} is the fitted model.}
-#'     \item{\code{"value"}}{one grid; every cell takes that value.}
-#'   }
-#'   A joint mode needs \code{values} to be one vector, and
-#'   \code{"multiply"}/\code{"add"} work in natural units, so \code{transform}
-#'   must be \code{"log"} or \code{"identity"}. A value that would take a
-#'   log-scale parameter to zero or below is an error naming the cell, not a
-#'   failed fit.
+#' @param joint How the grid moves the cells in \code{slots}: \code{"none"}
+#'   (default), \code{"multiply"}, \code{"add"} or \code{"value"}. See Details.
 #' @param cores Cores for the parallel fits. \code{NULL} (default) picks
 #'   \code{parallel::detectCores() - 6}, capped at 2 under \code{R CMD check};
 #'   1 forces sequential.
@@ -63,6 +36,41 @@
 #'   \code{sdrep}).
 #' @param ... Unused; present for consistency with the \code{stats::profile}
 #'   generic.
+#'
+#' @details
+#' \strong{Natural-scale aliases.} An alias implies \code{transform = "log"}
+#' and, for \code{rec_pars}, fills in the column so \code{slots} needs only the
+#' species index. \code{transform} is ignored with a warning when an alias is
+#' used. A raw slot instead has \code{slots} index the full array and
+#' \code{transform} set the scale.
+#' \describe{
+#'   \item{\code{"sigmaR"}, \code{"R_sd"}}{\code{R_log_sd}}
+#'   \item{\code{"M1"}}{\code{log_M1}}
+#'   \item{\code{"R0"}, \code{"alpha"}, \code{"beta"}}{\code{rec_pars}
+#'     columns 1, 2 and 3}
+#'   \item{\code{"q"}}{\code{index_log_q}, base catchability, one entry per
+#'     fleet; \code{slots} takes a fleet index or name. Fleets sharing a
+#'     \code{Catchability_index} share one q, so naming any of them profiles
+#'     the group: the rest are added with a message and \code{joint} becomes
+#'     \code{"value"}.}
+#' }
+#'
+#' \strong{Joint modes.} A joint mode profiles a vector-valued parameter such as
+#' an empirical age-based M, where \code{"none"} over ten ages and 13 values
+#' would be \code{13^10} fits.
+#' \describe{
+#'   \item{\code{"none"}}{(default) each slot gets its own grid and they cross.}
+#'   \item{\code{"multiply"}}{one grid multiplying every cell, so the schedule
+#'     keeps its shape; \code{1} is the fitted model.}
+#'   \item{\code{"add"}}{one grid added to every cell, so the schedule keeps
+#'     the differences between cells; \code{0} is the fitted model.}
+#'   \item{\code{"value"}}{one grid; every cell takes that value.}
+#' }
+#' A joint mode needs \code{values} to be one vector, and
+#' \code{"multiply"}/\code{"add"} work in natural units, so \code{transform}
+#' must be \code{"log"} or \code{"identity"}. A value that would take a
+#' log-scale parameter to zero or below is an error naming the cell, not a
+#' failed fit.
 #'
 #' @return A list of class \code{"Rceattle_profile"} with elements:
 #'   \describe{
@@ -657,35 +665,40 @@ print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
 #' **Non-converged grid points** keep their row with a value of `NA`, so a
 #' failed fit leaves a gap in the curve rather than a segment drawn across it.
 #'
+#' **Weighted or unweighted components** (`weighted`). Conflict is normally read
+#' off the weighted components, since those are what moved the fit.
+#' `unweighted_jnll_comp` exists so Francis and McAllister-Ianelli can read a
+#' composition likelihood without its `Comp_weights` multiplier, so only the
+#' rows carrying such a multiplier are filled -- composition, CAAL, stomach
+#' content and the two linkage rows. Every other row is zero there and is
+#' dropped as unfitted, so `weighted = FALSE` returns a much smaller set: the
+#' index, catch, selectivity, catchability and penalty components are absent,
+#' not flat.
+#'
+#' **Placing each series on the y axis** (`relative`).
+#' \describe{
+#'   \item{`"own"`}{(default) subtract each series' own minimum, so every curve
+#'     starts at zero and its minimum marks the value that component prefers.
+#'     Objective units, so depth still says how strongly.}
+#'   \item{`"scaled"`}{as `"own"`, then divide by each series' own change over
+#'     the grid, so every curve runs 0 to 1. Use it where one component dwarfs
+#'     the rest and flattens them onto the axis. It **discards magnitude** -- a
+#'     component moving 0.02 draws like one moving 40 -- so raise `minfraction`
+#'     with it. A series that does not move stays at zero.}
+#'   \item{`"minimum"`}{subtract each series' value at the grid point where the
+#'     total is lowest, showing each component's change away from the fitted
+#'     optimum.}
+#'   \item{`"none"`}{the raw negative log-likelihoods.}
+#' }
+#' `minfraction` and the series ordering are always computed on the raw change
+#' over the grid, before any of this, so `"scaled"` cannot quietly disable the
+#' filter by making every span 1.
+#'
 #' @param object An `"Rceattle_profile"` object from [profile.Rceattle()].
 #' @param weighted Report the weighted components the optimizer minimized
-#'   (`TRUE`, the default) or the unweighted ones (`FALSE`). Conflict is
-#'   normally read off the weighted components, since those are what moved the
-#'   fit. `unweighted_jnll_comp` exists so Francis and McAllister-Ianelli can
-#'   read a composition likelihood without its `Comp_weights` multiplier, so
-#'   only the rows carrying such a multiplier are filled -- composition, CAAL,
-#'   stomach content and the two linkage rows. Every other row is zero there and
-#'   is dropped as unfitted, so `weighted = FALSE` returns a much smaller set:
-#'   the index, catch, selectivity, catchability and penalty components are
-#'   absent, not flat.
-#' @param relative How to place each series on the y axis.
-#'   \describe{
-#'     \item{`"own"`}{(default) subtract each series' own minimum, so every
-#'       curve starts at zero and its minimum marks the value that component
-#'       prefers. Objective units, so depth still says how strongly.}
-#'     \item{`"scaled"`}{as `"own"`, then divide by each series' own change over
-#'       the grid, so every curve runs 0 to 1. Use it where one component
-#'       dwarfs the rest and flattens them onto the axis. It **discards
-#'       magnitude** -- a component moving 0.02 draws like one moving 40 -- so
-#'       raise `minfraction` with it. A series that does not move stays at zero.}
-#'     \item{`"minimum"`}{subtract each series' value at the grid point where
-#'       the total is lowest, showing each component's change away from the
-#'       fitted optimum.}
-#'     \item{`"none"`}{the raw negative log-likelihoods.}
-#'   }
-#'   `minfraction` and the series ordering are always computed on the raw change
-#'   over the grid, before any of this, so `"scaled"` cannot quietly disable the
-#'   filter by making every span 1.
+#'   (`TRUE`, the default) or the unweighted ones (`FALSE`). See Details.
+#' @param relative How to place each series on the y axis: `"own"` (default),
+#'   `"scaled"`, `"minimum"` or `"none"`. See Details.
 #' @param minfraction Drop components whose change over the grid is less than
 #'   this fraction of the total's change, as in `r4ss::SSplotProfile()`. Default
 #'   `0` keeps everything; [plot_profile()] uses `0.01`, so a total moving 60

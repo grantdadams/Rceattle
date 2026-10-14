@@ -12,12 +12,12 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
-# Rceattle 5.60.1
+# Rceattle 5.60.2
 
 ## Documentation
 
 * **The `src/TMB/` comment surface is condensed and corrected**: 3,130 comment
-  lines to 2,702 (-428, 13.7%) across all twelve translation units. **No code
+  lines to 2,707 (-423, 13.5%) across all twelve translation units. **No code
   changed.** Three independent checks agree, each with a positive control proving
   it detects a one-token mutation: a string-literal-aware comment stripper,
   `clang -E -P` output per translation unit, and a purpose-written C++ tokenizer
@@ -58,6 +58,21 @@ version throughout.
   `inst/dev/TRAPS.md`, two tests and `R/7-plot_ceattle.R` read them. The numbered
   section index and all 125 section numbers are untouched, since other files cite
   them.
+
+# Rceattle 5.60.1
+
+## Documentation
+
+* **Seven `@param` entries across five help pages had grown into mini-vignettes; each now gives
+  the argument's meaning, allowed values and default, with the rest under Details**: `param` and `joint` in
+  `profile.Rceattle()`, `weighted` and `relative` in `profile_components()`, `start` in
+  `self_test()`, `M1_re` in `build_M1()` and `integrate` in `linkage_spec()`. The longest ran
+  18 lines. Nothing was rewritten -- the prose moved verbatim, so every claim it made is still
+  on the page, in Details rather than in the Arguments table. Allowed-value lists stayed in
+  `@param` where that is what they are: `build_hcr()`'s `HCR` is ten lines because it has eight
+  rules, and `linkage_spec()`'s `strata` lists its four permitted names.
+* **Section markers in the three largest files in `R/` that had none** -- `0-build_linkage.R`,
+  `0-rceattle_class.R` and `0-linkage_table.R`. Source comments only; no help page changed.
 
 # Rceattle 5.60.0
 
