@@ -1,7 +1,9 @@
 testthat::test_that("Input validation for fit_mod", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("Rceattle")
-  testthat::skip()
+  # data_check() rejects an NA hindcast catch with an error, where the second
+  # expectation below asserts a warning. Skipped since the file was written.
+  testthat::skip("see issue #244: expects a warning where data_check() errors")
 
   # NULL should error
   testthat::expect_error(Rceattle::fit_mod(NULL), "Missing data_list")

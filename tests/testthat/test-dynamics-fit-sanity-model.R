@@ -2,7 +2,9 @@ testthat::skip_on_cran()
 testthat::test_that("Fit sanity model: key quantities match baseline", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
-  testthat::skip()
+  # The baseline path below resolves from testthat's wd, which already IS
+  # tests/testthat, so it never finds it; the baseline predates R0's year axis.
+  testthat::skip("see issue #244: baseline path never resolves, shape is stale")
 
   # Prepare small deterministic dataset using helper
   #source(file.path("tests", "testthat", "helpers.R"))
