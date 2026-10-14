@@ -1,3 +1,5 @@
+# Growth codes and linkage registries ----
+
 #' Allowed growth functions for `fun` in [build_growth()]
 #'
 #' Currently:
@@ -92,6 +94,8 @@ GROWTH_LINKAGE_PARAMS <- c("K", "L1", "Linf", "m", "sd_L1", "sd_Linf")
 #' @noRd
 .GROWTH_SD_PARAM_TO_INDEX <- c(sd_L1 = 1L, sd_Linf = 2L)
 
+
+# build_growth() ----
 
 #' Specify the growth model for Rceattle
 #'
@@ -238,6 +242,8 @@ build_growth <- function(fun = "empirical",
   )
 }
 
+
+# Validators ----
 
 #' Validate `pop_lengths` for [build_growth()]
 #'

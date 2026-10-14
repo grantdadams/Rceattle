@@ -1,3 +1,5 @@
+# M1 codes and linkage registries ----
+
 #' Allowed M-parameter names for `linkages` in [build_M1()]
 #'
 #' Natural-scale names of the underlying natural-mortality
@@ -64,6 +66,8 @@ M_LINKAGE_PARAMS <- c("M1")
 )
 
 
+# Coercion and deprecation warnings ----
+
 #' Coerce an `M1_model` or `M1_re` value to canonical integer code(s).
 #'
 #' Accepts either a string from the corresponding map (length-1 or
@@ -126,6 +130,8 @@ M_LINKAGE_PARAMS <- c("M1")
   )
 }
 
+
+# build_M1() ----
 
 #' Specify the residual natural mortality (M1) model for Rceattle
 #'
@@ -230,6 +236,8 @@ build_M1 <- function(M1_model = 0,
   )
 }
 
+
+# Linkage validation ----
 
 #' Validate and canonicalize the `linkages` argument of [build_M1()]
 #'

@@ -1,3 +1,5 @@
+# fit_control() ----
+
 #' Bundle the optimizer / sdreport / phasing controls for `fit_mod()`
 #'
 #' Collects the optimizer and reporting settings into one object, so a call to
@@ -138,6 +140,8 @@ fit_control <- function(
 }
 
 
+# Which fields the caller supplied ----
+
 # Editing a bundle after the fact -- `ctl$getsd <- TRUE`, or the `[[<-` that
 # modifyList() uses -- is a request just as much as naming the field in the
 # fit_control() call, and the value cannot say so when it equals the default.
@@ -191,6 +195,8 @@ fit_control <- function(
   union(intersect(attr(fit_control, "supplied"), nms), edited)
 }
 
+
+# Refit knobs ----
 
 #' Read the refit knobs a diagnostic can actually honour
 #'

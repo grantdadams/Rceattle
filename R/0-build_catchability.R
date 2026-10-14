@@ -1,3 +1,5 @@
+# Linkage parameters and validation ----
+
 #' Catchability parameters that accept a linkage
 #' @keywords internal
 #' @noRd
@@ -10,6 +12,8 @@ Q_LINKAGE_PARAMS <- c("q")
   .validate_process_linkages(linkages, Q_LINKAGE_PARAMS, "q")
 }
 
+
+# build_catchability() ----
 
 #' Catchability specification
 #'
@@ -52,6 +56,8 @@ build_catchability <- function(linkages = NULL) {
   list(linkages = .validate_q_linkages(linkages))
 }
 
+
+# Linkage support checks ----
 
 # Catchability forms that do NOT estimate q, so a q linkage must not attach:
 # "Fixed" holds index_log_q at its input (a linkage would silently turn a fixed

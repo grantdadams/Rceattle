@@ -1,3 +1,5 @@
+# .fit_tmb() ----
+
 #' Fit a TMB object with optional TMBhelper enhancements
 #'
 #' Internal wrapper used by [fit_mod()]. Delegates to
@@ -108,6 +110,8 @@
   best
 }
 
+
+# Convergence and estimability checks ----
 
 #' Normalize `TMBhelper::fit_tmb()`'s non-positive-definite early return
 #'

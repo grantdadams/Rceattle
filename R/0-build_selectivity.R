@@ -1,3 +1,5 @@
+# Linkage parameters and validation ----
+
 #' Selectivity parameters that accept a linkage
 #'
 #' Slot names shared across the parametric forms, plus DoubleNormal aliases.
@@ -18,6 +20,8 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
   .validate_process_linkages(linkages, SEL_LINKAGE_PARAMS, "sel")
 }
 
+
+# build_selectivity() ----
 
 #' Selectivity specification
 #'
@@ -113,6 +117,8 @@ build_selectivity <- function(linkages = NULL) {
 }
 
 
+# Linkage slot and wired-form registries ----
+
 # Map a selectivity linkage param name to (array, 1-based slot). log_sel_slp
 # and sel_inf are [2, fleet, sex]; sel_coff is [fleet, sex, bin].
 .SEL_PARAM_TO_SLOT <- list(
@@ -153,6 +159,8 @@ build_selectivity <- function(linkages = NULL) {
 # that form only, and it has no other slots (apical aside, which every form has).
 .SEL_DN6_PARAMS <- names(Filter(function(m) identical(m$arr, "sel_dn6"), .SEL_PARAM_TO_SLOT))
 
+
+# Linkage support checks ----
 
 #' Reject selectivity linkages the model does not yet consume
 #'
