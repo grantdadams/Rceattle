@@ -4,6 +4,8 @@
 # (theme_classic) + colourblind palette, and return the ggplot object.
 # =============================================================================
 
+# Shared fit assembly and renderer ----
+
 # Assemble a tidy observed-vs-predicted data frame for a fleet "fit" plot.
 # `kind` selects the index (survey) or catch (fishery) data/quantities. Returns
 # one row per (model, fleet, year) with the observation, its lognormal 95%
@@ -116,6 +118,8 @@
 }
 
 
+# plot_index() ----
+
 #' Survey index fits
 #'
 #' Plots fitted index series: observed points with 95% observation intervals and
@@ -183,6 +187,8 @@ plot_logindex <- function(...) {
   plot_index(..., log = TRUE)
 }
 
+
+# plot_catchability() ----
 
 # Tidy the fleet x year catchability matrix into one row per (model, fleet, year).
 # `index_q` is the realized q, whichever route set it (see ?plot_catchability).
@@ -319,6 +325,8 @@ plot_catchability <- function(Rceattle,
 }
 
 
+# plot_catch() ----
+
 #' Fishery catch fits
 #'
 #' Plots fitted fishery catch: observed points with lognormal 95% intervals and
@@ -396,6 +404,8 @@ plot_catch <- function(Rceattle,
                width = width, height = height)
 }
 
+
+# plot_indexresidual() ----
 
 #' Survey index residuals
 #'

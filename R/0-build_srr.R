@@ -1,3 +1,5 @@
+# build_srr() ----
+
 #' Specify the stock-recruit relationship (SRR) for Rceattle
 #'
 #' @param srr_fun Stock-recruit function used in the hindcast estimation (see
@@ -279,6 +281,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
 }
 
 
+# Intercept and linkage predicates ----
+
 # TRUE if any spec in `specs` (one linkage_spec or a list) has an intercept prior.
 .has_intercept_prior <- function(specs) {
   if (is.null(specs)) return(FALSE)
@@ -346,6 +350,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
   !steepness_case
 }
 
+
+# srr_fun codes and coercion ----
 
 #' String<->integer mapping for `srr_fun` / `srr_pred_fun` in
 #' [build_srr()]
@@ -453,6 +459,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
   )
 }
 
+
+# Recruitment linkages ----
 
 #' Allowed recruitment-parameter names for `linkages` in [build_srr()]
 #'
