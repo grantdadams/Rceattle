@@ -70,18 +70,17 @@ template <class Type> Type square(Type x){return x*x;}
 /**
  * @brief Concentrated (analytical) sd of a lognormal observation likelihood.
  *
- * Catch and index observations are fit as
- * `log(obs) ~ N(log(pred) - b * sigma^2 / 2, sigma)`, with `b` the
- * bias-adjustment flag `bias_adjust_obs` (1 = mean-unbiased predictions,
- * Rceattle's default; 0 = median-unbiased). Minimising that density over sigma
- * with `S` = mean squared log residual gives
+ * Catch and index observations are fit as `log(obs) ~ N(log(pred) - b * sigma^2 / 2,
+ * sigma)`, with `b` the bias-adjustment flag `bias_adjust_obs` (1 = mean-unbiased
+ * predictions, Rceattle's default; 0 = median-unbiased). Minimising that density over
+ * sigma with `S` = mean squared log residual gives
  *
  *   sigma^2 = 2 * S / (sqrt(1 + b^2 * S) + 1)
  *
- * the Walters and Ludwig (1994) estimator `sigma = sqrt(S)` at `b = 0`, shrunk as
- * the bias term takes up part of the residual. This is the rationalised form of
- * `2 (sqrt(1 + b^2 S) - 1) / b^2`, which needs no branch at `b = 0` and stays
- * accurate for small `b`, where that expression cancels to zero.
+ * the Walters and Ludwig (1994) estimator `sigma = sqrt(S)` at `b = 0`, shrunk as the
+ * bias term takes up part of the residual. It is the rationalised form of `2 (sqrt(1 +
+ * b^2 S) - 1) / b^2`, which needs no branch at `b = 0` and stays accurate for small `b`,
+ * where that expression cancels to zero.
  *
  * @param mean_sq_resid  S, the mean of squared `log(obs) - log(pred)`.
  * @param bias_adjust    b, the bias-adjustment flag applied by the density.
@@ -127,13 +126,12 @@ Type max2(Type x, Type y){
 /**
  * @brief log(mean(exp(x))) over a non-empty vector, computed so it cannot overflow.
  *
- * The non-parametric selectivity forms rescale their log-scale coefficients
- * against log(mean(exp(coefficients))) once per year, which is how a curve whose
- * level is otherwise unidentified is held at mean selectivity 1. Summed directly,
- * exp() overflows to infinity once a coefficient passes about 709 -- the largest
- * argument it takes in double precision -- and the objective is NaN from there on.
- * Subtracting the largest coefficient first holds every exponent at or below 0,
- * and the shift cancels out of both the result and its derivative.
+ * The non-parametric selectivity forms rescale their log-scale coefficients against
+ * log(mean(exp(coefficients))) once a year, holding a curve whose level is otherwise
+ * unidentified at mean selectivity 1. Summed directly, exp() overflows to infinity once a
+ * coefficient passes about 709, the largest argument it takes in double precision, and
+ * the objective is NaN thereafter. Subtracting the largest coefficient first holds every
+ * exponent at or below 0; the shift cancels out of both the result and its derivative.
  *
  * @param x non-empty vector of log-scale values.
  * @return log of the mean of exp(x).
@@ -154,15 +152,13 @@ Type log_mean_exp(const vector<Type> &x)
 /**
  * @brief Construct a sparse GMRF precision matrix separable along year, age, and cohort.
  *
- * Builds Q = (I - B^T) * Omega * (I - B), where B carries the partial correlation
- * to each neighbouring node and Omega is the diagonal precision (1 / variance).
- * `Var_Param` selects the conditional (0) or marginal (1) variance
- * parameterization of the GMRF.
+ * Builds Q = (I - B^T) * Omega * (I - B), where B carries the partial correlation to each
+ * neighbouring node and Omega is the diagonal precision (1 / variance). `Var_Param`
+ * selects the conditional (0) or marginal (1) variance parameterization of the GMRF.
  *
- * The sole caller reads these names the other way round: ceattle.cpp's 3D-AR1
- * selectivity passes its (bin, year, cohort) correlations in and fills `ay_Index`
- * as (bin, year), so the two inversions cancel. Read the note at that call before
- * renaming anything here.
+ * The sole caller reads these names the other way round: ceattle.cpp's 3D-AR1 selectivity
+ * passes its (bin, year, cohort) correlations in and fills `ay_Index` as (bin, year), so
+ * the two inversions cancel. Read the note at that call before renaming anything here.
  *
  * @param n_years Number of years.
  * @param n_ages Number of ages.

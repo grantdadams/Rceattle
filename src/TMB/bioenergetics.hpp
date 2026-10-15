@@ -2,7 +2,7 @@
 #define BIOENERGETICS_HPP
 
 /**
- * @brief Calculates the temperature-dependent function of consumption (fT) for bioenergetics.
+ * @brief Temperature-dependent function of consumption (fT) for bioenergetics.
  *
  * Updates the fT matrix in place. Supports multiple bioenergetics models:
  * 1 = Exponential function (Stewart et al. 1983)
@@ -10,18 +10,18 @@
  * 3 = Cool/cold-water species temperature dependence (Thornton and Lessem 1979)
  * 4 = Constant (fT = 1.0)
  *
- * @param fT         Matrix of temperature functions to be updated [nspp, nyrs].
+ * @param fT         Temperature functions [nspp, nyrs], updated.
  * @param nspp       Number of species.
- * @param nyrs       Number of years.
- * @param Ceq        Vector specifying which consumption equation to use for each species.
- * @param Cindex     Vector specifying which environmental index drives each species.
- * @param Qc         Bioenergetics parameter: Q coefficient in equations 1-2, a temperature in 3.
- * @param Tcm        Bioenergetics parameter (Thermal max).
- * @param Tco        Bioenergetics parameter (Thermal optimum).
- * @param Tcl        Bioenergetics parameter (Thermal limit for Thornton/Lessem).
- * @param CK1        Bioenergetics parameter (Ascending limit for Thornton/Lessem).
- * @param CK4        Bioenergetics parameter (Descending limit for Thornton/Lessem).
- * @param env_index  Matrix of environmental predictors (e.g., bottom temperature) [nyrs, n_indices].
+ * @param nyrs       Years, hindcast plus projection.
+ * @param Ceq        Consumption equation per species.
+ * @param Cindex     Environmental index driving each species.
+ * @param Qc         Q coefficient in equations 1-2, a temperature in equation 3.
+ * @param Tcm        Thermal max.
+ * @param Tco        Thermal optimum.
+ * @param Tcl        Thermal limit for Thornton/Lessem.
+ * @param CK1        Ascending limit for Thornton/Lessem.
+ * @param CK4        Descending limit for Thornton/Lessem.
+ * @param env_index  Environmental predictors, e.g. bottom temperature [nyrs, n_indices].
  */
 template <class Type>
 void calculate_temperature_function(matrix<Type> &fT,
@@ -37,8 +37,7 @@ void calculate_temperature_function(matrix<Type> &fT,
                                     const vector<Type> &CK4,
                                     const matrix<Type> &env_index) {
 
-  // Kitchell and Thornton/Lessem intermediates, hoisted out of the loops to keep the
-  // AD tape small.
+  // Kitchell and Thornton/Lessem intermediates, hoisted out to keep the AD tape small.
   Type Yc = 0.0;
   Type Zc = 0.0;
   Type Vc = 0.0;
@@ -53,9 +52,9 @@ void calculate_temperature_function(matrix<Type> &fT,
   for(int sp = 0; sp < nspp; sp++) {
 
     // Equations 1-3 read one column of env_index; equation 4 reads none. Cindex is
-    // 0-based here (ceattle.cpp decrements the 1-based input), and an out-of-range
-    // column would read adjacent memory (the model is built without bounds
-    // checking), so with no column to read consumption takes equation 4's fT = 1.
+    // 0-based (ceattle.cpp decrements the 1-based input), and an out-of-range column
+    // would read adjacent memory (the model is built without bounds checking), so with
+    // no column to read consumption takes equation 4's fT = 1.
     bool has_env = (Cindex(sp) >= 0) && (Cindex(sp) < env_index.cols());
     int  eq      = has_env ? Ceq(sp) : 4;
 
@@ -66,7 +65,7 @@ void calculate_temperature_function(matrix<Type> &fT,
         fT(sp, yr) = exp(Qc(sp) * env_index(yr, Cindex(sp)));
         break;
 
-      case 2: // Temperature dependence for warm-water species from Kitchell et al. 1977
+      case 2: // Warm-water species temperature dependence, Kitchell et al. 1977
         Yc = log(Qc(sp)) * (Tcm(sp) - Tco(sp) + 2.0);
         Zc = log(Qc(sp)) * (Tcm(sp) - Tco(sp));
         Vc = (Tcm(sp) - env_index(yr, Cindex(sp))) / (Tcm(sp) - Tco(sp));
@@ -74,7 +73,7 @@ void calculate_temperature_function(matrix<Type> &fT,
         fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1.0 - Vc));
         break;
 
-      case 3: // Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
+      case 3: // Cool/cold-water species temperature dependence, Thornton and Lessem 1979
         G2 = (1.0 / (Tcl(sp) - Tcm(sp))) * log((0.98 * (1.0 - CK4(sp))) / (CK4(sp) * 0.02));
         L2 = exp(G2 * (Tcl(sp) - env_index(yr, Cindex(sp))));
         Kb = (CK4(sp) * L2) / (1.0 + CK4(sp) * (L2 - 1.0));
@@ -102,25 +101,25 @@ void calculate_temperature_function(matrix<Type> &fT,
 
 
 /**
- * @brief Calculates the annual ration of a predator at age, in kg per predator per year.
+ * @brief Annual ration of a predator at age, in kg per predator per year.
  *
  * Updates `consumption_at_age` in place, from the bioenergetics equations (Ceq 1-3) or
- * from directly input consumption (Ceq 4).
+ * from input consumption (Ceq 4).
  *
- * @param consumption_at_age Array updated with individual consumption (kg/yr) [nspp, max_sex, max_age, nyrs].
- * @param nspp               Total number of species in the model.
- * @param nyrs               Total number of years (hindcast + forecast).
- * @param nyrs_hind          Number of years in the hindcast period.
- * @param nsex               Vector containing the number of sexes modeled for each species.
- * @param nages              Number of age bins per species.
- * @param Ceq                Vector specifying the consumption equation type for each species.
- * @param CA                 Vector of intercepts for the allometric mass function (Cmax = CA * W^(1+CB)).
- * @param CB                 Vector of slopes for the allometric mass function.
- * @param fday               Vector of the number of foraging days per year for each species.
- * @param Pvalue             Vector of the proportion of maximum consumption (scales Cmax).
- * @param fT                 Matrix of the temperature-dependence function [nspp, nyrs].
- * @param ration_data        Relative foraging rates (Ceq 1-3), or input consumption (Ceq 4).
- * @param weight_hat         Array of estimated weight-at-age [n_wt_indices, max_sex, max_age, nyrs].
+ * @param consumption_at_age Individual consumption, kg/yr [nspp, max_sex, max_age, nyrs].
+ * @param nspp               Number of species.
+ * @param nyrs               Years, hindcast plus projection.
+ * @param nyrs_hind          Years in the hindcast.
+ * @param nsex               Sexes modelled per species: 1 = combined, 2 = both.
+ * @param nages              Age bins per species.
+ * @param Ceq                Consumption equation per species.
+ * @param CA                 Allometric mass function intercept (Cmax = CA * W^(1+CB)).
+ * @param CB                 Allometric mass function slope.
+ * @param fday               Foraging days per year, per species.
+ * @param Pvalue             Proportion of maximum consumption (scales Cmax).
+ * @param fT                 Temperature-dependence function [nspp, nyrs].
+ * @param ration_data        Relative foraging rates (Ceq 1-3), input consumption (Ceq 4).
+ * @param weight_hat         Weight-at-age [n_wt_indices, max_sex, max_age, nyrs].
  */
 template <class Type>
 void calculate_ration(array<Type> &consumption_at_age,
@@ -134,7 +133,7 @@ void calculate_ration(array<Type> &consumption_at_age,
                       const vector<Type> &CB,
                       const vector<Type> &fday,
                       const vector<Type> &Pvalue,
-                      matrix<Type> &fT, // "const", but doesnt work in TMB for matrices and arrays
+                      matrix<Type> &fT, // "const" doesnt work for TMB matrices/arrays
                       array<Type> &ration_data,
                       array<Type> &weight_hat) {
 
@@ -149,7 +148,7 @@ void calculate_ration(array<Type> &consumption_at_age,
           if(Ceq(sp) < 4){
             int wt_idx_pop = 2 * sp;
 
-            // Cmax * fT * fday in grams/predator/year; weight_hat is kg, so x1000 gives grams.
+            // Cmax * fT * fday, grams/predator/yr; weight_hat is kg so x1000 gives grams.
             consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(weight_hat(wt_idx_pop, sex, age, yr) * Type(1000.0), 1.0 + CB(sp)) * fT(sp, yr) * fday(sp);
 
             // Scale by Pvalue and the relative foraging rate, then grams to kg.

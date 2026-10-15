@@ -12,6 +12,59 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.63.2
+
+## Documentation
+
+* **The `src/TMB/` comments are shortened**: comment words 23,766 to 22,949
+  (-817, -3.4%) and comment lines 2,717 to 2,607 (-110) across all twelve
+  translation units. This is a second pass over the surface 5.60.2 condensed;
+  the dead and duplicated material was already gone, so this one is prose
+  compression, not deletion. **No code changed** -- every translation unit
+  preprocesses byte-identically to the 5.63.1 base, each check run with a
+  control that detects a one-token mutation.
+
+* **Nine wrong statements found and corrected while shortening.** `flt_type`
+  was documented `(0 = no, 1 = yes)` for a switch with three values
+  (`fleet_map`: Off 0, Fishery 1, Survey 2); this file branches on `== 1` for
+  fisheries at 13 sites and on `> 0` for fishery-or-survey at 13 more, so a
+  reader who trusted the boolean reading would silently drop every survey.
+  `pop_wt_index`, `ssb_wt_index`, `pop_age_transition_index` and
+  `flt_age_transition_index` all claimed "Dim 3" where the code selects dim 1
+  -- `flt_wt_index`'s own comment already had it right. `est_index_q` was
+  described as whether analytical q is used, over an eight-code `q_map`.
+  `selectivity.hpp`'s case 9 attributed the form to RTMB "rpm", which names the
+  smooth shape-penalty mode; the form is ADMB AMAK "pm", as the same file's own
+  Doxygen said twelve lines earlier. "Code 12 is unused" now reads "Codes 10, 12
+  and 14", matching the registry. Two `@param` blocks called `nages` and
+  `nlengths` "max ages"/"max lengths" per species, which hard rule 11 exists to
+  prevent; they are bin counts. `diet_ctl`'s gloss carried `diet_obs`'s
+  stomach-weight parenthetical, and `predation.hpp`'s "working sums per predator
+  age" were wrong on three of four dimensions.
+
+* **Repeated wording unified.** Five dimension arguments were documented 29
+  times in eight phrasings across the headers; they now use one verified form
+  each. `comp_osa.hpp`'s four CDF helpers each re-derived the same keep-gating
+  contract, now stated once in its `@file` block; `linkage.hpp` repeated one
+  `link_code`/`linkage_X`/`beta` triplet five times, now stated once -- and the
+  single statement is wider than what it replaced, since the per-function copies
+  omitted link code 3, which is live for catchability.
+
+* **Line width, stated because it is a visible change and not what was asked
+  for.** Comment lines over 90 columns fall from 164 to 25 (the survivors are
+  three literature citations, two lookup legends, and one Richards formula kept
+  whole), but lines over 80 rise from 681 to 998: reflowing to a 90-column
+  allowance pulled the long tail in and pushed the middle out. Package median
+  width moves 76 to 77. `comp_osa.hpp`, `comp_sim.hpp` and `spr.hpp` have almost
+  no word reduction (21 words across the three) -- their gain was the hoist
+  above, and their line savings are mostly reflow.
+
+* Protected content was audited rather than assumed: the nine deliberately-kept
+  commented-out declarations and `LEGACY` markers are byte-identical and the six
+  documents citing them still read true; 29 year-citations with no delta; 93
+  numbered section headers unchanged with all 35 external citations resolving;
+  and `@param` names identical across all 34 documented functions.
+
 # Rceattle 5.63.1
 
 ## Documentation

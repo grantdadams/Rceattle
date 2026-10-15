@@ -5,33 +5,31 @@
  * @file spr.hpp
  * @brief Spawning biomass per recruit, for the Amendment-56 SPR proxies.
  *
- * F40% and F35% are the F that leave a target fraction of unfished spawning
- * output per recruit; the template finds them by penalising SPR(F)/SPR(0)
- * against that fraction (section 13, JNLL_REFPT_PENALTY). Under Beverton-Holt
- * or Ricker, SPR0 also sets steepness and R0 and SPRFinit sets R_init (section
- * 6.3), which scales the initial age structure (section 6.4) -- so these values
- * reach the hindcast and the objective under any harvest control rule, not just
- * the reference points.
+ * F40% and F35% are the F that leave a target fraction of unfished spawning output per
+ * recruit; the template finds them by penalising SPR(F)/SPR(0) against that fraction
+ * (section 13, JNLL_REFPT_PENALTY). Under Beverton-Holt or Ricker, SPR0 also sets
+ * steepness and R0 and SPRFinit sets R_init (section 6.3), which scales the initial
+ * age structure (section 6.4) -- so these values reach the hindcast and the objective
+ * under any harvest control rule, not just the reference points.
  *
- * Both functions work on the female schedule (sex index 0) and report spawning
- * output per TOTAL recruit: the caller supplies spawning output per fish with
- * maturity already folded in, and the female fraction separately.
+ * Both functions work on the female schedule (sex index 0) and report spawning output
+ * per TOTAL recruit: the caller supplies spawning output per fish with maturity
+ * already folded in, and the female fraction separately.
  *
- * Not defined under predation, where total mortality carries M2 and so tracks
- * predator abundance rather than the prey stock alone: data_check() refuses the
- * switch combinations that would read it.
+ * Not defined under predation, where total mortality carries M2 and so tracks predator
+ * abundance rather than the prey stock alone: data_check() refuses the switch
+ * combinations that would read it.
  */
 
 
 /**
  * @brief Survivors at age from one recruit under a fixed mortality schedule.
  *
- * The oldest bin is a plus group, so it also accumulates the tail of survivors
- * that stay in it: `/ (1 - exp(-Z_plus))`.
- *
- * Two unchecked preconditions, kept off the AD path and unreachable for any
- * age-structured species: `Z.size() >= 2`, since the plus group reads the age
- * below it, and a plus-group `Z` above zero, or that tail divides by zero.
+ * The oldest bin is a plus group, so it also accumulates the tail of survivors that
+ * stay in it: `/ (1 - exp(-Z_plus))`. Two unchecked preconditions, kept off the AD
+ * path and unreachable for any age-structured species: `Z.size() >= 2`, since the plus
+ * group reads the age below it, and a plus-group `Z` above zero, or that tail divides
+ * by zero.
  *
  * @param Z  Total instantaneous mortality at age (yr^-1), length nages >= 2.
  * @return   Numbers at age per recruit.
@@ -57,13 +55,13 @@ vector<Type> per_recruit_survivors(const vector<Type>& Z)
  * @brief Female spawning biomass per recruit, given a survivor schedule.
  *
  * @param n            Numbers at age per recruit, from per_recruit_survivors().
- * @param Z            The schedule that produced `n`, reused for the mortality
- *                     served before spawning within the year.
- * @param weight       Spawning output per fish at age (kg): `spawn_output`
- *                     (section 5.7), with maturity and, for a one-sex species,
- *                     the female fraction already in it.
- * @param mature_female Female fraction of a recruit's cohort: the recruitment
- *                     split for a two-sex species, 1 otherwise.
+ * @param Z            The schedule that produced `n`, reused for the mortality served
+ *                     before spawning within the year.
+ * @param weight       Spawning output per fish at age (kg): `spawn_output` (section
+ *                     5.7), with maturity and, for a one-sex species, the female
+ *                     fraction already in it.
+ * @param mature_female Female fraction of a recruit's cohort: the recruitment split
+ *                     for a two-sex species, 1 otherwise.
  * @param spawn_month  Month of spawning, 0-12; 0 spawns at the start of the year.
  * @return             Spawning biomass per recruit (kg per recruit).
  */

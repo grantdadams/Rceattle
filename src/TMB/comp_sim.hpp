@@ -3,27 +3,25 @@
  * @brief Random draws for composition-style observations, used by SIMULATE.
  *
  * Every composition likelihood in the model -- age/length comps, conditional
- * age-at-length, and stomach contents -- is a multinomial or a
- * Dirichlet-multinomial over a vector of bins, and TMB supplies neither draw:
- * `distributions_R.hpp` stops at univariate generators (`rbinom`, `rgamma`,
- * `runif`, ...). These are the two multivariate draws built from them, both the
- * standard constructions and exact given `N` and `p`, with `N` rounded to a
- * whole count the only approximation either makes:
+ * age-at-length, and stomach contents -- is a multinomial or a Dirichlet-multinomial
+ * over a vector of bins, and TMB supplies neither draw: `distributions_R.hpp` stops
+ * at univariate generators (`rbinom`, `rgamma`, `runif`, ...). These are the two
+ * multivariate draws built from them, both the standard constructions and exact given
+ * `N` and `p`, with `N` rounded to a whole count the only approximation either makes:
  *
- * - A multinomial is drawn as a sequence of conditional binomials: having placed
- *   the first `a` bins, the count in bin `a+1` is binomial in the observations
- *   still unplaced, with probability rescaled by the probability still unspent.
- *   One `rbinom` per bin. One categorical variate per observation instead (as
- *   WHAM's `rmultinom` does, src/age_comp_sim.hpp) is equally valid but costs one
- *   uniform per observation, which stomach sample sizes make expensive.
+ * - A multinomial is drawn as a sequence of conditional binomials: having placed the
+ *   first `a` bins, the count in bin `a+1` is binomial in the observations still
+ *   unplaced, with probability rescaled by the probability still unspent -- one
+ *   `rbinom` per bin. One categorical variate per observation instead (as WHAM's
+ *   `rmultinom` does, src/age_comp_sim.hpp) is equally valid but costs one uniform
+ *   per observation, which stomach sample sizes make expensive.
  * - A Dirichlet-multinomial is a multinomial whose probabilities are a Dirichlet
  *   draw, itself a vector of independent gammas divided by its own sum.
  *
- * Both return COUNTS summing to `N`, as the densities in `helper_functions.hpp`
- * and `comp_osa.hpp` read them; the caller converts back to whatever scale its
- * data object stores. They run only inside `SIMULATE{}`, where `Type` is always
- * double and there is no AD tape, so `CppAD::Integer()` and the R generators
- * underneath are safe.
+ * Both return COUNTS summing to `N`, as the densities in `helper_functions.hpp` and
+ * `comp_osa.hpp` read them; the caller converts back to its data object's scale. They
+ * run only inside `SIMULATE{}`, where `Type` is always double and there is no AD tape,
+ * so `CppAD::Integer()` and the R generators underneath are safe.
  */
 
 #ifndef RCEATTLE_COMP_SIM_HPP
@@ -32,11 +30,11 @@
 /**
  * @brief Draw multinomial counts by sequential conditional binomials.
  *
- * @param N Number of observations to place. Rounded to a whole number, as the
- *   binomial size must be an integer; effective sample sizes reaching here are
- *   whole counts (stomachs sampled, fish aged) or a weighting of them.
- * @param p Bin probabilities. Rescaled internally, so they need not sum to 1, but
- *   must be non-negative.
+ * @param N Number of observations to place. Rounded to a whole number, as the binomial
+ *   size must be an integer; effective sample sizes reaching here are whole counts
+ *   (stomachs sampled, fish aged) or a weighting of them.
+ * @param p Bin probabilities. Rescaled internally, so they need not sum to 1, but must
+ *   be non-negative.
  * @return Counts, one per bin, summing to the rounded `N`.
  */
 template<class Type>
@@ -77,12 +75,11 @@ vector<Type> rmultinom_rce(Type N, vector<Type> p)
  * @brief Draw Dirichlet proportions as normalized independent gammas.
  *
  * With a very small concentration every gamma can underflow to zero in double
- * precision, leaving nothing to normalize; onset is around `sum(alpha)` below
- * 1e-3. The limit of a Dirichlet as `alpha -> 0` is degenerate -- all the mass in
- * ONE bin, chosen with probability proportional to `alpha` -- so that is what is
- * returned. A flat vector would be the opposite of the near-degenerate
- * composition the parameters describe, turning a concentrated diet into a
- * diffuse one.
+ * precision, leaving nothing to normalize; onset is around `sum(alpha)` below 1e-3.
+ * The limit of a Dirichlet as `alpha -> 0` is degenerate -- all the mass in ONE bin,
+ * chosen with probability proportional to `alpha` -- so that is what is returned. A
+ * flat vector would be the opposite of the near-degenerate composition the parameters
+ * describe, turning a concentrated diet into a diffuse one.
  *
  * @param alpha Concentration parameters, one per bin, non-negative.
  * @return Proportions summing to 1.
@@ -100,8 +97,7 @@ vector<Type> rdirichlet_rce(vector<Type> alpha)
   }
   Type tot = x.sum();
   if(!(tot > Type(0))){
-    // Everything underflowed: the degenerate limit, one bin picked in
-    // proportion to alpha.
+    // Everything underflowed: the degenerate limit, one bin in proportion to alpha.
     Type a_tot = alpha.sum();
     x.setZero();
     if(a_tot > Type(0)){
@@ -123,10 +119,9 @@ vector<Type> rdirichlet_rce(vector<Type> alpha)
  * @brief Draw Dirichlet-multinomial counts.
  *
  * @param N Number of observations to place.
- * @param alpha Concentration parameters, one per bin; in this model
- *   `predicted proportion * N * theta`. The draw reproduces the MEAN the density
- *   predicts, but not every moment of it: the density is evaluated on offset data
- *   while the draw is taken on the raw scale.
+ * @param alpha Concentration parameters, one per bin; here `predicted proportion * N *
+ *   theta`. The draw reproduces the MEAN the density predicts but not every moment of
+ *   it: the density is evaluated on offset data while the draw is on the raw scale.
  * @return Counts, one per bin, summing to the rounded `N`.
  */
 template<class Type>

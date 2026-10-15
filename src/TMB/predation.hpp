@@ -5,15 +5,16 @@
 /**
  * @brief Transforms predator-prey preference parameters into vulnerability.
  *
- * Multinomial logistic transform, so each predator's prey preferences and its
- * vulnerability to "other food" sum to 1. Parametric suitability only (suitMode > 0).
- * Adopted from Trijoulet et al. 2020 (https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp).
+ * Multinomial logistic transform: each predator's prey preferences and its vulnerability
+ * to "other food" sum to 1. Parametric suitability only (suitMode > 0). Adopted from
+ * Trijoulet et al. 2020
+ * (https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp).
  *
- * @param vulnerability       Matrix updated with bounded predator-prey vulnerability [nspp, nspp].
- * @param vulnerability_other Vector updated with the remaining vulnerability for "other food" [nspp].
- * @param nspp                Total number of species in the model.
- * @param suitMode            Vector specifying the suitability/preference mode for each species.
- * @param log_phi             Matrix of estimated log-preference parameters [nspp, nspp].
+ * @param vulnerability       Bounded predator-prey vulnerability [nspp, nspp], updated.
+ * @param vulnerability_other Remaining vulnerability for "other food" [nspp], updated.
+ * @param nspp                Number of species.
+ * @param suitMode            Suitability/preference mode per species.
+ * @param log_phi             Estimated log-preference parameters [nspp, nspp].
  */
 template <class Type>
 void calculate_vulnerability(matrix<Type> &vulnerability,
@@ -44,32 +45,32 @@ void calculate_vulnerability(matrix<Type> &vulnerability,
 }
 
 /**
- * @brief Calculates parametric suitability (Gamma, Lognormal, and Normal forms) based on predator/prey size ratios.
+ * @brief Parametric suitability (Gamma, Lognormal, Normal) from size ratios.
  *
  * Evaluates the predator-to-prey size ratio against a density scaled to a peak of 1.
  * `suitMode` sets both the density and the size metric:
- * - suitMode = 1: Gamma distribution (Length-based)       [NOT YET AVAILABLE -- blocked in data_check()]
- * - suitMode = 2: Gamma distribution (Weight-based)
- * - suitMode = 3: Lognormal distribution (Length-based)   [NOT YET AVAILABLE -- blocked in data_check()]
- * - suitMode = 4: Lognormal distribution (Weight-based)
- * - suitMode = 5: Normal distribution (Length-based)      [NOT YET AVAILABLE -- blocked in data_check()]
- * - suitMode = 6: Normal distribution (Weight-based)
- * The length-based modes need an active growth model; data_check() refuses them until
- * that validation is added.
+ * - Gamma: suitMode 1 (length-based) or 2 (weight-based)
+ * - Lognormal: suitMode 3 (length-based) or 4 (weight-based)
+ * - Normal: suitMode 5 (length-based) or 6 (weight-based)
+ * The length-based modes 1, 3 and 5 are NOT YET AVAILABLE: they need an active growth
+ * model, and data_check() blocks them until that validation is added.
  *
- * @param suitability         Array updated with size-based suitability [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
- * @param suit_other          Array updated with the baseline vulnerability to "other food" [nspp, max_sex, max_age, nyrs].
- * @param nspp                Total number of species in the model.
- * @param nyrs                Total number of years evaluated.
- * @param nsex                Vector containing the number of sexes modeled for each species.
- * @param nages               Number of age bins per species.
- * @param suitMode            Vector specifying the parametric suitability mode for each predator species.
- * @param length_hat          Array of estimated lengths-at-age [nspp*2+n_flt, max_sex, max_age, nyrs].
- * @param weight_hat          Array of estimated weights-at-age [nspp*2+n_flt, max_sex, max_age, nyrs].
- * @param vulnerability       Matrix of bounded predator-prey vulnerability preferences [nspp, nspp].
- * @param vulnerability_other Vector of vulnerability preference for "other food" [nspp].
- * @param gam_a               Vector of distribution shape/mean parameters for predator size-selectivity [nspp].
- * @param gam_b               Vector of distribution scale/sd parameters for predator size-selectivity [nspp].
+ * @param suitability         Size-based suitability, updated
+ *                            [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
+ * @param suit_other          Baseline vulnerability to "other food", updated;
+ *                            [nspp, max_sex, max_age, nyrs] -- species NOT collapsed,
+ *                            unlike suitability.
+ * @param nspp                Number of species.
+ * @param nyrs                Years, hindcast plus projection.
+ * @param nsex                Sexes modelled per species: 1 = combined, 2 = both.
+ * @param nages               Age bins per species.
+ * @param suitMode            Parametric suitability mode per predator species.
+ * @param length_hat          Lengths-at-age [nspp*2+n_flt, max_sex, max_age, nyrs].
+ * @param weight_hat          Weights-at-age [nspp*2+n_flt, max_sex, max_age, nyrs].
+ * @param vulnerability       Bounded predator-prey vulnerability [nspp, nspp].
+ * @param vulnerability_other Vulnerability preference for "other food" [nspp].
+ * @param gam_a               Shape/mean parameter for predator size-selectivity [nspp].
+ * @param gam_b               Scale/sd parameter for predator size-selectivity [nspp].
  */
 template <class Type>
 void calculate_parametric_suitability(array<Type> &suitability,
@@ -107,9 +108,9 @@ void calculate_parametric_suitability(array<Type> &suitability,
                   suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
                   Type size_ratio = 0.0;
 
-                  // Modes 1-4 use the log size ratio, 5 and 6 the raw ratio. A ratio of 0 or
-                  // less leaves suitability at 0: on modes 1-4 that is prey at least as
-                  // large as the predator.
+                  // Modes 1-4 use the log size ratio, 5 and 6 the raw ratio. A ratio of
+                  // 0 or less leaves suitability at 0: on modes 1-4 that is prey at
+                  // least as large as the predator.
                   if(smode == 1 || smode == 3) {
                     size_ratio = log(length_hat(rsp, r_sex, r_age, yr) / length_hat(ksp, k_sex, k_age, yr));
                   } else if (smode == 2 || smode == 4) {
@@ -143,38 +144,37 @@ void calculate_parametric_suitability(array<Type> &suitability,
 
 
 /**
- * @brief Calculates MSVPA/empirical-based suitability based on stomach content and prey biomass.
+ * @brief MSVPA/empirical suitability, from stomach content and prey biomass.
  *
- * Empirical suitability, for predators with suitMode = 0. stom_div_bio is the observed
- * diet proportion divided by prey biomass (numbers in thousands x weight in kg = mt; the
- * prey term is squared under msmMode = 2, Type III). That ratio is normalized over the
- * modeled prey and "other food", averaged over suit_styr..suit_endyr, and held constant
- * across all years.
+ * For predators with suitMode = 0. stom_div_bio is the observed diet proportion divided
+ * by prey biomass (numbers in thousands x weight in kg = mt; the prey term is squared
+ * under msmMode = 2, Type III). That ratio is normalized over the modeled prey and "other
+ * food", averaged over suit_styr..suit_endyr, and held constant across all years.
  *
- * A prey age whose average numbers approach zero while its diet proportion stays
- * positive sends stom_div_bio, and so the prey term, to infinity: that one cell
- * takes the whole normalized share, "other food" vanishes and available food
- * collapses with it, so M2 diverges. The other-food term is therefore floored at
- * a fixed fraction of the prey term, which bounds suit_other below at
- * floor/(1 + floor) and leaves the partition sum(suitability) + suit_other = 1
- * exact. .warn_suitability_floor() reports when it binds.
+ * A prey age whose average numbers approach zero with a positive diet proportion sends
+ * stom_div_bio, and so the prey term, to infinity: that one cell takes the whole
+ * normalized share, "other food" vanishes, available food collapses with it, so M2
+ * diverges. The other-food term is floored at a fixed fraction of the prey term, bounding
+ * suit_other below at floor/(1 + floor), leaving sum(suitability) + suit_other = 1 exact.
+ * .warn_suitability_floor() reports when it binds.
  *
- * @param stom_div_bio         Array updated with the ratio of diet proportion to biomass [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
- * @param suitability          Array updated with the final calculated suitability [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
- * @param suit_other           Array updated with the remaining suitability for "other food" [nspp, max_sex, max_age, nyrs].
- * @param nspp                 Total number of species in the model.
- * @param nyrs                 Total number of years evaluated.
- * @param suit_styr            Start year index (per predator species) for the suitability averaging period.
- * @param suit_endyr           End year index (per predator species) for the suitability averaging period.
- * @param nyrs_suit            Number of years in the suitability averaging period, per predator species.
+ * @param stom_div_bio         Ratio of diet proportion to biomass, updated;
+ *                             [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
+ * @param suitability          Final calculated suitability, updated.
+ * @param suit_other           Remaining suitability for "other food", updated.
+ * @param nspp                 Number of species.
+ * @param nyrs                 Years, hindcast plus projection.
+ * @param suit_styr            Start year index of the suitability window, per predator.
+ * @param suit_endyr           End year index of the suitability window, per predator.
+ * @param nyrs_suit            Years in the suitability window, per predator.
  * @param msmMode              Predation mode; 2 (Type III) squares the prey numbers.
- * @param nsex                 Vector containing the number of sexes modeled for each species.
- * @param nages                Number of age bins per species.
- * @param suitMode             Vector specifying the suitability mode for each predator species.
- * @param diet_prop            Array of observed diet proportions, as filled by organize_diet_obs().
- * @param avgN_at_age          Array of average numbers-at-age (thousands of fish).
- * @param weight_hat           Array of estimated weights-at-age (kg).
- * @param other_food_diet_prop Array of residual "other food" diet proportion, per mt of other food.
+ * @param nsex                 Sexes modelled per species: 1 = combined, 2 = both.
+ * @param nages                Age bins per species.
+ * @param suitMode             Suitability mode per predator species.
+ * @param diet_prop            Observed diet proportions from organize_diet_obs().
+ * @param avgN_at_age          Average numbers-at-age (thousands of fish).
+ * @param weight_hat           Estimated weights-at-age (kg).
+ * @param other_food_diet_prop Residual diet proportion for "other food", per mt of it.
  */
 template <class Type>
 void calculate_msvpa_suitability(array<Type> &stom_div_bio,
@@ -191,7 +191,8 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
                                  array<Type> &weight_hat,// const
                                  array<Type> &other_food_diet_prop) {// const
 
-  // Working sums per predator age: stom_div_bio over prey, and diet proportion over prey.
+  // Working sums per predator species/sex/age/year: stom_div_bio over prey,
+  // and diet proportion over prey.
   int max_sex = imax(nsex);
   int max_age = imax(nages);
   array<Type> suma_suit(nspp, max_sex, max_age, nyrs);
@@ -216,8 +217,8 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
 
             for(int k_age = 0; k_age < nages(ksp); k_age++) {
 
-              // prey_N is thousands of fish and prey_wt kg, so the product is mt. Type III
-              // MSVPA (msmMode 2) squares prey_N, leaving a denominator that is not a biomass.
+              // prey_N is thousands of fish and prey_wt kg, so the product is mt.
+              // Type III MSVPA (msmMode 2) squares prey_N: prey_denom is not a biomass.
               Type prey_wt = weight_hat(wt_idx_ksp, k_sex, k_age, yr);
               Type prey_N = avgN_at_age(ksp, k_sex, k_age, yr);
               if (msmMode == 2) { prey_N *= prey_N; }
@@ -263,7 +264,7 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
                                    Type(1.0e-6) * prey_term);
             Type denom = prey_term + other_term;
             // `diet_prop_sum` gates whether this predator age has diet data; `denom` is
-            // what we divide by and can reach 0 or go negative independently, so floor it.
+            // what we divide by and can reach 0 or go negative on its own, so floor it.
             if (diet_prop_sum(rsp, r_sex, r_age, yr) > Type(0.0)) {
               inv_pred_denom(yr) = Type(1.0) / max2(denom, Type(1.0e-10));
             } else {
@@ -271,7 +272,7 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
             }
           }
 
-          Type total_suit_prey = Type(0.0); // Track total suitability assigned to modeled prey
+          Type total_suit_prey = Type(0.0); // Total suitability assigned to modeled prey
 
           for(int ksp = 0; ksp < nspp; ksp++) {
             for(int k_sex = 0; k_sex < nsex(ksp); k_sex++) {
@@ -307,41 +308,42 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
 
 
 /**
- * @brief Calculates available food, predation mortality (M2), and consumed biomass (MSVPA).
+ * @brief Available food, predation mortality (M2), and consumed biomass (MSVPA).
  *
  * Available food is suitability-weighted prey biomass plus "other food": prey numbers
  * (thousands of fish) x weight (kg) = mt, and other_food is mt. Under msmMode = 2
- * (Type III) the prey term is squared, so the denominator is not a biomass there.
- * M2 divides each predator's consumption (avgN x ration) by that denominator, so a
- * LARGER available-food denominator gives LESS predation mortality. The dB0 (F = 0) and
- * dBF (F = Ftarget) arrays repeat the calculation for the dynamic reference points.
- * Prey biomass and the predator scalars are each computed once outside the deepest loop.
+ * (Type III) the prey term is squared, so the denominator is not a biomass there. M2
+ * divides each predator's consumption (avgN x ration) by that denominator, so a LARGER
+ * available-food denominator gives LESS predation mortality. The dB0 (F = 0) and dBF
+ * (F = Ftarget) arrays repeat the calculation for the dynamic reference points. Prey
+ * biomass and the predator scalars are each computed once outside the deepest loop.
  *
- * @param avail_food          Array updated with available food (mt) [nspp, max_sex, max_age, nyrs].
- * @param avail_food_dB0      Array updated with available food at F=0.
- * @param avail_food_dBF      Array updated with available food at F=Ftarget.
- * @param M2_at_age           Array updated with predation mortality (yr^-1) [nspp, max_sex, max_age, nyrs].
- * @param M2_at_age_dB0       Array updated with predation mortality at F=0.
- * @param M2_at_age_dBF       Array updated with predation mortality at F=Ftarget.
- * @param M2_prop             Each predator age's contribution to prey M2, not a share of it.
- * @param B_eaten             Array updated with prey biomass eaten by a specific predator age (mt).
- * @param B_eaten_as_prey     Array updated with prey biomass eaten by all predators (mt).
- * @param diet_prop_hat       Array updated with predicted diet proportions.
- * @param other_diet_prop_hat Array updated with predicted proportion of "other food" in diet.
- * @param nspp                Total number of species in the model.
- * @param nyrs                Total number of years evaluated.
- * @param nsex                Vector containing the number of sexes modeled for each species.
- * @param nages               Number of age bins per species.
+ * @param avail_food          Available food (mt) [nspp, max_sex, max_age, nyrs], updated.
+ * @param avail_food_dB0      Available food at F=0, updated.
+ * @param avail_food_dBF      Available food at F=Ftarget, updated.
+ * @param M2_at_age           Predation mortality (yr^-1), updated;
+ *                            [nspp, max_sex, max_age, nyrs].
+ * @param M2_at_age_dB0       Predation mortality at F=0, updated.
+ * @param M2_at_age_dBF       Predation mortality at F=Ftarget, updated.
+ * @param M2_prop             A predator age's contribution to prey M2, not a share of it.
+ * @param B_eaten             Prey biomass eaten by a specific predator age (mt), updated.
+ * @param B_eaten_as_prey     Prey biomass eaten by all predators (mt), updated.
+ * @param diet_prop_hat       Predicted diet proportions, updated.
+ * @param other_diet_prop_hat Predicted proportion of "other food" in diet, updated.
+ * @param nspp                Number of species.
+ * @param nyrs                Years, hindcast plus projection.
+ * @param nsex                Sexes modelled per species: 1 = combined, 2 = both.
+ * @param nages               Age bins per species.
  * @param msmMode             Predation mode (1 = Type II MSVPA, Holsman et al. 2015;
  *                            2 = Type III MSVPA, which squares the prey term).
- * @param avgN_at_age         Array of average numbers-at-age (thousands of fish).
- * @param avgN_at_age_dB0     Array of average numbers-at-age at F=0.
- * @param avgN_at_age_dBF     Array of average numbers-at-age at F=Ftarget.
- * @param suitability         Array of calculated suitability [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
- * @param suit_other          Array of suitability for "other food".
- * @param weight_hat          Array of estimated weights-at-age (kg).
- * @param ration              Array of individual consumption (kg/predator/yr); consumption_at_age.
- * @param other_food          Vector of "other food" biomass by predator (mt).
+ * @param avgN_at_age         Average numbers-at-age (thousands of fish).
+ * @param avgN_at_age_dB0     Average numbers-at-age at F=0.
+ * @param avgN_at_age_dBF     Average numbers-at-age at F=Ftarget.
+ * @param suitability         Calculated suitability.
+ * @param suit_other          Suitability for "other food".
+ * @param weight_hat          Estimated weights-at-age (kg).
+ * @param ration              Individual consumption (kg/predator/yr); consumption_at_age.
+ * @param other_food          "Other food" biomass by predator (mt).
  */
 template <class Type>
 void calculate_msvpa_predation(array<Type> &avail_food,
@@ -390,8 +392,7 @@ void calculate_msvpa_predation(array<Type> &avail_food,
         int k_idx = ksp + (nspp * k_sex);
         for(int k_age = 0; k_age < nages(ksp); k_age++) {
 
-          // Type III MSVPA (msmMode 2) squares the prey numbers; "other food" below is
-          // never squared.
+          // msmMode 2 (Type III) squares the prey numbers; "other food" is never squared.
           Type prey_N = avgN_at_age(ksp, k_sex, k_age, yr);
           Type prey_N_adj = (msmMode == 1) ? prey_N : (prey_N * prey_N);
 
@@ -422,7 +423,7 @@ void calculate_msvpa_predation(array<Type> &avail_food,
       }
     }
 
-    // "Other food" (mt) is the prey outside the model, added once per predator age and year.
+    // "Other food" (mt) is prey outside the model, added once per predator age and year.
     for(int rsp = 0; rsp < nspp; rsp++) {
       for(int r_sex = 0; r_sex < nsex(rsp); r_sex++) {
         for(int r_age = 0; r_age < nages(rsp); r_age++) {
