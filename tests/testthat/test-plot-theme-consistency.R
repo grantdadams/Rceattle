@@ -28,7 +28,7 @@
 #
 # Three limits of that, stated so none of it reads as tidier than it is.
 #
-# It is NOT "residual diagnostics get gridlines": plot_indexresidual() and
+# It is NOT "residual diagnostics get gridlines": plot_index_residual() and
 # plot_profile() draw residuals and profiles at .rceattle_theme(), with none.
 #
 # Pearson residual bubbles are drawn at theme_bw(10) in plot_comp and
@@ -36,7 +36,7 @@
 # per-function rule cannot see.
 #
 # And what these blocks assert is one look per set of theme CALLS, not per
-# figure. plot_indexresidual(residual_type = "osa") and plot_comp() both
+# figure. plot_index_residual(residual_type = "osa") and plot_comp() both
 # delegate to plot.rceattle_osa(), so one function can still render two looks
 # by argument; a look reached through a delegation is invisible here.
 #
