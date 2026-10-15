@@ -1013,6 +1013,19 @@ not in force just because the job env sets it** -- check that the artifact was a
 It is a case inside the harness now, sharing the one checked build, which also made it cheaper
 than the second compile a separate step needs (7.8s against ~90s).
 
+**The same cause, a different trigger: a GIT BRANCH SWITCH does not invalidate the incremental
+build either.** A cross-branch numeric comparison must delete `src/TMB/ceattle.o`,
+`src/ceattle.so` and `src/Rceattle.so` and then **assert** the rebuild happened, or it runs one
+branch's SOURCE against the other's COMPILED template. Measured 2026-10-14 on the rule-15 hake
+MSE check: the `dev` leg reported objectives "identical to the last bit" against a predation
+branch because it used that branch's DLL. The tell was a number that was too good -- the `dev`
+leg reported `min suit_other` = 9.99999e-07, exactly the branch's floor value
+`1e-6 / (1 + 1e-6)`, on a tree whose source contained no floor. After a forced clean rebuild the
+same leg gave 5.16e-09 and `max M2` = 502,536 /yr, and the real difference between the branches
+turned out to be 3.4e-09 to 4.3e-08 nats on the four multispecies fits.
+`tools/verify/verify-safebounds.R` already does delete-then-assert; copy it rather than trusting
+`pkgbuild::compile_dll()` to notice.
+
 **The golden regression ran in NO automated job.** `test-golden-regression.R` carries both
 `skip_on_cran()` and `skip_on_covr()`. `R-CMD-check` sets `NOT_CRAN=false` deliberately (to keep
 the multi-OS matrix fast), so the first fires; `test-coverage` runs under covr, so the second
