@@ -229,3 +229,64 @@
   if (!is.finite(val)) return(NA_real_)
   abs(as.numeric(opt$objective) - val)
 }
+
+
+# Suitability floor diagnostic ----
+
+#' Warn when the empirical-suitability floor bound a runaway
+#'
+#' `predation.hpp` holds "other food" at a fraction of the modelled-prey term, so
+#' a bounded M2 is not a correct one. This names the predator ages it bounded.
+#' @param data_list The model's `data_list`.
+#' @param quantities The renamed report list.
+#' @noRd
+.warn_suitability_floor <- function(data_list, quantities) {
+  msm <- suppressWarnings(as.integer(as.character(data_list[["msmMode"]])))
+  # suit_other is setZero() and written only under predation, so on a
+  # single-species fit every cell is 0 and would read as floored.
+  if (!length(msm) || !any(msm > 0L, na.rm = TRUE)) return(invisible(NULL))
+  so <- quantities[["suit_other"]]
+  if (is.null(so)) return(invisible(NULL))
+
+  nspp  <- as.integer(data_list[["nspp"]])
+  nsex  <- as.integer(data_list[["nsex"]])
+  nages <- as.integer(data_list[["nages"]])
+  styr  <- data_list[["styr"]]
+  # Hindcast years, and each species' own sexes and ages: the rest of the array
+  # is padding at 0. The template's own `nyrs` runs to projyr (rule 11).
+  nyrs_hind <- data_list[["endyr"]] - styr + 1L
+  if (!length(nspp) || !length(nsex) || !length(nages) || !is.finite(nyrs_hind)) {
+    return(invisible(NULL))
+  }
+
+  floored <- 1e-6 * 1.001   # within 0.1% of 1e-6/(1 + 1e-6)
+  hits <- list()
+  for (sp in seq_len(nspp)) {
+    for (sx in seq_len(nsex[sp])) {
+      for (ag in seq_len(nages[sp])) {
+        v <- so[sp, sx, ag, seq_len(nyrs_hind)]
+        # > 0 excludes a cell the template never wrote.
+        k <- which(is.finite(v) & v > 0 & v <= floored)
+        if (!length(k)) next
+        hits[[length(hits) + 1L]] <- data.frame(
+          sp = sp, age = ag, year = styr + k - 1L, value = v[k])
+      }
+    }
+  }
+  if (!length(hits)) return(invisible(NULL))
+  h <- do.call(rbind, hits)
+  w <- h[which.min(h$value), ]
+  spname <- data_list[["spnames"]][w$sp]
+  if (is.null(spname) || is.na(spname)) spname <- paste("species", w$sp)
+
+  warning(
+    "The 'other food' suitability floor bound ", nrow(h),
+    " predator-age-year cell(s); the lowest is ", spname, " age ", w$age,
+    " in ", w$year, ". A prey age with (near) zero biomass and a positive diet ",
+    "proportion has taken almost the whole suitability share, so available ",
+    "food, M2 and consumption for that predator age are bounded rather than ",
+    "estimated. Check `diet_data` against that prey's numbers at age, or widen ",
+    "`suit_styr`/`suit_endyr`.",
+    call. = FALSE)
+  invisible(h)
+}

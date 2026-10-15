@@ -177,19 +177,30 @@ jobs:
                    sum(df$error), " errored")'
         shell: bash
 
+  # Windows is the only OS the 0xC0000005 access violation has appeared on, so
+  # the bounds-checked build has to run there too. Background: inst/dev/TRAPS.md.
   safebounds:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    name: safebounds (${{ matrix.os }})
     timeout-minutes: 120
     if: ${{ github.event_name == 'schedule' || inputs.run_safebounds }}
+    strategy:
+      # false: a lost runner on one OS must not cancel the other.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       NOT_CRAN: "true"
       RCEATTLE_SAFEBOUNDS: "true"
+      # Serial, so a crash is attributable to the file that caused it.
+      TESTTHAT_PARALLEL: "false"
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install system dependencies for TMB
+        if: runner.os == 'Linux'
         run: |
           # See R-CMD-check.yaml: an unused third-party apt repo serving a bad
           # index makes apt-get exit 100 and fails this step.

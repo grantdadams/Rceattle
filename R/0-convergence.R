@@ -360,11 +360,18 @@
 }
 
 
-#' Is this condition a `.refit_with_timeout()` timeout rather than a model error?
+
+# nlminb's and R's own wording when a refit is cut short by `timeout`.
+.TIMEOUT_PATTERN <- "reached elapsed time limit|reached CPU time limit"
+
+#' Is this a `.refit_with_timeout()` timeout rather than a model error?
+#'
+#' @param e A condition, or the error messages a caller already holds;
+#'   vectorised over a character vector.
 #' @noRd
 .is_timeout <- function(e) {
-  inherits(e, "condition") &&
-    grepl("reached elapsed time limit|reached CPU time limit", conditionMessage(e))
+  msg <- if (inherits(e, "condition")) conditionMessage(e) else as.character(e)
+  grepl(.TIMEOUT_PATTERN, msg)
 }
 
 
@@ -381,7 +388,7 @@
 .report_errors <- function(errs, what) {
   bad <- errs[!is.na(errs)]
   if (length(bad) == 0L) return(invisible(NULL))
-  n_to <- sum(grepl("reached elapsed time limit|reached CPU time limit", bad))
+  n_to <- sum(.is_timeout(bad))
   if (n_to > 0L) {
     message(sprintf("%d %s%s exceeded `timeout` and were stopped; raise it to let them finish.",
                     n_to, what, if (n_to == 1L) "" else "s"))
@@ -389,7 +396,7 @@
   if (length(bad) > n_to) {
     message(sprintf("%d %s%s errored; first: %s",
                     length(bad) - n_to, what, if (length(bad) - n_to == 1L) "" else "s",
-                    bad[!grepl("reached elapsed time limit|reached CPU time limit", bad)][1]))
+                    bad[!.is_timeout(bad)][1]))
   }
   invisible(NULL)
 }
