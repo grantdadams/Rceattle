@@ -368,6 +368,9 @@ What to consult when documenting a switch, shaping a workflow, or naming a proce
   configuration reference.
 - [**Stock Synthesis**](https://github.com/nmfs-ost/ss3-source-code) — control-file reference
   style; exhaustive per-switch documentation with allowed values.
+- [**r4ss**](https://r4ss.github.io/r4ss/) — SS3 output conventions, which several plotters
+  already follow (`R/7-plot_profile.R`, `R/7-plot_data.R`): `SSmohnsrho()` for retrospective rho,
+  `SS_tune_comps()` for data weighting. Installed here, so it is callable without a clone.
 - [**dsem**](https://github.com/James-Thorson-NOAA/dsem) — the DSEM-linked models: formula/path
   grammar, and how linkage structure is specified and reported. DSEM lives on the
   `dsem-v5-integration` branch, not here.
