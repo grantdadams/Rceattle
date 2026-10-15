@@ -4,30 +4,28 @@
 /**
  * @brief Zeroes, normalizes and projects ONE fleet's selectivity (age or length based).
  *
- * @details Bins below bin_first_selected are set to 0 and the last hindcast year is
- * carried across the projection years. Normalization runs only when Sel_norm_bin is set
- * (default Off) and never for forms 5, 11 and 15: it scales to 1 at sel_norm_bin1, or to
- * a mean of 1 over [bin1, bin2], or to the maximum when bin1 is negative. Under
- * Sel_norm_scope = AcrossSexes the less-selected sex deliberately peaks below 1.
+ * @details Bins below bin_first_selected are zeroed; the last hindcast year carries
+ * across the projection. Normalization runs only when Sel_norm_bin is set (default Off),
+ * never for forms 5, 11 and 15: scaling to 1 at sel_norm_bin1, to a mean of 1 over
+ * [bin1, bin2], or to the maximum when bin1 is negative. Under Sel_norm_scope =
+ * AcrossSexes the less-selected sex deliberately peaks below 1.
  *
  * @param flt Fleet index.
- * @param nyrs_hind Number of hindcast years.
- * @param nyrs Total number of years including projection.
+ * @param nyrs_hind Years in the hindcast.
+ * @param nyrs Years, hindcast plus projection.
  * @param flt_spp Fleet index to species index.
  * @param flt_sel_type Selectivity form per fleet.
  * @param flt_sel_dim Age (0) or length (1) based selectivity.
  * @param bin_first_selected First selected age/length bin per fleet, 0-based.
- * @param nages Number of age bins per species.
- * @param nlengths_pop Number of POPULATION length bins per species, the grid a
- *        length-based curve is built on.
- * @param nsex Number of sexes per species.
+ * @param nages Age bins per species.
+ * @param nlengths_pop Population length bins per species.
+ * @param nsex Sexes modelled per species: 1 = combined, 2 = both.
  * @param sel_norm_bin1 Normalization bin, or a control flag when negative.
  * @param sel_norm_bin2 Upper bin for mean-over-range normalization.
- * @param sel_norm_scope Per fleet: 0 = WithinSex (each sex divided by its own
- *   reference, so both reach 1), 1 = AcrossSexes (one reference pooled over the
- *   sexes, so the less-selected sex stays below 1). Orthogonal to
- *   sel_norm_bin1/2, which say WHERE the reference is taken.
- * @param selectivity 4D container (fleet, sex, age or length bin, year) modified in-place.
+ * @param sel_norm_scope Per fleet: 0 = WithinSex (each sex divided by its own reference,
+ *   so both reach 1), 1 = AcrossSexes (one pooled reference, so the less-selected sex
+ *   stays below 1). Orthogonal to sel_norm_bin1/2, which say WHERE it is taken.
+ * @param selectivity 4D (fleet, sex, age or length bin, year), modified in place.
  */
 template<class Type>
 void normalize_and_project_selectivity(
@@ -48,8 +46,7 @@ void normalize_and_project_selectivity(
 ) {
   int sp = flt_spp(flt);
   int sel_type = flt_sel_type(flt);
-  // A length-based curve lives on the POPULATION bins, so everything below runs
-  // over that grid.
+  // A length-based curve lives on the POPULATION bins, so everything below runs on them.
   int nbins = (flt_sel_dim(flt) == 0) ? nages(sp) : nlengths_pop(sp);
 
   // Bins below the first selected bin
@@ -63,12 +60,10 @@ void normalize_and_project_selectivity(
     }
   }
 
-  // sel_norm_bin1/2 says WHERE the reference is taken (a named bin, the mean over
-  // a bin range, or the maximum over bins when < 0); sel_norm_scope whether it is
-  // pooled across the sexes. Excluded forms: Hake (5) normalizes per sex inside
-  // the switch, LogisticPM (11) reuses sel_norm_bin1/2 as a penalty bin-range, and
-  // DoubleNormalSS3 (15) is SS3's unnormalized pattern 24, whose plateau is 1 by
-  // construction. Code 12 is unused (R/0-switches.R).
+  // Excluded forms: Hake (5) normalizes per sex inside the switch, LogisticPM (11) reuses
+  // sel_norm_bin1/2 as a penalty bin-range, and DoubleNormalSS3 (15) is SS3's
+  // unnormalized pattern 24, whose plateau is 1 by construction. Codes 10, 12
+  // and 14 are unused (R/0-switches.R).
   if((sel_norm_bin1(flt) > -500) && (sel_type != 5) && (sel_type != 12) && (sel_type != 11) && (sel_type != 15)) {
     bool at_bin     = (sel_norm_bin1(flt) >= 0);
     bool over_range = at_bin && (sel_norm_bin2(flt) >= 0);
@@ -129,17 +124,17 @@ void normalize_and_project_selectivity(
  * @brief Converts one fleet/sex/year of length-based selectivity to age-based.
  *
  * @details Integrates selectivity-at-length over the growth transition matrix
- * Prob(Length | Age), summed on the POPULATION length grid both arrays live on, so
- * the product is formed at the resolution the curve is defined on, not on a bin average.
+ * Prob(Length | Age) on the POPULATION length grid both arrays live on, so the product is
+ * formed at the resolution the curve is defined on, not on a bin average.
  *
  * @tparam Type The numeric type (e.g., double, TMB::adouble).
- * @param flt Index of the fleet/fishery.
- * @param sp Index of the species.
- * @param sex Index of the sex.
- * @param yr Index of the year.
+ * @param flt Fleet index.
+ * @param sp Species index.
+ * @param sex Sex index.
+ * @param yr Year index.
  * @param wtind Index for the weight-at-age/growth transition matrix type.
- * @param nages Number of age bins per species.
- * @param nlengths_pop Number of POPULATION length bins per species.
+ * @param nages Age bins per species.
+ * @param nlengths_pop Population length bins per species.
  * @param sel_length 4D array of selectivity-at-length [flt, sex, pop bin, yr].
  * @param growth_matrix 5D transition matrix [wtind, sex, age, pop bin, yr].
  * @param sel_at_age 4D output array [flt, sex, age, yr] updated in-place.
@@ -172,38 +167,38 @@ void convert_length_selectivity(
  * @brief Calculates selectivity for every fleet, sex, bin (age or length) and year.
  *
  * @details Builds each fleet's hindcast curve from its Selectivity form, applies the
- * per-sex apical height, then normalizes and projects through
- * `normalize_and_project_selectivity()`; a length-based curve is carried to ages by
- * `convert_length_selectivity()`. `flt_sel_dim` (0 = age, 1 = length) picks the grid
- * inside each case, so a length-based curve has no case number of its own.
+ * per-sex apical height, then normalizes and projects via
+ * `normalize_and_project_selectivity()`; `convert_length_selectivity()` carries a
+ * length-based curve to ages. `flt_sel_dim` (0 = age, 1 = length) picks the grid per
+ * case, so a length-based curve has no case of its own.
  *
  * @section functional_forms Selectivity forms
- * The codes are fleet_control$Selectivity, with R/0-switches.R the authority for them.
- * The parametric forms (1, 3, 4, 8, 11, 15) take linkage offsets in the slots named at
- * their case; 15 has no deviate array and varies only through linkages. The coefficient
- * forms (2, 5, 6, 7, 9, 13) take annual deviates but no linkage offset --
- * build_selectivity() refuses one, since mean-centring cancels a per-year offset.
- * x below is the length-bin midpoint (cm) or, on an age-based fleet, the 1-based age-bin
- * ordinal bin + 1 (LogisticPM uses bin + 1.5); minage is NOT added, so an inflection or
- * peak is on the bin scale, not the age scale.
+ * The codes are fleet_control$Selectivity; R/0-switches.R is the authority. The
+ * parametric forms (1, 3, 4, 8, 11, 15) take linkage offsets in the slots named at their
+ * case; 15 has no deviate array and varies only through linkages. The coefficient forms
+ * (2, 5, 6, 7, 9, 13) take annual deviates but no linkage offset -- build_selectivity()
+ * refuses one, since mean-centring cancels a per-year offset. x below is the length-bin
+ * midpoint (cm) or, on an age-based fleet, the 1-based age-bin ordinal bin + 1
+ * (LogisticPM uses bin + 1.5); minage is NOT added, so an inflection or peak is on the
+ * bin scale, not the age scale.
  *
  * - 0 Fixed: read from emp_sel_obs; age-based.
  * - 1 Logistic: ascending logistic on log_sel_slp(0) and sel_inf(0).
  * - 2 NonParametric (Ianelli et al. 2018, AMAK): one log-scale coefficient per bin,
- *     sel_coff bins 0..N_sel_bins-1 with the rest plateauing, mean-centred, and
- *     penalized for monotonicity and curvature.
+ *     sel_coff bins 0..N_sel_bins-1 with the rest plateauing, mean-centred, and penalized
+ *     for monotonicity and curvature.
  * - 3 DoubleLogistic (Dorn and Methot 1990): ascending logistic x (1 - descending).
  * - 4 DescendingLogistic: the descending limb alone, on log_sel_slp(1)/sel_inf(1).
  * - 5 Hake (Taylor et al. 2014): cumulative sum of sel_coff from bin_first_selected up,
- *     exponentiated and normalized per sex to 1 at a single sel_norm_bin1, else at its
+ *     exponentiated and normalized per sex to 1 at one sel_norm_bin1, else at its
  *     maximum.
  * - 6 2DAR1: inverse-logit of sel_coff + sel_coff_dev, the deviates carrying an AR1
  *     correlation across bin and year.
  * - 7 3DAR1 (Cheng et al 2024): conditional-variance parameterisation of a 3D random
  *     field across age, cohort and year.
  * - 8 DoubleNormal: four-parameter dome, Gaussian limbs blended by a steep logistic so
- *     the curve is twice differentiable, with a logit-scale right-tail floor analogous
- *     to SS3 pattern 24's P6.
+ *     the curve is twice differentiable, with a logit-scale right-tail floor analogous to
+ *     SS3 pattern 24's P6.
  * - 9 NonParametricPM (AMAK "pm"): random walk on the per-year-centred log-selectivity,
  *     held flat above flt_sel_cap_bin; its increments are penalized, not integrated, so
  *     it is not integrable under random_sel.
@@ -212,28 +207,24 @@ void convert_length_selectivity(
  * - 13 NonParametricIntegrable: the NonParametric curve whose deviates carry a proper
  *     density, so random_sel can integrate them; Time_varying_sel picks Off, IID or
  *     RandomWalk.
- * - 15 DoubleNormalSS3: Stock Synthesis size pattern 24 (age pattern 20) on SS3's own
- *     six parameters -- P1 peak (cm or age), P2 top width (logit), P3/P4 ascending and
+ * - 15 DoubleNormalSS3: Stock Synthesis size pattern 24 (age pattern 20) on SS3's own six
+ *     parameters -- P1 peak (cm or age), P2 top width (logit), P3/P4 ascending and
  *     descending widths (log), P5/P6 initial and final selectivity (logit) -- held in
  *     their own array sel_dn6. Unnormalized: the curve peaks at 1 by construction.
  *
  * @param nspp Number of species.
- * @param n_flt Number of fleets (fisheries and surveys).
- * @param nyrs Total years (including hindcast and projection).
- * @param nyrs_hind Number of hindcast years.
+ * @param n_flt Number of fleets.
+ * @param nyrs Years, hindcast plus projection.
+ * @param nyrs_hind Years in the hindcast.
  * @param styr Start year (for indexing empirical data).
- * @param nsex Number of sexes per species.
- * @param nages Number of age bins per species.
- * @param nlengths Number of DATA length bins per species.
+ * @param nsex Sexes modelled per species: 1 = combined, 2 = both.
+ * @param nages Age bins per species.
+ * @param nlengths Observation length bins per species.
  * @param lengths Data length bins per species; only the first is read, to locate SS3's
  *   startbin for DoubleNormalSS3.
- * @param flt_spp Fleet index to species index.
- * @param flt_sel_type Selectivity form per fleet.
- * @param flt_sel_dim Age (0) or length (1) based selectivity.
- * @param bin_first_selected First selected age/length bin per fleet, 0-based.
- * @param flt_n_sel_bins Number of bins with estimated coefficients per fleet (N_sel_bins).
- * @param sel_norm_bin1 Normalization bin, or a control flag when negative, per fleet.
- * @param sel_norm_bin2 Upper bin for mean-over-range normalization, per fleet.
+ * @param flt_spp,flt_sel_type,flt_sel_dim,bin_first_selected,sel_norm_bin1,sel_norm_bin2
+ *   Per fleet, as in normalize_and_project_selectivity() above.
+ * @param flt_n_sel_bins Bins with estimated coefficients per fleet (N_sel_bins).
  * @param emp_sel_obs Empirical selectivity-at-age observations, one row per record.
  * @param emp_sel_ctl Fleet, species, sex and year index for each emp_sel_obs row.
  * @param log_sel_slp Log-scale logistic slope, two slots per fleet and sex.
@@ -245,10 +236,9 @@ void convert_length_selectivity(
  * @param avg_sel [Output] Log mean selectivity over the estimated bins, per
  *   fleet/sex/year. Written by forms 2 and 13 only; forms 5 and 9 leave it at 0.
  * @param non_par_sel [Output] Non-parametric selectivity on the natural scale.
- * @param log_non_par_sel [Output] The same curve on the log scale, which is the scale the
+ * @param log_non_par_sel [Output] The same curve on the log scale, the scale the
  *   non-parametric selectivity penalties are written on.
- * @param sel_at_length [Output] Final length-based selectivity.
- * @param sel_at_age [Output] Final age-based selectivity.
+ * @param sel_at_length,sel_at_age [Output] Final length- and age-based selectivity.
  * @param growth_matrix Length-at-age probability transition matrix.
  */
 template<class Type>
@@ -298,9 +288,8 @@ void calculate_selectivity(
     array<Type>& sel_slp_off,      array<Type>& sel_slp_off_nat,
     array<Type>& sel_inf_off,      array<Type>& sel_inf_off_nat,
     array<Type>& sel_coff_off,     array<Type>& sel_coff_off_nat,
-    // Per-sex apical height: exp(log_sel_apical + log offset) + natural offset
-    // multiplies one sex's whole curve. Applied only when a selectivity linkage names
-    // `apical` (sel_apical_on), so every other model's AD tape is unchanged.
+    // Per-sex apical height, applied in section 2b below only when a selectivity linkage
+    // names `apical` (sel_apical_on), so every other model's AD tape is unchanged.
     const int& sel_apical_on,
     array<Type>& log_sel_apical,   // [n_flt, max_sex]
     array<Type>& sel_apical_off,   array<Type>& sel_apical_off_nat,  // [n_flt, max_sex, nyrs]
@@ -388,9 +377,9 @@ void calculate_selectivity(
         case 1: // Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? xmid(bin) : Type(bin + 1);
-            // Linkage convention for every form below: a log-scale parameter takes its
-            // log-link offset inside the exp and its natural offset after; a natural-scale
-            // one takes the identity offset additively, the log offset multiplicatively.
+            // Linkage convention for all forms below: a log-scale parameter takes its
+            // log-link offset inside the exp, its natural offset after; a natural-scale
+            // one takes the identity offset additively, the log one multiplicatively.
             Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr)
                              + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
             Type inf   = (sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr)
@@ -432,7 +421,7 @@ void calculate_selectivity(
           break;
         }
 
-        case 9: { // NonParametricPM (RTMB "rpm"): random walk on the per-year-
+        case 9: { // NonParametricPM (AMAK "pm"): random walk on the per-year-
                   // renormalized log-selectivity, then a flat bin-cap.
           // sel_coff = base coefficients (ages 0..n_sel_bins-1, the rest plateauing);
           // sel_coff_dev = RAW increments at the year they apply. The UNCAPPED centred

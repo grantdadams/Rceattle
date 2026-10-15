@@ -4,21 +4,21 @@
 /**
  * @brief Parses empirical diet observations and maps them into a 5D proportion array.
  *
- * @details Maps the observed proportions in `diet_obs` onto the 5D `diet_prop` array
- * used for MSVPA based suitability, handling 1-sex and 2-sex indexing. A row with
- * `flt_yr == 0` is written to every modeled year. Rows aggregated over predator or
- * prey ages are skipped, since only diet-data type 1 (a prey age in a predator age)
- * can be used for MSVPA suitability.
+ * @details Maps `diet_obs` proportions onto the 5D `diet_prop` array used for MSVPA based
+ * suitability, handling 1-sex and 2-sex indexing. A row with `flt_yr == 0` is written to
+ * every modeled year. Rows aggregated over predator or prey ages are skipped: only
+ * diet-data type 1 (a prey age in a predator age) can be used for MSVPA suitability.
  *
- * @param nspp Number of modeled species.
- * @param nyrs Total number of years in the model (hindcast + projection).
- * @param nyrs_hind Number of years in the hindcast period.
- * @param styr The starting year of the model.
- * @param minage Vector containing the minimum modeled age for each species.
- * @param nsex Vector containing the number of sexes modeled for each species (1 or 2).
- * @param diet_obs Empirical diet observations; column 0 sample size, column 1 the proportion.
- * @param diet_ctl Control matrix mapping each observation row to predator, prey, sexes, ages, and year.
- * @param diet_prop [Output] 5D array (pred_idx, prey_idx, pred_age, prey_age, yr) of observed diet proportions. Modified by reference.
+ * @param nspp Number of species.
+ * @param nyrs Years, hindcast plus projection.
+ * @param nyrs_hind Years in the hindcast.
+ * @param styr First year of the model.
+ * @param minage Minimum modeled age per species.
+ * @param nsex Sexes modelled per species: 1 = combined, 2 = both.
+ * @param diet_obs Diet observations; column 0 sample size, column 1 the proportion.
+ * @param diet_ctl Maps each observation row to predator, prey, sexes, ages, and year.
+ * @param diet_prop [Output] Observed diet proportions
+ *                  (pred_idx, prey_idx, pred_age, prey_age, yr). Modified by reference.
  */
 template <class Type>
 void organize_diet_obs(
@@ -35,17 +35,17 @@ void organize_diet_obs(
   for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++) {
     int rsp = diet_ctl(stom_ind, 0) - 1;             // Index of pred
     int ksp = diet_ctl(stom_ind, 1) - 1;             // Index of prey
-    int r_sex = diet_ctl(stom_ind, 2);               // Pred sex: 0 combined, 1 female, 2 male
+    int r_sex = diet_ctl(stom_ind, 2);               // Pred: 0 combined, 1 female, 2 male
     int k_sex = diet_ctl(stom_ind, 3);               // Prey sex, same convention
     int r_age = diet_ctl(stom_ind, 4) - minage(rsp); // Index of pred age
     int k_age = diet_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
-    int flt_yr = diet_ctl(stom_ind, 6);              // Year of the row, or 0 for all years
-    // A negative age marks a row aggregated over prey ages (k_age) or over predator
-    // ages (r_age). Those are not diet-data type 1, so they carry no MSVPA
-    // suitability; predict_stomach_content() still predicts them for the likelihood.
+    int flt_yr = diet_ctl(stom_ind, 6);              // Year of the row, 0 for all years
+    // A negative age marks a row aggregated over prey ages (k_age) or predator ages
+    // (r_age). Those are not diet-data type 1, so they carry no MSVPA suitability;
+    // predict_stomach_content() still predicts them for the likelihood.
     if((k_age < 0) || (r_age < 0)) continue;
 
-    // Sex looping bounds for predator; a combined-sex row is written to both sexes.
+    // Sex looping bounds, predator and prey; a combined-sex row is written to both sexes.
     int r_start = 0;
     int r_end = 0;
     if(nsex(rsp) == 2) {
@@ -53,7 +53,6 @@ void organize_diet_obs(
       else { r_start = r_sex - 1; r_end = r_sex - 1; }
     }
 
-    // Sex looping bounds for prey
     int k_start = 0;
     int k_end = 0;
     if(nsex(ksp) == 2) {
@@ -69,8 +68,8 @@ void organize_diet_obs(
       for(int k = k_start; k <= k_end; k++) {
         int k_idx = ksp + (nspp * k);
 
-        // Only flt_yr >= 0 is loaded here: one year, dropped if outside the hindcast,
-        // or year 0 for every year. A negative flt_yr loads nothing.
+        // Only flt_yr >= 0 is loaded here: one year, dropped if outside the hindcast, or
+        // year 0 for every year. A negative flt_yr loads nothing.
         if(flt_yr > 0) {
           int yr = flt_yr - styr;
           if(yr >= 0 && yr < nyrs_hind) {
@@ -89,10 +88,10 @@ void organize_diet_obs(
 
 
 /**
- * @brief Calculates the residual stomach content representing "other food" not explicitly modeled.
+ * @brief Residual stomach content: the "other food" not explicitly modeled.
  *
- * Dividing the unattributed diet share by other_food (mt) puts it on the same per-biomass
- * scale as stom_div_bio, which calculate_msvpa_suitability() sums over prey and adds it to.
+ * The unattributed diet share divided by other_food (mt) is on the same per-biomass scale
+ * as stom_div_bio, which calculate_msvpa_suitability() sums over prey and adds it to.
  */
 template <class Type>
 void calculate_other_food_diet_prop(
@@ -135,28 +134,28 @@ void calculate_other_food_diet_prop(
 
 
 /**
- * @brief Predicts the expected stomach content proportions given the modeled population state.
+ * @brief Expected stomach content proportions given the modeled population state.
  *
  * @details Maps `diet_prop_hat` back onto the rows of the empirical `diet_obs`, which are
  * often aggregated over ages or sexes. The four diet-data types, as the ages encode them:
- * - **Type 1:** Specific predator age and specific prey age (weighted across sexes if combined).
+ * - **Type 1:** Specific predator age and prey age (weighted across sexes if combined).
  * - **Type 2:** Specific predator age, summed across all prey ages.
- * - **Type 3:** Unweighted mean across predator ages, summed across prey ages (r_age > -500).
+ * - **Type 3:** Unweighted mean over predator ages, summed over prey ages (r_age > -500).
  * - **Type 4:** As Type 3, but weighted by predator numbers-at-age (r_age < -500).
  *
- * @param nspp Number of modeled species.
- * @param nyrs_hind Number of years in the hindcast period.
- * @param styr The starting year of the model.
- * @param suit_styr Start year index (per predator species) for the suitability averaging period.
- * @param suit_endyr End year index (per predator species) for the suitability averaging period.
- * @param minage Vector containing the minimum modeled age for each species.
- * @param nsex Vector containing the number of sexes modeled for each species.
- * @param nages Vector containing the number of age bins for each species.
- * @param diet_obs Matrix of empirical diet observations (used here for row-matching).
- * @param diet_ctl Control matrix mapping each observation row to specific aggregation levels.
- * @param avgN_at_age 4D array of average numbers-at-age (thousands of fish), used for weighting.
- * @param diet_prop_hat 5D array of the model's predicted diet proportions for specific ages/sexes.
- * @param diet_hat [Output] Matrix of predicted diet proportions formatted to match `diet_obs`. Modified by reference.
+ * @param nspp Number of species.
+ * @param nyrs_hind Years in the hindcast.
+ * @param styr First year of the model.
+ * @param suit_styr Start year index of the suitability window, per predator.
+ * @param suit_endyr End year index of the suitability window, per predator.
+ * @param minage Minimum modeled age per species.
+ * @param nsex Sexes modelled per species: 1 = combined, 2 = both.
+ * @param nages Age bins per species.
+ * @param diet_obs Empirical diet observations, used here for row-matching.
+ * @param diet_ctl Maps each observation row to its aggregation levels.
+ * @param avgN_at_age Average numbers-at-age (thousands of fish), used for weighting.
+ * @param diet_prop_hat Predicted diet proportions for specific ages/sexes.
+ * @param diet_hat [Output] Predicted diet proportions matching `diet_obs`.
  */
 template <class Type>
 void predict_stomach_content(

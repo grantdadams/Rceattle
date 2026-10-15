@@ -4,11 +4,11 @@
 /**
  * @brief SD of length-at-age (cm) for one age, year and sex.
  *
- * The variability term v is \f$e^{sd_0}\f$ at or below `age_L1`, pinned to \f$e^{sd_1}\f$ for
- * the plus group under `sd_style == 1` (WHAM; also SS3 with Growth_Age_for_L2 = 999), and
- * otherwise interpolated linearly in length between \f$(l_1, e^{sd_0})\f$ and
- * \f$(L_\infty, e^{sd_1})\f$. `sd_form` 1 makes v an SD in cm (SS3 CV_Growth_Pattern 2),
- * 2 a CV, so SD = v * L (SS3 CV_Growth_Pattern 0).
+ * The variability term v is \f$e^{sd_0}\f$ at or below `age_L1`, pinned to
+ * \f$e^{sd_1}\f$ for the plus group under `sd_style == 1` (WHAM; also SS3 with
+ * Growth_Age_for_L2 = 999), and otherwise interpolated linearly in length between
+ * \f$(l_1, e^{sd_0})\f$ and \f$(L_\infty, e^{sd_1})\f$. `sd_form` 1 makes v an SD in cm
+ * (SS3 CV_Growth_Pattern 2), 2 a CV, so SD = v * L (SS3 CV_Growth_Pattern 0).
  */
 template<class Type>
 Type length_sd_at_age(Type current_age, Type age_L1, bool plus_group,
@@ -32,14 +32,14 @@ Type length_sd_at_age(Type current_age, Type age_L1, bool plus_group,
 /**
  * @brief Age-length key, weight-at-age and mature weight-at-age for one cell.
  *
- * Length is normal with mean `mu` and SD `sd` (cm), on the population length bins `lengths_pop`
- * (lower edges): the first bin is a minus group, the last a plus group (SS3's convention). The
- * key stays on that grid; consumers that need data bins sum each bin's run of population bins.
+ * Length is normal with mean `mu` and SD `sd` (cm) on the population length bins
+ * `lengths_pop` (lower edges): the first bin is a minus group, the last a plus group
+ * (SS3's convention).
  *
- * Weight-at-age is \f$\sum_l P(l|a) \alpha L_{mid}^\beta\f$ at population-bin midpoints (kg).
- * With maturity-at-length, mature weight-at-age is the same sum with the logistic maturity
- * \f$1/(1+e^{-s(L_{mid} - L_{50})})\f$ inside: SS3's fecundity-at-age when fecundity equals
- * body weight.
+ * Weight-at-age is \f$\sum_l P(l|a) \alpha L_{mid}^\beta\f$ at population-bin midpoints
+ * (kg). With maturity-at-length, mature weight-at-age is the same sum with the logistic
+ * maturity \f$1/(1+e^{-s(L_{mid} - L_{50})})\f$ inside: SS3's fecundity-at-age when
+ * fecundity equals body weight.
  */
 template<class Type>
 void fill_age_length_key(int wtind, int sp, int sex, int age, int yr,
@@ -53,9 +53,9 @@ void fill_age_length_key(int wtind, int sp, int sex, int age, int yr,
                          array<Type>& weight_hat,
                          array<Type>& mat_weight_hat) {
   int np = nlengths_pop(sp);
-  // Kept on the POPULATION bins: readers multiply by selectivity-at-length there, as SS3 does,
-  // and sum into data bins afterwards (ceattle.cpp section 2.3c). Aggregating here would apply
-  // one bin-average selectivity across a data bin.
+  // Kept on the POPULATION bins: readers multiply by selectivity-at-length there, as SS3
+  // does, and sum into data bins afterwards (ceattle.cpp section 2.3c). Aggregating here
+  // would apply one bin-average selectivity across a data bin.
   for(int lp = 0; lp < np; lp++) growth_matrix(wtind, sex, age, lp, yr) = Type(0.0);
 
   Type expected_weight = 0.0;
@@ -75,9 +75,9 @@ void fill_age_length_key(int wtind, int sp, int sex, int age, int yr,
     }
     growth_matrix(wtind, sex, age, lp, yr) = prob;
 
-    // Bin midpoint (cm): lower edge plus half its own width, the last bin taking the previous
-    // bin's width. A single-bin grid has no neighbour to take a width from, so it keeps the
-    // edge itself -- as selectivity.hpp does.
+    // Bin midpoint (cm): lower edge plus half its own width, the last bin taking the
+    // previous bin's width. A single-bin grid has no neighbour to take a width from,
+    // so it keeps the edge itself -- as selectivity.hpp does.
     Type lenmid;
     if(lp < np - 1) {
       lenmid = (lengths_pop(sp, lp) + lengths_pop(sp, lp + 1)) / Type(2.0);
@@ -97,7 +97,7 @@ void fill_age_length_key(int wtind, int sp, int sex, int age, int yr,
 }
 
 /**
- * @brief Jan-1 (month 0) mean length-at-age, age-length key and weight-at-age for one species.
+ * @brief Jan-1 (month 0) mean length, age-length key and weight-at-age for one species.
  *
  * Mean length-at-age (cm) is anchored at \f$L(a_{L1}) = l_1\f$:
  * - von Bertalanffy (`growth_model` 1):
@@ -105,22 +105,22 @@ void fill_age_length_key(int wtind, int sp, int sex, int age, int yr,
  * - Richards (2):
  *   \f$L_a = [L_{\infty}^m + (l_1^m - L_{\infty}^m) \cdot e^{-K(a - a_{L1})}]^{1/m}\f$
  * - Below the anchor, a linear ramp from `Lmin_sp` at age 0 to \f$l_1\f$ at `age_L1`.
- * - After year 0 a cohort recursion advances \f$L_{a, y}\f$ from \f$L_{a-1, y-1}\f$ with the
- *   previous year's parameters; where that predecessor is still on the ramp, or at slot 0, the
- *   closed-form anchor at \f$l_1\f$ is used instead.
+ * - After year 0 a cohort recursion advances \f$L_{a, y}\f$ from \f$L_{a-1, y-1}\f$ with
+ *   the previous year's parameters; where that predecessor is still on the ramp, or at
+ *   slot 0, the closed-form anchor at \f$l_1\f$ is used instead.
  *
- * Weight-at-age (kg) is integrated across the length distribution rather than taken at mean
- * length, which Jensen's inequality would bias:
+ * Weight-at-age (kg) is integrated across the length distribution rather than taken at
+ * mean length, which Jensen's inequality would bias:
  * \f$W_a = \sum_{ln} P(ln | a) \cdot \alpha \cdot L_{mid}^{\beta}\f$.
  *
  * @param wtind Weight index slot to write into.
  * @param sp Species index.
  * @param minage Minimum modelled age per species; 0 is supported.
  * @param growth_model Per species, 1 = von Bertalanffy, 2 = Richards.
- * @param growth_parameters Time-varying growth parameters by species, sex, year and parameter:
- *                          K (per year), L1 and Linf (cm), Richards m.
- * @param growth_log_sd Log-scale variability endpoints, index 0 at L1 and index 1 at Linf.
- * @param weight_length_pars Allometric weight-length \f$\alpha\f$ and \f$\beta\f$, kg from cm.
+ * @param growth_parameters Time-varying growth parameters by species, sex, year and
+ *   parameter: K (per year), L1 and Linf (cm), Richards m.
+ * @param growth_log_sd Log-scale variability endpoints: index 0 at L1, index 1 at Linf.
+ * @param weight_length_pars Allometric \f$\alpha\f$ and \f$\beta\f$, kg from cm.
  * @param length_hat [Output] mean length-at-age (cm).
  * @param growth_matrix [Output] age-length key on the population length bins.
  * @param weight_hat [Output] integrated weight-at-age (kg).
@@ -159,15 +159,15 @@ void estimate_growth(
 
   Type b_len, last_linear, current_age;
 
-  // The linear ramp below age_L1 starts from the lowest population length edge (cm) at age 0
-  // (SS3's len_bins(1)); with no population grid that is the lowest data bin.
+  // The linear ramp below age_L1 starts from the lowest population length edge (cm) at
+  // age 0 (SS3's len_bins(1)); with no population grid that is the lowest data bin.
   Type Lmin_sp = lengths_pop(sp, 0);
-  // Anchor age, where mean length is `l1` (SS3's Growth_Age_for_L1). fit_mod() resolves an
-  // unset value to max(0.5, minage[sp]): an SS3-style half-year anchor at minage = 0.
+  // Anchor age, where mean length is `l1` (SS3's Growth_Age_for_L1). fit_mod() resolves
+  // an unset value to max(0.5, minage[sp]): an SS3-style half-year anchor at minage = 0.
   Type age_L1 = growth_age_L1(sp);
 
-  // An anchor at age 0 would divide by zero in the ramp slope b_len, so the
-  // slope and the cohort-boundary test below both floor it at 1 year.
+  // An anchor at age 0 would divide by zero in the ramp slope b_len, so the slope and the
+  // cohort-boundary test below both floor it at 1 year.
   Type age_L1_safe = age_L1;
   if (age_L1 <= Type(0)) age_L1_safe = Type(1);
 
@@ -180,9 +180,9 @@ void estimate_growth(
         Type l1 = growth_parameters(sp, sex, yr, 1);
         Type linf = growth_parameters(sp, sex, yr, 2);
         Type m = growth_parameters(sp, sex, yr, 3);
-        // Age (years) at the start of the year: 0-based slot `age` holds the (age + minage)
-        // cohort. This is the SLOT age, not the anchor age_L1 above, and adding 1 rather than
-        // minage reads the wrong age at any minage != 1.
+        // Age (years) at the start of the year: 0-based slot `age` holds the
+        // (age + minage) cohort. This is the SLOT age, not the anchor age_L1 above, and
+        // adding 1 rather than minage reads the wrong age at any minage != 1.
         current_age = Type(age) + Type(minage(sp));
 
         // 1. Calculate Mean Length at Age ---
@@ -199,9 +199,9 @@ void estimate_growth(
             if(yr == 0) {
               length_hat(wtind,  sex, age, yr) = linf + (l1 - linf) * exp(-kappa * (current_age - age_L1));
             } else { // Yr > 0
-              // The recursion below reads the same cohort one year younger, so it is valid only
-              // once that slot is itself on the curve. Where it is still on the linear ramp --
-              // or at slot 0, which has no predecessor -- read off the anchor instead.
+              // The recursion below reads the same cohort one year younger, so it is
+              // valid only once that slot is on the curve. Where it is still on the ramp
+              // -- or at slot 0, which has no predecessor -- read off the anchor instead.
               if(current_age - Type(1) < age_L1_safe || age == 0) {
                 last_linear = Lmin_sp + b_len * age_L1_safe;
                 length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
@@ -252,9 +252,9 @@ void estimate_growth(
 
 
         // 2. Plus-Group Mean Length (Oldest Age Only) ---
-        // The plus group holds fish older than the oldest age, so its mean length (cm) sits
-        // between L(oldest age) and L-infinity. growth_plus_length: 1 = weighted by survival at
-        // the oldest age's M1, 2/3/4 = SS3's Linf_decay -998/-999/d. See ?build_growth.
+        // The plus group holds fish past the oldest age, so its mean length (cm) lies
+        // between L(oldest age) and Linf. growth_plus_length: 1 = weighted by survival at
+        // the oldest age's M1, 2/3/4 = SS3's Linf_decay -998/-999/d (?build_growth).
         if(growth_model(sp) < 3 && age == (nages(sp) - 1)) {
           Type current_size = length_hat(wtind,  sex, age, yr);
           Type diff = linf - current_size;
@@ -280,9 +280,9 @@ void estimate_growth(
             length_hat(wtind,  sex, age, yr) = temp_sum / temp_n;
           } else if(growth_plus_length(sp) == 4) {
             Type size = current_size, temp_sum = current_size, temp_n = 1.0, weight_a = 1.0;
-            // Each further age is one more year along the von Bertalanffy curve, whichever
-            // family the species uses, weighted by exp(-plus_group_decay) per year. Averaged
-            // over 2 x the oldest age, SS3's span, by when the weights leave nothing material.
+            // Each further age is one more year along the von Bertalanffy curve, for
+            // either growth family, weighted by exp(-plus_group_decay) per year. Averaged
+            // over 2 x the oldest age, SS3's span, by when the weights are negligible.
             for(int a = 1; a <= 2 * oldest_age; a++) {
               weight_a *= exp(-plus_group_decay(sp));
               size += (linf - size) * (Type(1.0) - exp(-kappa));
@@ -313,33 +313,26 @@ void estimate_growth(
 /**
  * @brief Mean length-at-age, age-length key and weight-at-age `fracyr` into the year.
  *
- * Advances the Jan-1 mean length stored at `id_pop` forward by `fracyr` of growth, for SSB
- * weight-at-age at the spawning month and for each fleet's weight-at-age at its own month:
+ * Advances the Jan-1 mean length stored at `id_pop` by `fracyr` of growth, for SSB
+ * weight-at-age at the spawning month and each fleet's weight-at-age at its own month:
  * - von Bertalanffy (`growth_model` 1):
  *   \f$L_a = L_{\infty} + (L_{a, jan1} - L_{\infty}) \cdot e^{-K \cdot fracyr}\f$
  * - Richards (2):
  *   \f$L_a = [L_{\infty}^m + (L_{a, jan1}^m - L_{\infty}^m) \cdot e^{-K \cdot fracyr}]^{1/m}\f$
  * - Below the anchor age (`current_age <= age_L1`) the linear ramp applies, as at Jan-1.
  *
- * Under `growth_plus_length == 1` the plus group keeps the Jan-1 mean length `estimate_growth()`
- * set for it; under the SS3 forms (2-4) it grows within the year like every other age, as SS3
- * does.
+ * Under `growth_plus_length == 1` the plus group keeps the Jan-1 mean length
+ * `estimate_growth()` set for it; under the SS3 forms (2-4) it grows within the year like
+ * every other age, as SS3 does.
  *
- * Weight-at-age (kg) is integrated across the length distribution rather than taken at mean
- * length, which Jensen's inequality would bias:
- * \f$W_a = \sum_{ln} P(ln | a) \cdot \alpha \cdot L_{mid}^{\beta}\f$.
+ * Weight-at-age (kg) is integrated over the length distribution as in estimate_growth().
  *
  * @param wtind Weight index slot to write into.
  * @param id_pop Weight index holding the Jan-1 lengths the advance starts from.
  * @param sp Species index.
  * @param fracyr Fraction of the year (0.0 - 1.0) to advance growth by.
- * @param growth_parameters Time-varying growth parameters by species, sex, year and parameter:
- *                          K (per year), L1 and Linf (cm), Richards m.
- * @param growth_log_sd Log-scale variability endpoints, index 0 at L1 and index 1 at Linf.
- * @param weight_length_pars Allometric weight-length \f$\alpha\f$ and \f$\beta\f$, kg from cm.
- * @param length_hat [Output] mean length-at-age (cm).
- * @param growth_matrix [Output] age-length key on the population length bins.
- * @param weight_hat [Output] integrated weight-at-age (kg).
+ * @param growth_parameters,growth_log_sd,weight_length_pars As in estimate_growth().
+ * @param length_hat,growth_matrix,weight_hat [Output] As in estimate_growth().
  */
 template<class Type>
 void estimate_growth_within_yr(
@@ -374,16 +367,14 @@ void estimate_growth_within_yr(
 
   Type b_len, current_age, last_linear;
 
-  // The linear ramp below age_L1 starts from the lowest population length edge (cm) at age 0
-  // (SS3's len_bins(1)); with no population grid that is the lowest data bin.
+  // Ramp origin (lowest population length edge, cm, SS3's len_bins(1)) and anchor age
+  // (SS3's Growth_Age_for_L1), both as in estimate_growth().
   Type Lmin_sp = lengths_pop(sp, 0);
-  // Anchor age, where mean length is `l1` (SS3's Growth_Age_for_L1). fit_mod() resolves an
-  // unset value to max(0.5, minage[sp]): an SS3-style half-year anchor at minage = 0.
   Type age_L1 = growth_age_L1(sp);
 
-  // Floors the ramp slope's denominator at 1 year when the anchor is at age 0. This routine
-  // advances each slot from its own Jan-1 length, so unlike estimate_growth() it has no
-  // cohort-boundary test to floor.
+  // Floors the ramp slope's denominator at 1 year when the anchor is at age 0. This
+  // routine advances each slot from its own Jan-1 length, so unlike estimate_growth() it
+  // has no cohort-boundary test to floor.
   Type age_L1_safe = age_L1;
   if (age_L1 <= Type(0)) age_L1_safe = Type(1);
 
@@ -411,16 +402,16 @@ void estimate_growth_within_yr(
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
           // Plus group PINNED at the Jan-1 length estimate_growth() wrote for it, so this
-          // override comes BEFORE the anchor test below, which also matches the plus group when
-          // the whole age range sits under the anchor and would discard that pinned length.
+          // override comes BEFORE the anchor test below, which also matches it when the
+          // whole age range sits under the anchor and would discard that pinned length.
           // `age + 1.0 == nages(sp)` is a slot ordinal (0-based `age`, `nages` a count).
           }else if(age + 1.0 == nages(sp) && growth_plus_length(sp) == 1) { // Pinned at Jan-1
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
           // The cohort that CROSSED the anchor during the year -- Jan-1 age below age_L1,
-          // mid-year age above it -- is read off the growth curve from the anchor, not advanced
-          // from its Jan-1 ramp length. `last_linear` is identically `l1` here, so the body is
-          // linf + (l1 - linf) * exp(-kappa * (current_age - age_L1)). The test is the JAN-1
-          // age: `current_age` carries fracyr and the first branch already took it.
+          // mid-year age above it -- is read off the growth curve from the anchor, not
+          // advanced from its ramp length. `last_linear` is identically `l1` here, so the
+          // body is linf + (l1 - linf) * exp(-kappa * (current_age - age_L1)). The test
+          // is the JAN-1 age: `current_age` carries fracyr and the first branch took it.
           }else if(age + Type(minage(sp)) < age_L1){ // Linear + growth curve mixed
             last_linear = Lmin_sp + b_len * age_L1;
             length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
@@ -434,8 +425,8 @@ void estimate_growth_within_yr(
           // Slope from Lmin to L1
           b_len = (l1 - Lmin_sp) / age_L1_safe;
 
-          // Same branch order as the VBGF case above, with the Richards curve, so the plus
-          // group is treated identically whichever growth family a species uses.
+          // Same branch order as the VBGF case above, with the Richards curve, so the
+          // plus group is treated identically whichever growth family a species uses.
           // Linear ramp below the anchor age
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
@@ -443,8 +434,7 @@ void estimate_growth_within_yr(
           // reason given in the VBGF branch above.
           }else if(age + 1.0 == nages(sp) && growth_plus_length(sp) == 1) { // Pinned at Jan-1
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
-          // The cohort that CROSSED the anchor during the year is read off the Richards curve
-          // from the anchor, not advanced from its Jan-1 ramp length: `last_linear` is
+          // As in the VBGF branch, but read off the Richards curve: `last_linear` is
           // identically `l1` here, so the body is
           // [linf^m + (l1^m - linf^m) * exp(-kappa * (current_age - age_L1))]^(1/m).
           }else if(age + Type(minage(sp)) < age_L1){ // Linear + growth curve mixed
@@ -482,12 +472,12 @@ void estimate_growth_within_yr(
 /**
  * @brief Population, SSB and fleet weight-at-age (kg) for every species and fleet.
  *
- * Empirical weight-at-age (`growth_model == 0`) is read straight from `weight_obs`, with each
+ * Empirical weight-at-age (`growth_model == 0`) is read straight from `weight_obs`, each
  * projection year carrying the last hindcast year forward. Under estimated growth
- * (`growth_model > 0`) population weight comes from estimate_growth() at Jan-1, and SSB and
- * fleet weight from estimate_growth_within_yr() at the spawning month and at each fleet's own
- * month. Arguments not listed below are passed through to those two, except
- * n_flt, which this function's own fleet loop consumes.
+ * (`growth_model > 0`) population weight comes from estimate_growth() at Jan-1, and SSB
+ * and fleet weight from estimate_growth_within_yr() at the spawning month and at each
+ * fleet's own month. Arguments not listed below pass through to those two, except n_flt,
+ * which this function's own fleet loop consumes.
  *
  * @param weight_hat [ref] weight-at-age (wt_index, sex, age, year), kg
  * @param length_hat [ref] mean length-at-age (cm)
@@ -495,14 +485,14 @@ void estimate_growth_within_yr(
  * @param mat_weight_hat [ref] mature weight-at-age (kg), maturity-at-length species only
  * @param weight_obs Empirical weight-at-age input (wt_index, sex, age, year), kg
  * @param growth_model Per species, 0 = empirical, 1 = von Bertalanffy, 2 = Richards
- * @param nyrs Total number of years (hindcast + projection)
- * @param nyrs_hind Number of hindcast years
+ * @param nyrs Years, hindcast plus projection.
+ * @param nyrs_hind Years in the hindcast.
  * @param flt_spp Species index of each fleet
- * @param flt_month Fleet observation month (0 = not specified), taken as flt_month/12 of a year
+ * @param flt_month Fleet observation month (0 = not specified); flt_month/12 of a year
  * @param pop_wt_index Weight-at-age input index for population biomass
  * @param ssb_wt_index Weight-at-age input index for spawning-stock biomass
  * @param flt_wt_index Weight-at-age input index per fleet
- * @param spawn_month Spawning month per species, taken as spawn_month/12 of a year (0 = Jan-1)
+ * @param spawn_month Spawning month per species; spawn_month/12 of a year (0 = Jan-1)
  */
 template <class Type>
 void calculate_weight(

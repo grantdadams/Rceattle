@@ -112,11 +112,11 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( endyr );                  // End of estimation years
   DATA_INTEGER( projyr );                 // End year of projection
 
-  DATA_INTEGER( srr_mse_switchyr );             // The last year used to calculate average recruitment. Used for MSE runs.
-  DATA_IVECTOR( suit_styr );              // The first year (per predator species) used to calculate suitability averages.
-  DATA_IVECTOR( suit_endyr );             // The last year (per predator species) used to calculate suitability averages.
-  DATA_INTEGER( srr_hat_styr );           // The first year used to calculate stock-recuitment penalties or env-rec relationship.
-  DATA_INTEGER( srr_hat_endyr );          // The last year used to calculate stock-recuitment penalties or env-rec relationship.
+  DATA_INTEGER( srr_mse_switchyr );             // Last year of the average-recruitment window; for MSE runs.
+  DATA_IVECTOR( suit_styr );              // First year of the suitability average, per predator species.
+  DATA_IVECTOR( suit_endyr );             // Last year of the suitability average, per predator species.
+  DATA_INTEGER( srr_hat_styr );           // First year of the stock-recruitment-penalty / env-rec window.
+  DATA_INTEGER( srr_hat_endyr );          // Last year of the stock-recruitment-penalty / env-rec window.
 
   int nyrs = projyr - styr + 1;
   int nyrs_hind = endyr - styr + 1;
@@ -142,10 +142,10 @@ Type objective_function<Type>::operator() () {
     nyrs_suit(sp)  = suit_endyr(sp) - suit_styr(sp) + 1;
   }
 
-  DATA_IVECTOR( pop_wt_index );           // Dim 3 of weight to use for population dynamics
-  DATA_IVECTOR( ssb_wt_index );           // Dim 3 of weight to use for spawning stock biomass calculation
-  DATA_IVECTOR( pop_age_transition_index );// Dim 3 of weight to use for age_transition_matrix
-  DATA_IVECTOR( estDynamics );            // Index indicating wether the population parameters are estimated (0), numbers-at-age are provided (1), or an index of numbers-at-age multiplied by an estimated scalar is used (2)
+  DATA_IVECTOR( pop_wt_index );           // Dim 1 of weight_obs to use for population dynamics
+  DATA_IVECTOR( ssb_wt_index );           // Dim 1 of weight_obs to use for spawning stock biomass
+  DATA_IVECTOR( pop_age_transition_index );// Dim 1 of age_trans_matrix to use for population dynamics
+  DATA_IVECTOR( estDynamics );            // 0 = population parameters estimated, 1 = numbers-at-age provided, 2 = provided numbers-at-age times an estimated scalar
   pop_wt_index -= 1;                      // Indexing starts at 0
   ssb_wt_index -= 1;                      // Indexing starts at 0
   pop_age_transition_index -= 1;          // Indexing starts at 0
@@ -166,11 +166,11 @@ Type objective_function<Type>::operator() () {
 
   // 1.5. HARVEST CONTROL RULE (HCR) SETTINGS
   DATA_INTEGER(HCR);                      // Function to be used for harvest control rule
-  DATA_INTEGER(DynamicHCR);               // TRUE/FALSE. Wether to use static or dynamic reference points (default = FALSE)
-  DATA_VECTOR(Ptarget);                   // Target spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
-  DATA_VECTOR(Plimit);                    // Limit spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
-  DATA_VECTOR(Ftarget_percent);           // Percentage of spawning-stock biomass per recruit or SB0 at F = 0 used to find the target F
-  DATA_VECTOR(Flimit_percent);            // Percentage of spawning-stock biomass per recruit or SB0 at F = 0 used to find the limit F
+  DATA_INTEGER(DynamicHCR);               // TRUE/FALSE. Whether to use static or dynamic reference points (default = FALSE)
+  DATA_VECTOR(Ptarget);                   // Target SSB as a percentage of static or dynamic SSB at F = 0
+  DATA_VECTOR(Plimit);                    // Limit SSB as a percentage of static or dynamic SSB at F = 0
+  DATA_VECTOR(Ftarget_percent);           // Percentage of SSB-per-recruit or SB0 at F = 0 that sets the target F
+  DATA_VECTOR(Flimit_percent);            // Percentage of SSB-per-recruit or SB0 at F = 0 that sets the limit F
   DATA_VECTOR(Alpha);                     // Parameter used in NPFMC Tier 3 HCR
   DATA_VECTOR(Fmult);                     // Multiplier for target fishing mortality (Fmult * Ftarget). For example 0.75 * F40%.
   DATA_VECTOR(QnormHCR);                  // Add to Flimit to set Ftarget based on the Pstar approach: Flimit + qnorm(Pstar, 0, Sigma)
@@ -193,30 +193,30 @@ Type objective_function<Type>::operator() () {
    * ------------------------------------------------------------------------- */
 
   // -- 2.1. Species attributes
-  DATA_IVECTOR( nsex );                   // Number of sexes to be modelled; 1 = sexes combined/single sex, 2 = 2 sexes
-  int max_sex = imax(nsex);               // Integer of maximum sexes to make the arrays
+  DATA_IVECTOR( nsex );                   // Sexes modelled per species: 1 = combined, 2 = both.
+  int max_sex = imax(nsex);               // Max sexes, for array dimensions
   DATA_VECTOR( spawn_month );             // Month of spawning to adjust mortality
-  DATA_IVECTOR( nages );                  // Number of species (prey) ages
+  DATA_IVECTOR( nages );                  // Age bins per species.
   DATA_IVECTOR( minage );                 // Minimum age of each species
-  DATA_IVECTOR( nlengths );               // Number of species (prey) lengths
+  DATA_IVECTOR( nlengths );               // Observation length bins per species.
   DATA_MATRIX(lengths);                   // Length bins for each species [sp, nlengths]
-  DATA_IVECTOR( nlengths_pop );           // Number of population length bins per species; equals nlengths when no population grid is given
+  DATA_IVECTOR( nlengths_pop );           // Population length bins per species. Equals nlengths when no population grid is given
   DATA_MATRIX( lengths_pop );             // Population length bins, lower edges (cm) [sp, nlengths_pop]: the grid the age-length key, weight and maturity are integrated on
   DATA_IMATRIX( pop_to_data_bin );        // Data length bin (0-based) that each population bin sums into [sp, nlengths_pop]
-  DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get N_at_age
-  DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
-  DATA_VECTOR( MSB0 );                    // B0 from projecting the model forward in multi-species mode under no fishing
+  DATA_ARRAY( NByageFixed );              // Input numbers- or index-at-age, multiplied (or not) by pop_scalar to get N_at_age
+  DATA_VECTOR( MSSB0 );                   // SB0 from projecting forward in multi-species mode under no fishing
+  DATA_VECTOR( MSB0 );                    // B0 from projecting forward in multi-species mode under no fishing
 
-  int max_nlengths = imax(nlengths);      // Integer of maximum nlengths to make the arrays
-  // The age-length key and selectivity-at-length live on the POPULATION length
-  // bins, which are the data bins whenever no pop_lengths is supplied.
+  int max_nlengths = imax(nlengths);      // Max nlengths, for array dimensions
+  // The age-length key and selectivity-at-length live on the POPULATION length bins,
+  // which are the data bins whenever no pop_lengths is supplied.
   int max_nlengths_pop = imax(nlengths_pop);
 
-  // -- 2.3c. First and last population bin in each data bin, per species. SS3
-  // forms sel(L) * P(L|age) at population resolution and bins the result, so
-  // pred_CAAL and the length compositions sum each data bin's run rather than
-  // applying one bin-average selectivity across it. The map is monotone, so the
-  // runs are contiguous; with one grid every run is a single bin.
+  // -- 2.3c. First and last population bin in each data bin, per species. SS3 forms
+  // sel(L) * P(L|age) at population resolution and bins the result, so pred_CAAL and the
+  // length compositions sum each data bin's run rather than applying one bin-average
+  // selectivity across it. The map is monotone, so the runs are contiguous; with one grid
+  // every run is one bin.
   matrix<int> pop_bin_lo(nspp, max_nlengths); pop_bin_lo.setZero();
   matrix<int> pop_bin_hi(nspp, max_nlengths); pop_bin_hi.setZero();
   for(int sp_i = 0; sp_i < nspp; sp_i++){
@@ -227,9 +227,9 @@ Type objective_function<Type>::operator() () {
       pop_bin_hi(sp_i, d) = lp;
     }
   }
-  int max_age = imax(nages);              // Integer of maximum nages to make the arrays
-  // Sized on the POPULATION bins: the non-parametric curves are built over
-  // nlengths_pop, so a finer grid would otherwise write past non_par_sel.
+  int max_age = imax(nages);              // Max nages, for array dimensions
+  // Sized on the POPULATION bins: the non-parametric curves are built over nlengths_pop,
+  // so a finer grid would otherwise write past non_par_sel.
   int max_bin = (max_age > max_nlengths_pop) ? max_age : max_nlengths_pop;
 
   // -- 2.2. M1_at_age specifications
@@ -251,11 +251,10 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX(mat_len_pars);     // Maturity-at-length [sp, 2]: L50 (cm), logistic slope (per cm)
   DATA_VECTOR(growth_age_L1); // VB anchor age (= SS3 Growth_Age_for_L1) per sp; defaults to max(0.5, minage[sp]) in R-side fit_mod()
 
-  // -- 2.3b. Long-format linkage table (see R/0-linkage_encode.R).
-  //          Each row defines one estimated coefficient that connects a
-  //          process parameter (growth/M/recruit/...) to a column of the
-  //          shared design matrix `linkage_X`. Empty when no build_*()
-  //          supplied a `linkages` argument.
+  // -- 2.3b. Long-format linkage table (see R/0-linkage_encode.R). Each row is one
+  //          estimated coefficient connecting a process parameter (growth/M/recruit/...)
+  //          to a column of the shared design matrix `linkage_X`. Empty when no
+  //          build_*() supplied a `linkages` argument.
   DATA_IVECTOR(linkage_process);       // process code (recruitment = 0, M = 1, growth = 2, q = 3, sel = 4)
   DATA_IVECTOR(linkage_param);         // per-process parameter code
   DATA_IVECTOR(linkage_species);       // 1-based sp id; 0 = all
@@ -295,17 +294,17 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX(linkage_X);              // dense design matrix [nyrs, n_design_cols]
 
   // -- 2.4. Fleet controls (i.e. how to assign data to objects)
-  DATA_IVECTOR(flt_type);                 // Index wether the data are included in the likelihood or not (0 = no, 1 = yes)
+  DATA_IVECTOR(flt_type);                 // Fleet_type: 0 = Off, 1 = Fishery, 2 = Survey (NOT a boolean)
   DATA_VECTOR(flt_month);
-  DATA_IVECTOR(flt_sel_type);             // Vector to save fleet selectivity parameterization
-  DATA_IVECTOR(flt_sel_dim);              // Vector to save fleet selectivity dimension (0 = age, 1 = length)
-  DATA_IVECTOR(flt_n_sel_bins);           // Vector to save number of age/length bins for non-parametric selectivity
-  DATA_IVECTOR(flt_sel_cap_bin);          // NonParametricPM (type 9): first bin (0-based, age or length per flt_sel_dim) at/after which the realized selectivity is held flat (RTMB cap_old_age). < 0 -> no cap.
-  DATA_IVECTOR(flt_varying_sel);          // Vector storing information on whether time-varying selectivity is estimated
-  DATA_IVECTOR(flt_spp);                  // Vector to save fleet species
-  DATA_IVECTOR(bin_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
-  DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): lower age of the selectivity-penalty age-range.
-  DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): upper age of the selectivity-penalty age-range.
+  DATA_IVECTOR(flt_sel_type);             // Fleet selectivity parameterization
+  DATA_IVECTOR(flt_sel_dim);              // Fleet selectivity dimension (0 = age, 1 = length)
+  DATA_IVECTOR(flt_n_sel_bins);           // Age/length bins for non-parametric selectivity
+  DATA_IVECTOR(flt_sel_cap_bin);          // NonParametricPM (type 9): first bin (0-based, age or length per flt_sel_dim) at/after which realized selectivity is held flat (RTMB cap_old_age). < 0 = no cap.
+  DATA_IVECTOR(flt_varying_sel);          // Whether time-varying selectivity is estimated
+  DATA_IVECTOR(flt_spp);                  // Fleet species
+  DATA_IVECTOR(bin_first_selected);       // First selected age (selectivity below it = 0)
+  DATA_IVECTOR(sel_norm_bin1);            // Age of max selectivity for normalization (NA = unused). LogisticPM (type 11): lower age of the selectivity-penalty range.
+  DATA_IVECTOR(sel_norm_bin2);            // Upper age of max selectivity for normalization (NA = unused). LogisticPM (type 11): upper age of the selectivity-penalty range.
   DATA_IVECTOR(sel_norm_scope);           // Whether normalization pools its reference across sexes: 0 = WithinSex (each sex divided by its own reference; both reach 1), 1 = AcrossSexes (one pooled reference; the lower sex stays below 1). Orthogonal to sel_norm_bin1/2, which say WHERE the reference is taken.
   DATA_IVECTOR(flt_sel_start_yr);         // Per-fleet selectivity start year (0-based from styr); selectivity penalties start the year after this. Default 0 (= styr).
   DATA_IVECTOR(flt_sel_pen_first_bin);    // Per-fleet first bin (0-based, age or length per flt_sel_dim) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower range than the (possibly non-zero) first selected bin (e.g. ATS mina_ats > first selected age).
@@ -313,19 +312,19 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_q_lead);               // As flt_sel_lead, for catchability: 1 if this fleet carries the q prior / deviate penalties, 0 if it shares an earlier fleet's Q_index so the shared block is counted once.
   DATA_IVECTOR(flt_sel_pen_last_bin);     // Per-fleet last bin (0-based, = left bin of the last adjacent pair) for the non-parametric shape penalty. < 0 -> defaults to nbins-2 (whole range).
   DATA_IVECTOR(flt_sel_shape_mode);       // Non-parametric shape-penalty mode: 0 = directional (sign of Sel_curve_pen1 -> penalize decreasing/increasing, one-sided, ADMB/AMAK); 1 = smooth (two-sided d^2 over adjacent ages, RTMB "rpm").
-  DATA_VECTOR(flt_sel_avgsel_pen);        // Per-fleet weight on the AMAK "avgsel" base-level penalty: weight * (log(mean(exp(base coffs over the estimated bins))))^2 (type 9 only). A mild regulariser on the overall level of the base coefficients; equivalent to AMAK's 10*square(avgsel_*). 0 = off (default).
-  DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
+  DATA_VECTOR(flt_sel_avgsel_pen);        // Per-fleet weight on the AMAK "avgsel" base-level penalty (type 9 only); the form is penalty (5) in section 13. 0 = off (default).
+  DATA_IVECTOR(comp_ll_type);             // Composition log-likelihood type
   DATA_IVECTOR(comp_accum_young);         // Per-fleet age/length-composition young-tail accumulation bin (1-based ordinal on the comp dimension); bins below it fold into it. 1 (or <1) = no young accumulation (AFSC ac_yng).
   DATA_IVECTOR(comp_accum_old);           // Per-fleet age/length-composition old-tail accumulation bin (1-based); bins above it fold into it. 0/NA or >= nbins = no old accumulation (AFSC ac_old).
-  DATA_IVECTOR(caal_ll_type);             // Vector to save CAAL composition log likelihood type
-  DATA_IVECTOR(flt_units);                // Vector to save fleet units (1 = weight, 2 = numbers)
+  DATA_IVECTOR(caal_ll_type);             // CAAL composition log-likelihood type
+  DATA_IVECTOR(flt_units);                // Fleet units (1 = weight, 2 = numbers)
   DATA_IVECTOR(flt_wt_index);             // Vector to save 1st dim of weight to use for weight-at-age
-  DATA_IVECTOR(flt_age_transition_index); // Vector to save 3rd dim of age_trans_matrix to use for ALK
+  DATA_IVECTOR(flt_age_transition_index); // Dim 1 of age_trans_matrix each fleet reads for its ALK
   DATA_IVECTOR(flt_ageing_error_index);   // Ageing error matrix each fleet reads (0-based); the fleet's own species unless fleet_control gives one
-  DATA_IVECTOR(est_index_q);              // Vector to save wether or not analytical q is used
-  DATA_IVECTOR(index_varying_q);          // Vector storing information on wether time-varying q is estimated
-  DATA_IVECTOR(est_sigma_index);          // Vector to save wether sigma survey is estimated
-  DATA_IVECTOR(est_sigma_fsh);            // Vector to save wether sigma fishery is estimated
+  DATA_IVECTOR(est_index_q);              // Catchability form per fleet; see q_map and sections 8.2/8.2b
+  DATA_IVECTOR(index_varying_q);          // Whether time-varying q is estimated
+  DATA_IVECTOR(est_sigma_index);          // Whether survey sigma is estimated
+  DATA_IVECTOR(est_sigma_fsh);            // Whether fishery sigma is estimated
 
   // -- 2.4.1 Fishery Components
   DATA_IMATRIX( catch_ctl );              // Fishery catch metadata; columns = Fleet_code, Species, Year
@@ -342,18 +341,17 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR( index_cov_const );         // Per-fleet 0.5*(logdet(Sigma) + n*log(2pi)); subtracted for "MVN" so it reports the bare quadratic form
 
   // -- 2.4.2b One-step-ahead (OSA) residual support
-  // `obsvec` is every observation entering the likelihood, flat: log catch, log
-  // index, each comp/caal row's bin counts, each stomach's diet composition.
-  // `keep` is the companion indicator TMB::oneStepPredict() toggles element by
-  // element; it defaults to all ones, so ordinary fitting is unchanged. Each
-  // `*_obsvec_idx` gives its `*_obs` row's 0-based position in `obsvec` (for a
-  // composition, where the row's bins start), or -1 when the row is not fitted.
-  // osa_mode 1 switches the comp/caal/diet branches to a proper, unweighted,
-  // keep-gated density; mode 2 adds the conditional CDF terms
+  // `obsvec` is every observation entering the likelihood, flat: log catch, log index,
+  // each comp/caal row's bin counts, each stomach's diet composition. `keep` is the
+  // indicator TMB::oneStepPredict() toggles element by element; it defaults to all ones,
+  // so ordinary fitting is unchanged. Each `*_obsvec_idx` gives its `*_obs` row's 0-based
+  // position in `obsvec` (for a composition, where the row's bins start), or -1 when the
+  // row is not fitted. osa_mode 1 switches the comp/caal/diet branches to a proper,
+  // unweighted, keep-gated density; mode 2 adds the conditional CDF terms
   // oneStepPredict(method = "cdf") reads -- log F(x) gated by keep.cdf_lower,
-  // log(1 - F(x)) by keep.cdf_upper -- computed only in mode 2, so no other path
-  // pays for the pbeta/pnorm. The Dirichlet-multinomial families have no CDF
-  // term (comp_osa.hpp) and osa_residuals() keeps those fleets off this method.
+  // log(1 - F(x)) by keep.cdf_upper -- computed only in mode 2, so no other path pays
+  // for the pbeta/pnorm. The Dirichlet-multinomial families have no CDF term
+  // (comp_osa.hpp) and osa_residuals() keeps those fleets off this method.
   DATA_VECTOR( obsvec );                    // Flat observations for OSA residuals
   DATA_VECTOR_INDICATOR( keep, obsvec );    // oneStepPredict keep indicator (defaults to 1 when fitting)
   DATA_IVECTOR( catch_obsvec_idx );         // obsvec position for each catch_obs row (-1 = excluded)
@@ -368,19 +366,18 @@ Type objective_function<Type>::operator() () {
   // -- 2.4.2c. Simulation switches (sim_mod(simulate = TRUE))
   // Observations are always drawn; process error is a choice, so it is switched.
   //
-  // simulate_state: which process. Slots 0 recruitment, 1 M, 2 growth,
-  // 3 catchability, 4 selectivity -- the codes linkage_process uses, so a random
-  // linkage gates on simulate_state(linkage_process(i)) untranslated. Default
-  // off: redrawing a process changes what self_test() measures, from recovering
-  // parameters to recovering a process. Recruitment covers init_dev too, the
-  // initial age structure being recruitment from before styr.
+  // simulate_state: which process. Slots 0 recruitment, 1 M, 2 growth, 3 catchability,
+  // 4 selectivity -- the codes linkage_process uses, so a random linkage gates on
+  // simulate_state(linkage_process(i)) untranslated. Default off: redrawing a process
+  // changes what self_test() measures, from recovering parameters to recovering a
+  // process. Recruitment covers init_dev too, the initial age structure being recruitment
+  // pre-styr.
   //
-  // simulate_period: slot 0 the fitted window (0 < Year <= endyr), slot 1
-  // outside it. Only slot 0 is read, and only by the PROCESS draws, whose
-  // densities cover the hindcast alone. Observations are drawn in every period
-  // deliberately, because run_mse() splices the negative-Year rows back in as
-  // the next assessment's data. Slot 1 is reserved and inert; sim_mod() exposes
-  // neither slot.
+  // simulate_period: slot 0 the fitted window (0 < Year <= endyr), slot 1 outside it.
+  // Only slot 0 is read, and only by the PROCESS draws, whose densities cover the
+  // hindcast alone. Observations are drawn in every period deliberately, because
+  // run_mse() splices the negative-Year rows back in as the next assessment's data. Slot
+  // 1 is reserved and inert; sim_mod() exposes neither slot.
   DATA_IVECTOR( simulate_state );
   DATA_IVECTOR( simulate_period );
 
@@ -407,11 +404,11 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( weight_obs );               // Weight-at-age by year; n = [nweight, sex, nages, nyrs]
 
   // 2.3.6. Diet data
-  DATA_IVECTOR(diet_ll_type);             // Vector to save diet composition log likelihood type
+  DATA_IVECTOR(diet_ll_type);             // Diet composition log-likelihood type
   DATA_VECTOR( fday );                    // number of foraging days for each predator
   DATA_ARRAY( ration_data );              // Relative-foraging rate
   DATA_MATRIX( diet_obs );                // Pred, prey, pred-age, prey-age for diet matrix (weight of prey in pred stomach)
-  DATA_IMATRIX( diet_ctl );               // Info on pred, prey, pred-age, prey-age diet matrix (weight of prey in pred stomach)
+  DATA_IMATRIX( diet_ctl );               // Per diet_obs row: predator, prey, both sexes, both ages, year
   DATA_INTEGER(n_stomach_obs);            // The total number of unique stomach samples (groups)
   DATA_IVECTOR(stomach_id);               // A vector mapping each diet data row to a stomach ID
 
@@ -421,9 +418,9 @@ Type objective_function<Type>::operator() () {
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
   DATA_VECTOR( other_food );              // Biomass of other prey (mt)
-  DATA_VECTOR( Pvalue );                  // This scales the pvalue used, proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge
-  DATA_IVECTOR( Ceq );                    // Ceq: which Comsumption equation to use; Currently all sp = 1
-  DATA_IVECTOR( Cindex );                 // Cindex, which environmental index in env_index should drive bioenergetics.
+  DATA_VECTOR( Pvalue );                  // Proportion of Cmax; the P in Cmax*fT*Pvalue*PAge
+  DATA_IVECTOR( Ceq );                    // Which consumption equation to use; currently all sp = 1
+  DATA_IVECTOR( Cindex );                 // Which env_index column drives bioenergetics.
   DATA_VECTOR( CA );                      // Wt specific intercept of Cmax=CA*W^CB
   DATA_VECTOR( CB );                      // Wt specific slope of Cmax=CA*W^CB
   DATA_VECTOR( Qc );                      // used in fT, QC value
@@ -444,7 +441,7 @@ Type objective_function<Type>::operator() () {
    * 3. PARAMETER SECTION                                                      //
    * ------------------------------------------------------------------------- */
 
-  PARAMETER( dummy );                             // Variable to test derived quantities given input parameters; n = [1]
+  PARAMETER( dummy );                             // Tests derived quantities given input parameters; n = [1]
   PARAMETER_VECTOR( log_pop_scalar );              // Log multiplier on input numbers-at-age, per species (estDynamics = 2)
 
   // -- 3.1. Recruitment parameters
@@ -454,7 +451,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( init_dev );                   // Log initial numbers-at-age under initMode 0, log deviations off equilibrium under 2/3/4/6; n = [nspp, max_age]
 
   // -- 3.2. Natural mortality (M1)
-  PARAMETER_ARRAY( log_M1 );                       // Natural mortality (residual if multispecies mode or total if single species mode); n = [nspp, nsex, nages]
+  PARAMETER_ARRAY( log_M1 );                       // Natural mortality: residual under multispecies mode, total under single species; n = [nspp, nsex, nages]
   PARAMETER_ARRAY( log_M1_dev );                   // Natural mortality annual deviate; n = [nspp, nsex, nyrs]
   PARAMETER_ARRAY( M1_beta );                     // Regression coefficients for environmnetally linked M1; n = [nspp, nsex, n indices]
   PARAMETER_ARRAY( M1_rho );                      // Correlation for AR1 random effects on age and year; n = [nspp, nsex, 2]
@@ -466,22 +463,21 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY(growth_log_sd);                  // Log standard deviation of length-at- min and max age [sp, sex, 2]
   PARAMETER_MATRIX(weight_length_pars);           // Length-weight parameters [sp, (alpha, beta)]
 
-  // -- 3.3b. Linkage-table coefficients (see linkage.hpp). Aligned
-  //          row-for-row with the linkage_* DATA vectors above. May
-  //          be length 0 (no linkages supplied).
+  // -- 3.3b. Linkage-table coefficients (see linkage.hpp). Aligned row-for-row with the
+  //          linkage_* DATA vectors above. May be length 0 (no linkages supplied).
   PARAMETER_VECTOR(beta_linkage);
 
-  // Random-effect linkage coefficients and their hyperparameters. All length 0
-  // unless a `~ (1|group)` / rw() / ar1() linkage was supplied; when present,
-  // beta_linkage_re enters the Laplace approximation (added to random=) and the
-  // density on it is accumulated into jnll_comp row 20.
+  // Random-effect linkage coefficients and their hyperparameters. All length 0 unless a
+  // `~ (1|group)` / rw() / ar1() linkage was supplied; when present, beta_linkage_re
+  // enters the Laplace approximation (added to random=) and its density goes to jnll_comp
+  // row 20.
   PARAMETER_VECTOR(beta_linkage_re);     // RE deviation coefficients (Laplace-integrated)
-  // Penalized RE deviations: same row-20 density as beta_linkage_re, but NOT in
-  // the `random` set, so the density acts as a plain penalty instead of being
-  // integrated out. Two vectors rather than one flag because TMB selects random
-  // effects by parameter NAME, and one model may mix both. Permitted only with a
-  // fixed SD -- estimating deviations and their SD jointly as fixed effects is
-  // degenerate (see .re_group_table()).
+  // Penalized RE deviations: same row-20 density as beta_linkage_re, but NOT in the
+  // `random` set, so the density acts as a plain penalty instead of being integrated out.
+  // Two vectors rather than one flag because TMB selects random effects by parameter
+  // NAME, and one model may mix both. Permitted only with a fixed SD -- estimating
+  // deviations and their SD jointly as fixed effects is degenerate (see
+  // .re_group_table()).
   PARAMETER_VECTOR(beta_linkage_re_pen);
   PARAMETER_VECTOR(log_sigma_linkage);   // one log-SD per RE group
   PARAMETER_VECTOR(trans_rho_linkage);   // one transformed rho per AR1 group
@@ -512,7 +508,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( log_sel_apical );              // per-sex log multiplier on the whole curve, after the form and before normalization; n = [n_selectivities, nsex]
   PARAMETER_ARRAY( sel_dn6 );                     // DoubleNormalSS3 (SS3 pattern 24) parameters on SS3's scales: peak, logit top, log asc, log desc, logit init, logit final; n = [6, n_selectivities, nsex]
   PARAMETER_VECTOR( sel_dev_log_sd );              // Log standard deviation of selectivity; n = [1, n_selectivities]
-  PARAMETER_MATRIX( sel_curve_pen );              // Non-parametric selectivity penalty columns (Sel_curve_pen1-3), read differently per form -- see 4408, 4443 and 4630
+  PARAMETER_MATRIX( sel_curve_pen );              // Non-parametric selectivity penalty columns (Sel_curve_pen1-3), read differently per form -- see the penalty blocks in section 13.1
 
   // -- 3.6. Data variance
   //FIXME: remove log_sd terms below
@@ -545,10 +541,10 @@ Type objective_function<Type>::operator() () {
   Type ricker_intercept = 0.0;
 
   // -- 4.2. Growth
-  array<Type> growth_matrix(nspp * 2 + n_flt, max_sex, max_age, max_nlengths_pop, nyrs); growth_matrix.setZero(); // growth transition matrix on the POPULATION length bins, for each fleet and each species derived quantity (biomass and ssb)
-  array<Type> weight_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); weight_hat.setZero(); // Estimated weight-at-age for each fleet and each species derived quantity (biomass and ssb)
+  array<Type> growth_matrix(nspp * 2 + n_flt, max_sex, max_age, max_nlengths_pop, nyrs); growth_matrix.setZero(); // Growth transition matrix on the POPULATION length bins, per fleet and per species derived quantity (biomass, ssb)
+  array<Type> weight_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); weight_hat.setZero(); // Estimated weight-at-age, per fleet and per species derived quantity (biomass, ssb)
   array<Type> mat_weight_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); mat_weight_hat.setZero(); // Mature weight-at-age (kg), maturity-at-length species only
-  array<Type> length_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); length_hat.setZero(); // Estimated length-at-age for each fleet and each species derived quantity (biomass and ssb)
+  array<Type> length_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); length_hat.setZero(); // Estimated length-at-age, per fleet and per species derived quantity (biomass, ssb)
 
   // -- 4.3. Estimated population quantities
   vector<Type>  pop_scalar = exp(log_pop_scalar);                                   // Multiplier on input numbers-at-age, per species
@@ -558,11 +554,11 @@ Type objective_function<Type>::operator() () {
   // Fishery selectivity at age used by initMode 6 to spread Finit over ages;
   // filled in section 5.12.1, and 1 everywhere for every other mode.
   array<Type>   sel_init(nspp, max_sex, max_age); sel_init.setZero();
-  // Initial age structure WITHOUT the initial deviates, i.e. the equilibrium the
-  // deviates are applied to. Only the equilibrium catch reads it, and that is
-  // the quantity it is defined on: SS3 computes the equilibrium catch from the
-  // deviation-free equilibrium, not from the year-1 numbers. Filled alongside
-  // N_at_age in section 6.5 so the two cannot drift apart.
+  // Initial age structure WITHOUT the initial deviates: the equilibrium they are applied
+  // to. Only the equilibrium catch reads it, and that is the quantity it is defined on --
+  // SS3 computes the equilibrium catch from the deviation-free equilibrium, not from the
+  // year-1 numbers. Filled alongside N_at_age in section 6.5 so the two cannot drift
+  // apart.
   array<Type>   N_eq(nspp, max_sex, max_age); N_eq.setZero();
   matrix<Type>  R0(nspp, nyrs); R0.setZero();                                       // Equilibrium recruitment at F = 0.
   matrix<Type>  alpha(nspp, nyrs); alpha.setZero();                                 // Stock recruit alpha
@@ -593,7 +589,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   sel_at_length(n_flt, max_sex, max_nlengths_pop, nyrs); sel_at_length.setZero();// Estimated selectivity at length, on the POPULATION length bins
   array<Type>   avg_sel(n_flt, max_sex, nyrs_hind); avg_sel.setZero();              // Average selectivity for non-parametric up to n_sel_bins
   array<Type>   non_par_sel(n_flt, max_sex, max_bin, nyrs); non_par_sel.setZero();  // Estimated selectivity for AMAK non-parametric (pre-normalization)
-  array<Type>   log_non_par_sel(n_flt, max_sex, max_bin, nyrs); log_non_par_sel.setZero(); // Same curve on the log scale, the scale the penalties are written on (exp() underflows below about -745, so it is carried rather than recovered)
+  array<Type>   log_non_par_sel(n_flt, max_sex, max_bin, nyrs); log_non_par_sel.setZero(); // Same curve on the log scale, where the penalties are written (exp() underflows below about -745, so it is carried, not recovered)
   vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                            // Standard deviation of selectivity deviates
 
   // -- 4.5. Fishery components
@@ -638,10 +634,10 @@ Type objective_function<Type>::operator() () {
   vector<Type>  Finit = exp(log_Finit);                                              // Initial F for non-equilibrium age-structure
   vector<Type>  index_q_mult(index_q_beta.cols()); index_q_mult.setZero();          // Environmental design matrix for q
   vector<Type>  M1_mult(M1_beta.dim(2)); M1_mult.setZero();                         // Environmental design matrix for M1
-  vector<Type>  beta_q_tmp(index_q_beta.cols()); beta_q_tmp.setZero();              // Temporary vector to store Q beta parameters by species for matrix mult
-  vector<Type>  env_q_tmp(index_q_beta.cols()); env_q_tmp.setZero();                // Temporary vector to store Q env data by year for matrix mult
-  vector<Type>  beta_M1_tmp(M1_beta.dim(2)); beta_M1_tmp.setZero();                 // Temporary vector to store beta parameters by species for matrix mult
-  vector<Type>  env_M1_tmp(M1_beta.dim(2)); env_M1_tmp.setZero();                   // Temporary vector to store env data by year for matrix mult
+  vector<Type>  beta_q_tmp(index_q_beta.cols()); beta_q_tmp.setZero();              // Q beta parameters by species, for the matrix multiply
+  vector<Type>  env_q_tmp(index_q_beta.cols()); env_q_tmp.setZero();                // Q env data by year, for the matrix multiply
+  vector<Type>  beta_M1_tmp(M1_beta.dim(2)); beta_M1_tmp.setZero();                 // Beta parameters by species, for the matrix multiply
+  vector<Type>  env_M1_tmp(M1_beta.dim(2)); env_M1_tmp.setZero();                   // Env data by year, for the matrix multiply
   matrix<Type>  proj_F(nspp, nyrs); proj_F.setZero();                               // Projected F (Fabc/Ftac/etc) using harvest control rule
 
   // -- 4.7. Survey components
@@ -649,47 +645,43 @@ Type objective_function<Type>::operator() () {
   vector<Type>  index_q_dev_sd(n_flt); index_q_dev_sd.setZero();                    // Vector of standard deviation of time-varying survey catchability deviation
   vector<Type>  index_hat(index_obs.rows()); index_hat.setZero();                   // Estimated survey index; mt or thousands of fish per the fleet's Observation_units
   // Rejection bookkeeping for the natural-scale survey draws (sim_mod only), per
-  // index_obs row: a non-zero tries count marks the rows a rejection-capable
-  // branch drew -- the untruncated "Normal" family and MVN/MVNORM, which must
-  // redraw a non-positive index. "TruncatedNormal" draws by inverse CDF and never
-  // enters here. sim_mod() sizes the draw/density gap from index_hat and
-  // index_sd, not from these counts.
+  // index_obs row: a non-zero tries count marks the rows a rejection-capable branch drew
+  // -- the untruncated "Normal" family and MVN/MVNORM, which must redraw a non-positive
+  // index. "TruncatedNormal" draws by inverse CDF and never enters here. sim_mod() sizes
+  // the draw/density gap from index_hat and index_sd, not from these counts.
   vector<Type>  index_trunc_tries_sim(index_obs.rows());   index_trunc_tries_sim.setZero();
   vector<Type>  index_trunc_rejects_sim(index_obs.rows()); index_trunc_rejects_sim.setZero();
-  // The marginal sd the draw itself used, so sim_mod() can size the truncated
-  // mass as Phi(-index_hat/sd). Separate from index_sd because a covariance fleet
-  // draws from index_cov_mat, leaving its index_sd whatever the (unused)
-  // Index_sd column happened to carry.
+  // The marginal sd the draw itself used, so sim_mod() can size the truncated mass as
+  // Phi(-index_hat/sd). Separate from index_sd because a covariance fleet draws from
+  // index_cov_mat, leaving its index_sd whatever the (unused) Index_sd column carried.
   vector<Type>  index_trunc_sd_sim(index_obs.rows());      index_trunc_sd_sim.setZero();
-  // The redraw budget ACTUALLY applied to each row, which is what sim_mod()
-  // quotes: the constant below on the univariate branch, and that scaled by the
-  // fleet's row count on the correlated one, which rejects the whole vector at
-  // once, so its joint rejection probability climbs with the number of rows.
+  // The redraw budget ACTUALLY applied to each row, which is what sim_mod() quotes: the
+  // constant below on the univariate branch, and that scaled by the fleet's row count on
+  // the correlated one, which rejects the whole vector at once, so its joint rejection
+  // probability climbs with the row count.
   vector<Type>  index_trunc_budget_sim(index_obs.rows()); index_trunc_budget_sim.setZero();
   const int index_trunc_max_tries = 100;
-  // The observation sd the index likelihood actually used for each row, whichever
-  // of the three est_sigma_index routes supplied it. NOT a log: the sd itself, on
-  // the scale that fleet's Index_distribution works on -- a log-scale sd
-  // (unitless) for Lognormal, an ABSOLUTE sd in the units of the index for the
-  // natural-scale families. rename_output() also writes it as log_index_sd, the
-  // name fits saved before 5.9.0 carry.
+  // The observation sd the index likelihood actually used for each row, whichever of the
+  // three est_sigma_index routes supplied it. NOT a log: the sd itself, on the scale that
+  // fleet's Index_distribution works on -- a log-scale sd (unitless) for Lognormal, an
+  // ABSOLUTE sd in the units of the index for the natural-scale families. rename_output()
+  // also writes it as log_index_sd, the name fits saved before 5.9.0 carry.
   vector<Type>  index_sd(index_obs.rows()); index_sd.setZero();
   vector<Type>  index_analytical_sd(n_flt); index_analytical_sd.setZero();          // Concentrated (analytical) index sd used when Estimate_index_sd = 2; a log-scale sd, not a log
   vector<Type>  index_q_analytical(n_flt); index_q_analytical.setZero();            // Analytical catchability (not an sd) used when Catchability = 3; "AnalyticalArith" (7) has its own block at 8.2b
   matrix<Type>  index_q(n_flt, nyrs_hind); index_q.setZero();                       // Estimated survey catchability //FIXME: extend out to full time-series
-  vector<Type>  index_n_obs(n_flt); index_n_obs.setZero();                          // Vector to save the number of observations for each survey time series
+  vector<Type>  index_n_obs(n_flt); index_n_obs.setZero();                          // Observations per survey time series
 
   // -- 4.8. Composition data
-  // age_hat / age_obs_hat are indexed by AGE whatever dimension the fleet's
-  // composition data are on -- a length composition is built at age and
-  // converted through the age-length transition -- so the width is the widest
-  // age index any row writes: nages(sp), or nages(sp) * 2 for a joint-sex row
-  // (comp_ctl column 2 == 3), and never narrower than comp_obs. Sizing from
-  // comp_obs alone gives only the workbook's Comp_ columns, i.e. nlengths on a
-  // length-only model, and Eigen does not bounds-check in a release build, so
-  // nlengths < nages would write silently into adjacent memory. Species is
-  // range-checked because nothing between rearrange_data() and MakeADFun
-  // validates comp_data$Species, and a non-numeric one arrives as NA_integer_.
+  // age_hat / age_obs_hat are indexed by AGE whatever dimension the fleet's composition
+  // data are on -- a length composition is built at age, then converted through the
+  // age-length transition -- so the width is the widest age index any row writes:
+  // nages(sp), or nages(sp) * 2 for a joint-sex row (comp_ctl column 2 == 3), never
+  // narrower than comp_obs. Sizing from comp_obs alone gives only the workbook's Comp_
+  // columns, i.e. nlengths on a length-only model, and Eigen does not bounds-check in a
+  // release build, so nlengths < nages would write silently into adjacent memory. Species
+  // is range-checked because nothing between rearrange_data() and MakeADFun validates
+  // comp_data$Species, and a non-numeric one arrives as NA_integer_.
   int max_age_cols = static_cast<int>(comp_obs.cols());
   for(int comp_row = 0; comp_row < comp_ctl.rows(); comp_row++){
     int comp_row_sp = comp_ctl(comp_row, 1) - 1;
@@ -752,16 +744,16 @@ Type objective_function<Type>::operator() () {
 
 
   // -- 5.2. SIMULATE LINKAGE RANDOM EFFECTS (sim_mod(simulate = TRUE))
-  // Time-varying recruitment, M, growth, q and selectivity are all written as a
-  // random linkage, so all five draw here, before the processes read them. Each
-  // structure draws from the density that scores it in section 14.6b, slots
-  // being in ascending time order so "next slot" is "next year": a rw group
-  // leaves slot 0 alone, a level the density never sees and the map pins, and an
-  // ar1 draw is standardized then scaled by the MARGINAL SD sigma.
+  // Time-varying recruitment, M, growth, q and selectivity are all written as a random
+  // linkage, so all five draw here, before the processes read them. Each structure draws
+  // from the density that scores it in section 14.6b, slots being in ascending time order
+  // so "next slot" is "next year": a rw group leaves slot 0 alone, a level the density
+  // never sees and the map pins, and an ar1 draw is standardized then scaled by the
+  // MARGINAL SD sigma.
   //
-  // beta_linkage_re_drawn_sim marks which slots this call wrote. The reported
-  // deviation vector spans EVERY random linkage, drawn or not, so without the
-  // mask a caller would score recovery on slots left at their fitted values.
+  // beta_linkage_re_drawn_sim marks which slots this call wrote. The reported deviation
+  // vector spans EVERY random linkage, drawn or not, so without the mask a caller would
+  // score recovery on slots left at their fitted values.
   SIMULATE {
     vector<Type> beta_linkage_re_drawn_sim(linkage_re_sigma.size());
     beta_linkage_re_drawn_sim.setZero();
@@ -769,10 +761,9 @@ Type objective_function<Type>::operator() () {
       int n_slot = linkage_re_sigma.size();
       int n_grp  = log_sigma_linkage.size();
 
-      // Drawn only if EVERY row using the group names a process the caller asked
-      // for. Groups are per (process, param) in practice, so this matters only
-      // for a sigma shared across processes, where redrawing for one would
-      // quietly move the other.
+      // Drawn only if EVERY row using the group names a process the caller asked for.
+      // Groups are per (process, param) in practice, so this matters only for a sigma
+      // shared across processes, where redrawing for one would quietly move the other.
       vector<int> grp_used(n_grp), grp_draw(n_grp);
       grp_used.setZero();
       grp_draw.fill(1);
@@ -780,10 +771,9 @@ Type objective_function<Type>::operator() () {
         if (linkage_re_index(i) < 0) continue;
         int grp = linkage_re_sigma(linkage_re_index(i));
         grp_used(grp) = 1;
-        // linkage_process also codes composition (5), which simulate_state does
-        // not cover because composition linkages carry priors, not random
-        // effects. Treat anything outside the five as "not asked for" rather
-        // than reading past the end of simulate_state.
+        // linkage_process also codes composition (5), which simulate_state does not cover
+        // because composition linkages carry priors, not random effects. Treat anything
+        // outside the five as "not asked for" rather than reading past simulate_state.
         int proc = linkage_process(i);
         if (proc < 0 || proc >= simulate_state.size() || simulate_state(proc) != 1) {
           grp_draw(grp) = 0;
@@ -839,9 +829,9 @@ Type objective_function<Type>::operator() () {
   }
 
   // Every deviation in one vector, indexed by RE slot: integrated deviations in
-  // beta_linkage_re, penalized ones in beta_linkage_re_pen, with linkage_re_slot
-  // giving the position within whichever holds it. With no penalized group it is
-  // an element-wise copy of beta_linkage_re.
+  // beta_linkage_re, penalized ones in beta_linkage_re_pen, with linkage_re_slot giving
+  // the position within whichever holds it. With no penalized group it copies
+  // beta_linkage_re.
   vector<Type> beta_linkage_re_all(linkage_re_sigma.size());
   for (int s = 0; s < beta_linkage_re_all.size(); ++s) {
     beta_linkage_re_all(s) = linkage_re_integrate(s)
@@ -849,22 +839,21 @@ Type objective_function<Type>::operator() () {
         : beta_linkage_re_pen(linkage_re_slot(s));
   }
 
-  // THE _sim NAMING RULE, stated once here and referred to below. TMB never
-  // clears the report environment, so anything REPORTed inside a SIMULATE block
-  // stays visible in obj$report() for this object's life -- under the observed
-  // object's own name, a random replicate would read as the data. Every draw is
-  // reported under a name ending _sim, and the composition, CAAL and diet draws
-  // go into separate copies (comp_sim, caal_sim, diet_sim) for the same reason.
+  // THE _sim NAMING RULE, stated once here and referred to below. TMB never clears the
+  // report environment, so anything REPORTed inside a SIMULATE block stays visible in
+  // obj$report() for this object's life -- under the observed object's own name, a random
+  // replicate would read as the data. Every draw is reported under a name ending _sim,
+  // and the composition, CAAL and diet draws go into separate copies (comp_sim, caal_sim,
+  // diet_sim) for the same reason.
   SIMULATE {
     vector<Type> beta_linkage_re_sim = beta_linkage_re_all;
     REPORT(beta_linkage_re_sim);
   }
 
-  // Effective linkage coefficient per table row. A fixed row uses its
-  // beta_linkage(i); a random-effect row (linkage_re_index >= 0) takes its
-  // deviation from the slot-space vector, whose density is jnll_comp row 20. The
-  // accumulators below see one beta vector either way; with no RE rows this is
-  // an element-wise copy of beta_linkage.
+  // Effective linkage coefficient per table row. A fixed row uses its beta_linkage(i); a
+  // random-effect row (linkage_re_index >= 0) takes its deviation from the slot-space
+  // vector, whose density is jnll_comp row 20. The accumulators below see one beta vector
+  // either way; with no RE rows this copies beta_linkage.
   vector<Type> beta_linkage_eff = beta_linkage;
   for (int i = 0; i < beta_linkage_eff.size(); ++i) {
     if (linkage_re_index(i) >= 0) {
@@ -942,7 +931,7 @@ Type objective_function<Type>::operator() () {
   for( sp = 0; sp < nspp ; sp++) {
 
     if(initMode < 3 || initMode == 5){
-      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same). initMode 5 (OffsetEquilibrium) is an F = 0 equilibrium seeded by first-year recruitment.
+      Finit(sp) = 0; // An equilibrium start takes Finit = 0, so R_init and R0 agree. initMode 5 (OffsetEquilibrium) is an F = 0 equilibrium seeded by first-year recruitment.
     }
 
     // Sex ratio for SSB derivation
@@ -1223,14 +1212,14 @@ Type objective_function<Type>::operator() () {
   // "sel_at_age" and "sel_at_length" modified via pass-by-reference
   // when "sel_at_length" is used, it is converted to "sel_at_age" using the growth matrix
   calculate_selectivity(
-    nspp,                 // Number of species
-    n_flt,                // Number of fleets
-    nyrs,                 // Total years
-    nyrs_hind,            // Hindcast years
+    nspp,                 // Number of species.
+    n_flt,                // Number of fleets.
+    nyrs,                 // Years, hindcast plus projection.
+    nyrs_hind,            // Years in the hindcast.
     styr,                 // Start year
-    nsex,                 // Vector of sexes per species
-    nages,                // Vector of max ages per species
-    nlengths,             // Vector of max lengths per species
+    nsex,                 // Sexes modelled per species: 1 = combined, 2 = both.
+    nages,                // Age bins per species.
+    nlengths,             // Observation length bins per species.
     lengths,              // Length bin boundaries matrix
     nlengths_pop,         // Population length bins per species (= nlengths when no pop grid)
     lengths_pop,          // Population length bin lower edges
@@ -1425,11 +1414,10 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.12.1. FISHERY SELECTIVITY AT AGE FOR THE INITIAL STATE (initMode 6 only)
-  // SS3's InitF convention: the initial equilibrium decays at Finit weighted by
-  // fishery selectivity, so a size-selective fishery barely touches the young
-  // ages. Mean over the species' fishery fleets in year 1, and 1 everywhere for
-  // every other mode. Filled before the SPR reference points build Z_init, and
-  // so SPRFinit, from it.
+  // SS3's InitF convention: the initial equilibrium decays at Finit weighted by fishery
+  // selectivity, so a size-selective fishery barely touches the young ages. Mean over the
+  // species' fishery fleets in year 1, and 1 everywhere for every other mode. Filled
+  // before the SPR reference points build Z_init, and so SPRFinit, from it.
   for(sp = 0; sp < nspp; sp++){
     for(sex = 0; sex < nsex(sp); sex++){
       for(age = 0; age < nages(sp); age++){
@@ -1461,18 +1449,17 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.13. SIMULATE PROCESS ERROR (sim_mod(simulate = TRUE), simulate_state)
-  // Drawn before the dynamics consume the deviations -- the initial-numbers block
-  // below is the first reader of rec_dev and init_dev -- so the dynamics and
-  // every observation draw downstream are consistent with the simulated process.
-  // No second copy of the population dynamics is needed (WHAM's sim_pop), these
-  // deviations and their SDs all being parameters. Each draw uses the density
-  // that scores it in section 13, bias correction included, which is what makes
-  // simulated recruitment mean-unbiased.
+  // Drawn before the dynamics consume the deviations -- the initial-numbers block below
+  // is the first reader of rec_dev and init_dev -- so the dynamics and every observation
+  // draw downstream are consistent with the simulated process. No second copy of the
+  // population dynamics is needed (WHAM's sim_pop), these deviations and their SDs all
+  // being parameters. Each draw uses the density that scores it in section 13, bias
+  // correction included, which is what makes simulated recruitment mean-unbiased.
   //
-  // True when exactly one density scores rec_dev. False for the AMAK/Ianelli
-  // configuration (srr_fun == 0 with srr_pred_fun > 0), where the stock-recruit
-  // curve is fitted as a second penalty on the same deviation. REPORTed so
-  // sim_mod() can warn without re-deriving it.
+  // True if exactly one density scores rec_dev. False for the AMAK/Ianelli configuration
+  // (srr_fun == 0 with srr_pred_fun > 0), where the stock-recruit curve is fitted as a
+  // second penalty on the same deviation. REPORTed so sim_mod() can warn without
+  // re-deriving it.
   int rec_srr_single_density = !((srr_fun == 0) && (srr_pred_fun > 0));
   REPORT(rec_srr_single_density);
 
@@ -1490,13 +1477,13 @@ Type objective_function<Type>::operator() () {
 
     for(sp = 0; sp < nspp; sp++){
 
-      // The density covers the hindcast only -- projection recruitment comes from
-      // the harvest control rule or sample_rec() -- so the fitted window is the
-      // only period this can honestly redraw. srr_fun == 0 with srr_pred_fun > 0
-      // (rec_srr_single_density, above) is excluded: in that AMAK/Ianelli
-      // configuration section 13 scores rec_dev through JNLL_REC_DEV and again
-      // through JNLL_SRR_PENALTY, so there is no single distribution to draw
-      // from. Nothing is drawn, sim_mod() says why, and the full argument is in
+      // The density covers the hindcast only -- projection recruitment comes from the
+      // harvest control rule or sample_rec() -- so the fitted window is the only period
+      // this can honestly redraw. srr_fun == 0 with srr_pred_fun > 0
+      // (rec_srr_single_density, above) is excluded: in that AMAK/Ianelli configuration
+      // section 13 scores rec_dev through JNLL_REC_DEV and again through
+      // JNLL_SRR_PENALTY, so there is no single distribution to draw from. Nothing is
+      // drawn, sim_mod() says why, and the full argument is in
       // vignette("model-diagnostics").
       if(simulate_state(0) == 1 && simulate_period(0) == 1 && rec_srr_single_density){
         for(yr = 0; yr < nyrs_hind; yr++){
@@ -1519,17 +1506,16 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    // Natural mortality random effects. The IID modes are the AR1 code at
-    // rho = 0, so one construction covers all six: draw a standardized AR1 and
-    // scale by the marginal SD afterwards. M1_dev_log_sd is the INNOVATION sd;
-    // Sigma_M is the marginal.
+    // Natural mortality random effects. The IID modes are the AR1 code at rho = 0, so one
+    // construction covers all six: draw a standardized AR1 and scale by the marginal SD
+    // afterwards. M1_dev_log_sd is the INNOVATION sd; Sigma_M is the marginal.
     //
-    // The draw is BROADCAST along whichever dimension the mode holds constant
-    // (modes 1/4 over years, modes 2/5 over ages) and across the sexes sharing
-    // one parameter -- build_map() separates the sexes only at M1_model = 2, so
-    // num_re_sexes is the number of INDEPENDENT draws. This block writes the
-    // expanded array, so writing only the cell the density reads would leave the
-    // rest at fitted values and the deviation would not be constant.
+    // The draw is BROADCAST along whichever dimension the mode holds constant (modes 1/4
+    // over years, modes 2/5 over ages) and across the sexes sharing one parameter --
+    // build_map() separates the sexes only at M1_model = 2, so num_re_sexes is the number
+    // of INDEPENDENT draws. This block writes the expanded array, so writing only the
+    // cell the density reads would leave the rest at fitted values and the deviation
+    // would not be constant.
     if(simulate_state(1) == 1 && simulate_period(0) == 1){
       for(sp = 0; sp < nspp; sp++){
         int num_re_sexes = (M1_model(sp) == 2 && nsex(sp) > 1) ? 2 : 1;
@@ -1657,10 +1643,9 @@ Type objective_function<Type>::operator() () {
     SPRFinit.setZero();
     SPRlimit.setZero();
     SPRtarget.setZero();
-    // Not defined under predation: M carries M2, which scales with predator
-    // abundance, so spawning output per recruit would not be a property of the
-    // prey stock alone. data_check() refuses the switch combinations that read
-    // these downstream.
+    // Not defined under predation: M carries M2, which scales with predator abundance, so
+    // spawning output per recruit would not be a property of the prey stock alone.
+    // data_check() refuses the switch combinations that read these downstream.
     if(msmMode == 0){
       for(sp = 0; sp < nspp; sp++) {
 
@@ -1668,10 +1653,9 @@ Type objective_function<Type>::operator() () {
         int term_yr = nyrs_hind - 1;      // rates for a reference point are the terminal hindcast year's
         wt_idx_ssb = 2 * sp + 1;
 
-        // The four schedules. Flimit and Ftarget are selectivity-scaled and
-        // read the terminal hindcast year; Finit is the flat F that generated
-        // the initial age structure, so it is constant across ages and reads
-        // year 0, weight included.
+        // The four schedules. Flimit and Ftarget are selectivity-scaled and read the
+        // terminal hindcast year; Finit is the flat F that generated the initial age
+        // structure, so it is constant across ages and reads year 0, weight included.
         // FIXME: time-vary sel in the forecast
         vector<Type> Z_unfished(na), Z_limit(na), Z_target(na), Z_init(na);
         vector<Type> wt_term(na), wt_first(na), mature_at_age(na);
@@ -1744,11 +1728,10 @@ Type objective_function<Type>::operator() () {
           for(yr = 0; yr < nyrs; yr++){
             steepness(sp, yr) = alpha(sp, yr) * SPR0(sp)/(4.0 + alpha(sp, yr) * SPR0(sp));
           }
-          // Unfished recruitment implied by the curve, first year only. Filling
-          // every year would make R0 an AD function of alpha and Beta across the
-          // whole series -- ~6x the fit time for a value that is reported rather
-          // than used, Beverton-Holt recruitment being a function of alpha, Beta
-          // and SSB, not of R0.
+          // Unfished recruitment implied by the curve, first year only. Filling every
+          // year would make R0 an AD function of alpha and Beta across the whole series
+          // -- ~6x the fit time for a value that is reported rather than used,
+          // Beverton-Holt recruitment being a function of alpha, Beta and SSB, not of R0.
           R0(sp, 0) = (alpha(sp, 0) - 1.0/SPR0(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
           R_init(sp) = (alpha(sp, 0) - 1.0/SPRFinit(sp)) / Beta(sp, 0); // (Alpha-1/SPRFinit)/beta
           // Same floor as R in 6.6.1: an identity-link alpha offset can make both negative.
@@ -1810,9 +1793,7 @@ Type objective_function<Type>::operator() () {
           Type pen_rk = 0;   // this species' floor penalties alone
           ricker_intercept = alpha(sp, 0) * SPR0(sp) - 1.0;
           ricker_intercept =  posfun(ricker_intercept, Type(0.001), pen_rk) + 1.0;
-          // Year 0 only: posfun() keeps the Ricker intercept positive, charging the
-          // excursion to the objective. The Ianelli configuration (srr_fun < 2)
-          // never reaches this case, so its R0 keeps its estimated value.
+          // Year 0 only, as case 4.
           R0(sp, 0) = log(ricker_intercept)/(Beta(sp, 0) * SPR0(sp)/1000000.0);
 
           // R at equilibrium F
@@ -1827,13 +1808,13 @@ Type objective_function<Type>::operator() () {
         error("Invalid 'srr_fun'");
       }
 
-      // Under the Ianelli configuration (srr_fun 0 or 1, srr_pred_fun > 1) the
-      // curve is estimated as a recruitment penalty rather than driving the
-      // hindcast, and the switch above -- keyed on srr_fun -- would leave
-      // steepness at the mean-recruitment constant. Derive it from the penalty
-      // curve's alpha instead, since the stock-recruit prior (JNLL_SRR_PRIOR) is
-      // evaluated on it. R0 is deliberately NOT re-derived: recruitment here is
-      // R0 * exp(rec_dev), so R0 keeps its estimated value.
+      // Under the Ianelli configuration (srr_fun 0 or 1, srr_pred_fun > 1) the curve is
+      // estimated as a recruitment penalty rather than driving the hindcast, and the
+      // switch above -- keyed on srr_fun -- would leave steepness at the mean-recruitment
+      // constant. Derive it from the penalty curve's alpha instead, since the
+      // stock-recruit prior (JNLL_SRR_PRIOR) is evaluated on it. R0 is deliberately NOT
+      // re-derived: recruitment here is R0 * exp(rec_dev), so R0 keeps its estimated
+      // value.
       if((srr_fun < 2) & (srr_pred_fun > 1) & (msmMode == 0)){
         for(yr = 0; yr < nyrs; yr++){
           if((srr_pred_fun == 2) | (srr_pred_fun == 3)){
@@ -1914,21 +1895,20 @@ Type objective_function<Type>::operator() () {
               }
             }
 
-            // - Equilibrium or non-equilibrium estimated as function of Rinit, Finit, mortality, and init devs
+            // - Equilibrium or non-equilibrium from Rinit, Finit, mortality and init devs
             // Finit is 0 for initMode 0, 1, 2 and 5; it is estimated for the
             // fished non-equilibrium modes 3, 4 and 6 (see section 6.1).
             if(initMode > 0){
 
               // How far the initial age-structure sits off the mean-recruitment
-              // equilibrium R0, on the log scale; 0 under neither source below.
-              // Two sources, never both (an R_init linkage is refused under mode
-              // 5): the free R_init level -- SS3's SR_regime block on the year
-              // before the hindcast, which SS3 shrinks at sigmaR/ave_age and
-              // Rceattle leaves free, so put a prior on the coefficient to match
-              // SS3 -- or, under OffsetEquilibrium (5), the first-year
-              // recruitment deviation, seeding the structure off
-              // exp(rec_pars + rec_dev(sp, 0)) with init devs off (Cole Monnahan
-              // / AFSC GOA pollock convention).
+              // equilibrium R0, on the log scale; 0 under neither source below. Two
+              // sources, never both (an R_init linkage is refused under mode 5): the free
+              // R_init level -- SS3's SR_regime block on the year before the hindcast,
+              // which SS3 shrinks at sigmaR/ave_age and Rceattle leaves free, so put a
+              // prior on the coefficient to match SS3 -- or, under OffsetEquilibrium (5),
+              // the first-year recruitment deviation, seeding the structure off
+              // exp(rec_pars + rec_dev(sp, 0)) with init devs off (Cole Monnahan / AFSC
+              // GOA pollock convention).
               Type init_log_scalar = init_level;
               if(initMode == 5){
                 init_log_scalar += rec_dev(sp, 0);
@@ -1979,11 +1959,10 @@ Type objective_function<Type>::operator() () {
               // -- 6.5.3. Amax
               if(age == (nages(sp) - 1)) {
 
-                // The plus group accumulates at its own total mortality. Under
-                // initMode 6 the initial F reaches an age through that age's
-                // selectivity, so the oldest age decays at M1 + Finit * sel
-                // (SS3's equilibrium convention); every other mode charges the
-                // full Finit, as in mort_sum above.
+                // The plus group accumulates at its own total mortality. Under initMode
+                // 6 the initial F reaches an age through that age's selectivity, so the
+                // oldest age decays at M1 + Finit * sel (SS3's equilibrium convention);
+                // every other mode charges the full Finit, as in mort_sum above.
                 Type Z_plus = M1_at_age(sp, sex, nages(sp) - 1, 0) + Finit(sp) *
                   ((initMode == 6) ? sel_init(sp, sex, nages(sp) - 1) : Type(1.0));
                 Type plus_grp = 1 - exp(-Z_plus);
@@ -2167,14 +2146,13 @@ Type objective_function<Type>::operator() () {
 
 
           // - Option 2: Use SRR
-          // Reached whenever a curve exists, not only when the projection runs
-          // on it. The breadth is deliberate: Option 1a excludes
-          // srr_pred_fun >= 2, so proj_mean_rec = 1 (the build_srr() default)
-          // with an estimated curve would match NEITHER arm, leaving
-          // reference-point recruitment 0 after the first year. SB0 would decay
-          // towards zero, and SB0(sp, nyrs-1) is the depletion reference HCRs 5
-          // and 6 read. Projection recruitment is unaffected: 6.8 reads that
-          // switch separately, so mean-recruitment projections stay mean.
+          // Reached whenever a curve exists, not only when the projection runs on it. The
+          // breadth is deliberate: Option 1a excludes srr_pred_fun >= 2, so proj_mean_rec
+          // = 1 (the build_srr() default) with an estimated curve would match NEITHER
+          // arm, leaving reference-point recruitment 0 after the first year. SB0 would
+          // decay towards zero, and SB0(sp, nyrs-1) is the depletion reference HCRs 5 and
+          // 6 read. Projection recruitment is unaffected: 6.8 reads that switch
+          // separately, so mean-recruitment projections stay mean.
           if((proj_mean_rec == 0) | (srr_pred_fun >= 2)){
 
             // - Equilibrium reference points (No recruitment deviation: pass Type(0.0))
@@ -2196,8 +2174,9 @@ Type objective_function<Type>::operator() () {
               N_at_age_dB0(sp, 0, 0, yr) = R_early;
               N_at_age_dBF(sp, 0, 0, yr) = R_early;
             } else {
-              // Under the Ianelli form the hindcast is on mean recruitment until srr_mse_switchyr, so rec_dev
-              // there is measured from R0; the curve takes the realized deviation from it, log R - log R_hat.
+              // Under the Ianelli form the hindcast is on mean recruitment until
+              // srr_mse_switchyr, so rec_dev there is measured from R0; the curve takes
+              // the realized deviation from it, log R - log R_hat.
               if((srr_fun != srr_pred_fun) & (yr < nyrs_srrmean)){
                 Type R_curve = calculate_recruitment(srr_pred_fun, R0(sp, yr), ssb(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
                 // Same floor as R in 6.6.1, for an identity-link offset that makes the curve non-positive.
@@ -2235,8 +2214,9 @@ Type objective_function<Type>::operator() () {
 
               NByageF(sp, sex, age, yr) =  NByageF(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr-1) - Ftarget_at_age(sp, sex, age-1, yr-1)); // F = target
 
-              // No 0.001 floor here: the hindcast's is a numerical guard, and dynamic B0 must not
-              // assume a stock that fell to it would not have crashed without fishing.
+              // No 0.001 floor here: the hindcast's is a numerical guard, and dynamic B0
+              // must not assume a stock that fell to it would not have crashed without
+              // fishing.
               N_at_age_dB0(sp, sex, age, yr) =  N_at_age_dB0(sp, sex, age-1, yr-1) * exp(-M_at_age_dB0(sp, sex, age-1, yr - 1)); // F = 0
 
               N_at_age_dBF(sp, sex, age, yr) =  N_at_age_dBF(sp, sex, age-1, yr-1) * exp(-M_at_age_dBF(sp, sex, age-1, yr - 1) - Ftarget_at_age(sp, sex, age-1, yr-1)); // F = Ftarget
@@ -2273,7 +2253,8 @@ Type objective_function<Type>::operator() () {
 
           wt_idx_ssb = 2 * sp + 1;
           // Multispecies: M_at_age carries the projection's realized M2. The one rule
-          // that reads SBF, NPFMC (HCR 5), is refused there; SB0 is replaced by MSSB0 below.
+          // that reads SBF, NPFMC (HCR 5), is refused there; SB0 is replaced by MSSB0
+          // below.
           SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  spawn_output(sp, age, nyrs_hind - 1) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
           SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  spawn_output(sp, age, nyrs_hind - 1) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
           DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  spawn_output(sp, age, yr) * exp(-M_at_age_dB0(sp, 0, age, yr) * spawn_month(sp)/12.0);
@@ -2519,17 +2500,16 @@ Type objective_function<Type>::operator() () {
 
       // Year 1+
       for(yr = 1; yr < nyrs; yr++){
-        // Pre-styr spawning year takes R_init, the SAME anchor the realised
-        // recruitment above uses, so expected and realised differ only by
-        // rec_dev and the stock-recruit penalty (13.1) scores the deviation
-        // alone -- these years have no spawning biomass to carry information
-        // about the curve's level. Anchoring on the curve instead (R_hat's own
-        // first year) leaves a mean-versus-curve level gap the penalty reads as
-        // signal: under the Ianelli configuration (srr_fun mean, srr_pred_fun
-        // BevertonHolt) a fixed 0.83 nats per guarded year, pulling rec_pars
+        // Pre-styr spawning year takes R_init, the SAME anchor the realised recruitment
+        // above uses, so expected and realised differ only by rec_dev and the
+        // stock-recruit penalty (13.1) scores the deviation alone -- these years have no
+        // spawning biomass to carry information about the curve's level. Anchoring on the
+        // curve instead (R_hat's own first year) leaves a mean-versus-curve level gap the
+        // penalty reads as signal: under the Ianelli configuration (srr_fun mean,
+        // srr_pred_fun BevertonHolt) a fixed 0.83 nats per guarded year, pulling rec_pars
         // against alpha and Beta from years with no data. Identical for
-        // BevertonHolt/BevertonHolt and Ricker/Ricker, where R_init is already
-        // R_hat's first-year value.
+        // BevertonHolt/BevertonHolt and Ricker/Ricker, where R_init is already R_hat's
+        // first-year value.
         int hat_spawn_yr = yr - minage(sp);
         int hat_srr_use = (hat_spawn_yr < 0) ? 0 : srr_pred_fun;
         Type ssb_tmp = (hat_spawn_yr < 0) ? Type(0.0) : ssb(sp, hat_spawn_yr);
@@ -2595,11 +2575,11 @@ Type objective_function<Type>::operator() () {
   // -- 8.1. Index of abundance/biomass
   for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
 
-    index = index_ctl(index_ind, 0) - 1;          // Temporary survey index
-    sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
-    flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
-    wt_idx_flt = nspp * 2 + index;                // Temporary weight index for fleet
-    mo = index_n(index_ind, 0);                   // Temporary index for month
+    index = index_ctl(index_ind, 0) - 1;          // Survey index
+    sp = index_ctl(index_ind, 1) - 1;             // Species
+    flt_yr = index_ctl(index_ind, 2);             // Data year
+    wt_idx_flt = nspp * 2 + index;                // Fleet weight index
+    mo = index_n(index_ind, 0);                   // Month
 
     index_hat(index_ind) = 0.0;
 
@@ -2618,8 +2598,7 @@ Type objective_function<Type>::operator() () {
         // per-fleet survey timing (SS_expval.tpl: timing >= 0 -> exp(-Z*timing);
         // timing < 0, required of every fishing fleet -> (1 - exp(-Z))/Z).
         //
-        // A seasonal fishery is covered by the same form. Its exact predictor
-        // over a window [t1, t1+D] is
+        // A seasonal fishery takes the same form. Its exact predictor over [t1, t1+D] is
         //     N_a * exp(-Zpre_a * t1) * (1 - exp(-Zwin_a * D)) / (Zwin_a * D)
         //     Zpre_a = M_a + other fleets' F_a      (this fishery has yet to fish)
         //     Zwin_a = M_a + F_a/D + other fleets' F_a
@@ -2654,15 +2633,15 @@ Type objective_function<Type>::operator() () {
 
 
 
-    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-    sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
-    flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
+    index = index_ctl(index_ind, 0) - 1;            // Survey index
+    sp = index_ctl(index_ind, 1) - 1;             // Species
+    flt_yr = index_ctl(index_ind, 2);             // Data year
 
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
 
 
-      mo = index_n(index_ind, 0);                    // Temporary index for month
+      mo = index_n(index_ind, 0);                    // Month
       if(flt_yr < nyrs_hind){
 
         // If etimated standard deviation or analytical sigma (non-time-varying)
@@ -2724,8 +2703,8 @@ Type objective_function<Type>::operator() () {
   // -- 8.3. Survey Biomass - multiply by q
   for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
 
-    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-    flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
+    index = index_ctl(index_ind, 0) - 1;            // Survey index
+    flt_yr = index_ctl(index_ind, 2);      // Data year
 
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
@@ -2749,8 +2728,8 @@ Type objective_function<Type>::operator() () {
   index_analytical_sd.setZero();
   for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
 
-    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-    flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
+    index = index_ctl(index_ind, 0) - 1;            // Survey index
+    flt_yr = index_ctl(index_ind, 2);      // Data year
 
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
@@ -2776,9 +2755,9 @@ Type objective_function<Type>::operator() () {
   for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
 
     flt = catch_ctl(fsh_ind, 0) - 1;     // Fleet index (0-based)
-    sp = catch_ctl(fsh_ind, 1) - 1;      // Temporary index of species
-    flt_yr = catch_ctl(fsh_ind, 2);      // Temporary index for years of data
-    mo = catch_n(fsh_ind, 0);            // Temporary index for month
+    sp = catch_ctl(fsh_ind, 1) - 1;      // Species
+    flt_yr = catch_ctl(fsh_ind, 2);      // Data year
+    mo = catch_n(fsh_ind, 0);            // Month
     wt_idx_flt = nspp * 2 + flt;         // Weight index for fleet
 
     catch_hat(fsh_ind) = 0.0;
@@ -2899,11 +2878,11 @@ Type objective_function<Type>::operator() () {
   for(comp_ind = 0; comp_ind < comp_hat.rows(); comp_ind++){
 
     flt = comp_ctl(comp_ind, 0) - 1;            // Fleet index (0-based)
-    sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
-    flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
-    comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length, 2 = CAAL)
-    yr = comp_ctl(comp_ind, 4);                 // Temporary index for years of data
-    mo = (growth_model(sp) > 0) ? flt_month(flt) : comp_n(comp_ind, 0); // Temporary index for month (use fleet month if estimating growth, otherwise use from data)
+    sp = comp_ctl(comp_ind, 1) - 1;             // Species
+    flt_sex = comp_ctl(comp_ind, 2);            // Comp sex: 0 = combined, 1 = female, 2 = male
+    comp_type = comp_ctl(comp_ind, 3);          // Comp type: 0 = age, 1 = length, 2 = CAAL
+    yr = comp_ctl(comp_ind, 4);                 // Data year
+    mo = (growth_model(sp) > 0) ? flt_month(flt) : comp_n(comp_ind, 0); // Month (use fleet month if estimating growth, otherwise use from data)
     int wtind = nspp * 2 + flt;
     n_hat(comp_ind) = 0.0;
 
@@ -3141,11 +3120,10 @@ Type objective_function<Type>::operator() () {
         }
       }
 
-      // Convert from catch-at-age to catch-at-length, reading age_hat, the TRUE
-      // ages, not age_obs_hat: the age-length key is P(length | true age), and a
-      // measured length carries no otolith reading, so ageing error has no part
-      // in a length composition. SS3 likewise applies its age_age matrix only to
-      // age and CAAL data.
+      // Convert from catch-at-age to catch-at-length, reading age_hat, the TRUE ages, not
+      // age_obs_hat: the age-length key is P(length | true age), and a measured length
+      // carries no otolith reading, so ageing error has no part in a length composition.
+      // SS3 likewise applies its age_age matrix only to age and CAAL data.
       if( comp_type == 1) {
         for(ln = 0; ln < nlengths(sp); ln++) {
           for(age = 0; age < nages(sp); age++) {
@@ -3194,11 +3172,11 @@ Type objective_function<Type>::operator() () {
   for(int caal_ind = 0; caal_ind < caal_hat.rows(); caal_ind++){
 
     flt = caal_ctl(caal_ind, 0) - 1;            // Fleet index (0-based)
-    sp = caal_ctl(caal_ind, 1) - 1;             // Temporary index of species
-    flt_sex = caal_ctl(caal_ind, 2);            // Temporary index for caal sex (0 = combined, 1 = female, 2 = male)
-    yr = caal_ctl(caal_ind, 3);                 // Temporary index for years of data
-    ln = caal_ctl(caal_ind, 4) - 1;             // Temporary index for length-bin
-    mo = flt_month(flt);                        // Temporary index for month (use fleet month b/c estimating growth)
+    sp = caal_ctl(caal_ind, 1) - 1;             // Species
+    flt_sex = caal_ctl(caal_ind, 2);            // CAAL sex: 0 = combined, 1 = female, 2 = male
+    yr = caal_ctl(caal_ind, 3);                 // Data year
+    ln = caal_ctl(caal_ind, 4) - 1;             // Length bin
+    mo = flt_month(flt);                        // Month (use fleet month b/c estimating growth)
 
     if(growth_model(sp) == 0) continue; // Skip empirical weight-at-age species
 
@@ -3374,9 +3352,9 @@ Type objective_function<Type>::operator() () {
   Type index_std_dev = 0;
   for(index_ind = 0; index_ind < index_obs.rows(); index_ind++) {
 
-    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
+    index = index_ctl(index_ind, 0) - 1;            // Survey index
     sp = index_ctl(index_ind, 1) - 1;             // Species is the 2nd column
-    flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
+    flt_yr = index_ctl(index_ind, 2);             // Data year
 
     // Set up variance
     switch (est_sigma_index(index)) {
@@ -3419,29 +3397,27 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    // Natural-scale normal: the residual (obs - q*pred) is normal with an
-    // ABSOLUTE sd in the units of the index, not a log-scale CV, so there is no
-    // lognormal bias term. Two families share this branch, differing only in
-    // whether the density is renormalized over the positive half line:
+    // Natural-scale normal: the residual (obs - q*pred) is normal with an ABSOLUTE sd in
+    // the units of the index, not a log-scale CV, so there is no lognormal bias term. Two
+    // families share this branch, differing only in whether the density is renormalized
+    // over the positive half line:
     //
     //   3  "Normal"           plain normal on (-inf, inf). Matches the AMAK
-    //                         avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2
-    //                         term for term, which is what the ADMB bridges
-    //                         compare against.
-    //   4  "TruncatedNormal"  normal left-truncated at zero. An index cannot be
-    //                         negative and data_check() will not accept one, so
-    //                         the support is (0, inf) and the density is
-    //                         renormalized: log f = log phi(x; mu, sd)
-    //                         - log(Phi(mu/sd)).
+    //                         avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2 term for
+    //                         term, which is what the ADMB bridges compare against.
+    //   4  "TruncatedNormal"  normal left-truncated at zero. An index cannot be negative
+    //                         and data_check() will not accept one, so the support is
+    //                         (0, inf) and the density is renormalized:
+    //                         log f = log phi(x; mu, sd) - log(Phi(mu/sd)).
     //
     // A modelling choice, not a correction: only family 4 draws from the same
-    // distribution the likelihood scores (see the draw below). Family 3's draw
-    // is exact for the untruncated normal it is fitted under but must reject the
-    // non-positive draws data_check() would refuse, so draw and density differ
-    // where the absolute sd is large relative to the index.
+    // distribution the likelihood scores (see the draw below). Family 3's draw is exact
+    // for the untruncated normal it is fitted under but must reject the non-positive
+    // draws data_check() would refuse, so draw and density differ where the absolute sd
+    // is large relative to the index.
     //
-    // mu = q * (selected biomass) >= 0 and sd > 0, so mu/sd >= 0 and the
-    // truncation constant lies in [log(0.5), 0]: bounded, no underflow.
+    // mu = q * (selected biomass) >= 0 and sd > 0, so mu/sd >= 0 and the truncation
+    // constant lies in [log(0.5), 0]: bounded, no underflow.
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) &&
        ((index_ll_type(index) == 3) || (index_ll_type(index) == 4))){
       if(index_obs(index_ind, 0) > 0){
@@ -3457,10 +3433,9 @@ Type objective_function<Type>::operator() () {
           if(pos >= 0){
             jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), index_hat(index_ind), index_std_dev, true);
             jnll_comp(JNLL_INDEX, index) += keep(pos) * log_Z;
-            // method = "cdf". "TruncatedNormal" gets its own CDF, renormalized
-            // over (0, inf) -- the correction the Gaussian methods cannot see --
-            // so it needs no oneStepGeneric call and none of its integration
-            // failures.
+            // method = "cdf". "TruncatedNormal" gets its own CDF, renormalized over (0,
+            // inf) -- the correction the Gaussian methods cannot see -- so it needs no
+            // oneStepGeneric call and none of its integration failures.
             if(osa_mode == 2){
               if(index_ll_type(index) == 4){
                 jnll_comp(JNLL_INDEX, index) -= osa_trunc_norm_cdf_terms(
@@ -3541,22 +3516,21 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-  // MVN survey biomass likelihood (Index_loglike == "MVN"): the AMAK/ebswp
-  // DoCovBTS covariance survey likelihood 0.5 * r' Sigma^-1 r on each MVN fleet's
-  // fitted residual vector r = obs - q*pred (arithmetic, natural scale; pair with
-  // est_index_q == 7 for the AMAK arithmetic-mean q). Sigma is the per-fleet
-  // index_cov_mat(index), and r is assembled in index_obs row order to match its
-  // rows and columns. Reuses jnll_comp row 0.
+  // MVN survey biomass likelihood (Index_loglike == "MVN"): the AMAK/ebswp DoCovBTS
+  // covariance survey likelihood 0.5 * r' Sigma^-1 r on each MVN fleet's fitted residual
+  // vector r = obs - q*pred (arithmetic, natural scale; pair with est_index_q == 7 for
+  // the AMAK arithmetic-mean q). Sigma is the per-fleet index_cov_mat(index), and r is
+  // assembled in index_obs row order to match its rows and columns. Reuses jnll_comp
+  // row 0.
   //
-  // OSA (osa_mode == 1): the correlated block is whitened into independent
-  // standard normals so oneStepPredict() can residualize each observation. With
-  // the lower Cholesky Sigma = L L', build_osa_data() stores z = L^-1 obs in
-  // obsvec and the whitened mean m = L^-1 index_hat is formed here with the SAME
-  // L; z_k ~ N(m_k, 1) are independent and z_k - m_k is the multivariate-Gaussian
-  // one-step-ahead residual (Thygesen et al. 2017, the SAM/TMB construction).
-  // Sigma is fixed data, so L is constant and the whitened density differs from
-  // the fitting density only by 0.5*logdet(Sigma) (family 1 also drops
-  // n/2*log(2*pi)), which does not move the residuals.
+  // OSA (osa_mode == 1): the correlated block is whitened into independent standard
+  // normals so oneStepPredict() can residualize each observation. With the lower Cholesky
+  // Sigma = L L', build_osa_data() stores z = L^-1 obs in obsvec and the whitened
+  // mean m = L^-1 index_hat is formed here with the SAME L; z_k ~ N(m_k, 1) are
+  // independent and z_k - m_k is the multivariate-Gaussian one-step-ahead residual
+  // (Thygesen et al. 2017, the SAM/TMB construction). Sigma is fixed data, so L is
+  // constant and the whitened density differs from the fitting density only by
+  // 0.5*logdet(Sigma) (family 1 also drops n/2*log(2*pi)), not moving the residuals.
   for(index = 0; index < n_flt; index++){
     if((flt_type(index) > 0) && (index_ll_type(index) == 1 || index_ll_type(index) == 2)){   // 1 = MVN (bare quadratic form), 2 = MVNORM (full density) ONLY -- other families (0 lognormal, 3 normal) carry a 1x1 dummy Sigma and must not enter here
       int n_mvn = 0;
@@ -3625,14 +3599,13 @@ Type objective_function<Type>::operator() () {
         // families, rows outside the fitted set keep the values they came with.
         SIMULATE {
           // Redraw while any row is non-positive. The target is the joint normal
-          // truncated to the positive orthant, which has no closed-form inverse
-          // CDF, so rejection is the exact sampler here, not a fallback;
-          // truncating each margin separately would break the correlation this
-          // likelihood models. There is no truncated family to switch to, so the
-          // draw/density gap stays. The budget scales with the row count
-          // (index_trunc_max_tries * n_mvn) because a vector is rejected if ANY
-          // row is non-positive, and the acceptance test sits at the TOP of the
-          // loop, so an exhausted budget writes a non-positive index that has
+          // truncated to the positive orthant, which has no closed-form inverse CDF, so
+          // rejection is the exact sampler here, not a fallback; truncating each margin
+          // separately would break the correlation this likelihood models. There is no
+          // truncated family to switch to, so the draw/density gap stays. The budget
+          // scales with the row count (index_trunc_max_tries * n_mvn) because a vector
+          // is rejected if ANY row is non-positive, and the acceptance test sits at the
+          // TOP of the loop, so an exhausted budget writes a non-positive index that has
           // been examined and sim_mod() reports it as any other.
           vector<Type> sim_dev = MVNORM(index_cov_mat(index)).simulate();
           int mvn_tries = 0;
@@ -3684,8 +3657,8 @@ Type objective_function<Type>::operator() () {
 
     flt = catch_ctl(fsh_ind, 0) - 1;            // Fleet index (0-based)
     sp = catch_ctl(fsh_ind, 1) - 1;             // Species is the column 3
-    flt_yr = catch_ctl(fsh_ind, 2);             // Temporary index for years of data
-    yr = flt_yr - styr;                         // Temporary index of years. Start at 0.
+    flt_yr = catch_ctl(fsh_ind, 2);             // Data year
+    yr = flt_yr - styr;                         // Year index, 0-based
 
     // Set up variance
     switch (est_sigma_fsh(flt)) {
@@ -3725,17 +3698,16 @@ Type objective_function<Type>::operator() () {
     }
 
     // -- Simulate the catch observation, for sim_mod(simulate = TRUE) --
-    // Same mean as the dnorm above, bias term included: the estimator fits to
-    // that mean, so a draw centred elsewhere biases every self-test.
+    // Same mean as the dnorm above, bias term included: the estimator fits to that mean,
+    // so a draw centred elsewhere biases every self-test.
     //
-    // Outside the hindcast gate, deliberately. clean_data() appends a catch row
-    // per fishery per projection year with Catch = NA (99 of BS2017SS's 216) that
-    // sim_mod() fills; a gated draw leaves them NA and data_check() rejects the
-    // refit. catch_hat is 0 there, so the mean is log(0) = -inf and rnorm()
-    // returns it undrawn, giving exp(-inf) = 0 -- safe only because SIMULATE runs
-    // on doubles. Do not share this mean with the dnorm above, where log(0) puts
-    // a NaN adjoint on the tape, and do not add a catch_hat > 0 guard, which
-    // would change how many random numbers the draw consumes.
+    // Outside the hindcast gate, deliberately. clean_data() appends a catch row per
+    // fishery per projection year with Catch = NA (99 of BS2017SS's 216) that sim_mod()
+    // fills; a gated draw leaves them NA and data_check() rejects the refit. catch_hat is
+    // 0 there, so the mean is log(0) = -inf and rnorm() returns it undrawn, giving
+    // exp(-inf) = 0 -- safe only because SIMULATE runs on doubles. Do not share this mean
+    // with the dnorm above, where log(0) puts a NaN adjoint on the tape, and do not add a
+    // catch_hat > 0 guard, which would change how many random numbers the draw consumes.
     SIMULATE {
       catch_obs(fsh_ind, 0) = exp(rnorm(log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev));
       // The density reads obsvec (log scale), the write-back catch_obs (natural
@@ -3764,27 +3736,26 @@ Type objective_function<Type>::operator() () {
         dnorm(log(equil_catch_obs(eq_ind, 0)), eq_mu, eq_sd, true);
 
       // -- Simulate the equilibrium catch, for sim_mod(simulate = TRUE) --
-      // Same mean as the dnorm above, bias term included. This observation is
-      // the ONLY one informing Finit, and therefore the initial age-structure
-      // and the SSB scale under initMode 6, so leaving it at its real value
-      // would condition every self_test() replicate on data its own operating
-      // model had not generated.
+      // Same mean as the dnorm above, bias term included. This observation is the ONLY
+      // one informing Finit, and therefore the initial age-structure and the SSB scale
+      // under initMode 6, so leaving it at its real value would condition every
+      // self_test() replicate on data its own operating model had not generated.
       //
-      // Inside the gate, unlike the hindcast catch: every equilibrium row is a
-      // real observation data_check() requires to be positive, so there is no
-      // projection row to fill.
+      // Inside the gate, unlike the hindcast catch: every equilibrium row is a real
+      // observation data_check() requires to be positive, so there is no projection row
+      // to fill.
       SIMULATE {
         equil_catch_obs(eq_ind, 0) = exp(rnorm(eq_mu, eq_sd));
       }
     }
   }
 
-  // Reported under _sim names -- see the naming rule in section 5.2.
-  // obsvec_sim holds the catch and survey-index entries redrawn and every other
-  // entry as observed, and no more: the composition, CAAL and diet draws below
-  // write their own matrices and never touch obsvec, their densities reading it
-  // only in OSA mode. It is for inspection, not a simulated data set -- sim_mod()
-  // assembles the data_list from the per-type *_obs_sim matrices.
+  // Reported under _sim names -- see the naming rule in section 5.2. obsvec_sim holds the
+  // catch and survey-index entries redrawn and every other entry as observed, and no
+  // more: the composition, CAAL and diet draws below write their own matrices and never
+  // touch obsvec, their densities reading it only in OSA mode. It is for inspection, not
+  // a simulated data set -- sim_mod() assembles the data_list from the *_obs_sim
+  // matrices.
   SIMULATE {
     matrix<Type> catch_obs_sim = catch_obs;
     matrix<Type> equil_catch_obs_sim = equil_catch_obs;
@@ -3814,11 +3785,11 @@ Type objective_function<Type>::operator() () {
 
   for(comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
-    flt = comp_ctl(comp_ind, 0) - 1;        // Temporary fleet index
-    sp = comp_ctl(comp_ind, 1) - 1;         // Temporary index of species
-    flt_sex = comp_ctl(comp_ind, 2);        // Temporary index for comp sex (0 = combined, 1 = female, 2 = male, 3 = joint)
-    comp_type = comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
-    yr = comp_ctl(comp_ind, 4);             // Temporary index for years of data
+    flt = comp_ctl(comp_ind, 0) - 1;        // Fleet index
+    sp = comp_ctl(comp_ind, 1) - 1;         // Species
+    flt_sex = comp_ctl(comp_ind, 2);        // Comp sex: 0 = combined, 1 = female, 2 = male, 3 = joint
+    comp_type = comp_ctl(comp_ind, 3);      // Comp type: 0 = age, 1 = length
+    yr = comp_ctl(comp_ind, 4);             // Data year
 
     // Adjustment for joint sex composition data
     joint_adjust(comp_ind) = 1;
@@ -3840,15 +3811,15 @@ Type objective_function<Type>::operator() () {
     vector<Type> comp_obs_tmp = comp_obs.row(comp_ind).segment(0, n_comp); // Observed proportion
     vector<Type> comp_hat_tmp = comp_hat.row(comp_ind).segment(0, n_comp); // Expected proportion
 
-    // Composition young/old accumulation (AFSC ac_yng / ac_old): fold the bins
-    // below `yng` into the `yng` bin and above `old` into the `old` bin, then
-    // restrict the likelihood to [yng, old]. Done PER SEX BLOCK for joint-sex
-    // comps (joint_adjust == 2) so a fold never crosses the sex boundary. yng and
-    // old are 1-based bin ordinals on the fleet's comp dimension (age or length),
-    // and the default (yng = 1, old >= nbins) is a no-op. Applied on the OSA path
-    // too, since OSA residuals must correspond to the folded model that was fit:
-    // the branch below reads a folded obsvec, built identically in
-    // build_osa_data(), against this folded comp_hat_tmp / n_comp.
+    // Composition young/old accumulation (AFSC ac_yng / ac_old): fold the bins below
+    // `yng` into the `yng` bin and above `old` into the `old` bin, then restrict the
+    // likelihood to [yng, old]. Done PER SEX BLOCK for joint-sex comps
+    // (joint_adjust == 2) so a fold never crosses the sex boundary. yng and old are
+    // 1-based bin ordinals on the fleet's comp dimension (age or length), and the default
+    // (yng = 1, old >= nbins) is a no-op. Applied on the OSA path too, since OSA
+    // residuals must correspond to the folded model that was fit: the branch below reads
+    // a folded obsvec, built identically in build_osa_data(), against this folded
+    // comp_hat_tmp / n_comp.
     {
       int nbins_blk = (comp_type == 0) ? nages(sp) : nlengths(sp);
       int yng = comp_accum_young(flt);
@@ -3889,10 +3860,9 @@ Type objective_function<Type>::operator() () {
 
     // Convert observed prop to observed numbers
     comp_obs_tmp *= comp_n(comp_ind, 1);
-    // Dirichlet-multinomial concentration. The observed-count total
-    // comp_obs_tmp.sum() = N*(1 + offset*nbins) is the effective sample size,
-    // matching the N ddirmultinom() reads from obs.sum(), the CAAL DM, and the
-    // AFSC linear-DM parameterization.
+    // Dirichlet-multinomial concentration. The observed-count total comp_obs_tmp.sum() =
+    // N*(1 + offset*nbins) is the effective sample size, matching the N ddirmultinom()
+    // reads from obs.sum(), the CAAL DM, and the AFSC linear-DM parameterization.
     vector<Type> alphas = comp_obs_tmp.sum() * comp_hat_tmp * DM_pars_comp(flt); // DM alpha
     vector<Type> unweighted_alphas = comp_obs_tmp.sum() * comp_hat_tmp;          // DM alpha
 
@@ -3946,31 +3916,30 @@ Type objective_function<Type>::operator() () {
 
     // -- Simulate the composition, for sim_mod(simulate = TRUE) --
     // Drawn in RAW bin space, from comp_hat before the transforms above. Tail
-    // accumulation folds bins many-to-one before the density, so a draw taken
-    // there has no way back; drawing raw and letting the refit fold is exact,
-    // both families being closed under merging categories. comp_prop_offset is
-    // affine on obs and prediction alike, so drawing from the un-offset
-    // prediction keeps the round trip unbiased.
+    // accumulation folds bins many-to-one before the density, so a draw taken there has
+    // no way back; drawing raw and letting the refit fold is exact, both families being
+    // closed under merging categories. comp_prop_offset is affine on obs and prediction
+    // alike, so drawing from the un-offset prediction keeps the round trip unbiased.
     //
-    // Outside the year gate, deliberately: run_mse() reveals the negative-Year
-    // rows to the estimation model as new composition data.
+    // Outside the year gate, deliberately: run_mse() reveals the negative-Year rows to
+    // the estimation model as new composition data.
     SIMULATE {
       int nbin_raw = ((comp_type == 0) ? nages(sp) : nlengths(sp)) * joint_adjust(comp_ind);
       vector<Type> sim_p = comp_hat.row(comp_ind).segment(0, nbin_raw);
       Type sim_tot = sim_p.sum();
       Type n_nom = comp_n(comp_ind, 1);
-      // A row the draw cannot be taken for comes back EMPTY, not carried over and
-      // not filled in from the prediction. Two ways to get there:
-      //   sim_tot == 0  nothing is predicted -- a fleet with no catch that year,
-      //                 or one switched off.
+      // A row the draw cannot be taken for comes back EMPTY, not carried over and not
+      // filled in from the prediction. Two ways to get there:
+      //   sim_tot == 0  nothing is predicted -- a fleet with no catch that year, or one
+      //                 switched off.
       //   n_nom  == 0   nothing was sampled -- no sample size to draw at.
-      // comp_hat rows are normalized to sum to one, so falling back to the
-      // prediction would hand back noise-free proportions summing to one: a row
-      // that was never sampled, indistinguishable from a real full-weight
-      // composition. run_mse() decides "no catch, so no composition" by whether
-      // the row sums above zero (R/10-run_mse.R), zeroes Sample_size for empty
-      // rows and feeds them back in, so the second case is reachable on the next
-      // assessment; sim_mod() warns on an empty row by the same test.
+      // comp_hat rows are normalized to sum to one, so falling back to the prediction
+      // would hand back noise-free proportions summing to one: a row that was never
+      // sampled, indistinguishable from a real full-weight composition. run_mse() decides
+      // "no catch, so no composition" by whether the row sums above zero
+      // (R/10-run_mse.R), zeroes Sample_size for empty rows and feeds them back in, so
+      // the second case is reachable on the next assessment; sim_mod() warns on an empty
+      // row the same way.
       vector<Type> sim_out(nbin_raw); sim_out.setZero();
 
       if((sim_tot > Type(0)) && (n_nom > Type(0))){
@@ -3991,10 +3960,9 @@ Type objective_function<Type>::operator() () {
       for(int b = 0; b < nbin_raw; b++){
         comp_sim(comp_ind, b) = sim_out(b);
       }
-      // Clear the ragged tail. comp_obs is sized to the widest row, so a row with
-      // fewer bins has padding columns belonging to no bin; rearrange_data()
-      // normalizes across ALL columns on the next fit, so leaving the padding
-      // would dilute every real bin by its share.
+      // Clear the ragged tail. comp_obs is sized to the widest row, so a row with fewer
+      // bins has padding columns belonging to no bin; rearrange_data() normalizes across
+      // ALL columns on the next fit, so leaving the padding would dilute every real bin.
       for(int b = nbin_raw; b < comp_sim.cols(); b++){
         comp_sim(comp_ind, b) = Type(0);
       }
@@ -4015,10 +3983,10 @@ Type objective_function<Type>::operator() () {
   for(int caal_ind = 0; caal_ind < caal_hat.rows(); caal_ind++){
 
     flt = caal_ctl(caal_ind, 0) - 1;            // Fleet index (0-based)
-    sp = caal_ctl(caal_ind, 1) - 1;             // Temporary index of species
-    flt_sex = caal_ctl(caal_ind, 2);            // Temporary index for caal sex (0 = combined, 1 = female, 2 = male, 3 = joint)
-    yr = caal_ctl(caal_ind, 3);                 // Temporary index for years of data
-    ln = caal_ctl(caal_ind, 4) - 1;             // Temporary index for length-bin
+    sp = caal_ctl(caal_ind, 1) - 1;             // Species
+    flt_sex = caal_ctl(caal_ind, 2);            // CAAL sex: 0 = combined, 1 = female, 2 = male, 3 = joint
+    yr = caal_ctl(caal_ind, 3);                 // Data year
+    ln = caal_ctl(caal_ind, 4) - 1;             // Length bin
 
     // Number of ages
     int n_caal = nages(sp); // * joint_adjust(caal_ind); // For sex = 3 (joint sex caal data)
@@ -4048,11 +4016,10 @@ Type objective_function<Type>::operator() () {
       if(osa_mode == 0){
         // ---- Normal fitting ----
         // Two parallel accumulators per CAAL fleet: jnll_comp, weighted by
-        // caal_weights(flt) and entering the objective, and
-        // unweighted_jnll_comp, reported so Francis and McAllister-Ianelli
-        // reweighting can read the raw likelihood. Both address JNLL_CAAL, not
-        // JNLL_COMP: age composition and conditional age-at-length are separate
-        // likelihood rows (see the JnllRow enum).
+        // caal_weights(flt) and entering the objective, and unweighted_jnll_comp,
+        // reported so Francis and McAllister-Ianelli reweighting can read the raw
+        // likelihood. Both address JNLL_CAAL, not JNLL_COMP: age composition and
+        // conditional age-at-length are separate likelihood rows (see the JnllRow enum).
         switch(caal_ll_type(flt)){
 
         case -1:  // AFSC/AMAK multinomial pseudo-likelihood, as for age comps
@@ -4116,10 +4083,9 @@ Type objective_function<Type>::operator() () {
           sim_out = rmultinom_rce(n_nom * caal_weights(flt), p);
         }
       }
-      // As for the marginal composition: a row with nothing predicted or nothing
-      // sampled comes back empty rather than filled in from the prediction, and
-      // the ragged tail is cleared so a later normalization cannot dilute the
-      // real bins.
+      // As for the marginal composition: a row with nothing predicted or nothing sampled
+      // comes back empty rather than filled in from the prediction, and the ragged tail
+      // is cleared so a later normalization cannot dilute the real bins.
       for(int b = 0; b < n_caal; b++){
         caal_sim(caal_ind, b) = sim_out(b);
       }
@@ -4161,27 +4127,24 @@ Type objective_function<Type>::operator() () {
 
       // 1a) Ianelli/AMAK non-parametic selectivity penalties
       // - using non-normalized selectivities following the arrowtooth ADMB model
-      // - updated to make differentiable using abs to only penalize when sel_ratio_tmp > 0 (decreasing sel_at_age)
+      // - differentiable via abs: only penalize sel_ratio_tmp > 0 (decreasing sel_at_age)
       // - Added time-varying component following Atka mackerel
       if(flt_sel_type(flt) == 2) {
 
-        // Time-invariant selectivity has one curve, so the shape penalties are
-        // charged once. Both time-varying modes give every year its own curve,
-        // so they are charged every year.
+        // Time-invariant selectivity has one curve, so the shape penalties are charged
+        // once; both time-varying modes give each year its own curve, charged each year.
         //
-        // PROPOSED, to make IID integrable under random_sel = TRUE: charge terms
-        // 1, 2 and 4 once on the base curve sel_coff instead of per year on the
-        // realized curve, term 1 over bins below flt_n_sel_bins - 1 (past which
-        // sel_coff holds 0 rather than the last estimated bin the realized curve
-        // repeats) and term 4 over [bin_first_selected, flt_n_sel_bins). Term 3
-        // would then be the only term on the deviates and WOULD NEED its own
-        // for(y < nyrs_hind) loop here, since nyrs_tmp becomes 1 for IID.
-        // The reason to move them: on the deviates, term 1 steps the Laplace
-        // log-determinant (max(d, 0)^2 has a step second derivative), and terms 2
-        // and 4 do not scale with sel_dev_sd, so they integrate an unnormalized
-        // prior and bias it. Type 13 below is the same idea as its own form, but
-        // extends the base by repeating the last estimated bin and takes its
-        // level over [0, n_sel_bins).
+        // PROPOSED, to make IID integrable under random_sel = TRUE: charge terms 1, 2 and
+        // 4 once on the base curve sel_coff instead of per year on the realized curve,
+        // term 1 over bins below flt_n_sel_bins - 1 (past which sel_coff holds 0 rather
+        // than the last estimated bin the realized curve repeats) and term 4 over
+        // [bin_first_selected, flt_n_sel_bins). Term 3 would then be the only term on the
+        // deviates and WOULD NEED its own for(y < nyrs_hind) loop here, since nyrs_tmp
+        // becomes 1 for IID. The reason to move them: on the deviates, term 1 steps the
+        // Laplace log-determinant (max(d, 0)^2 has a step second derivative), and terms 2
+        // and 4 do not scale with sel_dev_sd, so they integrate an unnormalized prior and
+        // bias it. Type 13 below is the same idea as its own form, but extends the base
+        // by repeating the last estimated bin and takes its level over [0, n_sel_bins).
         int nyrs_tmp = 1;
         if((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 4)){
           nyrs_tmp = nyrs_hind;
@@ -4217,13 +4180,12 @@ Type objective_function<Type>::operator() () {
           // 3. Time-varying penalty
           //
           // RandomWalk (4) scores the year-to-year change in the realized
-          // log-selectivity (Atka mackerel ADMB model), which is renormalized to
-          // mean 1 each year; the level is held by the avgsel penalty at (4).
-          // IID (1) scores each deviation itself, over exactly the coefficient
-          // bins build_map() estimates. Bins outside that range are fixed at 0
-          // and left unscored: each would add log(sel_dev_sd) + 0.5*log(2*pi),
-          // constant in the deviates but rising with the sd, so scoring them
-          // would drag the estimate toward zero.
+          // log-selectivity (Atka mackerel ADMB model), which is renormalized to mean 1
+          // each year; the level is held by the avgsel penalty at (4). IID (1) scores
+          // each deviation itself, over exactly the coefficient bins build_map()
+          // estimates. Bins outside that range are fixed at 0 and left unscored: each
+          // would add log(sel_dev_sd) + 0.5*log(2*pi), constant in the deviates but
+          // rising with the sd, so scoring them would drag the estimate toward zero.
           if(flt_varying_sel(flt) == 4){
             if(yr > 0){
               for(sex = 0; sex < nsex(sp); sex++){
@@ -4331,15 +4293,14 @@ Type objective_function<Type>::operator() () {
             }
           }
 
-          // (5) AMAK "avgsel" base-level penalty: weight *
-          //     (log(mean(exp(base coffs))))^2 over the estimated coefficient
-          //     bins [bin_first_selected, n_sel_bins-1]. A mild regulariser on
-          //     the overall level of the base coefficients, which the per-year
-          //     mean-centering leaves unconstrained; equivalent to AMAK's
-          //     10*square(avgsel_*). flt_sel_avgsel_pen defaults to 0 (off); opt
-          //     in via Sel_avgsel_pen (e.g. 10 to match AMAK). The range holds
-          //     at least one bin, data_check() requiring
-          //     Bin_first_selected <= N_sel_bins.
+          // (5) AMAK "avgsel" base-level penalty: weight * (log(mean(exp(base
+          //     coffs))))^2 over the estimated coefficient bins
+          //     [bin_first_selected, n_sel_bins-1]. A mild regulariser on the overall
+          //     level of the base coefficients, which the per-year mean-centering leaves
+          //     unconstrained; equivalent to AMAK's 10*square(avgsel_*).
+          //     flt_sel_avgsel_pen defaults to 0 (off); opt in via Sel_avgsel_pen (e.g.
+          //     10 to match AMAK). The range holds at least one bin, data_check()
+          //     requiring Bin_first_selected <= N_sel_bins.
           if(flt_sel_avgsel_pen(flt) > 0){
             int n_base = flt_n_sel_bins(flt) - bin_first_selected(flt);
             vector<Type> base(n_base);
@@ -4392,12 +4353,11 @@ Type objective_function<Type>::operator() () {
           // 4. Average-selectivity level of the base coefficients.
           jnll_comp(JNLL_SEL_NONPARAM, flt) += 2.0 * square(avg_base);
 
-          // 3. The deviates: iid about the base over every hindcast year,
-          //    or random-walk increments from the year after the fleet's
-          //    start year (the start-year increment is fixed at 0). Only the
-          //    estimated coefficient bins are scored; a bin held at 0 would add
-          //    a constant rising with the sd and pull it toward zero.
-          //    With Time_varying_sel = "Off" there are no deviates and no density.
+          // 3. The deviates: iid about the base over every hindcast year, or random-walk
+          //    increments from the year after the fleet's start year (the start-year
+          //    increment is fixed at 0). Only estimated coefficient bins are scored; a
+          //    bin held at 0 would add a constant rising with the sd and pull it toward
+          //    zero. With Time_varying_sel = "Off" there are no deviates and no density.
           bool scored = (flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 4);
           int yr_lo = (flt_varying_sel(flt) == 4) ? start_yr + 1 : 0;
           if(scored){
@@ -4412,7 +4372,7 @@ Type objective_function<Type>::operator() () {
 
 
       // 2) Logistic selectivity penalties
-      // Penalized/random effect likelihood time-varying logistic/double-logistic selectivity deviates
+      // Penalized/random-effect density: time-varying logistic/double-logistic deviates
       if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11) && (flt_sel_type(flt) != 13)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 0; yr < nyrs_hind; yr++){
@@ -4500,7 +4460,7 @@ Type objective_function<Type>::operator() () {
       }
 
       // 3) Hake style non-parametric
-      // Penalized/random effect likelihood time-varying non-parametric (Taylor et al 2014) selectivity deviates
+      // Penalized/random-effect time-varying sel deviates (Taylor et al 2014)
       if(((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) == 5)){
         for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
           for(sex = 0; sex < nsex(sp); sex++){
@@ -4652,8 +4612,8 @@ Type objective_function<Type>::operator() () {
 
 
     // Slot 9 -- init_dev -- Initial abundance-at-age
-    // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic equilibrium.
-    // initMode 5 (OffsetEquilibrium) fixes init_dev at 0 (off), like the
+    // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic
+    // equilibrium. initMode 5 (OffsetEquilibrium) fixes init_dev at 0 (off), like the
     // equilibrium modes, so it carries no init_dev penalty.
     if(initMode > 1 && initMode != 5){
       for(age = 1; age < nages(sp); age++) {
@@ -4920,18 +4880,16 @@ Type objective_function<Type>::operator() () {
     if (slot_col >= n_col) slot_col = 0;
 
     Type b = beta_linkage(i);
-    // Whether the intercept's base parameter lives on the log scale (so
-    // b_nat = exp(b)). True for every log-scale base (rec_pars, log_M1,
-    // log_growth_pars, index_log_q, comp_weights); set false for a
-    // natural-scale base (the selectivity inflection sel_inf), whose prior is
-    // read on the natural scale directly.
+    // Whether the intercept's base parameter lives on the log scale (so b_nat = exp(b)).
+    // True for every log-scale base (rec_pars, log_M1, log_growth_pars, index_log_q,
+    // comp_weights); set false for a natural-scale base (the selectivity inflection
+    // sel_inf), whose prior is read on the natural scale directly.
     bool base_is_log = true;
     if (linkage_is_intercept(i) == 1) {
-      // Re-target the prior to the base parameter that this intercept
-      // row stands in for. Sentinel 0 in species/sex/age_bin means
-      // "all levels"; pick the first concrete cell as the prior target
-      // (in practice intercepts are stratified per species/sex/age and
-      // there is a single base-parameter scalar per row).
+      // Re-target the prior to the base parameter that this intercept row stands in for.
+      // Sentinel 0 in species/sex/age_bin means "all levels"; pick the first concrete
+      // cell as the prior target (in practice intercepts are stratified per
+      // species/sex/age and there is a single base-parameter scalar per row).
       int sp_in = linkage_species(i);
       int sx_in = linkage_sex(i);
       int ab_in = linkage_age_bin(i);
@@ -4942,11 +4900,10 @@ Type objective_function<Type>::operator() () {
       int proc  = linkage_process(i);
       int param = linkage_param(i);
       if (proc == RCEATTLE_PROC_RECRUIT) {
-        // recruitment params: R0=0, alpha=1, beta=2 -> rec_pars cols 0..2
-        // (stored as log_R0, log_alpha, log_beta on the log scale). R_init (3)
-        // has NO rec_pars column -- its intercept IS the level, so the prior
-        // stays on beta_linkage(i) and reading rec_pars here would run off the
-        // end of the matrix.
+        // recruitment params: R0=0, alpha=1, beta=2 -> rec_pars cols 0..2 (stored as
+        // log_R0, log_alpha, log_beta on the log scale). R_init (3) has NO rec_pars
+        // column -- its intercept IS the level, so the prior stays on beta_linkage(i)
+        // and reading rec_pars here would run off the end of the matrix.
         if (param != RCEATTLE_REC_R_INIT) {
           b = rec_pars(sp_idx, param);
         }
@@ -4967,25 +4924,23 @@ Type objective_function<Type>::operator() () {
         int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
         b = index_log_q(fl_idx);
       } else if (proc == RCEATTLE_PROC_COMP) {
-        // Dirichlet-multinomial overdispersion. comp/caal weights are
-        // fleet-indexed, diet weights predator(species)-indexed; all stored on
-        // the log scale (theta = exp(weight)), so b_nat = exp(b) is the natural
-        // DM scalar the prior targets. param: theta_comp=0, theta_caal=1,
-        // theta_diet=2.
+        // Dirichlet-multinomial overdispersion. comp/caal weights are fleet-indexed,
+        // diet weights predator(species)-indexed; all stored on the log scale
+        // (theta = exp(weight)), so b_nat = exp(b) is the natural DM scalar the prior
+        // targets. param: theta_comp=0, theta_caal=1, theta_diet=2.
         int fl_in  = linkage_fleet(i);
         int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
         if (param == 0)      b = comp_weights(fl_idx);
         else if (param == 1) b = caal_weights(fl_idx);
         else if (param == 2) b = diet_comp_weights(sp_idx);
       } else if (proc == RCEATTLE_PROC_SEL) {
-        // Parametric selectivity base parameters are (slot, fleet, sex), with
-        // asc -> slot 0 and desc -> slot 1. param: slp_asc=0 / slp_desc=1 ->
-        // log_sel_slp (log scale, exp -> slope); inf_asc=2 / inf_desc=3 ->
-        // sel_inf (natural scale, the inflection age / peak). The (Intercept)
-        // beta_linkage row is pinned at 0, so it adds no offset to selectivity:
-        // the base parameter carries the mean and this prior regularizes it
-        // (Cole Monnahan's GOA pollock priors -- lognormal on the log-slope,
-        // normal on the natural inflection). coff (param 4) has no scalar base
+        // Parametric selectivity base parameters are (slot, fleet, sex), with asc -> slot
+        // 0 and desc -> slot 1. param: slp_asc=0 / slp_desc=1 -> log_sel_slp (log scale,
+        // exp -> slope); inf_asc=2 / inf_desc=3 -> sel_inf (natural scale, the inflection
+        // age / peak). The (Intercept) beta_linkage row is pinned at 0, so it adds no
+        // offset to selectivity: the base parameter carries the mean and this prior
+        // regularizes it (Cole Monnahan's GOA pollock priors -- lognormal on the
+        // log-slope, normal on the natural inflection). coff (param 4) has no scalar base
         // parameter and cannot carry a linkage (.check_sel_linkage_support).
         int fl_in  = linkage_fleet(i);
         int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
@@ -5009,10 +4964,9 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    // Back-transform to natural scale when this is
-    // an intercept row on a log-scale base parameter (b holds the log-scale
-    // parameter). For all slope rows, and for a natural-scale intercept base
-    // (sel_inf), b_nat == b already.
+    // Back-transform to natural scale when this is an intercept row on a log-scale base
+    // parameter (b holds the log-scale parameter). For all slope rows, and for a
+    // natural-scale intercept base (sel_inf), b_nat == b already.
     Type b_nat = (linkage_is_intercept(i) == 1 && base_is_log) ? exp(b) : b;
 
     if (fam == 1) {                         // normal(p1, p2) on natural scale
@@ -5047,14 +5001,13 @@ Type objective_function<Type>::operator() () {
 
     for (int i = 0; i < n_stomach_obs; ++i) {
 
-      // Take this stomach's prey as the run of diet_ctl rows with stomach_id ==
-      // i. The cursor only moves forward, so the ids must be sorted 0, 1, 2, ...
-      // with no gaps: clean_data() rebuilds stomach_id from the
-      // pred/sex/age/year stratum and sorts by it on every pass, and
-      // data_check() rejects a table that breaks it. Out of that order the
-      // cursor runs past whole stomachs, which then drop out of the likelihood
-      // silently, and build_osa_data(), matching on which(stomach_id == i),
-      // would disagree with this scan.
+      // Take this stomach's prey as the run of diet_ctl rows with stomach_id == i. The
+      // cursor only moves forward, so the ids must be sorted 0, 1, 2, ... with no gaps:
+      // clean_data() rebuilds stomach_id from the pred/sex/age/year stratum and sorts by
+      // it on every pass, and data_check() rejects a table that breaks it. Out of that
+      // order the cursor runs past whole stomachs, which then drop out of the likelihood
+      // silently, and build_osa_data(), matching on which(stomach_id == i), would
+      // disagree with this scan.
       int start_j = current_j;
       while((current_j < diet_ctl.rows()) && (stomach_id(current_j) == i)) {
         current_j++;
@@ -5155,11 +5108,11 @@ Type objective_function<Type>::operator() () {
       // only the prey bins are written back, "other prey" being whatever is left
       // over and recomputed on the next fit, so storing it would double-count.
       SIMULATE {
-        // Draw from the composition BEFORE the offset, rebuilt here from
-        // diet_hat so ordinary fitting pays nothing for it. The offset keeps
-        // log(0) out of the density rather than describing the stomachs, and the
-        // transform is affine, so drawing from the un-offset prediction keeps a
-        // simulate-then-refit round trip unbiased.
+        // Draw from the composition BEFORE the offset, rebuilt here from diet_hat so
+        // ordinary fitting pays nothing for it. The offset keeps log(0) out of the
+        // density rather than describing the stomachs, and the transform is affine, so
+        // drawing from the un-offset prediction keeps a simulate-then-refit round trip
+        // unbiased.
         vector<Type> sim_p(n_prey + 1);
         Type prey_sum = 0.0;
         for(int k = 0; k < n_prey; k++){
@@ -5175,12 +5128,11 @@ Type objective_function<Type>::operator() () {
           switch(diet_ll_type(rsp)){
           case 0: {
             // diet_comp_weights multiplies the multinomial density, making it an
-            // effective sample size: weighting a multinomial log-likelihood by w
-            // is, up to a constant, a multinomial at w*N. Draw at that size, or
-            // a down-weighted fleet gets stomachs the likelihood treats as w
-            // times less informative than they are. For the
-            // Dirichlet-multinomial the same parameter is log theta and already
-            // enters through the concentration below.
+            // effective sample size: weighting a multinomial log-likelihood by w is, up
+            // to a constant, a multinomial at w*N. Draw at that size, or a down-weighted
+            // fleet gets stomachs the likelihood treats as w times less informative than
+            // they are. For the Dirichlet-multinomial the same parameter is log theta and
+            // already enters through the concentration below.
             Type n_eff = N_s * diet_comp_weights(rsp);
             sim_counts = rmultinom_rce(n_eff, sim_p);
             break;
@@ -5277,12 +5229,11 @@ Type objective_function<Type>::operator() () {
   ADREPORT( ssb_depletion );
 
   // -- Log-scale derived series.
-  // sdreport linearizes once about the MLE, so its SD is exact only for a linear
-  // function of the parameters. These are built multiplicatively (R = R0 *
-  // exp(rec_dev); n-at-age is a product of survivals), so log(x) is near-linear
-  // and exp(log(x) +/- z * sd) is right-skewed and cannot cross zero. The log SD
-  // is also the CV, the form the ABC / OFL buffer wants. The natural-scale
-  // ADREPORTs stay so existing sdrep$value callers work.
+  // sdreport linearizes once about the MLE, so its SD is exact only for a linear function
+  // of the parameters. These are built multiplicatively (R = R0 * exp(rec_dev); n-at-age
+  // is a product of survivals), so log(x) is near-linear and exp(log(x) +/- z * sd) is
+  // right-skewed and cannot cross zero. The log SD is also the CV, the form the ABC / OFL
+  // buffer wants. The natural-scale ADREPORTs stay so existing sdrep$value callers work.
   matrix<Type>  log_biomass = biomass;  log_biomass = log(biomass.array());
   matrix<Type>  log_ssb     = ssb;      log_ssb     = log(ssb.array());
   matrix<Type>  log_R       = R;        log_R       = log(R.array());
@@ -5295,20 +5246,19 @@ Type objective_function<Type>::operator() () {
   ADREPORT( R_sd );
   ADREPORT( R );
 
-  // -- Log selectivity-at-age, for a delta-method interval on the curve. Log and
-  // not logit, because the non-parametric forms normalize to a MEAN of one, so
-  // sel_at_age routinely exceeds one. Gated because the delta method costs every
-  // reported value against every parameter; see ?fit_control.
+  // -- Log selectivity-at-age, for a delta-method interval on the curve. Log and not
+  // logit, because the non-parametric forms normalize to a MEAN of one, so sel_at_age
+  // routinely exceeds one. Gated because the delta method costs every reported value
+  // against every parameter; see ?fit_control.
   //
-  // Only estimated, age-based lead fleets, from their first selected bin: those
-  // cells cannot be a structural zero, and one log(0) = -Inf on the tape turns
-  // EVERY sdreport quantity to NaN, biomass and SSB included. The four routes to
-  // a structural zero are enumerated in ?fit_control and all read from the data,
-  // so the reported SET never depends on a parameter value. A reported VALUE can
-  // still underflow -- a narrow dome puts exp(-x^2/2) below 1e-308 many bins
-  // from its peak -- so the log is floored with max2(), exact above the floor.
-  // log_sel_at_age_index carries each row's fleet, sex, absolute age and
-  // calendar year, since which cells are reported depends on the model.
+  // Only estimated, age-based lead fleets, from their first selected bin: those cells
+  // cannot be a structural zero, and one log(0) = -Inf on the tape turns EVERY sdreport
+  // quantity to NaN, biomass and SSB included. The four routes to a structural zero are
+  // enumerated in ?fit_control and all read from the data, so the reported SET never
+  // depends on a parameter value. A reported VALUE can still underflow -- a narrow dome
+  // puts exp(-x^2/2) below 1e-308 many bins from its peak -- so the log is floored with
+  // max2(), exact above the floor. log_sel_at_age_index carries each row's fleet, sex,
+  // absolute age and calendar year, since which cells are reported depends on the model.
   if(adreport_sel == 1){
     // First bin and bin count per fleet. data_check() bounds Bin_first_selected
     // by nages, but a 0 in the workbook still arrives here as -1, and the model
@@ -5391,11 +5341,10 @@ Type objective_function<Type>::operator() () {
   REPORT( log_index_hat );
   ADREPORT( log_index_hat );
 
-  // -- 14.4b. Formula-linkage effect sizes: the estimated coefficients, the
-  // random-effect deviations and the Rogers (2024) QAR1 effect size, so a user
-  // can read the *effect* and, through ADREPORT, its uncertainty -- not just the
-  // realized parameter (index_q above). All may be length 0 (no linkages), in
-  // which case they report nothing.
+  // -- 14.4b. Formula-linkage effect sizes: the estimated coefficients, the random-effect
+  // deviations and the Rogers (2024) QAR1 effect size, so a user can read the *effect*
+  // and, through ADREPORT, its uncertainty -- not just the realized parameter (index_q
+  // above). All may be length 0 (no linkages), in which case they report nothing.
   REPORT( beta_linkage );
   ADREPORT( beta_linkage );
   REPORT( beta_linkage_re );
@@ -5429,17 +5378,15 @@ Type objective_function<Type>::operator() () {
   REPORT( pred_CAAL );
 
 
-  // -- 14.6a. Random-effect SD priors (jnll_comp row 19). A prior on a group's
-  // deviation SD, routed from linkage_spec(priors = list(sigma = ...)), once per
-  // group because the loop is over groups. Shares the linkage-prior row and the
-  // same families as the fixed-beta prior loop above, on the natural-scale SD
-  // exp(log_sigma).
-  // FIXME(jacobian): the normal/gamma/beta families place the prior on the
-  // natural-scale SD while the free parameter is log_sigma, WITHOUT the
-  // change-of-variables Jacobian d(sd)/d(log_sigma) = sd -- a penalized-
-  // likelihood prior, not a proper Bayesian one, matching the fixed-beta loop's
-  // convention. `lognormal` is exempt, dnorm(log(sd), ..) having a constant
-  // Jacobian in log_sigma. Add `+ log_sigma` for a proper density.
+  // -- 14.6a. Random-effect SD priors (jnll_comp row 19). A prior on a group's deviation
+  // SD, routed from linkage_spec(priors = list(sigma = ...)), once per group because the
+  // loop is over groups. Shares the linkage-prior row and the same families as the
+  // fixed-beta prior loop above, on the natural-scale SD exp(log_sigma).
+  // FIXME(jacobian): the normal/gamma/beta families place the prior on the natural-scale
+  // SD while the free parameter is log_sigma, WITHOUT the change-of-variables Jacobian
+  // d(sd)/d(log_sigma) = sd -- a penalized-likelihood prior, not a proper Bayesian one,
+  // matching the fixed-beta loop's convention. `lognormal` is exempt, dnorm(log(sd), ..)
+  // having a constant Jacobian in log_sigma. Add `+ log_sigma` for a proper density.
   if (log_sigma_linkage.size() > 0) {
     for (int g = 0; g < log_sigma_linkage.size(); ++g) {
       int fam = linkage_re_sigma_prior_family(g);
@@ -5464,13 +5411,13 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-  // -- 14.6a'. Random-effect AR1 correlation priors (jnll_comp row 19), routed
-  // from linkage_spec(priors = list(rho = ...)) on an ar1 group. On the natural
-  // (-1, 1) correlation rho = rho_trans(trans_rho_linkage): normal(p1, p2)
-  // directly, or beta(p1, p2) on (rho + 1) / 2. Once per group.
-  // FIXME(jacobian): as with the sigma priors above, the prior is on the natural
-  // rho while the free parameter is trans_rho_linkage, without the rho_trans
-  // Jacobian -- a penalized-likelihood prior, not a proper density on rho.
+  // -- 14.6a'. Random-effect AR1 correlation priors (jnll_comp row 19), routed from
+  // linkage_spec(priors = list(rho = ...)) on an ar1 group. On the natural (-1, 1)
+  // correlation rho = rho_trans(trans_rho_linkage): normal(p1, p2) directly, or
+  // beta(p1, p2) on (rho + 1) / 2. Once per group.
+  // FIXME(jacobian): as with the sigma priors above, the prior is on the natural rho
+  // while the free parameter is trans_rho_linkage, without the rho_trans Jacobian -- a
+  // penalized-likelihood prior, not a proper density on rho.
   if (trans_rho_linkage.size() > 0) {
     for (int g = 0; g < linkage_re_rho.size(); ++g) {
       int fam = linkage_re_rho_prior_family(g);
@@ -5489,18 +5436,17 @@ Type objective_function<Type>::operator() () {
   }
 
   // -- 14.6b. Random-effect linkage density (jnll_comp row 20)
-  // Group-oriented so each covariance structure couples its deviations
-  // correctly. Per RE group, gather its slot-space deviations in ascending slot
-  // order -- which the registry assigns in elapsed-time order -- then dispatch
-  // on the group's structure:
+  // Group-oriented so each covariance structure couples its deviations correctly. Per RE
+  // group, gather its slot-space deviations in ascending slot order -- which the registry
+  // assigns in elapsed-time order -- then dispatch on the group's structure:
   //   us  (IID)        : sum of N(0, sigma) densities (the index_q_dev idiom);
-  //   rw  (RandomWalk) : N(0, sigma) on successive first differences, the first
-  //                      deviate pinned at 0 by the map (as index_q_dev);
+  //   rw  (RandomWalk) : N(0, sigma) on successive first differences, the first deviate
+  //                      pinned at 0 by the map (as index_q_dev);
   //   ar1 (AR1)        : stationary AR1 with MARGINAL SD sigma and correlation
-  //                      rho = rho_trans(trans_rho_linkage), the glmmTMB /
-  //                      Rogers-QAR1 convention SCALE(AR1(rho), sigma).
-  // Guarded on size so row 20 stays exactly 0 without a random linkage, and
-  // placed before REPORT(jnll_comp) so the reported matrix carries it.
+  //                      rho = rho_trans(trans_rho_linkage), the glmmTMB / Rogers-QAR1
+  //                      convention SCALE(AR1(rho), sigma).
+  // Guarded on size so row 20 stays exactly 0 without a random linkage, and placed before
+  // REPORT(jnll_comp) so the reported matrix carries it.
   if (log_sigma_linkage.size() > 0) {
     int n_re = beta_linkage_re_all.size();
     for (int grp = 0; grp < log_sigma_linkage.size(); ++grp) {
@@ -5536,11 +5482,11 @@ Type objective_function<Type>::operator() () {
       }
 
       // Rogers QAR1 observation: the ar1 latent re(t) is measured as
-      // linkage_re_obs_value(t) with SD exp(log_obs_sd_linkage(obs_slot)), one
-      // ESTIMATED SD per observed group (matching the reference Estimate_q = 6 /
-      // GOApollock), started from the spec's obs_sd. This term pins the latent to
-      // the observed env series and, with the beta scaling in beta_linkage_eff,
-      // identifies the effect size.
+      // linkage_re_obs_value(t) with SD exp(log_obs_sd_linkage(obs_slot)), one ESTIMATED
+      // SD per observed group (matching the reference Estimate_q = 6 / GOApollock),
+      // started from the spec's obs_sd. This term pins the latent to the observed env
+      // series and, with the beta scaling in beta_linkage_eff, identifies the effect
+      // size.
       if (linkage_re_obs(grp) >= 0) {
         Type osd = exp(log_obs_sd_linkage(linkage_re_obs(grp)));
         for (int t = 0; t < len; ++t) {
@@ -5556,13 +5502,12 @@ Type objective_function<Type>::operator() () {
             if (pos >= 0) {
               jnll_comp(JNLL_LINKAGE_RE, 0)            -= keep(pos) * dnorm(obsvec(pos), re(t), osd, true);
               unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= keep(pos) * dnorm(obsvec(pos), re(t), osd, true);
-              // method = "cdf": the covariate measurement is normal about the
-              // latent state, so its CDF is pnorm of the standardized residual.
-              // Only jnll_comp, as at every other CDF site: unweighted_jnll_comp
-              // is reported as an unweighted LIKELIHOOD (Francis and
-              // McAllister-Ianelli read it), and a CDF term is not one. Rows 19
-              // and 20 keep their own values, the wholesale copy in section 13.2
-              // running `ind < 19` and executing before this block in any case.
+              // method = "cdf": the covariate measurement is normal about the latent
+              // state, so its CDF is pnorm of the standardized residual. Only jnll_comp,
+              // as at every other CDF site: unweighted_jnll_comp is reported as an
+              // unweighted LIKELIHOOD (Francis and McAllister-Ianelli read it), and a CDF
+              // term is not one. Rows 19 and 20 keep their own values, the wholesale copy
+              // in section 13.2 running `ind < 19` and executing before this block.
               if (osa_mode == 2) {
                 jnll_comp(JNLL_LINKAGE_RE, 0) -= osa_norm_cdf_terms(
                   obsvec(pos), re(t), osd, keep.cdf_lower(pos), keep.cdf_upper(pos));
