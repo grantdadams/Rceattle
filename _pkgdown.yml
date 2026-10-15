@@ -269,7 +269,7 @@ reference:
   desc: Visualize survey indices, fits, and residuals.
   contents:
   - plot_index
-  - plot_indexresidual
+  - plot_index_residual
   - plot_catchability
   - plot_comp
   - plot_profile
@@ -347,3 +347,4 @@ reference:
   contents:
   - plot_logindex
   - plot_depletionSSB
+  - plot_indexresidual

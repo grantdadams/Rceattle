@@ -66,6 +66,8 @@ saved_files <- function(fit, fn, ...) {
   plot_exploitable_biomass     = "p_exploitable_biomass_trajectory.png",
   plot_f                       = "p_f_trajectory.png",
   plot_index                   = "p_survey_indices.png",
+  plot_index_residual          = "p_index_residuals.png",
+  # The deprecated alias forwards, so it writes the same file.
   plot_indexresidual           = "p_index_residuals.png",
   plot_logindex                = "p_survey_indices.png",
   plot_m_at_age                = "p_m_at_age1.png",
