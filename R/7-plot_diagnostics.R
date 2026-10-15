@@ -531,7 +531,7 @@ plot_index_residual <- function(Rceattle,
 #'   which is the snake_case spelling the rest of the package uses. Please
 #'   use \code{plot_index_residual()} instead.
 #'
-#' @inheritParams plot_index_residual
+#' @param ... passed unchanged to \code{\link{plot_index_residual}}.
 #' @export
 plot_indexresidual <- function(...) {
   .Deprecated("plot_index_residual")

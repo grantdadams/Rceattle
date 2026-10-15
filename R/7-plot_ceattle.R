@@ -656,7 +656,7 @@ plot_ssb_depletion <- .ts_wrapper("ssb_depletion", zero_y = TRUE,
 #'   the snake_case spelling the rest of the package uses. Please use
 #'   \code{plot_ssb_depletion()} instead.
 #'
-#' @inheritParams plot_timeseries
+#' @param ... passed unchanged to \code{\link{plot_ssb_depletion}}.
 #' @export
 plot_depletionSSB <- function(...) {
   .Deprecated("plot_ssb_depletion")

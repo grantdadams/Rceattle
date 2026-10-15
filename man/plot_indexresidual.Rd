@@ -6,6 +6,9 @@
 \usage{
 plot_indexresidual(...)
 }
+\arguments{
+\item{...}{passed unchanged to \code{\link{plot_index_residual}}.}
+}
 \description{
 Deprecated alias for \code{\link{plot_index_residual}},
 which is the snake_case spelling the rest of the package uses. Please

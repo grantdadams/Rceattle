@@ -6,6 +6,9 @@
 \usage{
 plot_depletionSSB(...)
 }
+\arguments{
+\item{...}{passed unchanged to \code{\link{plot_ssb_depletion}}.}
+}
 \description{
 Deprecated alias for \code{\link{plot_ssb_depletion}}, which is
 the snake_case spelling the rest of the package uses. Please use
