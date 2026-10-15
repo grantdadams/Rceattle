@@ -95,8 +95,10 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   selectivity parameter. Coefficients are per fleet by default
-#'   (`by = ~ fleet`); use [linkage_spec()]'s `fleet` argument to restrict a
-#'   spec to particular fleets.
+#'   (`by = ~ fleet`), except that fleets sharing a `Selectivity_index` estimate
+#'   one parameter block and so take ONE coefficient for the whole group, which
+#'   is what makes them mirror each other. Use [linkage_spec()]'s `fleet`
+#'   argument to restrict a spec to particular fleets.
 #'
 #' @return A list of selectivity settings for [fit_mod()].
 #'

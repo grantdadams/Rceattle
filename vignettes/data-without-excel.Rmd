@@ -219,7 +219,8 @@ simData$fleet_control <- data.frame(
   Fleet_code  = 1:(nspp * 2),       # unique integer ID per fleet
   Fleet_type  = rep(c("Survey", "Fishery"), nspp),
   Species     = rep(1:nspp, each = 2),
-  Month       = 0,                   # 0 = mid-year; calendar month otherwise
+  Month       = 0,                   # 0 = not specified; read for comps and
+                                     # weight-at-age when growth is estimated
 
   # Selectivity_index links fleets that share the same selectivity curve.
   # Fleets with the same index share all selectivity parameters.
@@ -239,7 +240,7 @@ simData$fleet_control <- data.frame(
   #   5 / "RandomWalkAscending" = random walk on ascending portion of double logistic
   Time_varying_sel          = 0,
   Time_varying_sel_sd = 1,
-  Bin_first_selected        = 1,     # youngest fully-selected age or length bin
+  Bin_first_selected        = 1,     # first bin selected; selectivity is 0 below it
   Sel_norm_bin             = "Off", # "Max", "Off", or a bin to normalize at
   Sel_norm_bin_upper       = "Off", # "Off", or the top of a bin range
   # Two-sex models only: whether the normalization reference is pooled over the
@@ -304,6 +305,9 @@ simData$index_data <- data.frame(
   Fleet_code        = rep(seq(1, nspp * 2, by = 2), each = nyrs),
   Species           = rep(1:nspp, each = nyrs),
   Year              = rep(years, nspp),
+  # This is the month the index predictor uses: 0 = start of year, before any
+  # mortality; 6 = mid-year. A mid-year survey left at 0 is predicted ~9.5% high
+  # at Z = 0.2.
   Month             = 0,
   # Selectivity_block: integer index into the selectivity/Q parameter block.
   # Used when Time_varying_sel or Time_varying_q = 3 (time blocks).

@@ -42,7 +42,10 @@ defaults to the base stratum of the process the spec is attached to} --
 \code{~species} for recruitment, M, growth and the diet weight -- so the base
 case needs no \code{by}. Pass \code{~species + sex} for per-(species, sex)
 coefficients, or \code{NULL} to share one coefficient across every stratum; an
-explicit \code{by}, \code{NULL} included, is kept as given.}
+explicit \code{by}, \code{NULL} included, is kept as given. In a \strong{selectivity or
+catchability} linkage under \code{~fleet}, fleets sharing a
+\code{Selectivity_index} or \code{Catchability_index} still take one coefficient
+between them, because they share one parameter block.}
 
 \item{species}{optional species this spec applies to, as 1-based ids
 (\code{c(1L, 2L)}) or as names matching \code{data_list$spnames}

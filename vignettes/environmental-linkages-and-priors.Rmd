@@ -650,6 +650,62 @@ them. Deterministic formulas evaluated against one `env_data` give that
 automatically; only specs built against different `env_data` frames can break
 it.
 
+## Time blocks
+
+A time block is an ordinary factor on the right-hand side, and `cut()` makes one
+from `Year`. Three blocks running through 1990, 1991 to 2010, and 2011 on:
+
+```{r}
+# Blocks on the ascending inflection of a logistic fishery selectivity. The
+# legacy Block deviate is added to the inflection, so match it with identity.
+build_selectivity(linkages = list(
+  inf_asc = linkage_spec(~ cut(Year, breaks = c(-Inf, 1990, 2010, Inf)),
+                         by = ~ fleet, fleet = "GOA_pollock_fishery",
+                         link = "identity")))
+```
+
+`cut()` closes each interval on the right, so a break year joins the block
+before it: 1990 is in the first block, not the second.
+
+`model.matrix()` folds the first block into `(Intercept)`, so three blocks give
+two offset columns and each coefficient is the step away from the first block's
+level. `~ 0 + cut(Year, ...)` gives one coefficient per block instead, and with
+it a base parameter held fixed (see *Behind the scenes* below). The column name
+adds the level label to the deparsed call, as in
+`cut(Year, breaks = c(-Inf, 1990, 2010, Inf))(1.99e+03,2.01e+03]`, which `init`,
+`bounds` and `priors` key exactly. `cut()`'s default `dig.lab = 3` is what
+rounds 1990 to `1.99e+03`; pass `dig.lab = 4` for `(1990,2010]`.
+
+`Time_varying_sel = "Block"` and `Time_varying_q = "Block"` fit blocks this way
+too, taking them from the `Selectivity_block` column of `catch_data` or
+`index_data`: one free deviate per block, with no penalty on it. The selectivity
+switch blocks a fleet's slope and inflection at once, with separate deviates per
+sex, and fixes both base parameters, so a close rewrite names each parameter,
+passes `by = ~ fleet + sex`, and uses the `~ 0 +` form. A fixed-effect coefficient is
+free either way, so a block needs no `integrate = FALSE`. An `IID` or
+`RandomWalk` rewrite does.
+
+Any factor works. A `Selectivity_block` id reused across non-adjacent year spans
+is not an interval, so give `env_data` a per-year block column and write
+`~ factor(block)`.
+
+**A block needs rows in `env_data`.** The design column is built over the rows
+supplied, so a block with no rows gets an all-zero column and a coefficient
+nothing identifies, and a hindcast year past the last row takes a zero offset,
+leaving the base parameter unshifted. Selectivity and catchability act in the
+hindcast years only, so rows past `endyr` move neither; M, growth and
+recruitment blocks do run through the projection.
+
+**There is no `block()` helper.** A block term would be a second grammar for
+what `cut()` already expresses in base R.
+
+**The right-hand side is evaluated against `env_data`.** The fixed part goes to
+`model.matrix(data = env_data)`, so `~ cut(Year, ...)` needs a `Year` column,
+which is otherwise optional. `species`, `sex` and `fleet` are `by` arguments
+rather than design columns, so `~ temp * fleet` fails with
+`object 'fleet' not found`. `model.matrix()` falls back to the calling
+environment, so a stray object of that name becomes a design column instead.
+
 ## How the pieces fit together
 
 `fit_mod()` pools the linkages from every `build_*()` call into one linkage

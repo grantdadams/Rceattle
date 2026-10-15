@@ -39,7 +39,10 @@ NULL
 #'   `~species` for recruitment, M, growth and the diet weight -- so the base
 #'   case needs no `by`. Pass `~species + sex` for per-(species, sex)
 #'   coefficients, or `NULL` to share one coefficient across every stratum; an
-#'   explicit `by`, `NULL` included, is kept as given.
+#'   explicit `by`, `NULL` included, is kept as given. In a **selectivity or
+#'   catchability** linkage under `~fleet`, fleets sharing a
+#'   `Selectivity_index` or `Catchability_index` still take one coefficient
+#'   between them, because they share one parameter block.
 #' @param species optional species this spec applies to, as 1-based ids
 #'   (`c(1L, 2L)`) or as names matching `data_list$spnames`
 #'   (`c("Pollock", "Cod")`). Names are matched exactly after trimming

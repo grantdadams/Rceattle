@@ -642,7 +642,17 @@ plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass", zero_y = TRUE)
 #' @description Plots the mean SSB depletion and 95\% CI trends as estimated from Rceattle.
 #'   Depletion reference lines for Ptarget and Plimit are drawn in blue and red respectively.
 #'
+#' @details The denominator differs by configuration, so say which one a figure
+#'   uses. `DynamicHCR = TRUE` gives that year's `DynamicSB0`. Otherwise it is
+#'   static `SB0`, except under `HCR = 0` with `msmMode > 0`, where it is female
+#'   SSB in the **last projection year** -- which approximates multispecies SB0
+#'   only once `projyr` is far enough out to equilibrate. An `msmMode = 0` fit
+#'   and an `msmMode = 1, HCR = 0` fit drawn on one axis are therefore two
+#'   different ratios.
+#'
 #' @inheritParams plot_timeseries
+#'
+#' @seealso [report_tables()], which states the same multispecies denominator.
 #'
 #' @export
 #'

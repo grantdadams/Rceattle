@@ -9,8 +9,10 @@ build_selectivity(linkages = NULL)
 \arguments{
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects keyed by
 selectivity parameter. Coefficients are per fleet by default
-(\code{by = ~ fleet}); use \code{\link[=linkage_spec]{linkage_spec()}}'s \code{fleet} argument to restrict a
-spec to particular fleets.}
+(\code{by = ~ fleet}), except that fleets sharing a \code{Selectivity_index} estimate
+one parameter block and so take ONE coefficient for the whole group, which
+is what makes them mirror each other. Use \code{\link[=linkage_spec]{linkage_spec()}}'s \code{fleet}
+argument to restrict a spec to particular fleets.}
 }
 \value{
 A list of selectivity settings for \code{\link[=fit_mod]{fit_mod()}}.

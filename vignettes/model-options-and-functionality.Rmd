@@ -228,9 +228,11 @@ lower bound unless the compositions are well sampled.
 
 `Time_varying_sel` is **soft-deprecated as a whole**, and `data_check()` says so
 on use. The linkage grammar expresses the same IID, random-walk and AR(1)
-deviations, `(1 | Year)`, `rw(1 | Year)`, `ar1(1 | Year)`, per selectivity
-*parameter* rather than per fleet, and additionally lets the deviation standard
-deviation be estimated, given a prior, or held fixed:
+deviations, `(1 | Year)`, `rw(1 | Year)`, `ar1(1 | Year)`, and
+[time blocks](environmental-linkages-and-priors.html#time-blocks) as
+`~ cut(Year, ...)`, per selectivity *parameter* rather than per fleet, and
+additionally lets the deviation standard deviation be estimated, given a prior,
+or held fixed:
 
 ```r
 build_selectivity(linkages = list(
@@ -449,8 +451,10 @@ Time-varying behavior is set by `Time_varying_q` (per fleet):
 
 `Time_varying_q` is **soft-deprecated as a whole**, as `Time_varying_sel` is,
 and `data_check()` says so on use. The linkage grammar expresses the same IID,
-random-walk and AR(1) deviations, and additionally lets the deviation standard
-deviation be estimated, given a prior, or held fixed:
+random-walk and AR(1) deviations, and
+[time blocks](environmental-linkages-and-priors.html#time-blocks) as
+`~ cut(Year, ...)`, and additionally lets the deviation standard deviation be
+estimated, given a prior, or held fixed:
 
 ```r
 build_catchability(linkages = list(

@@ -24,7 +24,9 @@ Q_LINKAGE_PARAMS <- c("q")
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   catchability parameter. The only parameter is `q`. Coefficients are per
-#'   fleet by default (`by = ~ fleet`); use the `fleet` argument of
+#'   fleet by default (`by = ~ fleet`), except that fleets sharing a
+#'   `Catchability_index` estimate one parameter block and so take ONE
+#'   coefficient for the whole group. Use the `fleet` argument of
 #'   [linkage_spec()] to restrict a spec to particular fleets.
 #'
 #' @details Catchability is the one process that accepts
