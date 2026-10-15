@@ -1736,6 +1736,9 @@ fit_mod <-
 
     mod_objects$quantities <- Rceattle::rename_output(data_list = data_list, quantities = quantities)
 
+    # The suitability floor bounds a runaway rather than correcting it, so say so.
+    .warn_suitability_floor(data_list, mod_objects$quantities)
+
     mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
     mod_objects$data_list <- calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
 

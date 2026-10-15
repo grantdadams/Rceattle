@@ -12,6 +12,60 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.63.0
+
+## Bug fixes
+
+* **Empirical suitability could put predation mortality at 1.3e+11 /yr, finite and unwarned.** A
+  prey age whose average numbers approach zero while its diet proportion stays positive sends
+  `stom_div_bio` to infinity, so that one cell takes almost the whole normalized suitability
+  share; "other food" is `1 - sum(prey suitability)`, so it collapses, available food collapses
+  with it, and `M2 = ration * N / avail_food` diverges. The 1.3e+11 is the two-species test
+  fixture with its suitability window narrowed (`other_food` = 1e+05, `avail_food` 3.6e-06,
+  `suit_other` 3.6e-11); the bundled `BS2017MS` reaches **M2 = 2.0e+04 /yr** with `suit_other`
+  = 4.5e-10 at its own default cold start. No NaN and no error in either.
+
+  `src/TMB/predation.hpp` now holds the other-food term at a fixed **fraction** (1e-6) of the
+  modelled-prey term, so `suit_other >= 1e-6/(1 + 1e-6)` and the partition
+  `sum(suitability) + suit_other = 1` stays exact. The floor is a **ratio**, so it carries no
+  units and needs no per-stock scaling.
+
+* **Where it binds, measured on both multispecies reference models.** At a **converged** fit it
+  is nowhere near: `suit_other` bottoms out at 2.9e-3 on `BS2017MS` and 5.3e-3 on `goa_ms`, the
+  tighter of the two **2900x above the floor**. At a **cold start** it binds on both --
+  `BS2017MS` goes 4.5e-10 to 1e-6 and its max M2 2.0e+04 to 119; `goa_ms` likewise sits at the
+  floor, max M2 88.9. So `/golden-check` is bit-identical and *structurally* unable to catch
+  this: it evaluates at the stored MLE, while the optimizer starts where the floor binds.
+
+* **Whose fits move.** `/golden-check`'s four reference models are bit-identical. The Pacific
+  hake MSE (`MSE_yr2024.R`, rule 15's predation check) moves: its three **single-species** fits
+  are bit-identical and its four **multispecies** fits move by **3.4e-09 to 4.3e-08 nats**
+  (`ms_run_DM_CSL` +3.42e-09, `run_ms_CSL_Mest_prior_DM_CSL` +6.16e-09, `..._BH` -4.27e-08,
+  `..._stable` +6.16e-09). That is the size of `max2()` not being bit-identical to the identity
+  in IEEE arithmetic, and comparable to those fits' own drift from the 5.33.0 published
+  references (up to 4.27e-08). **Whether the floor binds in that model is unmeasured** -- a
+  warning count cannot answer it, because the diagnostic reads the converged fit.
+
+* **`fit_mod()` now says when that floor bound something.** A bounded number is not a correct
+  one: 119 /yr is still not a predation mortality. The warning names the predator, the age and
+  the year and counts the cells. It reads the **converged** fit, so it reports a model that
+  settled on the floor and cannot see the floor binding during optimization -- which is the case
+  that costs a gradient. Silent under `msmMode = 0`, where `suit_other` is never written.
+
+## Internal
+
+* **`safebounds` in `deep-checks.yaml` now runs on Windows as well as Linux.** The 0xC0000005
+  access violation that job exists to attribute has only ever appeared on `windows-latest`, so
+  running the bounds-checked build on ubuntu alone could not reach it. `fail-fast: false` so a
+  lost runner on one OS does not cancel the other, and `TESTTHAT_PARALLEL: false` so a crash is
+  attributable to the file that caused it rather than to whichever parallel worker was holding
+  the corrupted heap.
+* **`.par_description()` removed and `.is_timeout()` given its callers.** Both had no caller in
+  `R/` and were kept alive only by their own tests. Nothing duplicated `.par_description()`, so it
+  is gone; `.is_timeout()`'s regex was a literal in **three** places, so it now takes a condition
+  or the messages a caller already holds and `.report_errors()` uses it twice -- three copies of
+  the pattern collapse into one constant.
+
 # Rceattle 5.62.0
 
 ## Deprecations

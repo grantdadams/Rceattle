@@ -151,6 +151,14 @@ void calculate_parametric_suitability(array<Type> &suitability,
  * modeled prey and "other food", averaged over suit_styr..suit_endyr, and held constant
  * across all years.
  *
+ * A prey age whose average numbers approach zero while its diet proportion stays
+ * positive sends stom_div_bio, and so the prey term, to infinity: that one cell
+ * takes the whole normalized share, "other food" vanishes and available food
+ * collapses with it, so M2 diverges. The other-food term is therefore floored at
+ * a fixed fraction of the prey term, which bounds suit_other below at
+ * floor/(1 + floor) and leaves the partition sum(suitability) + suit_other = 1
+ * exact. .warn_suitability_floor() reports when it binds.
+ *
  * @param stom_div_bio         Array updated with the ratio of diet proportion to biomass [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
  * @param suitability          Array updated with the final calculated suitability [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
  * @param suit_other           Array updated with the remaining suitability for "other food" [nspp, max_sex, max_age, nyrs].
@@ -248,7 +256,12 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
 
           vector<Type> inv_pred_denom(nyrs);
           for(int yr = suit_styr(rsp); yr <= suit_endyr(rsp); yr++) {
-            Type denom = suma_suit(rsp, r_sex, r_age, yr) + other_food_diet_prop(rsp, r_sex, r_age, yr);
+            Type prey_term  = suma_suit(rsp, r_sex, r_age, yr);
+            // Other food is held at >= 1e-6 x the modelled-prey term, a unitless
+            // ratio, so suit_other cannot reach 0 when a prey age's biomass does.
+            Type other_term = max2(other_food_diet_prop(rsp, r_sex, r_age, yr),
+                                   Type(1.0e-6) * prey_term);
+            Type denom = prey_term + other_term;
             // `diet_prop_sum` gates whether this predator age has diet data; `denom` is
             // what we divide by and can reach 0 or go negative independently, so floor it.
             if (diet_prop_sum(rsp, r_sex, r_age, yr) > Type(0.0)) {
