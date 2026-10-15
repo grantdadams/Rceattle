@@ -1048,7 +1048,11 @@ switch_check <- function(data_list){
   # say so plainly otherwise. Without this the fill produced "Off" for such a
   # fleet and the model died later on `missing value where TRUE/FALSE needed`.
   if (is.null(data_list$fleet_control[["Time_varying_q"]])) {
-    .q_env <- data_list$fleet_control$Catchability %in% c("AR1", "Environmental")
+    # Canonicalised first: this runs before revert_switches(), so a workbook
+    # that wrote the integer codes (5, 6) still holds them here.
+    .fc <- data_list$fleet_control
+    .q_env <- .canon_switch(.fc[["Catchability"]], q_map) %in%
+      c("AR1", "Environmental")
     if (any(.q_env, na.rm = TRUE)) {
       stop("`fleet_control` has no `Time_varying_q` column, but fleet(s) ",
            paste(data_list$fleet_control$Fleet_name[which(.q_env)],

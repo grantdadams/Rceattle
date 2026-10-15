@@ -56,7 +56,8 @@ function evaluations rather than inside one.}
 \code{phase} and \code{getsd} are read; see \strong{What \code{fit_control()} reaches}.}
 
 \item{...}{for a numeric \code{object}, passed to \code{base::jitter()};
-otherwise unused.}
+for a fitted model, refused, so that a misspelled argument is not silently
+ignored.}
 
 \item{Rceattle}{deprecated name for \code{object}, still accepted so existing
 scripts keep working. Supplying both is an error.}
@@ -78,9 +79,11 @@ removed by making this an S3 method. It is harmless for the spellings base
 callers use: a numeric first argument is handed straight to
 \code{base::jitter()}, so \code{jitter(1:5)} and
 \code{jitter(1:5, factor = 2)} behave as base does. \code{jitter(x = 1:5)}
-and a positional second argument do not -- this function's first parameter
-is \code{object} and its second is \code{njitter} -- so name base's
-arguments or call \code{base::jitter()} directly.
+and a positional second argument do not. \code{x} is not a parameter here,
+so it is refused as an unused argument; a positional second argument binds
+\code{njitter}, so \code{jitter(1:5, 2)} jitters with base's defaults and
+silently drops the \code{2}. Name base's arguments, or call
+\code{base::jitter()} directly.
 }
 \examples{
 \donttest{

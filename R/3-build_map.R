@@ -559,10 +559,13 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
            # reader after a second sex that would not help.
            if(M1_model == 2 && nsex_sp == 1) ", which is single-sex" else "",
            "). Every M1 deviation would be mapped out, so M would be constant ",
-           "rather than time-varying. Random effects on M1 are available for ",
-           "M1_model 0 (input schedule), 1 and 2",
+           "rather than time-varying. M1_model 0 (input schedule), 1 and 2 ",
+           "take ",
+           "every M1_re family",
            if(M1_model == 2) " -- and 2 needs two sexes" else "",
-           "; or set M1_re = 0.", call. = FALSE)
+           "; M1_model 3 takes the by-year families M1_re 2 ('iid_year') and ",
+           "5 ('ar1_year'), which keep its age-specific level. Or set ",
+           "M1_re = 0.", call. = FALSE)
     }
   }
   return(map_list)

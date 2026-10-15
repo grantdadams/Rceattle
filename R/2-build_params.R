@@ -721,7 +721,7 @@ build_params <- function(data_list) {
   bad <- which(!is.finite(log_M1), arr.ind = TRUE)
   if (!nrow(bad)) return(invisible(TRUE))
   stop(where, ": log_M1 holds ", nrow(bad),
-       " non-finite starting value(s), at (species, sex, age) ",
+       " non-finite starting value(s), at (species, sex, age index) ",
        paste(apply(utils::head(bad, 5), 1, paste, collapse = ","),
              collapse = "; "),
        if (nrow(bad) > 5) ", ..." else "",
@@ -777,15 +777,28 @@ build_params <- function(data_list) {
 #' @noRd
 .rce_fill_M1_age_gaps <- function(m1, data_list) {
   gaps <- character()
+  # `ages` indexes the array; ages themselves run minage .. minage + nages - 1
+  # (rule 11), so convert before naming them in the warning.
+  minage <- suppressWarnings(as.integer(as.character(data_list[["minage"]])))
+  if (length(minage) == 1L) minage <- rep(minage, data_list$nspp)
+  if (length(minage) != data_list$nspp) minage <- rep(1L, data_list$nspp)
   for (sp in seq_len(data_list$nspp)) {
     for (sx in seq_len(data_list$nsex[sp])) {
       ages <- seq_len(data_list$nages[sp])
       ok <- is.finite(m1[sp, sx, ages])
       if (all(ok) || !any(ok)) next
       last <- max(which(ok))
-      m1[sp, sx, ages[!ok]] <- m1[sp, sx, last]
+      bins <- ages[!ok]
+      m1[sp, sx, bins] <- m1[sp, sx, last]
+      # M1_base's Age columns are 1-based bin ordinals, so at minage != 1 the
+      # age and the column it sits in differ; name both or the reader hunts.
+      lbl <- paste(bins - 1L + minage[sp], collapse = ", ")
+      if (minage[sp] != 1L) {
+        lbl <- paste0(lbl, " (columns ",
+                      paste0("Age", bins, collapse = ", "), ")")
+      }
       gaps <- c(gaps, paste0(data_list$spnames[sp], " (species ", sp, ", sex ",
-                             sx, ") ages ", paste(ages[!ok], collapse = ", ")))
+                             sx, ") ages ", lbl))
     }
   }
   if (length(gaps)) {

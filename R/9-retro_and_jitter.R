@@ -749,12 +749,15 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
 #'   callers use: a numeric first argument is handed straight to
 #'   \code{base::jitter()}, so \code{jitter(1:5)} and
 #'   \code{jitter(1:5, factor = 2)} behave as base does. \code{jitter(x = 1:5)}
-#'   and a positional second argument do not -- this function's first parameter
-#'   is \code{object} and its second is \code{njitter} -- so name base's
-#'   arguments or call \code{base::jitter()} directly.
+#'   and a positional second argument do not. \code{x} is not a parameter here,
+#'   so it is refused as an unused argument; a positional second argument binds
+#'   \code{njitter}, so \code{jitter(1:5, 2)} jitters with base's defaults and
+#'   silently drops the \code{2}. Name base's arguments, or call
+#'   \code{base::jitter()} directly.
 #'
 #' @param ... for a numeric \code{object}, passed to \code{base::jitter()};
-#'   otherwise unused.
+#'   for a fitted model, refused, so that a misspelled argument is not silently
+#'   ignored.
 #' @inheritParams rceattle-refit-args
 #' @param njitter the number of jitters to run
 #' @param sd standard deviation for jitter (default = 0.2)
@@ -803,6 +806,21 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
   # model under `object` or `Rceattle`. Forwarding here is what makes the mask
   # harmless.
   if (is.numeric(object)) return(base::jitter(object, ...))
+
+  # Past the numeric path nothing reads `...`, so an entry there is a typo:
+  # jitter(mod, njiter = 10) would otherwise silently run the default 50.
+  if (...length()) {
+    # Nine formals precede `...`, so an unnamed extra takes ten positional
+    # arguments to reach; a mixed call gives "" beside a name.
+    nm <- ...names()
+    if (is.null(nm)) nm <- rep("", ...length())
+    nm[!nzchar(nm)] <- "<unnamed>"
+    stop("jitter() does not take these arguments: ", paste(nm, collapse = ", "),
+         ". A fitted model takes njitter, sd, phase, seed, cores, getsd, ",
+         "timeout and fit_control; for base::jitter()'s own arguments give a ",
+         "numeric first argument, or call base::jitter() directly.",
+         call. = FALSE)
+  }
 
   # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
   if (!missing(Rceattle))
