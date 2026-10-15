@@ -102,18 +102,30 @@
     full <- tryCatch(obj$env$parList(par = obj$env$last.par.best),
                      error = function(e) NULL)
     if (!is.null(full)) {
+      # Same keep rule and same block order as fit_mod()'s section 7, so these
+      # line up with obj$par -- and therefore with `gradient` and `index` below.
+      # One bound per map LEVEL in level order: a first-occurrence rule swaps
+      # mirrored fleets, which share indices out of order. Blocks in obj$par
+      # order: build_params() lists the linkage coefficients after log_F and the
+      # template declares them before it.
+      blocks <- if (!is.null(par_fixed) && !is.null(names(par_fixed))) {
+        rle(names(par_fixed))$values
+      } else names(mapFactor)
       pv <- lv <- uv <- nv <- list()
-      for (nm in names(mapFactor)) {
+      for (nm in blocks) {
         if (nm %in% random_vars) next                 # random effects are unbounded
-        if (is.null(full[[nm]]) || is.null(bounds$lower[[nm]])) next
-        mf <- as.numeric(unlist(mapFactor[[nm]]))
-        pb <- as.numeric(unlist(full[[nm]]))
-        lb <- as.numeric(unlist(bounds$lower[[nm]]))
-        ub <- as.numeric(unlist(bounds$upper[[nm]]))
-        # one row per estimated coefficient (drop NA-mapped/fixed and duplicates)
-        keep <- which(!is.na(mf) & !duplicated(mf))
+        if (is.null(mapFactor[[nm]]) || is.null(full[[nm]]) ||
+            is.null(bounds$lower[[nm]])) next
+        mf <- unlist(mapFactor[[nm]])
+        if (!is.factor(mf)) mf <- factor(mf)
+        mf <- droplevels(mf)
+        # NA-mapped (fixed) cells cannot match a level, so they drop out here.
+        keep <- match(levels(mf), as.character(mf))
+        keep <- keep[!is.na(keep)]
         if (length(keep) == 0L) next
-        pv[[nm]] <- pb[keep]; lv[[nm]] <- lb[keep]; uv[[nm]] <- ub[keep]
+        pv[[nm]] <- as.numeric(unlist(full[[nm]]))[keep]
+        lv[[nm]] <- as.numeric(unlist(bounds$lower[[nm]]))[keep]
+        uv[[nm]] <- as.numeric(unlist(bounds$upper[[nm]]))[keep]
         nv[[nm]] <- rep(nm, length(keep))
       }
       if (length(pv)) {
@@ -121,6 +133,12 @@
                                    unlist(nv, use.names = FALSE))
         bnd_lo  <- unlist(lv, use.names = FALSE)
         bnd_hi  <- unlist(uv, use.names = FALSE)
+        # A block present in obj$par but not in `bounds` (or the reverse) leaves
+        # these shorter than par_fixed. Drop them rather than report a bound
+        # against whichever parameter happens to share its position.
+        if (!is.null(par_fixed) && length(bnd_par) != length(par_fixed)) {
+          bnd_par <- bnd_lo <- bnd_hi <- NULL
+        }
       }
     }
   }
@@ -818,26 +836,44 @@
   out <- list()
   id <- object$identified
   if (is.null(id) || is.character(id)) return(out)
-  bad <- tryCatch(id$WhichBad, error = function(e) NULL)
-  if (is.null(bad)) {
-    pc  <- tryCatch(id$BadParams$Param_check, error = function(e) NULL)
-    bad <- if (!is.null(pc)) which(pc == 2L) else NULL
-  }
+  # Names come from Param_check, never WhichBad. TMBhelper sets WhichBad to the
+  # positions of the near-zero EIGENVALUES and Param_check to "Bad"/"OK" per
+  # parameter, so indexing Param by WhichBad named the last k parameters,
+  # whatever they were -- eigen() sorts descending. "2" reads a saved
+  # `identified` from the pre-5.64.0 in-package fallback.
+  pc  <- tryCatch(as.character(id$BadParams$Param_check), error = function(e) NULL)
+  nms_all <- tryCatch(as.character(id$BadParams$Param), error = function(e) NULL)
+  bad <- if (!is.null(pc)) which(pc %in% c("Bad", "2")) else NULL
+
   if (!is.null(bad) && length(bad) > 0) {
-    nms <- tryCatch(unique(as.character(id$BadParams$Param[bad])),
-                    error = function(e) NULL)
-    # BadParams has one row per hindcast fixed parameter, in obj$par order, so
-    # its Param column is the vector `bad` indexes into.
-    idx <- .conv_index_for(index, tryCatch(as.character(id$BadParams$Param),
-                                           error = function(e) NULL))
+    nms <- unique(nms_all[bad])
+    idx <- .conv_index_for(index, nms_all)
     out$estimability <- .conv_record(
       "estimability", "fit", "FAIL",
       .conv_with_coords(
         sprintf("check_estimability flagged %d non-identifiable fixed parameter(s)%s.",
                 length(bad),
-                if (!is.null(nms)) paste0(" (", paste(nms, collapse = ", "), ")")
+                if (length(nms)) paste0(" (", paste(nms, collapse = ", "), ")")
                 else ""),
         bad, idx),
+      id)
+    return(out)
+  }
+
+  # Nothing flagged per parameter, but the Hessian can still hold near-zero
+  # eigenvalues that no single parameter loads on. Still a FAIL -- a singular
+  # direction is unidentified whether or not one parameter dominates it -- and
+  # reported as a count, because which parameters those directions involve is
+  # exactly what this check cannot say.
+  nbad <- length(tryCatch(id$WhichBad, error = function(e) NULL))
+  if (nbad > 0) {
+    out$estimability <- .conv_record(
+      "estimability", "fit", "FAIL",
+      sprintf(paste0("check_estimability found %d near-zero Hessian ",
+                     "eigenvalue(s) with no parameter flagged individually%s, ",
+                     "so the flat directions are combinations of parameters."),
+              nbad,
+              if (is.null(pc)) " (no per-parameter verdict available)" else ""),
       id)
   }
   out

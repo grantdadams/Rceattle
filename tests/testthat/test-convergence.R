@@ -509,3 +509,121 @@ test_that("building the battery writes nothing", {
   expect_silent(cv <- convergence_diagnostics(fit))
   expect_equal(cv$status, "FAIL")
 })
+
+
+# TMBhelper::check_estimability() returns WhichBad = which(Eigen$values <
+# sqrt(.Machine$double.eps)) -- the positions of the near-zero EIGENVALUES, used
+# elsewhere to subset eigenvector COLUMNS -- while BadParams is one row per
+# PARAMETER with Param_check "Bad"/"OK". Indexing Param by WhichBad therefore
+# named the last k parameters, whatever they were, because eigen() sorts
+# descending. Measured on the GOA cod bridge (session rceattle-bd): five sel_dn6
+# entries reported, all five Param_check "OK", while the six genuinely flagged
+# beta_linkage coefficients went unnamed. The count was right, the names were not.
+#
+# Rceattle's own .check_estimability() fallback used 1L/2L for the same column,
+# so the consumer handled one of the two shapes its producer emits -- and the
+# one it handled never reached that branch, since the fallback sets WhichBad too.
+#
+# The flagged parameter sits SECOND in every fixture below: a last-k read cannot
+# produce its name, so these discriminate rather than merely pass.
+testthat::test_that("estimability names the flagged parameters, not the last k", {
+  mk <- function(pc, whichbad) structure(list(
+    identified = list(
+      BadParams = data.frame(
+        Param = c("rec_pars", "beta_linkage", "sel_dn6"),
+        Param_check = pc),
+      WhichBad = whichbad)), class = "Rceattle")
+
+  r <- Rceattle:::.check_estimability_record(mk(c("OK", "Bad", "OK"), 3L),
+                                            index = NULL)
+  testthat::expect_match(r$estimability$message, "beta_linkage")
+  testthat::expect_false(grepl("sel_dn6", r$estimability$message))
+  testthat::expect_match(r$estimability$message, "flagged 1 non-identifiable")
+  testthat::expect_equal(r$estimability$severity, "FAIL")
+
+  # The retired in-package coding still reads, so a saved fit does not go quiet.
+  r2 <- Rceattle:::.check_estimability_record(mk(c("1", "2", "1"), 3L),
+                                             index = NULL)
+  testthat::expect_match(r2$estimability$message, "beta_linkage")
+
+  # Nothing flagged per parameter but near-zero eigenvalues present: still FAIL,
+  # reported as a count, naming no parameter. This is the GOA cod case.
+  r3 <- Rceattle:::.check_estimability_record(mk(c("OK", "OK", "OK"), c(2L, 3L)),
+                                             index = NULL)
+  testthat::expect_equal(r3$estimability$severity, "FAIL")
+  testthat::expect_match(r3$estimability$message, "2 near-zero Hessian eigenvalue")
+  testthat::expect_false(grepl("sel_dn6|beta_linkage", r3$estimability$message))
+
+  # Negative control: nothing flagged and no near-zero eigenvalue emits nothing,
+  # so the FAILs above are the flag and not an unconditional record.
+  testthat::expect_length(
+    Rceattle:::.check_estimability_record(mk(c("OK", "OK", "OK"), integer(0)),
+                                          index = NULL), 0L)
+})
+
+
+# .capture_opt_convergence() built $par/$lower/$upper by looping names(mapFactor)
+# with keep = which(!duplicated(mf)), while fit_mod()'s section 7 builds the
+# bounds it hands nlminb with keep = match(levels(droplevels(mf)), ...) and then
+# reorders blockwise into rle(names(obj$par))$values. Two mismatches followed:
+#
+#   block order  -- build_params() lists the linkage coefficients after log_F,
+#                   ceattle.cpp declares them before it, so $par was in a
+#                   different order from $gradient and $index. Measured on the
+#                   GOA cod bridge (session rceattle-bd): log_growth_pars at
+#                   positions 61:63 in $gradient and 195:197 in $par, reading
+#                   von Bertalanffy K as 0.0057 against its true 0.2080.
+#   level order   -- first-occurrence order swaps a block whose map indices are
+#                   shared OUT OF ORDER. Sharing alone is not enough: measured
+#                   on the GOA cod bridge, whose Srv / Srv_ae1 pair shares
+#                   Selectivity_index 4, no block differs between the two rules,
+#                   because those indices appear ascending. factor(c(2, 1))
+#                   below is the out-of-order case and does diverge (old 1,2 vs
+#                   new 2,1). A merely-mirrored fixture passes vacuously.
+#                   This half is latent -- no model on hand triggers it.
+#
+# The bounds check itself was correct throughout: the three vectors were
+# mutually consistent. What misread was any positional join to $gradient.
+testthat::test_that("the bound vectors share obj$par's order", {
+  # obj$par order: log_F then beta_linkage. mapFactor is in the other order, and
+  # beta_linkage's map levels appear out of order within the block.
+  fake_obj <- list(
+    env = list(
+      last.par.best = stats::setNames(c(-1.5, -2.5, 0.7, 0.9),
+                                      c("log_F", "log_F",
+                                        "beta_linkage", "beta_linkage")),
+      random = integer(0),
+      parList = function(par) list(log_F = c(-1.5, -2.5),
+                                   beta_linkage = c(0.7, 0.9))),
+    gr = function(p) rep(0, length(p)))
+
+  ch <- Rceattle:::.capture_opt_convergence(
+    opt = list(max_gradient = 1e-6),
+    obj = fake_obj,
+    bounds = list(lower = list(beta_linkage = c(-10, -20), log_F = c(-30, -40)),
+                  upper = list(beta_linkage = c(10, 20), log_F = c(30, 40))),
+    mapFactor = list(beta_linkage = factor(c(2, 1)), log_F = factor(c(1, 2))),
+    random_vars = character(0), getsd = FALSE, data_list = NULL)
+
+  # Block order follows obj$par, not mapFactor.
+  testthat::expect_equal(names(ch$par), c("log_F", "log_F",
+                                          "beta_linkage", "beta_linkage"))
+  # Within beta_linkage the map is factor(c(2, 1)), so level order is the SECOND
+  # cell then the first: bounds -20/-10, not -10/-20. First-occurrence order
+  # would swap this pair, which is the mirrored-fleet case.
+  testthat::expect_equal(ch$lower, c(-30, -40, -20, -10))
+  testthat::expect_equal(ch$upper, c(30, 40, 20, 10))
+  # $par is positionally joinable to the gradient, which is the whole point.
+  testthat::expect_equal(length(ch$par), length(fake_obj$env$last.par.best))
+
+  # A block in obj$par with no bounds leaves the vectors short; drop them rather
+  # than report a bound against whichever parameter shares its position.
+  ch2 <- Rceattle:::.capture_opt_convergence(
+    opt = list(max_gradient = 1e-6), obj = fake_obj,
+    bounds = list(lower = list(log_F = c(-30, -40)),
+                  upper = list(log_F = c(30, 40))),
+    mapFactor = list(beta_linkage = factor(c(2, 1)), log_F = factor(c(1, 2))),
+    random_vars = character(0), getsd = FALSE, data_list = NULL)
+  testthat::expect_null(ch2$lower)
+  testthat::expect_null(ch2$upper)
+})

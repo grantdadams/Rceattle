@@ -167,7 +167,10 @@
   if (requireNamespace("TMBhelper", quietly = TRUE)) {
     return(TMBhelper::check_estimability(obj))
   }
-  # Minimal in-package fallback: test which fixed effects move the gradient
+  # Minimal in-package fallback: test which fixed effects move the gradient.
+  # Param_check uses TMBhelper's own "Bad"/"OK" so one shape leaves this
+  # function; the consumer reads that column, not WhichBad, which means
+  # eigenvalue positions in TMBhelper and parameter positions here.
   par <- obj$env$last.par.best
   fixed <- setdiff(seq_along(par), obj$env$random)
   g <- as.numeric(obj$gr(par[fixed]))
@@ -176,7 +179,7 @@
     BadParams = data.frame(
       Param = names(par[fixed]),
       MLE = unname(par[fixed]),
-      Param_check = ifelse(seq_along(fixed) %in% bad, 2L, 1L),
+      Param_check = ifelse(seq_along(fixed) %in% bad, "Bad", "OK"),
       Final_gradient = g
     ),
     WhichBad = bad

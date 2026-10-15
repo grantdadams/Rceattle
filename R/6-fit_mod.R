@@ -1538,9 +1538,9 @@ fit_mod <-
           # Make into list if gradients were low for diagnostics
           if (!is.character(identified)) {
             identified_param_list <- obj$env$parList(identified$BadParams$Param_check)
+            # Param_check arrives as "OK"/"Bad" from both producers (5.64.0), so
+            # only the parList zero-fill needs relabelling.
             identified_param_list <- rapply(identified_param_list, function(x) ifelse(x == 0, "Not estimated", x), how = "replace")
-            identified_param_list <- rapply(identified_param_list, function(x) ifelse(x == 1, "OK",            x), how = "replace")
-            identified_param_list <- rapply(identified_param_list, function(x) ifelse(x == 2, "BAD",           x), how = "replace")
             identified$param_list <- identified_param_list
           }
           mod_objects$identified <- identified
