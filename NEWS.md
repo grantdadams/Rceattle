@@ -12,6 +12,18 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.63.1
+
+## Documentation
+
+* **`R CMD check` is back to one WARNING fewer, on all five runners.** The deprecated aliases
+  `plot_depletionSSB()` (5.60.0) and `plot_indexresidual()` (5.62.0) take `...` and nothing else,
+  and carried `@inheritParams`. That had nothing to inherit, because neither
+  `plot_ssb_depletion()` nor `plot_index_residual()` documents `...` itself, so roxygen generated
+  both `.Rd` files with no `\arguments` section at all and `checking Rd \usage sections` reported
+  `WARNING` from 5.60.0 onward. Both now document `...` explicitly. No change to either
+  function's behaviour, and the canonical names were never affected.
+
 # Rceattle 5.63.0
 
 ## Bug fixes
