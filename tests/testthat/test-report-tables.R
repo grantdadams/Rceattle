@@ -166,15 +166,59 @@ testthat::test_that("standard_output() emits the NOAA schema in its own order", 
 })
 
 
+# The schema `standard_output()` emits is a contract with stockplotr, so it is
+# checked against that package's own `example_data` rather than against
+# `.RCE_STANDARD_COLS`: comparing the constant with itself proves nothing, since
+# a misspelled column is missing from the CONSUMER's filters, an error there
+# rather than an empty column here. `len_bins` for `length_bins` was exactly
+# that.
+#
+# Pinned against stockplotr 0.7.0, measured 2026-10-14: `example_data` carries
+# 33 columns, `standard_output()` 37 (the 34 of `.RCE_STANDARD_COLS` plus
+# `species`, `model` and `basis`), every one of theirs is among ours, and the
+# single column of ours they do not read is `beg_mid`.
+#
+# NOTE: stockplotr is in neither `DESCRIPTION` nor any workflow, so
+# `skip_if_not_installed()` skips this in CI and it runs only where a developer
+# has the package. It is a local check, not a merge gate.
+.SP_VERSION <- "0.7.0"
+.SP_N_COLS  <- 33L
+.SP_UNREAD  <- "beg_mid"
+
 testthat::test_that("the emitted schema is the one stockplotr reads", {
-  # Checking .RCE_STANDARD_COLS against itself proves nothing: a misspelled
-  # column is missing from the consumer's filters, which is an error there
-  # rather than an empty column. `len_bins` for `length_bins` was exactly that.
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("stockplotr")
   utils::data("example_data", package = "stockplotr", envir = environment())
   std <- standard_output(make_fit(), species = 1)
-  testthat::expect_equal(setdiff(names(example_data), names(std)), character(0))
+  theirs <- names(example_data)
+
+  # Not vacuous. A renamed or emptied `example_data` makes every setdiff below
+  # `character(0)`, so without a count this whole block passes on nothing.
+  testthat::expect_equal(length(theirs), .SP_N_COLS)
+
+  # Forward: every column the consumer reads, we emit.
+  testthat::expect_equal(setdiff(theirs, names(std)), character(0))
+
+  # Reverse, pinned BY NAME rather than counted, because the forward check can
+  # only get WEAKER as the consumer changes: if stockplotr drops a column its
+  # setdiff shrinks and this passes more easily. A column added to
+  # `.RCE_STANDARD_COLS` that stockplotr does not read now goes red and names
+  # itself.
+  testthat::expect_setequal(
+    setdiff(Rceattle:::.RCE_STANDARD_COLS, theirs), .SP_UNREAD)
+})
+
+
+testthat::test_that("the stockplotr schema pin names the version it matched", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("stockplotr")
+  # Deliberate update, not an upgrade blocker: stockplotr is not a declared
+  # dependency, so this cannot fire in CI. On a local upgrade, re-read the
+  # consumer's filters and move .SP_VERSION / .SP_N_COLS / .SP_UNREAD together.
+  # Skipping on a version mismatch instead would leave the block above checking
+  # a schema nobody validated.
+  testthat::expect_equal(as.character(utils::packageVersion("stockplotr")),
+                         .SP_VERSION)
 })
 
 
