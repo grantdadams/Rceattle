@@ -1,11 +1,10 @@
 # fit_mod(dsem = ) plumbing.
 #
-# The C++ side has not landed, so a DSEM fit cannot run yet. What these pin is
-# the half that is real now: that `dsem = NULL` is a complete no-op (the gate
-# that lets golden-check police this change), that a DSEM warm start does not
-# poison a non-DSEM fit, that supplying a `dsem` builds its inputs and then
-# fails with a directed message rather than an opaque TMB one, and that the
-# specification round-trips through the run configuration.
+# What these pin: that `dsem = NULL` is a complete no-op (the gate that lets
+# golden-check police this change), that a DSEM warm start does not poison a
+# non-DSEM fit, that a malformed `dsem` fails with a directed message rather
+# than an opaque TMB one, and that the specification round-trips through the
+# run configuration.
 
 sem_for <- function(nspp) {
   paste(sprintf("recdevs%d <-> recdevs%d, 0, sigmaR%d, 1",
