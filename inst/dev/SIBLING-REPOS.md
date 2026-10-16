@@ -234,15 +234,24 @@ Ianelli penalty became mean-centred; 5.32.1 on the right. Hake terminal SSB chan
 0.86%, survey DM theta fell from 43-49 to 31-35 and diet theta from 94.2 to 56.5 and 18.4 to 11.8 (the M-estimated fits), and every fit kept a
 positive-definite Hessian. The script ran end to end, `run_mse()` included.
 
-| Fit | -log L (5.33.0) | 5.32.1 |
-|---|---|---|
-| `ss_run_DM_CSL` | 2440.0941615088 | 2436.8886423469 |
-| `ss_run_DM_hcr_CSL` | 2440.6633379056 | 2437.4573180484 |
-| `ms_run_DM_CSL` | 2447.0048917469 | 2443.8538668697 |
-| `run_ms_CSL_Mest_prior_DM_CSL` | 2669.3775502006 | 2663.8053181169 |
-| `run_ms_CSL_Mest_prior_DM_CSL_BH` | 2735.6792676724 | n/a (see below) |
-| `run_ms_CSL_Mest_prior_DM_CSL_stable` | 2669.3775502006 | 2663.8053181169 |
-| `ss_run_DM_hcr_B0` | 2440.0941615088 | 2436.8886423469 |
+| Fit | -log L (5.64.0) | 5.33.0 | 5.32.1 |
+|---|---|---|---|
+| `ss_run_DM_CSL` | 2440.0941615018 | 2440.0941615088 | 2436.8886423469 |
+| `ss_run_DM_hcr_CSL` | 2440.6633383397 | 2440.6633379056 | 2437.4573180484 |
+| `ms_run_DM_CSL` | 2447.0048917398 | 2447.0048917469 | 2443.8538668697 |
+| `run_ms_CSL_Mest_prior_DM_CSL` | 2669.3775501963 | 2669.3775502006 | 2663.8053181169 |
+| `run_ms_CSL_Mest_prior_DM_CSL_BH` | 2735.6792676725 | 2735.6792676724 | n/a (see below) |
+| `run_ms_CSL_Mest_prior_DM_CSL_stable` | 2669.3775501963 | 2669.3775502006 | 2663.8053181169 |
+| `ss_run_DM_hcr_B0` | 2440.0941615018 | 2440.0941615088 | 2436.8886423469 |
+
+Re-recorded on **5.64.0** (2026-10-15), run against an explicit-`lib` install with the version
+asserted before the script was sourced, `run_mse(nsim = 2, cores = 2)` included, 0 errors, 14.5
+min. **Max absolute deviation from the 5.33.0 column 4.34e-07, max relative 1.78e-10** -- the
+largest is `ss_run_DM_hcr_CSL`, and the four multispecies fits move within the +3.4e-09 to
+-4.3e-08 band 5.63.0's other-food floor predicts. Nothing in the 31 releases between moved this
+gate beyond that, which is what rule 15 exists to establish: three-species predation with
+estimated suitability, `suitMode` differing per predator, and DM comps with a prior on their own
+weight, none of which `/golden-check` touches.
 
 The `_BH` row is re-recorded on 5.33.0 (2026-09-12) for section 5 of the script as it now stands:
 a `prior_lognormal(log(100), 0.05)` on hake alpha, chosen for strong density dependence. The
