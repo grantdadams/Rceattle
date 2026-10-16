@@ -312,3 +312,17 @@ testthat::test_that("no family writes a deviation into a padding sex", {
     Rceattle::build_map(d2, p2)))$mapList$log_M1_dev
   testthat::expect_gt(sum(!is.na(mp)), 0L)
 })
+
+
+testthat::test_that("the refusal's remedy names every supported combination", {
+  # 5.54.0 opened M1_model 3 to the by-year families, but this sentence still
+  # sent the reader to M1_model 0/1/2 -- discarding the age-specific level that
+  # M1_re 2/5 keeps. Nothing asserted on the remedy, only on "is not
+  # implemented for M1_model", so the sentence stayed wrong through an edit.
+  testthat::expect_error(m1_free(prep(3, 1)),
+                         "M1_model 3 takes the by-year families")
+  testthat::expect_error(m1_free(prep(4, 1)),
+                         "M1_model 0 \\(input schedule\\), 1 and 2 take")
+  # M1_model 2 keeps its own sex clause alongside the new sentence.
+  testthat::expect_error(m1_free(prep(2, 1)), "and 2 needs two sexes")
+})

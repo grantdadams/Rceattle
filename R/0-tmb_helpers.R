@@ -1,3 +1,5 @@
+# .fit_tmb() ----
+
 #' Fit a TMB object with optional TMBhelper enhancements
 #'
 #' Internal wrapper used by [fit_mod()]. Delegates to
@@ -109,6 +111,8 @@
 }
 
 
+# Convergence and estimability checks ----
+
 #' Normalize `TMBhelper::fit_tmb()`'s non-positive-definite early return
 #'
 #' @description
@@ -163,7 +167,10 @@
   if (requireNamespace("TMBhelper", quietly = TRUE)) {
     return(TMBhelper::check_estimability(obj))
   }
-  # Minimal in-package fallback: test which fixed effects move the gradient
+  # Minimal in-package fallback: test which fixed effects move the gradient.
+  # Param_check uses TMBhelper's own "Bad"/"OK" so one shape leaves this
+  # function; the consumer reads that column, not WhichBad, which means
+  # eigenvalue positions in TMBhelper and parameter positions here.
   par <- obj$env$last.par.best
   fixed <- setdiff(seq_along(par), obj$env$random)
   g <- as.numeric(obj$gr(par[fixed]))
@@ -172,7 +179,7 @@
     BadParams = data.frame(
       Param = names(par[fixed]),
       MLE = unname(par[fixed]),
-      Param_check = ifelse(seq_along(fixed) %in% bad, 2L, 1L),
+      Param_check = ifelse(seq_along(fixed) %in% bad, "Bad", "OK"),
       Final_gradient = g
     ),
     WhichBad = bad
@@ -264,4 +271,80 @@
   # A re-evaluation that failed is not evidence either way.
   if (!is.finite(val)) return(NA_real_)
   abs(as.numeric(opt$objective) - val)
+}
+
+
+# Suitability floor diagnostic ----
+
+#' Warn when the empirical-suitability floor bound a runaway
+#'
+#' `predation.hpp` holds "other food" at a fraction of the modelled-prey term, so
+#' a floored M2 is bounded rather than estimated. Names the ages it bound.
+#' @param data_list The model's `data_list`.
+#' @param quantities The renamed report list.
+#' @noRd
+.warn_suitability_floor <- function(data_list, quantities) {
+  msm <- suppressWarnings(as.integer(as.character(data_list[["msmMode"]])))
+  # suit_other is setZero() and written only under predation, so on a
+  # single-species fit every cell is 0 and would read as floored.
+  if (!length(msm) || !any(msm > 0L, na.rm = TRUE)) return(invisible(NULL))
+  so <- quantities[["suit_other"]]
+  if (is.null(so)) return(invisible(NULL))
+
+  nspp  <- as.integer(data_list[["nspp"]])
+  nsex  <- as.integer(data_list[["nsex"]])
+  nages <- as.integer(data_list[["nages"]])
+  # Each species' own sexes and ages: the rest of the array is padding at 0.
+  if (!length(nspp) || !length(nsex) || !length(nages) ||
+      length(dim(so)) != 4L || dim(so)[4L] < 1L) {
+    return(invisible(NULL))
+  }
+
+  floored <- 1e-6 * 1.001   # within 0.1% of 1e-6/(1 + 1e-6)
+  # The floor is in calculate_msvpa_suitability(), so only suitMode 0 reaches
+  # it; elsewhere a small suit_other is a fitted vulnerability. NA warns.
+  suit <- suppressWarnings(as.integer(as.character(data_list[["suitMode"]])))
+  if (length(suit) == 1L) suit <- rep(suit, nspp)
+  if (length(suit) != nspp) suit <- rep(NA_integer_, nspp)
+  # Ages run minage .. minage + nages - 1 (rule 11), so report the age, not the
+  # array index.
+  minage <- suppressWarnings(as.integer(as.character(data_list[["minage"]])))
+  if (length(minage) == 1L) minage <- rep(minage, nspp)
+  if (length(minage) != nspp) minage <- rep(1L, nspp)
+
+  hits <- list()
+  for (sp in seq_len(nspp)) {
+    if (!is.na(suit[sp]) && suit[sp] > 0L) next
+    for (sx in seq_len(nsex[sp])) {
+      for (ag in seq_len(nages[sp])) {
+        # One value per predator-sex-age, written to every year by
+        # predation.hpp, so one year counts each bound cell once.
+        v <- so[sp, sx, ag, 1L]
+        # > 0 excludes a cell the template never wrote.
+        if (!is.finite(v) || v <= 0 || v > floored) next
+        hits[[length(hits) + 1L]] <- data.frame(
+          sp = sp, sex = sx, age = ag - 1L + minage[sp], value = v)
+      }
+    }
+  }
+  if (!length(hits)) return(invisible(NULL))
+  h <- do.call(rbind, hits)
+  w <- h[which.min(h$value), ]
+  spname <- data_list[["spnames"]][w$sp]
+  if (is.null(spname) || is.na(spname)) spname <- paste("species", w$sp)
+
+  warning(
+    "The 'other food' suitability floor bound ", nrow(h),
+    " predator-sex-age cell(s); the lowest is ", spname, " age ", w$age,
+    # Named only on a two-sex predator: on one sex it is noise, and the count
+    # above already promises the sex axis.
+    if (length(nsex) >= w$sp && isTRUE(nsex[w$sp] > 1L))
+      paste0(", sex ", w$sex) else "",
+    ". A prey age with (near) zero biomass and a positive diet ",
+    "proportion has taken almost the whole suitability share, so available ",
+    "food, M2 and consumption for that predator age are bounded rather than ",
+    "estimated. Check `diet_data` against that prey's numbers at age, or widen ",
+    "`suit_styr`/`suit_endyr`.",
+    call. = FALSE)
+  invisible(h)
 }

@@ -20,12 +20,14 @@ Stop and ask rather than guess if any of these is unclear:
 - **What is the unit and the scale?** State it. A weight that is a log under one distribution
   and natural-scale under another (`Comp_weights`) needs that in the `doc` string, not just in
   a vignette.
-- **Is it a bin index?** `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin`,
-  `Sel_norm_bin_upper`, `Sel_pen_first_bin`, `Sel_pen_last_bin` and `Sel_cap_bin` are indices
-  on the fleet's own
-  `Selectivity_dimension`: an absolute **age** for age-based fleets (offset by `minage`) or a
-  1-based **length-bin ordinal** for length-based. The cpp penalties loop over `nbins`, not
-  `nages`.
+- **Is it a bin index? The two conventions are opposite, so say which (rule 10).**
+  `Sel_norm_bin`, `Sel_norm_bin_upper`, `Sel_pen_first_bin`, `Sel_pen_last_bin` and
+  `Sel_cap_bin` are an absolute **age** on an age-based fleet, so `rearrange_data()` subtracts
+  the `minage` offset (`sel_bin_offset`); on a length-based fleet they are 1-based length-bin
+  ordinals and the offset is 1. `Bin_first_selected` is the opposite: a **1-based bin
+  ordinal** on the fleet's own `Selectivity_dimension` -- 3 means the third bin, which on a
+  stock with `minage` 3 is age 5 -- and it takes a plain `- 1`. `N_sel_bins` is neither; it is
+  a count. The cpp penalties loop over `nbins`, not `nages`.
 - **Is it read per fleet inside a shared parameter block?** Fleets sharing a
   `Selectivity_index` / `Catchability_index` share ONE block, and `adjust_map_shared_params()` copies the
   donor fleet's slice over the rest — so a per-fleet setting that differs within a group is

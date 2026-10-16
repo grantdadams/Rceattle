@@ -14,6 +14,8 @@
 # (detected with missing()); an explicitly-passed argument always wins. With no
 # model_config present, fit_mod() reads every setting from its own arguments.
 
+# model_config() ----
+
 #' Build a model-configuration slot for a data list
 #'
 #' Bundles the model-structure arguments of [fit_mod()], predation mode,
@@ -129,6 +131,8 @@ model_config <- function(msmMode = 0,
   class(cfg) <- c("Rceattle_model_config", "list")
   cfg
 }
+
+# Field registry and print ----
 
 # The model_config fields fit_mod() resolves, in fit_mod() argument order. Used
 # by fit_mod() to overlay the slot onto unsupplied arguments, and available to

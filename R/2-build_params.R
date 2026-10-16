@@ -27,9 +27,7 @@ build_params <- function(data_list) {
   nyrs_proj <- length(yrs_proj)
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 1. Population dynamics parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
   param_list$dummy = 0  # Variable to test derived quantities given input parameters; n = [1]
 
@@ -252,7 +250,7 @@ build_params <- function(data_list) {
   # by `pool_linkages()` inside `fit_mod`). Initial values come from
   # the `init` column of the table; (Intercept) rows are forced to 0
   # because they're mapped out of estimation -- the base parameter
-  # carries the level instead (see 1.3c below). Absent table =>
+  # carries the level instead. Absent table =>
   # length-0 vector.
   if (!is.null(data_list$linkage_table) &&
       nrow(data_list$linkage_table) > 0L) {
@@ -324,9 +322,7 @@ build_params <- function(data_list) {
     param_list$log_obs_sd_linkage <- numeric(0)
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 2. Observation model parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
   # * 2.1. Catchability parameters ----
   # - Catchability on log scale
@@ -507,9 +503,7 @@ build_params <- function(data_list) {
   param_list$caal_weights = data_list$fleet_control$CAAL_weights
   names(param_list$caal_weights) <- data_list$fleet_control$Fleet_name
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 3. Predation model parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 
   # * 3.1. Diet composition weighting ----
@@ -637,7 +631,10 @@ build_params <- function(data_list) {
           # index_log_q is log catchability, one entry per fleet.
           .stop_if_shared_block(data_list, row$fleet, "q", row$param)
           .stop_unless_positive(init_val, row$param, "index_log_q")
-          param_list$index_log_q[idx$fleet] <- log(init_val)
+          # Per BLOCK: a shared level starts at the mean over the level, so the
+          # donor's cell alone is diluted by the others' build defaults.
+          param_list$index_log_q[.shared_block_members(data_list, idx$fleet, "q")] <-
+            log(init_val)
         },
         comp = {
           # The Dirichlet-multinomial weight is exp(<weight parameter>), so an
@@ -660,10 +657,14 @@ build_params <- function(data_list) {
           slot <- .SEL_PARAM_TO_SLOT[[row$param]]
           if (is.null(slot)) next
           .stop_if_shared_block(data_list, row$fleet, "sel", row$param)
+          # Per BLOCK, for the same reason as q above. Only the WRITE expands --
+          # the form checks below stay on the fleet the caller named, so this
+          # adds no refusal for a group whose members use different forms.
+          blk <- .shared_block_members(data_list, idx$fleet, "sel")
           if (identical(slot$arr, "log_sel_slp")) {
             .stop_unless_positive(init_val, row$param, "log_sel_slp")
             for (s in idx$species) {
-              param_list$log_sel_slp[slot$slot, idx$fleet,
+              param_list$log_sel_slp[slot$slot, blk,
                                      idx$per_sp[[as.character(s)]]$sex] <- log(init_val)
             }
           } else if (identical(slot$arr, "sel_inf")) {
@@ -673,21 +674,21 @@ build_params <- function(data_list) {
               .stop_unless_natural_sel_inf(data_list, f, slot$slot, row$param)
             }
             for (s in idx$species) {
-              param_list$sel_inf[slot$slot, idx$fleet,
+              param_list$sel_inf[slot$slot, blk,
                                  idx$per_sp[[as.character(s)]]$sex] <- init_val
             }
           } else if (identical(slot$arr, "sel_dn6")) {
             # DoubleNormalSS3 holds each parameter on SS3's scale, so the init
             # is the value as an SS3 control file gives it.
             for (s in idx$species) {
-              param_list$sel_dn6[slot$slot, idx$fleet,
+              param_list$sel_dn6[slot$slot, blk,
                                  idx$per_sp[[as.character(s)]]$sex] <- init_val
             }
           } else if (identical(slot$arr, "log_sel_apical")) {
             # The init is the multiplier itself (1 = no offset), stored logged.
             .stop_unless_positive(init_val, row$param, "log_sel_apical")
             for (s in idx$species) {
-              param_list$log_sel_apical[idx$fleet,
+              param_list$log_sel_apical[blk,
                                         idx$per_sp[[as.character(s)]]$sex] <- log(init_val)
             }
           }
@@ -708,10 +709,10 @@ build_params <- function(data_list) {
 #' @description
 #' `log_M1` is dimensioned to the widest species, so a species with fewer sexes
 #' or ages leaves padding cells that no `nages(sp)`-bounded loop in the template
-#' reads. `NA` or `-Inf` there is never an intended natural mortality: the two
-#' fill paths disagreed on the value through 5.49.4, a loop bound that widened
-#' to the padding would read `exp(-Inf)` as an M1 of 0, and under
-#' `M1_model >= 1` the padding sex cells are estimated rather than constant.
+#' reads. `NA` or `-Inf` there is never an intended natural mortality: a loop
+#' bound that widened to the padding would read `exp(-Inf)` as an M1 of 0, and
+#' under `M1_model >= 1` the padding sex cells are estimated rather than
+#' constant.
 #'
 #' @param log_M1 The filled `log_M1` array.
 #' @param where Name of the calling path, for the message.
@@ -720,7 +721,7 @@ build_params <- function(data_list) {
   bad <- which(!is.finite(log_M1), arr.ind = TRUE)
   if (!nrow(bad)) return(invisible(TRUE))
   stop(where, ": log_M1 holds ", nrow(bad),
-       " non-finite starting value(s), at (species, sex, age) ",
+       " non-finite starting value(s), at (species, sex, age index) ",
        paste(apply(utils::head(bad, 5), 1, paste, collapse = ","),
              collapse = "; "),
        if (nrow(bad) > 5) ", ..." else "",
@@ -776,15 +777,28 @@ build_params <- function(data_list) {
 #' @noRd
 .rce_fill_M1_age_gaps <- function(m1, data_list) {
   gaps <- character()
+  # `ages` indexes the array; ages themselves run minage .. minage + nages - 1
+  # (rule 11), so convert before naming them in the warning.
+  minage <- suppressWarnings(as.integer(as.character(data_list[["minage"]])))
+  if (length(minage) == 1L) minage <- rep(minage, data_list$nspp)
+  if (length(minage) != data_list$nspp) minage <- rep(1L, data_list$nspp)
   for (sp in seq_len(data_list$nspp)) {
     for (sx in seq_len(data_list$nsex[sp])) {
       ages <- seq_len(data_list$nages[sp])
       ok <- is.finite(m1[sp, sx, ages])
       if (all(ok) || !any(ok)) next
       last <- max(which(ok))
-      m1[sp, sx, ages[!ok]] <- m1[sp, sx, last]
+      bins <- ages[!ok]
+      m1[sp, sx, bins] <- m1[sp, sx, last]
+      # M1_base's Age columns are 1-based bin ordinals, so at minage != 1 the
+      # age and the column it sits in differ; name both or the reader hunts.
+      lbl <- paste(bins - 1L + minage[sp], collapse = ", ")
+      if (minage[sp] != 1L) {
+        lbl <- paste0(lbl, " (columns ",
+                      paste0("Age", bins, collapse = ", "), ")")
+      }
       gaps <- c(gaps, paste0(data_list$spnames[sp], " (species ", sp, ", sex ",
-                             sx, ") ages ", paste(ages[!ok], collapse = ", ")))
+                             sx, ") ages ", lbl))
     }
   }
   if (length(gaps)) {

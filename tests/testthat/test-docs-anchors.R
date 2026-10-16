@@ -334,16 +334,25 @@ test_that("every R/ filename the developer guide names exists", {
 # filename guards above could not see that, because the filename was right.
 test_that("every C++ switch the developer guide names exists in that file", {
   root <- .docs_root()
-  guide <- paste(readLines(file.path(root, "vignettes", "articles",
-                                     "developer-guide.Rmd"), warn = FALSE),
-                 collapse = "\n")
+  guide_lines <- readLines(file.path(root, "vignettes", "articles",
+                                     "developer-guide.Rmd"), warn = FALSE)
+  guide <- paste(guide_lines, collapse = "\n")
 
   # `switch (var)` quoted in the guide, and the .hpp/.cpp named near it.
   switches <- unique(unlist(regmatches(
     guide, gregexpr("switch \\(([A-Za-z_][A-Za-z_0-9]*)\\)", guide))))
   vars <- unique(sub("^switch \\((.*)\\)$", "\\1", switches))
-  # `sel_type` is quoted once as the name that is NOT the switch; allow it.
-  vars <- setdiff(vars, "sel_type")
+
+  # `sel_type` is quoted as the name that is NOT the switch, so it is allowed --
+  # but only while every line quoting it also carries the correction. An
+  # unconditional setdiff() cannot see a later line naming it as the dispatch
+  # while the right mention survives elsewhere, and that partial case is the
+  # one that shipped for three releases.
+  st_lines <- grep("switch \\(sel_type\\)", guide_lines, value = TRUE)
+  if (length(st_lines) &&
+      all(grepl("sel_case", st_lines) | grepl("\\bnot\\b", st_lines))) {
+    vars <- setdiff(vars, "sel_type")
+  }
   expect_gt(length(vars), 0)
 
   src <- paste(unlist(lapply(

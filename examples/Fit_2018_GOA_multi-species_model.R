@@ -70,7 +70,7 @@ mod_names <- c("Single-species", "Single-species estimate M", "Multi-species")
 
 # Plot biomass trajectory
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
-plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
+plot_ssb_depletion(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 
 # Plot mortality and predation

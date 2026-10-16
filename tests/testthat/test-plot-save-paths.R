@@ -18,20 +18,25 @@
 # 29 of the 31 exported plotters write a file on the single-species BS2017SS
 # fixture at `estimateMode = 3`. Only `plot_form` (a stub with no `file`
 # formal) and `plot_profile` (needs an `Rceattle_profile`) do not, and they are
-# named as exclusions. An earlier version of this file covered 10 and said the
-# other 19 "need a multispecies fit, diet data, a profile object or comp/OSA
-# inputs" -- that was wrong for 18 of the 19, including every diet plotter,
-# which this fixture drives.
+# named as exclusions.
 #
-# WHERE THIS RUNS: nightly, not on a pull request. The file-level
-# `skip_on_cran()` is the convention for the whole `test-plot-*.R` family (all
-# 14 carry one) because each builds a real `fit_mod()` object, and
-# `R-CMD-check.yaml` sets `NOT_CRAN: "false"`. `test-coverage` runs it but
+# WHERE THIS RUNS: nightly, not on a pull request, because THIS file carries a
+# file-level `skip_on_cran()` and builds a real `fit_mod()` object, and
+# `R-CMD-check.yaml` sets `NOT_CRAN: "false"`. That is not the family
+# convention: of the 15 `test-plot-*.R` files only 6 skip at file level and 6
+# carry no `skip_on_cran()` at all (two of those six do carry a `skip_if`), so `test-plot-helpers.R` and `test-plot-profile.R` do
+# run on a PR -- `test-plot-helpers.R` needs no fitted model and says so.
+# `test-coverage` runs it but
 # passes `stop_on_failure = FALSE`. So `deep-checks.yaml` is the only job where
 # a failure here is fatal -- run this by hand in the PR that changes a save
 # path rather than trusting CI to catch it.
 
-testthat::skip_on_cran()
+# skip_on_cran() sits in the one block that builds a fit, not at file level:
+# the two registry blocks below read only this file's own literals and
+# getNamespaceExports(), so they need no DLL and no optimization. At file
+# level they were dark in both blocking jobs -- the whole file reported zero
+# result rows under R CMD check, which is the condition source-guards.R
+# exists to catch elsewhere.
 
 saved_files <- function(fit, fn, ...) {
   # tempfile() for uniqueness rather than runif(): this file would otherwise
@@ -66,6 +71,8 @@ saved_files <- function(fit, fn, ...) {
   plot_exploitable_biomass     = "p_exploitable_biomass_trajectory.png",
   plot_f                       = "p_f_trajectory.png",
   plot_index                   = "p_survey_indices.png",
+  plot_index_residual          = "p_index_residuals.png",
+  # The deprecated alias forwards, so it writes the same file.
   plot_indexresidual           = "p_index_residuals.png",
   plot_logindex                = "p_survey_indices.png",
   plot_m_at_age                = "p_m_at_age1.png",
@@ -91,11 +98,14 @@ saved_files <- function(fit, fn, ...) {
     re = paste0("^p_comp_(pearson|annual_fleet[0-9]+_(age|length)",
                 "|aggregated_fleet[0-9]+_(age|length))[.]png$")),
   plot_diet_comp = list(
-    n = 9L, re = "^p_aggregated_diet_comps_year[0-9]+_Pred- .+_prey_.+[.]png$"),
+    n = 9L, re = "^p_aggregated_diet_comps_year[0-9]+_Pred- .+_prey_.+[.]png$",
+    fixture = "diet"),
   plot_diet_comp1 = list(
-    n = 9L, re = "^p_aggregated_diet_comps_year[0-9]+_Pred- .+_prey_.+[.]png$"),
+    n = 9L, re = "^p_aggregated_diet_comps_year[0-9]+_Pred- .+_prey_.+[.]png$",
+    fixture = "diet"),
   plot_diet_comp2 = list(
-    n = 9L, re = "^p_diet_bubble_Pred[0-9]+_Prey[0-9]+_Yr[0-9]+[.]png$"))
+    n = 9L, re = "^p_diet_bubble_Pred[0-9]+_Prey[0-9]+_Yr[0-9]+[.]png$",
+    fixture = "diet"))
 
 # Each needs something this fixture cannot supply. Anything exported and not
 # here must write a file.
@@ -112,7 +122,19 @@ saved_files <- function(fit, fn, ...) {
 }
 
 
+# The diet plotters read residuals(source = "diet"), which needs a predicted
+# diet: msmMode > 0 AND estimated suitability. The fixture above is msmMode = 0,
+# where diet_hat is structurally zero and the plotters refuse.
+.save_fixture_diet <- function() {
+  data("BS2017MS", package = "Rceattle", envir = environment())
+  suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = BS2017MS, estimateMode = 3, msmMode = 1, suitMode = 4,
+    fit_control = Rceattle::fit_control(verbose = 0))))
+}
+
+
 testthat::test_that("every plotter writes the file names it writes today", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
   ss <- .save_fixture()
 
@@ -124,9 +146,15 @@ testthat::test_that("every plotter writes the file names it writes today", {
     testthat::expect_gt(got$sizes[1], 1000, label = paste(fn, "file size"))
   }
 
+  diet_fit <- NULL
   for (fn in names(.SAVE_MANY)) {
     spec <- .SAVE_MANY[[fn]]
-    got <- saved_files(ss, fn)
+    fit <- ss
+    if (identical(spec$fixture, "diet")) {
+      if (is.null(diet_fit)) diet_fit <- .save_fixture_diet()
+      fit <- diet_fit
+    }
+    got <- saved_files(fit, fn)
     testthat::expect_length(got$names, spec$n)
     testthat::expect_equal(got$names[!grepl(spec$re, got$names)],
                            character(0), info = fn)
@@ -149,8 +177,9 @@ testthat::test_that("every exported plotter is covered or named as excluded", {
   # An exclusion for something no longer exported is a stale exclusion.
   testthat::expect_equal(setdiff(names(.SAVE_NONE), exported), character(0))
 
-  # `file` is not always a formal: plot_logindex is `function(...)` forwarding
-  # to plot_index(), so a formals test would drop it -- and
+  # `file` is not always a formal: plot_logindex and plot_depletionSSB are
+  # `function(...)` forwarding to plot_index() and plot_ssb_depletion(), so a
+  # formals test would drop them -- and
   # GOA-ATF-ESP/R/Run_2025_ceattle.R:274 calls it with `file =`. The tables
   # above are keyed on what a plotter WRITES, which is why they catch it.
   takes_file <- Filter(function(f) {
@@ -158,6 +187,9 @@ testthat::test_that("every exported plotter is covered or named as excluded", {
   }, exported)
   testthat::expect_false("plot_logindex" %in% takes_file)
   testthat::expect_true("plot_logindex" %in% names(.SAVE_ONE))
+  # Same shape since 5.60.0: plot_depletionSSB forwards to plot_ssb_depletion.
+  testthat::expect_false("plot_depletionSSB" %in% takes_file)
+  testthat::expect_true("plot_depletionSSB" %in% names(.SAVE_ONE))
 })
 
 
@@ -181,7 +213,7 @@ testthat::test_that("two save paths collide, and one filename is unusable", {
   testthat::expect_match(.SAVE_MANY[["plot_diet_comp"]]$re, "Pred- ",
                          fixed = TRUE)
 
-  # plot_biomass / plot_timeseries and plot_depletionSSB / plot_ssb_depletion
+  # plot_biomass / plot_timeseries and plot_ssb_depletion / plot_depletionSSB
   # also share a filename, but each pair draws the SAME figure (one is an alias
   # or a default of the other), so those are correct.
   testthat::expect_equal(.SAVE_ONE[["plot_biomass"]],

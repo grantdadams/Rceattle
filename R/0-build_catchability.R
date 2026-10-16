@@ -1,3 +1,5 @@
+# Linkage parameters and validation ----
+
 #' Catchability parameters that accept a linkage
 #' @keywords internal
 #' @noRd
@@ -11,6 +13,8 @@ Q_LINKAGE_PARAMS <- c("q")
 }
 
 
+# build_catchability() ----
+
 #' Catchability specification
 #'
 #' @description
@@ -20,7 +24,9 @@ Q_LINKAGE_PARAMS <- c("q")
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   catchability parameter. The only parameter is `q`. Coefficients are per
-#'   fleet by default (`by = ~ fleet`); use the `fleet` argument of
+#'   fleet by default (`by = ~ fleet`), except that fleets sharing a
+#'   `Catchability_index` estimate one parameter block and so take ONE
+#'   coefficient for the whole group. Use the `fleet` argument of
 #'   [linkage_spec()] to restrict a spec to particular fleets.
 #'
 #' @details Catchability is the one process that accepts
@@ -52,6 +58,8 @@ build_catchability <- function(linkages = NULL) {
   list(linkages = .validate_q_linkages(linkages))
 }
 
+
+# Linkage support checks ----
 
 # Catchability forms that do NOT estimate q, so a q linkage must not attach:
 # "Fixed" holds index_log_q at its input (a linkage would silently turn a fixed

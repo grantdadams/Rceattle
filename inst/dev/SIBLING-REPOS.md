@@ -31,6 +31,33 @@ verdict -- it already failed on `main` for an unrelated reason and dev additiona
 ageing-error validation. The sweep needs no compiled DLL, since both functions are pure R, so a
 `main` worktree with any `.so` dropped in will do.
 
+**Re-run for the 5.64.0 release** (2026-10-15), **`main` 5.49.1 against the 5.64.0 tree**, over
+all five repositories this file registers -- `Climate_MSE` included, which a four-repo sweep
+misses. 380 `.xlsx` globbed, **187 with a `fleet_control` sheet**, 0 unreadable, driven live
+through `read_data()` -> `switch_check()` -> `build_params()` -> `data_check()` on the release
+tree: **122 ok / 65 refused, identical to the 122 recorded at 5.48.0**.
+
+Not one workbook is at risk from any refusal this release adds, and each has two independent
+necessary conditions failing rather than one: **0 of 187** sheets lack a `Time_varying_q` column
+AND **0** set `Catchability` to `Environmental`/`AR1`; all **88** fleets setting
+`RandomWalkAscending` pair it with `DoubleLogistic`, the one exempt parametric form; **0** sheets
+are missing an `M1_base` row or carry a non-finite `log_M1` start; the 3 workbooks with
+`caal_data` all have 21 distinct lengths. `M1_re` is unreachable through `fit_mod()` for any
+consumer by three separate arguments, one of which is that **0 of 187** workbooks carry an
+`M1_re` or `M1_model` control row while `fit_mod()` overwrites both from `M1Fun` unconditionally.
+The detector was shown to fire on a real positive first: forcing `RandomWalkAscending` onto a
+`Logistic` fleet of `GOA_25_pollock_single_species_1970-2024.xlsx` raises the exact refusal, and
+leaving it on fleet 8 as shipped is accepted.
+
+Script sweep, same five repositories: **1 line errors**
+(`Rceattle-models/Pacific hake/Dev/ATF_SBF_hake_test.R:42`, `plot_diet_comp2()` on a
+`msmMode = 1, suitMode = 0` fit -- its own comment reads the all-zero figure as a result, so the
+refusal catches a real misreading); **37 lines warn** (18 `plot_depletionSSB`, 17 of them live;
+19 `plot_indexresidual`, 18 of them calls), both forwarders verified formal-for-formal identical
+so every named and positional call still works; and **1 script's numbers move silently**
+(`Pacific hake/04-mse.R`, the 5.59.0 `NByageFixed` change). `jitter()`: 6 live call sites, **0**
+passing an argument the model path refuses. Nothing else in any consumer repo errors.
+
 **Re-run for the release review** (2026-10-03), **`main` 5.45.3 against `dev` 5.49.1** -- the
 comparison that actually matters before a release -- over every `.xlsx` under the four consumer
 repos: **0 newly broken, 0 newly passing, and not one workbook's verdict TEXT changed** on 375
@@ -140,7 +167,7 @@ subdirectory the table names: run them with the working directory at `GOA polloc
 |---|---|---|---|
 | GOA arrowtooth 2026, `mod_26_0` (M fixed) | yes, all 31 length rows joint-sex | 38.6514 -> 38.0811 | 429260 -> 429746 mt (**+0.113%**) |
 | GOA arrowtooth 2026, `mod_26_1` (M estimated) | same | 0.1475 -> -0.3021 | 331426 -> 330639 mt (**-0.238%**) |
-| GOA pollock 2025 | yes -- `max|A-I|` 0.3550, 74 length rows, all COMBINED-sex | unmeasured, the script cannot run (below) | |
+| GOA pollock 2025 | yes -- `max\|A-I\|` 0.3550, 74 length rows, all COMBINED-sex | unmeasured, the script cannot run (below) | |
 | EBS pollock 2024 | no -- identity matrix, 0 length rows | 713.6765 unchanged in kind | |
 | Pacific hake (MSE_yr2024) | no | all four references reproduce exactly | |
 
@@ -242,15 +269,24 @@ Ianelli penalty became mean-centred; 5.32.1 on the right. Hake terminal SSB chan
 0.86%, survey DM theta fell from 43-49 to 31-35 and diet theta from 94.2 to 56.5 and 18.4 to 11.8 (the M-estimated fits), and every fit kept a
 positive-definite Hessian. The script ran end to end, `run_mse()` included.
 
-| Fit | -log L (5.33.0) | 5.32.1 |
-|---|---|---|
-| `ss_run_DM_CSL` | 2440.0941615088 | 2436.8886423469 |
-| `ss_run_DM_hcr_CSL` | 2440.6633379056 | 2437.4573180484 |
-| `ms_run_DM_CSL` | 2447.0048917469 | 2443.8538668697 |
-| `run_ms_CSL_Mest_prior_DM_CSL` | 2669.3775502006 | 2663.8053181169 |
-| `run_ms_CSL_Mest_prior_DM_CSL_BH` | 2735.6792676724 | n/a (see below) |
-| `run_ms_CSL_Mest_prior_DM_CSL_stable` | 2669.3775502006 | 2663.8053181169 |
-| `ss_run_DM_hcr_B0` | 2440.0941615088 | 2436.8886423469 |
+| Fit | -log L (5.64.0) | 5.33.0 | 5.32.1 |
+|---|---|---|---|
+| `ss_run_DM_CSL` | 2440.0941615018 | 2440.0941615088 | 2436.8886423469 |
+| `ss_run_DM_hcr_CSL` | 2440.6633383397 | 2440.6633379056 | 2437.4573180484 |
+| `ms_run_DM_CSL` | 2447.0048917398 | 2447.0048917469 | 2443.8538668697 |
+| `run_ms_CSL_Mest_prior_DM_CSL` | 2669.3775501963 | 2669.3775502006 | 2663.8053181169 |
+| `run_ms_CSL_Mest_prior_DM_CSL_BH` | 2735.6792676725 | 2735.6792676724 | n/a (see below) |
+| `run_ms_CSL_Mest_prior_DM_CSL_stable` | 2669.3775501963 | 2669.3775502006 | 2663.8053181169 |
+| `ss_run_DM_hcr_B0` | 2440.0941615018 | 2440.0941615088 | 2436.8886423469 |
+
+Re-recorded on **5.64.0** (2026-10-15), run against an explicit-`lib` install with the version
+asserted before the script was sourced, `run_mse(nsim = 2, cores = 2)` included, 0 errors, 14.5
+min. **Max absolute deviation from the 5.33.0 column 4.34e-07, max relative 1.78e-10** -- the
+largest is `ss_run_DM_hcr_CSL`, and the four multispecies fits move within the +3.4e-09 to
+-4.3e-08 band 5.63.0's other-food floor predicts. Nothing in the 31 releases between moved this
+gate beyond that, which is what rule 15 exists to establish: three-species predation with
+estimated suitability, `suitMode` differing per predator, and DM comps with a prior on their own
+weight, none of which `/golden-check` touches.
 
 The `_BH` row is re-recorded on 5.33.0 (2026-09-12) for section 5 of the script as it now stands:
 a `prior_lognormal(log(100), 0.05)` on hake alpha, chosen for strong density dependence. The

@@ -11,13 +11,11 @@
 # "reachable from R but handled before dispatch", which otherwise lives as prose
 # in three different phrasings.
 
-# Strip comments before scanning, for two reasons. A retired feature is commented
-# out rather than deleted here -- `// DATA_INTEGER(est_diet);` and
-# `// DATA_INTEGER(avgnMode);` both sit at the top of ceattle.cpp -- so a scanner
-# reading the raw text calls a dead declaration live. And the whole Kinzey
-# predation block in predation.hpp is inside a /* ... */, so its `switch
-# (msmMode)` would otherwise be reported as live dispatch; it is also what
-# unbalances the brace count for every file concatenated after it.
+# Strip comments before scanning. A retired feature is commented out rather than
+# deleted here -- `// DATA_INTEGER(est_diet);` and `// DATA_INTEGER(avgnMode);`
+# both sit at the top of ceattle.cpp -- so a scanner reading the raw text calls a
+# dead declaration live. Stripping also keeps any commented-out braces out of the
+# depth count below.
 strip_cpp_comments <- function(src) {
   src <- gsub("(?s)/\\*.*?\\*/", "", src, perl = TRUE)
   gsub("//[^\n]*", "", src, perl = TRUE)
@@ -107,7 +105,7 @@ test_that("every C++ dispatch branch matches the R map that selects it", {
          map_only = integer(0), map_only_why = character(0),
          cpp_only = integer(0), cpp_only_why = character(0)),
 
-    # No exemption: `case 2` (the Ludwig and Walters analytical sigma) was added
+    # No exemption: `case 2` (the Walters and Ludwig analytical sigma) was added
     # in 5.12.0, so this now matches est_sigma_index exactly. The exemption that
     # stood here recorded the gap; this test failing when it was fixed is the
     # guard working, not a regression.
@@ -137,12 +135,10 @@ test_that("every C++ dispatch branch matches the R map that selects it", {
          cpp_only = 3L,
          cpp_only_why = "non-parametric growth is stubbed and calls error('not yet implemented')"),
 
-    # msmMode is deliberately absent from this list. The only `switch (msmMode)`
-    # in the template sits inside the commented-out Kinzey predation block
-    # (predation.hpp), so there is NO live dispatch to compare against -- the
-    # implemented modes are handled by `if (msmMode == ...)` in ceattle.cpp.
-    # A row here would have to be justified by dead code; see the separate test
-    # below, which pins the absence instead.
+    # msmMode is deliberately absent from this list. The template has no
+    # `switch (msmMode)` at all, so there is NO dispatch to compare against --
+    # the implemented modes are handled by `if (msmMode == ...)` in ceattle.cpp.
+    # See the separate test below, which pins that absence.
     NULL
   )
 
@@ -177,10 +173,11 @@ test_that("the not-yet-implemented inventory is stated, not just tolerated", {
   testthat::expect_match(growth, "Non-parametric growth not yet implemented", fixed = TRUE)
 
   # The Kinzey-Punt predation forms are not "stubbed" in the sense growth is --
-  # the whole block is commented out, so msmMode 3-9 have no branch at all, live
-  # or erroring. Pin that, so the day someone uncomments it this test says so.
+  # the implementation is gone, so msmMode 3-9 have no branch at all, live or
+  # erroring, and nothing can be revived by uncommenting. Pin the absence of any
+  # msmMode dispatch, so the day someone adds one this test says so.
   pred <- paste(readLines(file.path(dir[1], "predation.hpp"), warn = FALSE), collapse = "\n")
-  testthat::expect_match(pred, "switch (msmMode)", fixed = TRUE)
+  testthat::expect_false(grepl("switch (msmMode)", pred, fixed = TRUE))
   testthat::expect_length(cpp_switch_cases(strip_cpp_comments(pred), "msmMode"), 0)
 })
 

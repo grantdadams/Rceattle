@@ -4,6 +4,8 @@
 # (theme_classic) + colourblind palette, and return the ggplot object.
 # =============================================================================
 
+# Shared fit assembly and renderer ----
+
 # Assemble a tidy observed-vs-predicted data frame for a fleet "fit" plot.
 # `kind` selects the index (survey) or catch (fishery) data/quantities. Returns
 # one row per (model, fleet, year) with the observation, its lognormal 95%
@@ -116,6 +118,8 @@
 }
 
 
+# plot_index() ----
+
 #' Survey index fits
 #'
 #' Plots fitted index series: observed points with 95% observation intervals and
@@ -183,6 +187,8 @@ plot_logindex <- function(...) {
   plot_index(..., log = TRUE)
 }
 
+
+# plot_catchability() ----
 
 # Tidy the fleet x year catchability matrix into one row per (model, fleet, year).
 # `index_q` is the realized q, whichever route set it (see ?plot_catchability).
@@ -319,6 +325,8 @@ plot_catchability <- function(Rceattle,
 }
 
 
+# plot_catch() ----
+
 #' Fishery catch fits
 #'
 #' Plots fitted fishery catch: observed points with lognormal 95% intervals and
@@ -397,6 +405,8 @@ plot_catch <- function(Rceattle,
 }
 
 
+# plot_index_residual() ----
+
 #' Survey index residuals
 #'
 #' Plots survey index residuals by year, faceted by survey fleet
@@ -414,14 +424,14 @@ plot_catch <- function(Rceattle,
 #' per fleet.
 #'
 #' Index residual figures made before 5.9.0 are mirrored about zero relative to
-#' these, so a figure carried forward from one needs redrawing (see `NEWS.md`).
+#' these, so a figure carried forward from one needs redrawing.
 #'
 #' @inheritParams plot_index
 #' @param residual_type `"pearson"` (index residuals on the fleet's own scale)
 #'   or `"osa"`.
 #' @return A `ggplot` object.
 #' @export
-plot_indexresidual <- function(Rceattle,
+plot_index_residual <- function(Rceattle,
                                file = NULL,
                                model_names = NULL,
                                species = NULL,
@@ -511,4 +521,19 @@ plot_indexresidual <- function(Rceattle,
   if (nlevels(df$Model) < 2L) p <- p + ggplot2::guides(colour = "none")
   .save_ggplot(p, file = file, suffix = "index_residuals",
                width = width, height = height)
+}
+
+
+
+#' Plot survey index residuals (deprecated name)
+#'
+#' @description Deprecated alias for \code{\link{plot_index_residual}},
+#'   which is the snake_case spelling the rest of the package uses. Please
+#'   use \code{plot_index_residual()} instead.
+#'
+#' @param ... passed unchanged to \code{\link{plot_index_residual}}.
+#' @export
+plot_indexresidual <- function(...) {
+  .Deprecated("plot_index_residual")
+  plot_index_residual(...)
 }

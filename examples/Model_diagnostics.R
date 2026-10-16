@@ -63,7 +63,7 @@ plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 plot_m_at_age(Rceattle = mod_list, model_names = mod_names, age = 2)
 plot_m2_at_age_prop(Rceattle = mod_list, model_names = mod_names) # Predation M by each species
-plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
+plot_ssb_depletion(Rceattle = mod_list, model_names = mod_names)
 plot_depletion(Rceattle = mod_list, model_names = mod_names)
 
 
@@ -73,7 +73,7 @@ plot_depletion(Rceattle = mod_list, model_names = mod_names)
 # - Most functions only take a single model
 plot_comp(ms_run) # Fitted composition data
 plot_index(ms_run) # Fitted indices of abundance
-plot_indexresidual(ms_run) # Residuals of log indices of abundance
+plot_index_residual(ms_run) # Residuals of log indices of abundance
 plot_catch(ms_run) # Fitted catch series
 
 

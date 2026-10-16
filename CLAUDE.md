@@ -29,7 +29,7 @@ number the model computed wrongly, or freeing a parameter it fused, mapped out o
 Make those — measure them under rule 2, and name in `NEWS.md` whose fits move, with
 `/ecosystem-sweep` for which sibling scripts stop. Adding a message is additive; changing or
 removing one is not. And a silent wrong number is never a `SIMPLIFY-LOG.md` row: that file holds
-design wishes, while a known defect belongs in `inst/dev/CLEANUP_BACKLOG.md` or an issue.
+design wishes, while a known defect belongs in `../Rceattle-dev/CLEANUP_BACKLOG.md` or an issue.
 
 Where a trigger and a carve-out both fit — a bad starting value is both a default and a badly
 started parameter; a message at the wrong severity is both a message change and a defect — fix
@@ -40,20 +40,23 @@ for the shared-block start, and raise a severity without rewriting the text.
 config layer, option flag or *new* registry this change does not need now, and no second grammar
 for what the linkage formula already expresses (rule 12) — but registering in the registries that
 already exist (the `JnllRow` partners, `.JNLL_ROW_AXIS`, `.index_rows_natural_scale()`) is not
-optional. A helper earns its place at two callers, or when it names a concept the reader needs —
-`.is_timeout()` and `.par_description()` have no caller in `R/` at all, and only their own tests
-keep them alive. **A guard that cannot fire is not safety:** name the input that reaches it, or
+optional. A helper earns its place at two callers, or when it names a concept the reader needs.
+Both halves of that were settled in 5.63.0 and the example is kept because it shows the rule
+working: `.is_timeout()` had no caller in `R/` and now has two (`R/0-convergence.R`), while
+`.par_description()` never earned one and was deleted. Check a helper's callers in the current
+tree before citing it. **A guard that cannot fire is not safety:** name the input that reaches it, or
 leave it out — PR #181 deleted five such guards, four refusals and a defensive early return,
 because the check above had already thrown for every input that could arrive. Name that input and
 the guard has earned its place: the failure mode here is a plausible wrong number, so a guard
-that *can* fire is cheap. Adding to `data_check()` (2,254 lines) or `fit_mod()` (1,668) means a
+that *can* fire is cheap. Adding to `data_check()` (2,175 lines) or `fit_mod()` (1,637) means a
 named helper beside the existing ones, not another inline block. If the structure of a change
 needs a paragraph to justify it, propose it before writing it.
 
 **3. Write for a fisheries scientist, briefly.** A comment is one or two lines and a `@param` is
 one sentence; anything longer belongs in `@details`, a vignette, or `inst/dev/`. Comment and
-roxygen lines are already 39% of `R/` (16,141 of 41,059), so match a file's *idiom*, never its
-longest block — 16 roxygen blocks run past 80 lines and one reaches 395. Give the assessment
+roxygen lines are already 38% of `R/` (15,265 of 40,367; 41% of non-blank lines), so match a
+file's *idiom*, never its longest block — 16 roxygen blocks run past 80 lines and the longest
+reaches 128 (`R/6-fit_mod.R`). Give the assessment
 reason, the units and the convention, then stop; what stays however long is under "Comments", and
 a literature citation is the specification — never strip one. **You may shorten what is already
 there:** tightening a comment or roxygen block in a file your change is already editing belongs
@@ -69,7 +72,7 @@ how this package is written; very little over what it means.
 
 ## Read first
 
-1. `inst/dev/SESSION_HANDOFF.md` — what is in flight, what is verified, where to resume.
+1. `../Rceattle-dev/SESSION_HANDOFF.md` — what is in flight, what is verified, where to resume.
 2. `R/0-column_schema.R` — the source of truth for every workbook column and switch.
 3. `vignettes/articles/developer-guide.Rmd` — the pipeline, the switch system, the schema, the
    linkage grammar.
@@ -99,8 +102,9 @@ how this package is written; very little over what it means.
    vignette, in the same commit** — plus `_pkgdown.yml` when a documented topic appears or
    disappears. `/doc-sync` checks this. Exempt from it: the agent instructions (`CLAUDE.md`,
    `AGENTS.md`, `CONTRIBUTING.md`, `.claude/`, `.github/`), repo tooling (`tools/`), and
-   developer notes (`inst/dev/`). The first five are in `.Rbuildignore`; `tools/ci/` and all but
-   three files of `inst/dev/` *do* ship, so don't put anything there a user must not read.
+   developer notes (`inst/dev/`). The first five are in `.Rbuildignore`; `tools/ci/` and **all of**
+   `inst/dev/` ship, so nothing may go there that a user must not read — the working notes that
+   did live in `../Rceattle-dev/`.
    Correcting a figure in an already-released `NEWS.md` entry is not a new change and owes no
    bump (precedent: 389cd4a6). **"Breaking" means no back-compat path**: a
    deprecation that keeps old fits working, or refusing a configuration that never fitted the
@@ -238,7 +242,7 @@ Two external guides settle what this file doesn't — the
 [tidyverse style guide](https://style.tidyverse.org) for R, the
 [Google C++ style guide](https://google.github.io/styleguide/cppguide.html) for C++ — as
 tie-breakers only: the surrounding file wins, and so does TMB/Eigen idiom. Both already describe
-most of what is here (snake_case, two-space R indents, ~80 columns: 37,911 of 41,059 R lines), so
+most of what is here (snake_case, two-space R indents, ~80 columns: 37,410 of 40,367 R lines), so
 what matters is where they don't:
 
 - **C++ free functions stay snake_case** — `calculate_ration()`, `first_difference()` — not
@@ -366,6 +370,9 @@ What to consult when documenting a switch, shaping a workflow, or naming a proce
   configuration reference.
 - [**Stock Synthesis**](https://github.com/nmfs-ost/ss3-source-code) — control-file reference
   style; exhaustive per-switch documentation with allowed values.
+- [**r4ss**](https://r4ss.github.io/r4ss/) — SS3 output conventions, which several plotters
+  already follow (`R/7-plot_profile.R`, `R/7-plot_data.R`): `SSmohnsrho()` for retrospective rho,
+  `SS_tune_comps()` for data weighting. Installed here, so it is callable without a clone.
 - [**dsem**](https://github.com/James-Thorson-NOAA/dsem) — the DSEM-linked models: formula/path
   grammar, and how linkage structure is specified and reported. DSEM lives on the
   `dsem-v5-integration` branch, not here.
@@ -376,15 +383,16 @@ What to consult when documenting a switch, shaping a workflow, or naming a proce
 ## Known traps
 
 One line each; the fuller text and the measured numbers are in `inst/dev/TRAPS.md` (the last
-section holds every entry below in full).
+section holds the fuller text as of 2026-09-14).
 
 - **`newtonsteps > 0` can return a parameter OUTSIDE its bounds**: nlminb respects them, the Newton refinement after it does not, in either `.fit_tmb()` path. `convergence` reports `parameters_outside_bounds` (FAIL); default is 0 but golden runs 3.
 - **A shared parameter block starts at the GEOMETRIC MEAN of its members' starting values**, not the lead's; inject per BLOCK, never per fleet. Cost a GOA cod survey 18% of its index.
 - **`Index_distribution` has a second registry**: a new family must also be classified in `.index_rows_natural_scale()`, or it gets the log-scale residual.
 - **`jnll_comp` columns count fleets on rows 1–8 AND row 22, species on 9–20 AND row 23, and neither on row 21** — neither axis is contiguous (row 21 is the model-wide linkage REs, row 22 the initial equilibrium catch by fleet, row 23 the DSEM GMRF); `.JNLL_ROW_AXIS` is the registry, so `rowSums()` mixes axes and an axis guess that stops at row 20 is wrong.
 - **A reference point CEATTLE never estimated is a number, not a gap**: `Ftarget`/`Flimit` = 1, `MSSB0` = 999 mt, per-recruit quantities 0 under `msmMode > 0`.
+- **`GOA2018SS`/`GOAcod` cod maturity is 2.0 at every age they use, and it is a data defect, not a sex-ratio convention**: inert there because `nsex = 1` cancels it against `sex_ratio = 0.5`, but on a two-sex species it doubles SSB exactly, and `data_check()`'s upper bound is commented out. Golden cannot see it.
 - **Under `HCR = 0 & msmMode > 0` the depletions divide by last-projection-year biomass**, not `SB0`; don't blank them with a placeholder `SB0`.
-- **A fit reports 99 quantities**: enumerate `names(fit$quantities)`, not a `REPORT(` grep; `quantity_dictionary()` is the registry.
+- **A fit reports 102 quantities, or 104 under `selectivity_se = TRUE`**: `quantity_dictionary()` has all 104, and the two it adds are `log_sel_at_age` / `log_sel_at_age_index`. Enumerate `names(fit$quantities)`, not a `REPORT(` grep — and say which `selectivity_se` you counted under, because that is why three different totals are on record.
 - **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps**, so Mohn's rho can differ.
 - **`unweighted_jnll_comp` is written for 6 of its 23 rows**; the rest are structurally zero.
 - **`fit_mod(d, config = cfg)` replaces `d$model_config`**: build `cfg` with `run_config(d, ...)` or every linkage is dropped.
@@ -398,11 +406,12 @@ section holds every entry below in full).
 - **`Bin_first_selected` is a 1-based bin ordinal; `Sel_norm_bin` is an absolute age** (rules 10, 11).
 - **`init_dev`'s ages start at `minage + 1`**; `.PAR_AXIS_OFFSET` is the registry.
 - **`condition_number` reads the correlation matrix since 5.26.0**; `covariance_condition_number` is the old value.
-- **`getsd = FALSE` leaves `sdrep` NULL** (no `vcov()`, NA bands); the refit diagnostics read the bias-adjust flags and `projection_uncertainty` off `data_list`.
+- **`getsd = FALSE` leaves `sdrep` NULL** (no `vcov()`, NA bands); the refit diagnostics read the bias-adjust flags and `projection_uncertainty` off `data_list`. **The converse does not hold**: since 5.58.2 a retrospective peel whose standard-error rebuild failed is KEPT with no `sdrep`, so read `attr(peel, "sd_report_error")` rather than inferring `getsd`.
 - **`run_mse()` pins the OM's stock-recruit and suitability windows to the pristine `om$`** (`verify-mse-hindcast-invariant.R`).
 - **Every error is drawn in a `SIMULATE{}` block beside its density**; a new likelihood family owes a draw (`verify-sim-*.R`).
 - **An MSE draw is per observation row**, so changing the OM horizon or row count changes every later draw (`TODO-mse-horizon.md`).
 - **The guards are not themselves guarded**: golden runs only in `deep-checks`; keep `NOT_CRAN=false` a step-level `env:`.
+- **A green R-CMD-check can be reporting your mistake**: `error-on: '"error"'` passes NOTEs and WARNINGs alike. The baseline is four runners `Status: OK` plus `macos-latest` at 1 WARNING, so read the `Status:` line against that, not the tick.
 - **An access violation is memory corruption**: build `RCEATTLE_SAFEBOUNDS=true` and run `verify-safebounds.R`.
 - **A slow fit is the model**: `BS2017SS` takes ~500–700 `nlminb` iterations.
 - **A fixed-numbers species (`estDynamics > 0`) reports its input recruits as `R`** but `NA` R0/steepness/SPR0, and in single-species mode `NA` SB0/B0/depletion; `estDynamics = 2` fits as 1 under `msmMode = 0`.

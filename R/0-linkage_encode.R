@@ -14,6 +14,8 @@
 NULL
 
 
+# Process codes ----
+
 #' Integer codes for the `process` column
 #'
 #' Stable across versions. New processes append at the end so existing
@@ -28,6 +30,8 @@ LINKAGE_PROCESS_CODES <- c(
   sel         = 4L,
   comp        = 5L
 )
+
+# Row predicates ----
 
 #' Rows of a linkage table that are the recruitment `R_init` parameter
 #'
@@ -97,6 +101,8 @@ LINKAGE_PROCESS_CODES <- c(
   log(init_val)
 }
 
+
+# Link, structure, prior and param codes ----
 
 # Process names as a message reads them.
 .LINKAGE_PROCESS_LABELS <- c(
@@ -204,6 +210,8 @@ LINKAGE_PARAM_CODES <- list(
 #' @keywords internal
 LINKAGE_STRATUM_ALL <- 0L
 
+
+# encode_linkage_for_tmb() ----
 
 #' Encode a linkage table into TMB-friendly parallel vectors
 #'

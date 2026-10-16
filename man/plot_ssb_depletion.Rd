@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R
 \name{plot_ssb_depletion}
 \alias{plot_ssb_depletion}
-\title{Plot SSB depletion (deprecated name)}
+\title{Plot SSB depletion}
 \usage{
 plot_ssb_depletion(
   Rceattle,
@@ -94,7 +94,22 @@ if \code{line_col} is supplied.}
 \item{ylab}{Y-axis label. \code{NULL} (default) derives one from \code{output} and the
 model's \code{minage}.}
 }
+\value{
+Returns and saves a figure with the SSB depletion trajectory.
+}
 \description{
-Deprecated alias for \code{\link{plot_depletionSSB}}. Please use
-\code{plot_depletionSSB()} instead.
+Plots the mean SSB depletion and 95\\% CI trends as estimated from Rceattle.
+Depletion reference lines for Ptarget and Plimit are drawn in blue and red respectively.
+}
+\details{
+The denominator differs by configuration, so say which one a figure
+uses. \code{DynamicHCR = TRUE} gives that year's \code{DynamicSB0}. Otherwise it is
+static \code{SB0}, except under \code{HCR = 0} with \code{msmMode > 0}, where it is female
+SSB in the \strong{last projection year} -- which approximates multispecies SB0
+only once \code{projyr} is far enough out to equilibrate. An \code{msmMode = 0} fit
+and an \verb{msmMode = 1, HCR = 0} fit drawn on one axis are therefore two
+different ratios.
+}
+\seealso{
+\code{\link[=report_tables]{report_tables()}}, which states the same multispecies denominator.
 }

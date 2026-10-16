@@ -1,9 +1,14 @@
 #' Retrospective peels
 #'
-#' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:
-#' 1. Filters data, filters fixed inputs, and maps out time-varying parameters for the peeled years. All time-varying parameters for the peeled years are set to the terminal year of the model for that peel.
-#' 2. Fits the peeled model.
-#' 3. Turns off all hindcast parameters, turns on F for the peeled years, and fits to the peeled catch series to update the "forecast" dynamics given projection assumptions and observed catch from the peeled years.
+#' @description Calculate Mohn's rho and run retrospective peels for an Rceattle
+#'   model, and evaluate retrospective forecast skill. Each peel uses TMB's map
+#'   to:
+#' 1. filter the data and fixed inputs and map out time-varying parameters for
+#'    the peeled years, holding them at that peel's terminal year;
+#' 2. fit the peeled model;
+#' 3. turn the hindcast parameters off and F for the peeled years on, and fit to
+#'    the peeled catch series, updating the "forecast" dynamics given the
+#'    projection assumptions and the observed catch.
 #'
 #' @inheritParams rceattle-refit-args
 #' @param peels which retrospective peels to fit. A single number `n` fits every
@@ -19,8 +24,10 @@
 #'   value always means 1:5 and one depth on its own cannot be written that way.
 #'   Name it twice -- `peels = c(5, 5)` de-duplicates to the 5-year peel alone --
 #'   when you want to inspect a single peel without paying for the shallower ones.
-#' @param rescale TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.
-#' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
+#' @param rescale TRUE/FALSE whether to subset and rescale environmental
+#'   predictors over the peel years.
+#' @param nyrs_forecast forecast years over which to calculate Mohn's rho, in
+#'   addition to the terminal year
 #' @param forecast_rec How the peeled years get their recruitment. `"mean"`
 #'   (default) projects them at the bias-adjusted historical mean, which is the
 #'   convention Mohn's rho has always been computed under. `"model"` uses the
@@ -31,25 +38,30 @@
 #'   lagged and covariate paths propagate into the forecast; otherwise
 #'   recruitment comes off the stock-recruit curve. Use `"model"` to compare
 #'   projection methods -- see [hindcast_skill()], which defaults to it.
-#' @param getsd whether each peel runs \code{TMB::sdreport} (standard errors).
-#'   Costs an extra model build per peel; see Details.
-#'   Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
-#'   effect on rho. Default \code{NULL} inherits the input model's setting
-#'   (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. holds an
-#'   \code{sdrep}); the returned peel models then hold standard errors only
-#'   when \code{getsd} is \code{TRUE}.
-#' @param phase whether each peel is refitted in phases (default \code{TRUE}).
-#'   A peel restarts from the unpeeled fit's starting values with a year removed;
-#'   without phasing the parameters barely move, the peels sit on top of the full
-#'   model, and Mohn's rho is biased towards zero. Change it only deliberately.
+#' @param getsd whether each peel runs \code{TMB::sdreport}, which costs an
+#'   extra model build per peel (see Details). Mohn's rho uses point estimates
+#'   only, so \code{FALSE} is faster with no effect on it. \code{NULL} (default)
+#'   inherits the input model's setting (\code{TRUE} only if it holds an
+#'   \code{sdrep}), and the returned peels hold standard errors only when it is
+#'   \code{TRUE}.
+#' @param phase whether each peel is refitted in phases, default \code{TRUE}. A
+#'   peel restarts from the unpeeled fit's starting values with a year removed,
+#'   so without phasing the parameters barely move, the peels sit on top of the
+#'   full model, and Mohn's rho is biased toward zero. Change it only
+#'   deliberately.
 #'
 #' @details
-#' Each peel is fitted twice: a peeled hindcast, then a forecast refit that
-#' estimates only the peeled years' F. The second holds every hindcast parameter
-#' fixed, so on its own it reports a standard error of zero for the whole
+#' Each peel is fitted twice: a peeled hindcast, then a forecast refit
+#' estimating only the peeled years' F. The second holds every hindcast
+#' parameter fixed, so on its own it reports a standard error of zero across the
 #' hindcast. Under `getsd = TRUE` the peel is therefore rebuilt at those same
-#' parameters with the hindcast free in the map and reported from there. Nothing
-#' is re-estimated, so no point estimate moves.
+#' parameters with the hindcast free in the map and reported from there; nothing
+#' is re-estimated, so no point estimate moves. Where that rebuild fails -- it
+#' throws, or comes back with a Hessian it could not factor, or with no finite
+#' standard error -- the peel keeps its point estimates and carries no `sdrep`
+#' at all, rather than the forecast refit's zero standard errors. The reason is
+#' named in one warning per call and carried on the peel; `print()` reports how
+#' many peels could not report standard errors.
 #'
 #' @return a list of 1. list of Rceattle models, 2. retrospective bias
 #'   (`$mohns`, Mohn's rho) and 3. forecast skill (`$mase`).
@@ -100,49 +112,47 @@
 #'   is `NA` -- its numbers-at-age are input, so it was never forecast.
 #'
 #'   A peel that did not converge is dropped, so \code{Rceattle_list} can be
-#'   shorter than one plus the number of peels asked for (a message reports how
-#'   many); \code{peels_requested} is that number and \code{peel_depths} the
+#'   shorter than one plus the number of peels asked for (a warning reports how
+#'   many, since a drop changes the rho that gets reported);
+#'   \code{peels_requested} is that number and \code{peel_depths} the
 #'   depths themselves. Each entry is named for its own terminal year
 #'   (\code{Year_2017}, ...) rather than by position, so index it by name --
 #'   \code{Rceattle_list[[3]]} is not necessarily the 3-year peel, and with a
-#'   subset such as \code{peels = 2:10} it never is. With no peel left, Mohn's
-#'   rho is \code{NaN} and the function warns.
+#'   subset such as \code{peels = 2:10} it never is. With no peel left,
+#'   \code{$mohns} comes back with no rows (its columns intact, so a subset or
+#'   merge still works) and the function warns.
 #'
-#'   Each peel reports its own terminal year as \code{data_list$endyr}, so plots
-#'   draw it only as far as it was fit and the peels fan out.
-#'
-#'   A peel still estimates the years it dropped. They are its retrospective
-#'   forecast, fit to the observed catch with the survey and composition data
-#'   withheld. Their recruitment deviation is the one [sample_rec()] sets with
-#'   `sample_rec = FALSE`, computed from the peel's own fit; a penalty-form peel
-#'   with no penalty years averages over its own years after the first (or over
-#'   its one year, for a peel that keeps a single year), with a warning. Three
-#'   years therefore matter, and each peel has all three:
+#'   A peel still estimates the years it dropped: that is its retrospective
+#'   forecast, fit to observed catch with the survey and composition data
+#'   withheld. Its recruitment deviation is the one [sample_rec()] sets with
+#'   `sample_rec = FALSE`, computed from the peel's own fit. Three years matter,
+#'   and every peel carries all three:
 #'   \describe{
 #'     \item{\code{endyr}, \code{endyr_peel}}{the peel's terminal year, what it
-#'       was fit through. Equal to each other.}
+#'       was fit through. Equal to each other, and what plots draw the peel as
+#'       far as.}
 #'     \item{\code{endyr_full}}{the unpeeled model's terminal year, where the
 #'       retrospective forecast ends.}
 #'     \item{\code{projyr}}{the end of the harvest-control-rule projection.}
 #'   }
-#'   So the forecast years are those after \code{endyr_peel} through
-#'   \code{endyr_full}, and the projection follows through \code{projyr};
-#'   \code{incl_proj = TRUE} plots both. Take the forecast years as
+#'   A peel whose standard errors could not be rebuilt carries
+#'   \code{attr(peel, "sd_report_error")}, a one-line reason naming the peel and
+#'   its terminal year; it is absent on every other peel.
+#'
+#'   Take the forecast years as
 #'   \code{endyr_peel + seq_len(endyr_full - endyr_peel)}, which is empty for the
 #'   unpeeled model, rather than \code{(endyr_peel + 1):endyr_full}, which counts
-#'   \emph{down} there.
+#'   \emph{down} there. Mohn's rho is computed from \code{endyr_peel} and is
+#'   unaffected by any of this.
 #'
-#'   Mohn's rho is computed from \code{endyr_peel} and is unaffected by any of
-#'   this.
-#'
-#'   Catchability is estimated only for a fleet that holds fitted index rows
-#'   (see \code{\link{build_map}}), and a peel moves \code{endyr}. A survey whose
-#'   index observations all fall in the peeled-off years therefore has no q
-#'   estimated in that peel, the parameter count is not constant across peels.
-#'   That is deliberate: a q with no index to inform it is a flat direction in
-#'   the likelihood. It does not affect Mohn's rho, which is computed from SSB,
-#'   but it does mean \code{npar} and the reported catchability differ between a
-#'   shallow and a deep peel for such a fleet.
+#'   Catchability is estimated only for a fleet holding fitted index rows (see
+#'   \code{\link{build_map}}), and a peel moves \code{endyr}, so a survey whose
+#'   index observations all fall in the peeled-off years has no q estimated in
+#'   that peel: the parameter count is not constant across peels. That is
+#'   deliberate, since a q with no index to inform it is a flat direction in the
+#'   likelihood. Rho is computed from SSB and is unaffected, but \code{npar} and
+#'   the reported catchability do differ between a shallow and a deep peel for
+#'   such a fleet.
 #'
 #' @examples
 #' \donttest{
@@ -199,13 +209,11 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # Get objects
   object$data_list$endyr_peel <- object$data_list$endyr
   # Terminal year of the model being peeled. Each peel reports its OWN terminal
-  # year as `endyr` (see run_one_peel), which makes the plots fan out but leaves
-  # `endyr` and `endyr_peel` holding the same value -- so without this the
-  # unpeeled terminal year is unrecoverable from a peel, and with it the boundary
-  # between the retrospective FORECAST years, (endyr_peel + 1):endyr_full, and
-  # the true projection, (endyr_full + 1):projyr. Set once here: run_one_peel
-  # copies this data_list, and extra fields survive the refits the same way
-  # `endyr_peel` already does.
+  # year as `endyr` (see run_one_peel), equal to its `endyr_peel`, so without
+  # this field the unpeeled terminal year -- where a peel's retrospective
+  # forecast ends and the true projection begins -- is unrecoverable from a
+  # peel. Set once here: run_one_peel copies this data_list, and extra fields
+  # survive the refits as `endyr_peel` does.
   object$data_list$endyr_full <- object$data_list$endyr
   data_list <- object$data_list # used by Mohn's rho block below
   endyr <- object$data_list$endyr
@@ -281,7 +289,8 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   if (length(peels) == 1L) peels <- seq_len(peels)
   peel_seq <- sort(unique(peels))
 
-  # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
+  # Cross-platform parallel: a FORK cluster where available, PSOCK on
+  # Windows (see .parallel_lapply())
   # (same approach as run_mse). Respect the CRAN core limit
   # ('_R_CHECK_LIMIT_CORES_' is set during R CMD check;
   # parallel::makeCluster errors if we exceed 2 cores then).
@@ -377,29 +386,31 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # together with its enclosing environment.
   pin_block <- function(nm) !(nm %in% object$random_vars)
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Stored-map divergence ----
-  # Each peel's hindcast fit reuses `object$map`, so the peels reproduce the
-  # parameterisation the model was ORIGINALLY fitted with -- which is what
-  # Mohn's rho needs, and is deliberate. The cost is that a later fix to how a
-  # map is built never reaches a saved fit: the peel is fitted under the old
-  # map while the forecast refit below rebuilds it, so one peel can be fitted
-  # and reported under different parameter counts.
+  # Each peel's hindcast fit reuses `object$map`, deliberately: Mohn's rho needs
+  # the parameterisation the model was ORIGINALLY fitted with. The cost is that
+  # a later fix to how a map is built never reaches a saved fit -- the peel is
+  # fitted under the old map while the forecast refit below rebuilds it, so one
+  # peel can be fitted and reported under different parameter counts.
   #
-  # Rather than change which map a peel uses, say when the two disagree.
-  # Rebuilt from the ORIGINAL data and parameters, not the peel's, so a
-  # difference means the code that builds maps has changed since this fit was
-  # saved -- not that the peel has fewer years.
+  # Say when the two disagree rather than change which map a peel uses. The
+  # comparison is rebuilt from the ORIGINAL data and parameters, not the peel's,
+  # so a difference means the map-building code has changed since this fit was
+  # saved, not that the peel has fewer years.
   #
-  # Hoisted here, before `run_one_peel` is defined: this condition reads only
-  # the input model, and a warning() raised inside a .parallel_lapply() worker
-  # is discarded (see inst/dev/TRAPS.md). Once per call, never per peel.
+  # Hoisted above `run_one_peel`: the condition reads only the input model, and
+  # a warning() raised inside a .parallel_lapply() worker is discarded (see
+  # inst/dev/TRAPS.md), so this fires once per call, never per peel.
   .map_drift <- tryCatch({
+    # random_sel must be passed: build_map() hard-defaults it to FALSE and has
+    # no data_list fallback, unlike random_q, so a random_sel = TRUE fit's
+    # stored map frees sel_dev_log_sd where a defaulted fresh map maps it out.
     .fresh <- suppressWarnings(suppressMessages(build_map(
       data_list  = object$data_list,
       params     = object$estimated_params,
       debug      = FALSE,
-      random_rec = object$data_list$random_rec)))
+      random_rec = object$data_list$random_rec,
+      random_sel = isTRUE(as.logical(object$data_list$random_sel)))))
     .shared <- intersect(names(object$map$mapList), names(.fresh$mapList))
     .shared[!vapply(.shared, function(nm) identical(
       as.integer(object$map$mapList[[nm]]),
@@ -416,18 +427,9 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
             call. = FALSE)
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-peel closure ----
   # Each peel only reads the original model, so peels are independent.
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_peel <- function(i) {
-    # Warnings this peel raises that the CALLER has to see. A warning raised in
-    # here is discarded by the FORK/PSOCK worker that runs the peel, so it is
-    # collected on the returned model and re-raised after dispatch. Only for
-    # conditions that are genuinely per-peel -- one that reads the input model
-    # belongs above, with the other once-per-call warnings.
-    .peel_warnings <- character(0)
-
     # * Get end year of peel ----
     data_list <- object$data_list
     endyr_peel <- endyr - i
@@ -801,7 +803,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
         object$map$mapList$log_F[, (nyrs_peel + 1):nyrs]
       sd_map$mapFactor$log_F <- factor(sd_map$mapList$log_F)
 
-      newmod$sdrep <- tryCatch({
+      sd_try <- tryCatch({
         report_mod <- suppressWarnings(suppressMessages(
           .refit_like(
             data_list        = data_list,
@@ -812,69 +814,57 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
             srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
             srr_hat_endyr    = min(data_list$srr_hat_endyr, endyr_peel),
             suit_endyr       = pmin(data_list$suit_endyr, endyr_peel))))
-        TMB::sdreport(report_mod$obj)
-      }, error = function(e) {
-        # A peel that cannot be reported is not a peel that failed: keep the fit
-        # and its point estimates, and drop the band.
-        #
-        # NULL, not `newmod$sdrep`. At this point that is the FORECAST refit's
-        # sdreport, built with the whole hindcast pinned -- every hindcast
-        # standard error in it is exactly zero, which is the thing this report
-        # pass exists to replace. Returning it hands back a zero-width band as
-        # if it were real. NULL is the state `getsd = FALSE` already produces,
-        # so vcov() and the plotters give NA bands rather than a false one.
-        #
-        # Collected rather than warned here: this runs inside the per-peel
-        # closure, and a warning raised in a FORK/PSOCK worker is discarded, so
-        # at the default `cores` nobody was ever told. Re-raised by the caller
-        # after dispatch, as self_test() does with sim_warns.
-        .peel_warnings <<- c(.peel_warnings, paste0(
-          "Peel ", i, ": could not report hindcast standard errors (",
-          conditionMessage(e), "), so this peel has no uncertainty band. ",
-          "Point estimates are unaffected."))
-        NULL
-      })
+        list(sdrep = TMB::sdreport(report_mod$obj))
+      }, error = function(e) list(error = conditionMessage(e)))
+
+      # A rebuild fails two ways and only one throws: TMB::sdreport() returns
+      # pdHess = FALSE on a Hessian it cannot factor rather than erroring. Both
+      # mean no usable band, so judge the returned object too, and name which
+      # condition fired -- they are different problems for the reader.
+      if (is.null(sd_try[["error"]])) {
+        .sdr <- sd_try[["sdrep"]]
+        if (isFALSE(.sdr[["pdHess"]])) {
+          sd_try <- list(
+            error = "the rebuilt hindcast Hessian is not positive definite")
+        } else if (!any(is.finite(.sdr[["sd"]]))) {
+          sd_try <- list(
+            error = "the rebuilt hindcast reported no finite standard error")
+        }
+      }
+
+      if (is.null(sd_try[["error"]])) {
+        newmod$sdrep <- sd_try[["sdrep"]]
+      } else {
+        # A peel that cannot be reported is not a peel that failed: keep its
+        # point estimates and leave the band absent, the state getsd = FALSE
+        # leaves. The refit's own sdrep is what this block replaces -- a
+        # standard error of 0 across the whole span the peel is drawn over.
+        newmod$sdrep <- NULL
+        # Not recorded on .conv_hindcast$sd_present: .refit_converged() drops a
+        # peel on `sd_requested && !sd_present`, which would move Mohn's rho.
+        # And a warning() dies in a .parallel_lapply() worker, so carry the
+        # reason out on the peel and re-raise it once after dispatch.
+        attr(newmod, "sd_report_error") <-
+          paste0("peel ", i, " (through ", endyr_peel, "): ", sd_try[["error"]])
+      }
     }
 
-    # gc()
-    #
-    # map$mapFactor <- map$mapFactor[names(newmod$map$mapFactor)]
-    # check <- c()
-    # check_na <- c()
-    # for(j in 1:length(map$mapList)){
-    #   check[j] <- sum(map$mapFactor[[j]] != newmod$map$mapFactor[[j]], na.rm = TRUE)
-    #   check_na[j] <- sum(is.na(map$mapFactor[[j]]) != is.na(newmod$map$mapFactor[[j]]), na.rm = TRUE)
-    # }
 
     # * Report the peel's own terminal year ----
-    # Set here, AFTER both refits, and never before: `endyr` sizes the model,
-    # and the forecast refit above turns F back on over `(nyrs_peel+1):nyrs`
-    # against the FULL nyrs, so peeling it earlier would index off the end of
-    # log_F. At this point it is output metadata only.
-    #
-    # Every plot builds its year axis per model as `styr:endyr`
-    # (`R/7-plot_ceattle.R`), and nothing outside this file reads `endyr_peel`.
-    # Without this each peel was drawn to the full model's terminal year, so
-    # the peels were indistinguishable -- the opposite of what a retrospective
-    # plot is for.
-    #
-    # Mohn's rho is unaffected: it reads `endyr_peel` off each peel and the
-    # full model's `endyr` from this function's enclosing scope, never a peel's
-    # `data_list$endyr`.
-    #
-    # Note this makes the returned peel deliberately inconsistent: its
-    # parameters, quantities, and `catch_data` still span the full hindcast,
-    # because the peeled years are its retrospective FORECAST. `endyr` marks
-    # what was fit, not what was estimated. Plot with `incl_proj = TRUE` to see
-    # the forecast years, and read `endyr_full` (carried through from the source
-    # model) for where those forecast years end.
+    # Set AFTER both refits, never before: `endyr` sizes the model, and the
+    # forecast refit above turns F back on over `(nyrs_peel+1):nyrs` against the
+    # FULL nyrs, so peeling it earlier would index off the end of log_F. Here it
+    # is output metadata only -- every plot builds its year axis per model as
+    # `styr:endyr` (`R/7-plot_ceattle.R`) and nothing outside this file reads
+    # `endyr_peel`, so each peel is drawn only as far as it was fit, while its
+    # parameters, quantities and `catch_data` still span the full hindcast
+    # because the peeled years are its retrospective forecast (see
+    # ?retrospective). Mohn's rho reads `endyr_peel`, not this.
     newmod$data_list$endyr <- endyr_peel
 
     # Return model only if BOTH refits converged, else NULL (dropped
     # post-dispatch)
     if (hindcast_converged && .refit_converged(newmod)) {
-      if (length(.peel_warnings))
-        attr(newmod, "peel_warnings") <- .peel_warnings
       return(newmod)
     }
     return(NULL)
@@ -908,9 +898,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     }
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch peels (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     peel_results <- .parallel_lapply(peel_seq, run_one_peel,
                                      min(cores, length(peel_seq)), environment())
@@ -925,23 +913,21 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   .report_dropped(length(peel_seq) - length(peel_results), length(peel_seq),
                   "peel", warn = TRUE)
 
-  # Re-raise whatever the peels collected. They run in a FORK/PSOCK worker,
-  # whose warnings are discarded, so this is the only place the caller can hear
-  # them -- the pattern self_test() uses for sim_warns. Each message already
-  # names its peel, and the attribute is stripped so a returned fit carries no
-  # trace of the plumbing.
-  for (w in unique(unlist(lapply(peel_results, attr, "peel_warnings")))) {
-    warning(w, call. = FALSE)
+  # Raised here rather than in the worker that found it (see above). A missing
+  # band is not a dropped peel, so this is separate from the tally above: the
+  # peel is kept and its point estimates stand.
+  sd_errs <- unlist(lapply(
+    peel_results, function(m) attr(m, "sd_report_error", exact = TRUE)))
+  if (length(sd_errs)) {
+    warning(length(sd_errs), " peel(s) could not report hindcast standard ",
+            "errors, so they carry no `sdrep` and their uncertainty bands are ",
+            "NA: ", paste(sd_errs, collapse = "; "),
+            ". Point estimates and Mohn's rho are unaffected.", call. = FALSE)
   }
-  peel_results <- lapply(peel_results, function(m) {
-    attr(m, "peel_warnings") <- NULL
-    m
-  })
 
   mod_list <- c(list(object), peel_results)
 
-  # Mohn's rho averages the peels against the full model, so with none left the
-  # sums below stay at their initialized zeros and every species column comes
+  # Mohn's rho averages the peels against the full model, so with none left
   # nothing is accumulated and $mohns comes back with no rows. Say so, rather
   # than leave the caller to infer it from an empty table.
   if (length(peel_results) == 0L) {
@@ -952,9 +938,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   }
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Calculate Mohs rho ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # * Data frame to save ----
   # LONG, one row per Object x Forecast year x species, sharing the leading
   # `Object`, `Forecast year`, `N`, `species` columns with $mase so the bias and
@@ -1080,16 +1064,12 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     "Year_",
     vapply(mod_list, function(x) as.numeric(x$data_list$endyr_peel), numeric(1)))
 
-  # Still the same list -- $Rceattle_list and $mohns are unchanged. The class
-  # adds a print method that carries Mohn's reference band, which the bare
-  # number never did; see print.Rceattle_retro().
-  #
-  # `peels_requested` is carried so print() can say how many were asked for. The
-  # warning above is gone by the time anyone reads the object back off disk, and
-  # the list length alone cannot show a drop. It is a COUNT, not the depths --
-  # print() subtracts it from the number kept -- so `peel_depths` carries the
-  # depths that were asked for, which a subset call cannot otherwise recover
-  # once a peel has been dropped.
+  # The class adds a print method that reports Mohn's rho against a reference
+  # band; see print.Rceattle_retro(). `peels_requested` records how many peels
+  # were asked for: the drop warning above is gone once the object is read back
+  # off disk, and the list length alone cannot show a drop. It is a COUNT, not
+  # the depths, so `peel_depths` carries those -- which a subset call cannot
+  # otherwise recover once a peel has been dropped.
 
   # Forecast SKILL, alongside Mohn's rho's forecast BIAS ----
   # Both are per horizon, and they answer different questions: rho is a signed
@@ -1238,6 +1218,17 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
         " band assumes the standard contiguous set\n", sep = "")
   }
 
+  # A kept peel can still have no band. The call warned, but a saved object has
+  # only the attribute, so say it here too -- rho is unaffected either way.
+  n_noband <- sum(vapply(
+    x$Rceattle_list,
+    function(m) !is.null(attr(m, "sd_report_error", exact = TRUE)),
+    logical(1)))
+  if (n_noband > 0L) {
+    cat("  ", n_noband, " peel(s) carry no standard errors",
+        " (the hindcast report failed to rebuild)\n", sep = "")
+  }
+
   if (nrow(term)) {
     # One row per quantity x species now that $mohns is long, so the tag is per
     # row rather than per quantity across species columns.
@@ -1311,11 +1302,21 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
 #'
 #' @description Refits the Rceattle model from starting values perturbed by N(0, sd) around the model's initial (pre-fit) parameters, to check convergence robustness.
 #'
-#' @note Attaching Rceattle masks \code{\link[base]{jitter}}, so \code{jitter(x)}
-#'   on a numeric vector reaches this function and reports a missing model rather
-#'   than adding noise to \code{x}. Call \code{base::jitter()} explicitly for the
-#'   base-graphics behaviour.
+#' @note Attaching Rceattle masks \code{\link[base]{jitter}}, because that
+#'   function is not generic and this name is exported, so the mask cannot be
+#'   removed by making this an S3 method. It is harmless for the spellings base
+#'   callers use: a numeric first argument is handed straight to
+#'   \code{base::jitter()}, so \code{jitter(1:5)} and
+#'   \code{jitter(1:5, factor = 2)} behave as base does. \code{jitter(x = 1:5)}
+#'   and a positional second argument do not. \code{x} is not a parameter here,
+#'   so it is refused as an unused argument; a positional second argument binds
+#'   \code{njitter}, so \code{jitter(1:5, 2)} jitters with base's defaults and
+#'   silently drops the \code{2}. Name base's arguments, or call
+#'   \code{base::jitter()} directly.
 #'
+#' @param ... for a numeric \code{object}, passed to \code{base::jitter()};
+#'   for a fitted model, refused, so that a misspelled argument is not silently
+#'   ignored.
 #' @inheritParams rceattle-refit-args
 #' @param njitter the number of jitters to run
 #' @param sd standard deviation for jitter (default = 0.2)
@@ -1356,7 +1357,30 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
 #' jitters <- jitter(ss_run, njitter = 10)
 #' }
 #' @export
-jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL, timeout = Inf, fit_control = NULL, Rceattle = NULL) {
+jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL, timeout = Inf, fit_control = NULL, ..., Rceattle = NULL) {
+  # A numeric first argument is base::jitter()'s, not a fitted model. This name
+  # masks base::jitter(), which is not generic and so cannot be dispatched on,
+  # and S3 is no escape: UseMethod() errors before any method runs when the
+  # dispatch argument is absent, so a generic on `x` could not also accept the
+  # model under `object` or `Rceattle`. Forwarding here is what makes the mask
+  # harmless.
+  if (is.numeric(object)) return(base::jitter(object, ...))
+
+  # Past the numeric path nothing reads `...`, so an entry there is a typo:
+  # jitter(mod, njiter = 10) would otherwise silently run the default 50.
+  if (...length()) {
+    # Nine formals precede `...`, so an unnamed extra takes ten positional
+    # arguments to reach; a mixed call gives "" beside a name.
+    nm <- ...names()
+    if (is.null(nm)) nm <- rep("", ...length())
+    nm[!nzchar(nm)] <- "<unnamed>"
+    stop("jitter() does not take these arguments: ", paste(nm, collapse = ", "),
+         ". A fitted model takes njitter, sd, phase, seed, cores, getsd, ",
+         "timeout and fit_control; for base::jitter()'s own arguments give a ",
+         "numeric first argument, or call base::jitter() directly.",
+         call. = FALSE)
+  }
+
   # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
   if (!missing(Rceattle))
     object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "jitter")
@@ -1387,7 +1411,8 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
   if (!is.null(ctl$phase)) phase <- ctl$phase
   if (!is.null(ctl$getsd)) getsd <- ctl$getsd
 
-  # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
+  # Cross-platform parallel: a FORK cluster where available, PSOCK on
+  # Windows (see .parallel_lapply())
   # (same approach as run_mse). Respect the CRAN core limit
   # ('_R_CHECK_LIMIT_CORES_' is set during R CMD check;
   # parallel::makeCluster errors if we exceed 2 cores then).
@@ -1401,9 +1426,7 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
   }
   use_parallel <- njitter > 1L && cores > 1L
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-jitter closure ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_jitter <- function(i) {
 
     set.seed(seed + i) # unique seed per jitter for reproducibility under parallel
@@ -1451,9 +1474,7 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
   } # End run_one_jitter closure
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch jitters (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     mod_list <- .parallel_lapply(1:njitter, run_one_jitter, min(cores, njitter), environment())
   } else {
@@ -1478,10 +1499,9 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
 
 
   # Return ----
-  # Still the same list -- $Rceattle_list and $nll are unchanged. `njitter` is
-  # carried so the print method can report the fraction of STARTS that reached
-  # the optimum: the converged runs alone cannot say how many were attempted,
-  # and that fraction is the result jitter() exists to produce.
+  # `njitter` is carried so the print method can report the fraction of STARTS
+  # that reached the optimum: the converged runs alone cannot say how many were
+  # attempted, and that fraction is the result jitter() exists to produce.
   structure(list(Rceattle_list = mod_list, nll = unname(jnll),
                  njitter = njitter),
             class = "Rceattle_jitter")

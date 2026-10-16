@@ -185,21 +185,6 @@
 }
 
 
-#' One-line human description of a parameter, for use inside messages
-#'
-#' @param internal character scalar internal parameter name.
-#' @return A character scalar, e.g.
-#'   `"sel_inf (selectivity inflection): ..."`. Falls back to the bare name
-#'   when the parameter is not in the dictionary.
-#' @keywords internal
-#' @noRd
-.par_description <- function(internal) {
-  info <- .par_info(internal)
-  if (nrow(info) != 1L || is.na(info$meaning)) return(internal)
-  sprintf("%s (%s): %s", info$internal, info$natural, info$meaning)
-}
-
-
 #' Look up what a CEATTLE parameter is
 #'
 #' The TMB parameter vector uses transformed, abbreviated names,

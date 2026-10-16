@@ -20,8 +20,9 @@
 # Three of the template's four log_M1 readers are bounded by the species' own
 # dimensions -- the M1_at_age block by sex < nsex(sp) and age < nages(sp), the
 # M prior by its nsex_tmp / nage_tmp, and growth.hpp by
-# log_M1(sp, sex, nages(sp) - 1). The fourth, the linkage-intercept prior at
-# ceattle.cpp:5189, indexes by the linkage row's stratum and stays in range
+# log_M1(sp, sex, nages(sp) - 1). The fourth, the linkage-intercept prior
+# (JNLL_LINKAGE_PRIOR's dnorm(log_b_nat, ...) in ceattle.cpp), indexes by
+# the linkage row's stratum and stays in range
 # because fit_mod() builds per-species strata -- an R-side bound, not a
 # template one. So no fit moved, which is why this needs a structural test:
 # an objective cannot show it. Verified inert across msmMode 0/1 cold fits,
@@ -158,4 +159,36 @@ testthat::test_that("updateM1 with an estimated M1 gives a finite objective", {
     testthat::expect_true(all(is.finite(fit$initial_params$log_M1)))
     testthat::expect_true(is.finite(fit$obj$fn(fit$obj$par)))
   }
+})
+
+
+testthat::test_that("the short-M1_base warning names ages, not bin indices", {
+  # M1_base's Age1..AgeN columns are read positionally as BIN ORDINALS
+  # (build_params()), so bin 1 is the species' minage and the warning must add
+  # that offset. minage = 0 is live -- it is the SS3 converter's default -- and
+  # minage > 1 ships in three BSAI/GOA pop workbooks. At minage = 1 the
+  # conversion is the identity, which is why both other values are asserted.
+  m1 <- array(0.3, dim = c(1, 1, 5))
+  m1[1, 1, 4:5] <- NA_real_
+  dl <- function(ma) list(nspp = 1L, nsex = 1L, nages = 5L, minage = ma,
+                          spnames = "Pop")
+
+  testthat::expect_warning(Rceattle:::.rce_fill_M1_age_gaps(m1, dl(3L)),
+                           "ages 6, 7")
+  testthat::expect_warning(Rceattle:::.rce_fill_M1_age_gaps(m1, dl(0L)),
+                           "ages 3, 4")
+
+  # Where the age and the column differ, name the column too -- it is the cell
+  # the reader has to edit. Suppressed at minage = 1, where they coincide and
+  # the parenthetical would be noise on every model that ships.
+  testthat::expect_warning(Rceattle:::.rce_fill_M1_age_gaps(m1, dl(3L)),
+                           "columns Age4, Age5", fixed = TRUE)
+  w1 <- tryCatch(Rceattle:::.rce_fill_M1_age_gaps(m1, dl(1L)),
+                 warning = function(w) conditionMessage(w))
+  testthat::expect_match(w1, "ages 4, 5")
+  testthat::expect_false(grepl("columns Age", w1, fixed = TRUE))
+  # The fill itself is unchanged: the blank ages carry the last supplied value.
+  out <- suppressWarnings(Rceattle:::.rce_fill_M1_age_gaps(m1, dl(3L)))
+  testthat::expect_equal(out[1, 1, 4], 0.3)
+  testthat::expect_equal(out[1, 1, 5], 0.3)
 })

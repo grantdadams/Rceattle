@@ -30,7 +30,7 @@ It consolidates and updates the developer notes on the
 | `data/` | Built-in example data lists (`BS2017SS`, `GOA2018SS`, `NorthernRockfish2022`, …). |
 | `vignettes/` | User articles; `vignettes/articles/` holds website-only articles like this one. |
 | `.github/workflows/` | `R-CMD-check.yaml` and `pkgdown.yaml` CI. |
-| `inst/dev/` | Committed developer notes: `TRAPS.md` (verified traps with their measured numbers), `CLEANUP_BACKLOG.md` (the triaged TODO/FIXME markers), `CONTRIBUTOR-EXPERIENCE.md`, `SIMPLIFY-LOG.md`, and per-topic `TODO-*.md` design records. Read the one for your subsystem before changing it. |
+| `inst/dev/` | Committed developer notes that ship with the package: `TRAPS.md` (verified traps with their measured numbers — read it before touching anything it names), `SIBLING-REPOS.md` (the consumer repositories an API change is swept against), `SIMPLIFY-LOG.md` (design wishes; a defect never goes here), and two runnable selectivity examples. The working notes — the session handoff, the triaged backlog and the per-subsystem `TODO-*.md` records — live in a separate maintainer repository, and the open items that code comments used to cite are now GitHub issues. |
 | `data-raw/` | Generators for committed artefacts, notably `regenerate_meta_xlsx.R` for `meta_data_names.xlsx`. |
 | `tools/verify/` | 22 standalone verification harnesses `/golden-check` does not cover — the optimizer path, array bounds, the MSE draw digests, the simulation recoveries. |
 | `.claude/commands/` | The slash commands referenced below (`/golden-check`, `/new-column`, `/verify`, `/ecosystem-sweep`). Each is a markdown file stating the full procedure, usable as a checklist by a person. |
@@ -189,7 +189,7 @@ vary (covariate, time block, random effect), for every process.
 
 | File | What it holds |
 |---|---|
-| `0-convergence.R` | `convergence_diagnostics()` and its twelve checks, and the four gates every refit diagnostic shares (converged, timeout, dropped, errors). |
+| `0-convergence.R` | `convergence_diagnostics()` and its thirteen checks, and the four gates every refit diagnostic shares (converged, timeout, dropped, errors). |
 | `0-diagnostic_print.R` | The shared header, table and tally the diagnostic print methods use. |
 | `9-diagnostic_helpers.R` | `.parallel_lapply()` and the argument vocabulary the refit diagnostics share. |
 | `9-retro_and_jitter.R` | `retrospective()` (Mohn's rho) and `jitter()`. |
@@ -650,5 +650,5 @@ default. Worth knowing when reading a profile that looks flatter than expected.
   detail on selectivity, catchability, and predation.
 * Adams et al. (2022), *Fisheries Research* 251:106303, the TMB generalisation
   of CEATTLE. Holsman et al. (2016), *Deep-Sea Research II* 134:360–378 (the
-  original model. Wassermann et al. (2024), *ICES JMS*) the hake/cannibalism
+  original model. Wassermann et al. (2025), *ICES JMS*) the hake/cannibalism
   extension.

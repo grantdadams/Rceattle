@@ -125,7 +125,7 @@ testthat::test_that("M linkage with species-keyed priors fires per species", {
   # Per-species priors on the temp coefficient. The sim helper
   # produces single-sex data, so this exercises species-only
   # keying; the nested species->sex form is unit-tested in
-  # tests/testthat/tests-Linkage/test-priors.R.
+  # tests/testthat/test-linkage-priors.R.
   m1_spec <- Rceattle::build_M1(
     M1_model = 1,
     linkages = list(

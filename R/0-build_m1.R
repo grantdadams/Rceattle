@@ -1,3 +1,5 @@
+# M1 codes and linkage registries ----
+
 #' Allowed M-parameter names for `linkages` in [build_M1()]
 #'
 #' Natural-scale names of the underlying natural-mortality
@@ -28,6 +30,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' for 4 or 5 to discourage their use in new code.
 #'
 #' @keywords internal
+#' @noRd
 .M1_MODELS <- c(
   fixed             = 0L,
   sex_age_invariant = 1L,
@@ -51,6 +54,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' codes continue to work for backwards compatibility.
 #'
 #' @keywords internal
+#' @noRd
 .M1_RES <- c(
   none         = 0L,
   iid_age      = 1L,
@@ -61,6 +65,8 @@ M_LINKAGE_PARAMS <- c("M1")
   ar1_age_year = 6L
 )
 
+
+# Coercion and deprecation warnings ----
 
 #' Coerce an `M1_model` or `M1_re` value to canonical integer code(s).
 #'
@@ -125,6 +131,8 @@ M_LINKAGE_PARAMS <- c("M1")
 }
 
 
+# build_M1() ----
+
 #' Specify the residual natural mortality (M1) model for Rceattle
 #'
 #' @param M1_model Vector or scalar specifying the M1 structural fixed-
@@ -136,19 +144,11 @@ M_LINKAGE_PARAMS <- c("M1")
 #'   * `3` / `"sex_age_specific"`, estimate `M1_{spp, sex, age}`.
 #'   * `4`, `5`, soft-deprecated env-driven codes; use the
 #'     `linkages` argument instead. See `vignette("environmental-linkages-and-priors")`.
-#' @param M1_re Vector or scalar specifying the M1 random-effects
-#'   model. Either an integer code or the equivalent string alias:
-#'   `0` / `"none"`, `1` / `"iid_age"`, `2` / `"iid_year"`,
-#'   `3` / `"iid_age_year"`, `4` / `"ar1_age"`, `5` / `"ar1_year"`,
-#'   `6` / `"ar1_age_year"`. Anything but `0` needs an `M1_model` of
-#'   `0`, `1`, `2`, or `3` with a by-year family (`2` / `5`); the
-#'   by-age families are refused under `3` because an age-varying
-#'   deviation and an age-specific level are not separately
-#'   identifiable, and `4` and `5` are refused entirely (use a
-#'   catchability-style linkage instead). `M1_model = 2` also needs two
-#'   sexes, except for `1` and `4`; `fit_mod()` downgrades it to `1` on
-#'   a single-sex species, so that distinction shows only in a direct
-#'   `build_map()` call.
+#' @param M1_re Vector or scalar specifying the M1 random-effects model, as an
+#'   integer code or the equivalent string alias: `0` / `"none"`,
+#'   `1` / `"iid_age"`, `2` / `"iid_year"`, `3` / `"iid_age_year"`,
+#'   `4` / `"ar1_age"`, `5` / `"ar1_year"`, `6` / `"ar1_age_year"`. Default `0`.
+#'   Which combinations with `M1_model` are allowed is under Details.
 #' @param updateM1 If using initial parameters, use M1 fixed effects
 #'   from data (`M1_base`) instead. Default `FALSE`.
 #' @param M1_use_prior Vector or scalar; if `TRUE` and `M2_use_prior` is `FALSE`, apply the
@@ -176,6 +176,17 @@ M_LINKAGE_PARAMS <- c("M1")
 #' every sex the species has; it is taken on the log scale, so a blank or a zero
 #' is refused, naming the offending `(species, sex, age)` cells. Columns past a
 #' species' own `nages` are ignored, so a row may stop at its last age.
+#'
+#' @details
+#' **Which `M1_re` families work with which `M1_model`.** Anything but `0` needs
+#' an `M1_model` of `0`, `1`, `2`, or `3` with a by-year family (`2` / `5`); the
+#' by-age families are refused under `3` because an age-varying deviation and an
+#' age-specific level are not separately identifiable, and `4` and `5` are
+#' refused entirely (use a catchability-style linkage instead). `M1_model = 2`
+#' needs two sexes under every `M1_re` family, because a single-sex species would
+#' take its deviations in the padding sex slot, free and scored by no density.
+#' `fit_mod()` downgrades `M1_model` to `1` there, so the distinction shows only
+#' in a direct `build_map()` call.
 #'
 #' @return A list of switches for defining the M1 model.
 #' @export
@@ -225,6 +236,8 @@ build_M1 <- function(M1_model = 0,
   )
 }
 
+
+# Linkage validation ----
 
 #' Validate and canonicalize the `linkages` argument of [build_M1()]
 #'

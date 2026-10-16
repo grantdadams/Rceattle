@@ -1,8 +1,8 @@
 ---
-description: Update inst/dev/SESSION_HANDOFF.md so the next session can resume without re-deriving
+description: Update ../Rceattle-dev/SESSION_HANDOFF.md so the next session can resume without re-deriving
 ---
 
-Keep `inst/dev/SESSION_HANDOFF.md` current: what is in flight, what is verified, what is
+Keep `../Rceattle-dev/SESSION_HANDOFF.md` current: what is in flight, what is verified, what is
 blocked, and where to pick up. CLAUDE.md is policy and does not change often; this is state and
 changes every session. Keeping them apart is why CLAUDE.md can be trusted.
 

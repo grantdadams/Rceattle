@@ -304,7 +304,7 @@ plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci 
 
 # SSB depletion (female spawning biomass / SB0), the quantity a Tier 3 HCR
 # compares against B40%
-plot_depletionSSB(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
+plot_ssb_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
 
 ```
 

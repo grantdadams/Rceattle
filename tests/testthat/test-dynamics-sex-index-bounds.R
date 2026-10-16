@@ -22,6 +22,15 @@
 #
 # There is no reproduction from R against the shipped DLL -- an unchecked write
 # is not observable -- so the invariant is pinned statically instead.
+#
+# The census is pinned by NAME AND COUNT, not floored at "more than zero". A
+# floor is satisfied by whatever survives a rename or a reformat: measured
+# 2026-10-12, an `if(true) N_at_age(sp, 1, 0, 0) = Type(0.0);` and a respelled
+# `N_at_age(sp,1,0,yr)` both left the old anchored pattern at 10 hits and passed,
+# and respelling five sites took it to 5 and still passed. The arrays are now
+# discovered from their declarations rather than listed by hand, which found
+# `N_eq` -- 4 writes that were outside the census entirely -- taking the real
+# count from 10 to 15.
 
 test_that("every write to sex index 1 is guarded by a two-sex condition", {
   dir <- c("src/TMB", testthat::test_path("..", "..", "src", "TMB"))
@@ -30,14 +39,43 @@ test_that("every write to sex index 1 is guarded by a two-sex condition", {
 
   src <- readLines(file.path(dir[1], "ceattle.cpp"), warn = FALSE)
 
-  # The population arrays that carry a sex dimension.
-  arrays <- c("N_at_age", "NByage0", "NByageF", "N_at_age_dB0", "N_at_age_dBF")
-  pat    <- paste0("^\\s*(", paste(arrays, collapse = "|"), ")\\(sp, 1,")
-  hits   <- grep(pat, src)
-  expect_gt(length(hits), 0)
+  # Every write to sex index 1, per array. Measured on dev 2026-10-12.
+  EXPECTED_SEX1_WRITES <- c(N_at_age = 7, N_eq = 4, NByage0 = 1, NByageF = 1,
+                            N_at_age_dB0 = 1, N_at_age_dBF = 1)
+
+  # The hazard class is "declared with a max_sex dimension", so a new array of
+  # that shape joins the census instead of silently sitting outside it.
+  decl <- grep("^\\s*array<Type>\\s+\\w+\\(\\s*nspp\\s*,\\s*max_sex\\s*,", src,
+               value = TRUE)
+  arrays <- unique(sub("^\\s*array<Type>\\s+(\\w+)\\(.*$", "\\1", decl))
+  expect_gt(length(arrays), 0)
+
+  # Counted with a SEPARATE grepl per array: one alternation capture is
+  # leftmost-longest, so a line holding two of these arrays -- `N_eq(sp, 1, age)
+  # = N_at_age(sp, 1, age, 0);` is one -- is attributed to only the last.
+  wpat <- function(a) paste0("\\b", a, "\\(\\s*sp\\s*,\\s*1\\s*,")
+  found <- vapply(arrays, function(a) sum(grepl(wpat(a), src)), integer(1))
+  found <- found[found > 0L]
+
+  expect_setequal(names(found), names(EXPECTED_SEX1_WRITES))
+  expect_equal(found[names(EXPECTED_SEX1_WRITES)], EXPECTED_SEX1_WRITES,
+               info = paste("sex-index-1 census moved:",
+                            paste(sprintf("%s %d", names(found), found),
+                                  collapse = ", ")))
+
+  pat  <- paste0("\\b(", paste(arrays, collapse = "|"), ")\\(\\s*sp\\s*,\\s*1\\s*,")
+  hits <- grep(pat, src)
+
+  # 15 writes sit on 14 LINES, because one line carries two of these arrays:
+  # `N_eq(sp, 1, age) = N_at_age(sp, 1, age, 0);`. Both numbers are pinned, since
+  # the lookback below is per line while the census above is per write, and a
+  # merge or split of that line moves one without the other.
+  expect_equal(length(hits), 14L)
 
   # Either an explicit nsex test, or inside the `if(sex == 1)` arm of a loop
-  # bounded by nsex(sp) -- both mean the slot exists.
+  # bounded by nsex(sp) -- both mean the slot exists. Comment lines are NOT
+  # stripped before this lookback: the window is positional, and removing lines
+  # lets a neighbouring block's guard drift into range and satisfy it.
   unguarded <- Filter(function(n) {
     ctx <- src[max(1, n - 6):(n - 1)]
     !any(grepl("if\\(nsex\\(sp\\) > 1\\)", ctx)) && !any(grepl("if\\(sex == 1\\)", ctx))

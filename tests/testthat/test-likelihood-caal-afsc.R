@@ -1,4 +1,4 @@
-# Provenance: inst/dev/CLEANUP_BACKLOG.md Tier 0, the ceattle.cpp `caal_ll_type`
+# Provenance: the developer backlog, Tier 0 -- the ceattle.cpp `caal_ll_type`
 # entry. CAAL_distribution = "MultinomialAFSC" is in comp_loglike_map, which
 # CAAL_distribution shares with Comp_distribution, so it passed
 # validate_switches() and then died inside the template with

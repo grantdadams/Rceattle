@@ -296,9 +296,7 @@ print.Rceattle_run_config <- function(x, ...) {
   d <- function(doc, allowed = NULL) list(doc = doc, allowed = allowed)
 
   # Model-level switches project from .rce_model_switch_schema(), so the
-  # comments written into a saved config list every value the map defines. They
-  # were hand-kept here, which is how estimateMode's DebugOptimize came to be a
-  # real mode that the YAML comment never mentioned.
+  # comments written into a saved config list every value the map defines.
   .from_switch_table <- function(nm) {
     row <- .rce_model_switch_schema()[[nm]]
     if (is.null(row)) return(NULL)

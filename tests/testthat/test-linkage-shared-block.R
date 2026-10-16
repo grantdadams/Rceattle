@@ -94,9 +94,8 @@ testthat::test_that("a shared block gets ONE linkage coefficient", {
 
 
 testthat::test_that("the mirrored pair's fitted selectivity is identical", {
-  # One parameter is the mechanism; identical output is the point. Needs a REAL
-  # fit -- at DebugBuild the coefficients sit at their starts and agree
-  # trivially, which is how an earlier version passed on broken code.
+  # Needs a REAL fit: at DebugBuild the coefficients sit at their starts and
+  # agree trivially, which is how an earlier version passed on broken code.
   testthat::skip_on_cran()
   data("GOA2018SS", package = "Rceattle", envir = environment())
   m <- suppressMessages(suppressWarnings(Rceattle::fit_mod(

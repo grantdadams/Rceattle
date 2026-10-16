@@ -10,8 +10,8 @@
 #' estimation phase.
 #'
 #' The motivation is that the historical Rceattle pattern of one wide
-#' parameter array per process (e.g. `beta_rec_pars[nspp, n_env]`,
-#' `M1_beta[nspp, nsex, n_env]`) does not generalize cleanly across
+#' parameter array per process (e.g. `M1_beta[nspp, nsex, n_env]`)
+#' does not generalize cleanly across
 #' processes that need different stratifications. A long-format table
 #' grows only with the linkages the user actually requests, regardless
 #' of the underlying species/sex/age dimensionality.
@@ -84,6 +84,8 @@ LINKAGE_COLS <- c(
   re_pos        = "integer"        # 0-based position within its own parameter vector
 )
 
+
+# Reserved sets and their checks ----
 
 #' Allowed values for fixed enum-like columns
 #' @keywords internal
@@ -166,6 +168,8 @@ LINKAGE_LINKS_IMPLEMENTED <- c("identity", "log", "exponential")
   invisible(link)
 }
 
+
+# Constructor and validator ----
 
 #' Construct an empty linkage table with the canonical schema
 #'
@@ -344,6 +348,8 @@ validate_linkage_table <- function(x) {
 }
 
 
+# linkage_row() ----
+
 #' Build a single linkage row
 #'
 #' Convenience constructor that returns a one-row linkage table with
@@ -467,6 +473,8 @@ linkage_row <- function(process, param, X_col,
 }
 
 
+# Row indices and slot scales ----
+
 #' Resolve a linkage row's stratum ids against per-species dimensions.
 #'
 #' A row's `species`, `sex`, and `age_bin` are integer ids or `NA` (which
@@ -522,6 +530,8 @@ linkage_row <- function(process, param, X_col,
 }
 
 
+# Shared and mirrored blocks ----
+
 #' Is this fleet a follower in a shared selectivity / catchability block?
 #'
 #' `Selectivity_index` / `Catchability_index` are group keys, not fleet codes:
@@ -557,6 +567,35 @@ linkage_row <- function(process, param, X_col,
   est  <- rows[!off[rows]]
   lead <- if (length(est)) est[1] else rows[1]
   if (identical(as.integer(lead), as.integer(flt))) NA_integer_ else as.integer(lead)
+}
+
+
+#' Every member of the blocks the named fleets belong to
+#'
+#' An intercept value written to the donor's cell alone is diluted: a shared
+#' block starts at `TMB:::updateMap()`'s mean over the whole map level, so the
+#' other members' build defaults pull it off the request. Bounds take one entry
+#' per level by first occurrence, so they need the same expansion to land on
+#' whichever cell wins.
+#'
+#' A group may span species -- `adjust_map_shared_params()` keys on the index
+#' alone, and so does the mean -- so the expansion does not filter on species.
+#' The sex range a caller writes is the NAMED fleet's species', and sex 1 exists
+#' for every species, so the worst case for a member of a one-sex species in a
+#' two-sex caller's group is a write into a padding cell, which is mapped off
+#' and so is neither read nor part of the level.
+#'
+#' @keywords internal
+#' @noRd
+.shared_block_members <- function(data_list, flts, process) {
+  col <- switch(process, q = "Catchability_index", sel = "Selectivity_index", NULL)
+  idx <- if (is.null(col)) NULL else data_list$fleet_control[[col]]
+  if (is.null(idx) || !length(flts)) return(flts)
+  out <- as.integer(flts)
+  for (f in out[!is.na(out)]) {
+    if (!is.na(idx[f])) out <- c(out, which(!is.na(idx) & idx == idx[f]))
+  }
+  sort(unique(as.integer(out)))
 }
 
 
@@ -724,6 +763,8 @@ linkage_row <- function(process, param, X_col,
   invisible()
 }
 
+# Argument validators ----
+
 .stop_unless_positive <- function(value, param, target) {
   if (!(value > 0)) {
     stop(sprintf(
@@ -748,6 +789,8 @@ linkage_row <- function(process, param, X_col,
   invisible()
 }
 
+
+# bind_linkage() and print ----
 
 #' Row-bind one or more linkage tables, preserving the schema
 #'

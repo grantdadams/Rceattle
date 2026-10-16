@@ -68,6 +68,10 @@ testthat::test_that("multispecies predation plotters run on a fitted model", {
     Rceattle::fit_mod(data_list = BS2017MS,
                       estimateMode = 3,
                       msmMode = 1,   # multispecies (predation on)
+                      # Estimated suitability, not the dataset's suitMode = 0:
+                      # predicted diet needs it, so plot_diet_comp() refuses on
+                      # an empirical-suitability fit and would smoke-test nothing.
+                      suitMode = 4,
                       fit_control = Rceattle::fit_control(verbose = 0))
   ))
 
@@ -107,7 +111,29 @@ testthat::test_that("catch plotter tolerates NA observations in projection rows"
   })
 })
 
-testthat::test_that("plot_indexresidual honours incl_proj", {
+testthat::test_that("plot_indexresidual is a deprecated alias that still draws", {
+  testthat::skip_if_not_installed("TMB")
+
+  data("BS2017SS")
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))))
+  with_null_device({
+    # It warns, and it draws the same figure -- a deprecation that silently
+    # changed the figure would be worse than the old name.
+    testthat::expect_warning(Rceattle::plot_indexresidual(ss),
+                             "plot_index_residual")
+    old <- suppressWarnings(Rceattle::plot_indexresidual(ss))
+    new <- Rceattle::plot_index_residual(ss)
+    testthat::expect_identical(old$data, new$data)
+    # And the canonical name does NOT warn, so the package is not warning at
+    # itself (the trap the plot_depletionSSB flip hit).
+    testthat::expect_no_warning(Rceattle::plot_index_residual(ss))
+  })
+})
+
+
+testthat::test_that("plot_index_residual honours incl_proj", {
   testthat::skip_if_not_installed("TMB")
 
   data("BS2017SS")
@@ -122,7 +148,7 @@ testthat::test_that("plot_indexresidual honours incl_proj", {
     Rceattle::fit_mod(data_list = dat, estimateMode = 3, msmMode = 0,
                       fit_control = Rceattle::fit_control(verbose = 0))))
 
-  yrs_of <- function(...) sort(unique(Rceattle::plot_indexresidual(...)$data$Year))
+  yrs_of <- function(...) sort(unique(Rceattle::plot_index_residual(...)$data$Year))
   with_null_device({
     testthat::expect_false(any(yrs_of(ss) > ss$data_list$endyr))
     testthat::expect_true(any(yrs_of(ss, incl_proj = TRUE) > ss$data_list$endyr))
@@ -170,7 +196,14 @@ testthat::test_that("every exported plotter runs on a minage != 1 model", {
     # These two default to age 1, which no species has at minage = 3. They are
     # asserted to refuse loudly below rather than skipped.
     plot_m_at_age       = "defaults to age 1; asserted to refuse at minage = 3",
-    plot_m2_at_age_prop = "defaults to age 1; asserted to refuse at minage = 3"
+    plot_m2_at_age_prop = "defaults to age 1; asserted to refuse at minage = 3",
+    # This fixture is msmMode = 0, so nothing predicts stomach proportions and
+    # all three refuse. They ran here until 5.61.0 only because they were drawn
+    # off an all-zero diet_hat. test-plot-smoke.R's multispecies block covers
+    # them on a suitMode = 4 fit.
+    plot_diet_comp      = "needs msmMode > 0 with estimated suitability",
+    plot_diet_comp1     = "needs msmMode > 0 with estimated suitability",
+    plot_diet_comp2     = "needs msmMode > 0 with estimated suitability"
   )
   # An exclusion that is no longer exported is a stale exclusion.
   testthat::expect_equal(setdiff(names(excluded), exported), character(0))
@@ -178,8 +211,8 @@ testthat::test_that("every exported plotter runs on a minage != 1 model", {
   # Pinned, because deriving the list closes one hole and opens another:
   # un-exporting a plotter would otherwise shrink the set silently, and a new
   # one would never be considered here. Update both numbers deliberately.
-  testthat::expect_equal(length(exported), 31L)
-  testthat::expect_equal(length(excluded), 4L)
+  testthat::expect_equal(length(exported), 32L)
+  testthat::expect_equal(length(excluded), 7L)
 
   plotters <- setdiff(exported, names(excluded))
 

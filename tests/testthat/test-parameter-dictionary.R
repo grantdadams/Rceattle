@@ -55,16 +55,10 @@ testthat::test_that("dictionary is well formed", {
 })
 
 
-testthat::test_that(".par_description() is message-safe", {
-  # Known parameter: name, natural-scale name and meaning.
-  lbl <- Rceattle:::.par_description("log_M1")
-  testthat::expect_match(lbl, "^log_M1 \\(M1\\): ")
-
-  # Unknown parameter must fall back rather than error -- a diagnostic that
-  # dies because of a stale name is worse than one that is terse.
-  testthat::expect_identical(Rceattle:::.par_description("no_such_param"),
-                             "no_such_param")
-
+testthat::test_that(".par_info() looks up a stale name without erroring", {
+  # A diagnostic that dies because of a renamed parameter is worse than one
+  # that is terse, so an unknown name returns a row with an NA meaning rather
+  # than dropping out or throwing. `.par_info()` is read by report_tables().
   # Vectorised lookup returns one row per requested name, in order.
   info <- Rceattle:::.par_info(c("rec_dev", "no_such_param", "sel_coff"))
   testthat::expect_equal(nrow(info), 3L)
