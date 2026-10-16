@@ -40,9 +40,11 @@ for the shared-block start, and raise a severity without rewriting the text.
 config layer, option flag or *new* registry this change does not need now, and no second grammar
 for what the linkage formula already expresses (rule 12) — but registering in the registries that
 already exist (the `JnllRow` partners, `.JNLL_ROW_AXIS`, `.index_rows_natural_scale()`) is not
-optional. A helper earns its place at two callers, or when it names a concept the reader needs —
-`.is_timeout()` and `.par_description()` have no caller in `R/` at all, and only their own tests
-keep them alive. **A guard that cannot fire is not safety:** name the input that reaches it, or
+optional. A helper earns its place at two callers, or when it names a concept the reader needs.
+Both halves of that were settled in 5.63.0 and the example is kept because it shows the rule
+working: `.is_timeout()` had no caller in `R/` and now has two (`R/0-convergence.R`), while
+`.par_description()` never earned one and was deleted. Check a helper's callers in the current
+tree before citing it. **A guard that cannot fire is not safety:** name the input that reaches it, or
 leave it out — PR #181 deleted five such guards, four refusals and a defensive early return,
 because the check above had already thrown for every input that could arrive. Name that input and
 the guard has earned its place: the failure mode here is a plausible wrong number, so a guard

@@ -31,9 +31,9 @@ version throughout.
   caller's intended `factor` is lost. Naming base's arguments is the documented
   route (`?jitter`), because the first two formals here are `object` and
   `njitter` and cannot be reordered without breaking every existing call.
-  Refusing `...` is a narrowing, so it was swept: of the 7 `jitter()` call sites
-  in the sibling repositories, **0** pass an argument the model path does not
-  take, so nothing shipping stops.
+  Refusing `...` is a narrowing, so it was swept: of the 6 live `jitter()` call
+  sites in the sibling repositories (plus one commented out), **0** pass an
+  argument the model path does not take, so nothing shipping stops.
 
 ## Bug fixes
 
@@ -165,8 +165,9 @@ version throughout.
   `vignette("model-options-and-functionality")` named `(1 | Year)`,
   `rw(1 | Year)` and `ar1(1 | Year)` but omitted a replacement for mode 3,
   `Block`, leaving a time-blocked fleet with no migration target; both now link
-  to the new section. Previously the grammar appeared only as a parenthetical in
-  `?build_selectivity`.
+  to the new section. The grammar was not undocumented before -- it is a parenthetical in
+  `?build_selectivity` and a fuller aside in the developer-guide article -- but that article is
+  `.Rbuildignore`d, so an installed package carried only the parenthetical.
 
   Two traps the section now states. `env_data` short of `endyr` is the
   dangerous case, not short of `projyr`: `cut()` keeps every level, so a block
@@ -196,9 +197,9 @@ version throughout.
   the per-cell count, the sex axis and the `minage` conversion have.
 
 * **`?plot_ssb_depletion` now says what the denominator is**, on the page this
-  release promotes to the canonical name. It is static `SB0` under a harvest
-  control rule, that year's `DynamicSB0` under `DynamicHCR = 1`, and female SSB
-  in the last projection year under `HCR = 0` with `msmMode > 0`. An
+  release promotes to the canonical name. It is that year's `DynamicSB0` under
+  `DynamicHCR = TRUE`; otherwise static `SB0`, except under `HCR = 0` with
+  `msmMode > 0`, where it is female SSB in the last projection year. An
   `msmMode = 0` fit and an `msmMode = 1, HCR = 0` fit on one axis are two
   different ratios, which `vignette("single-vs-multispecies")` draws without
   saying so. `report_tables()` already documents the multispecies denominator;
@@ -305,7 +306,8 @@ version throughout.
 
 * **`fit_mod()` now says when that floor bound something.** With the floor on, `BS2017MS`'s cold
   start still reaches M2 = 119 /yr, which is not a usable predation mortality. The warning names
-  the predator, the age and the year and counts the cells. It reads the **converged** fit, so it
+  the predator, the age and the cell count. (5.64.0 drops the year, which `suit_other` does not
+  have, and adds the sex on a two-sex predator.) It reads the **converged** fit, so it
   reports a model that settled on the floor and cannot see the floor binding during
   optimization -- which is the case that costs a gradient. Silent under `msmMode = 0`, where
   `suit_other` is never written.
@@ -384,7 +386,8 @@ version throughout.
   One sibling script is affected: `Rceattle-models/Pacific hake/Dev/ATF_SBF_hake_test.R` calls
   `plot_diet_comp2()` on a `msmMode = 1, suitMode = 0` fit and now errors -- its own comment
   ("diet estimate hake canni is good, in this model we do not have ATF predation, hence = 0")
-  is a reader taking the all-zero figure for a result. The other six hake call sites run
+  is a reader taking the all-zero figure for a result. The other 14 of the 15 `plot_diet_comp*`
+  call sites under `Pacific hake/` run
   `suitMode = c(0, 4, 4)` and keep working.
 
   A `data_list` carrying no `suitMode` is **not** refused: `fit_mod()` always writes it, so
