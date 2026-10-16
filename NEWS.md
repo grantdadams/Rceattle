@@ -467,12 +467,13 @@ version throughout.
   `plot_ssb_depletion()` and warns, exactly as `plot_logindex()` forwards to `plot_index()`.
   Nothing breaks; scripts gain a deprecation warning.
 
-  *Whose scripts warn:* **15 call sites across the sibling assessment
-  repositories, 14 of them live** (the other is commented out), including
+  *Whose scripts warn:* **18 call sites across the sibling assessment
+  repositories, 17 of them live** (the other is commented out), including
   `Rceattle-models/Pacific hake/MSE_yr2024.R`, which is rule 15's MSE and predation check. The
   new canonical name had **0** call sites there, so this deprecates the name consumers actually
   use -- a deliberate choice to make the package's own style rule hold. Update at leisure, or not
-  at all.
+  at all. Counted over all five repositories `SIBLING-REPOS.md` registers, `Climate_MSE`
+  included; a sweep of four misses three of its calls.
 
   *Inside the package:* the S3 dispatcher (`plot(fit, what = "ssb_depletion")`), five vignettes
   and four `examples/` scripts called the old name and would have made the package
