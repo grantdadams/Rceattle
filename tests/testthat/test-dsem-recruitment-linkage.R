@@ -6,8 +6,9 @@
 #
 # This is not hypothetical: the SS3 bridge carries SS3's initial recruitment
 # level as an `R_init` linkage, and the refusal forced it off, folding the level
-# into the penalised `init_dev` instead. Wherever the initial-level prior is on,
-# the optimiser then retires the shift by lowering R0 0.37 log units, 31% low.
+# into `init_dev` instead. `init_dev` carries a normal(0, R_sd) density per age
+# and the linkage carries none, so the same initial numbers at age cost 49.75
+# nats more -- and at an optimum the fit buys that back by moving the scale.
 
 testthat::test_that("a recruitment linkage is allowed alongside a DSEM", {
   testthat::skip_on_cran()
