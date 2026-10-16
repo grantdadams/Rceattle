@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.57.0.9000`, the released line this branch now
+number: `DESCRIPTION` reads `5.57.0.9001`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -31,6 +31,31 @@ code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
 suffix stays until the DSEM work is given a release number of its own. The
 5.23.0 section below records the same divergence from when this branch was
 numbered on the 5.23.0 line.
+
+## Behavior changes
+
+* **A recruitment linkage may now be used alongside a DSEM.** `fit_mod()`
+  refused the pair on the process NAME, but a recruitment linkage targets `R0`,
+  `alpha`, `beta` or `R_init` -- the stock-recruit level, or the level the
+  initial age structure sits at -- while the DSEM owns `rec_dev`, the deviations
+  around that prediction. Nothing was double counted, so nothing is refused now.
+  A covariate on R0 with a DSEM on the residual is environmental productivity
+  plus autocorrelated error.
+
+  No fit moves: a configuration that worked before works the same, and only one
+  that was refused becomes available.
+
+  *Why it mattered:* the SS3 bridge carries SS3's initial recruitment level as an
+  `R_init` linkage, so the refusal forced the GOA cod circulation study onto a
+  configuration folding that level into `init_dev` instead -- 49.7 nats worse on
+  the forward pass, with R0 biased 31% low (measured in
+  `../Rceattle-models/GOA cod/Bridging/`). `test-dsem-recruitment-linkage.R`
+  pins that the pair now builds, that the linkage reaches its offset tensor, and
+  that the GMRF is still the only density on the recruitment deviations.
+
+  One configuration this does NOT make identifiable: the same covariate on `R0`
+  *and* on a lag-0 path into `recdevs`, which enters the likelihood twice and
+  leaves a flat ridge between the two coefficients. Nothing refuses it yet.
 
 ## Breaking changes
 

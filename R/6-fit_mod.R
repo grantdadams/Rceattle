@@ -124,8 +124,9 @@
 #'   become latent states of a GMRF, so environmental covariates and
 #'   lagged/simultaneous paths drive recruitment. \code{NULL} (the default)
 #'   fits the standard recruitment-deviation parameterization and is a complete
-#'   no-op. A DSEM and a recruitment linkage (\code{recFun = build_srr(linkages
-#'   = ...)}) both structure the recruitment deviations and cannot be combined.
+#'   no-op. A recruitment linkage (\code{recFun = build_srr(linkages = ...)})
+#'   may be used alongside one: the linkage moves the stock-recruit level and
+#'   the DSEM the deviations around it.
 #' @param msmMode The predation-mortality mode, as a string alias or integer code:
 #'   \code{"SingleSpecies"} (0, the default, no predation), \code{"MSVPA"}
 #'   (1, the Type-II MSVPA predation of Holsman et al. 2015) or
@@ -852,19 +853,12 @@ fit_mod <-
         data_list$dsem_settings$sem <- mod_objects$dsem$sem
       }
 
-      # DSEM and a recruitment linkage both claim the recruitment deviations.
-      # Reject the combination up front rather than silently applying both.
-      # linkage_table$process holds the process NAME (see LINKAGE_COLS), not the
-      # integer code -- comparing against LINKAGE_PROCESS_CODES coerces to "0"
-      # and never matches, which would let the two structures stack silently
-      # once the C++ lands.
-      if (!is.null(data_list$linkage_table) &&
-          any(data_list$linkage_table$process == "recruitment")) {
-        stop("A DSEM and a recruitment linkage both structure the recruitment ",
-             "deviations; they cannot be combined. Supply either `dsem` or ",
-             "`recFun = build_srr(linkages = ...)`, not both.", call. = FALSE)
-      }
-
+      # A recruitment linkage and a DSEM compose: the linkage targets `R0`,
+      # `alpha`, `beta` or `R_init` -- the stock-recruit level, or the level the
+      # initial age structure sits at -- while the DSEM owns `rec_dev`, the
+      # deviations around that prediction. A covariate on R0 with a DSEM on the
+      # residual is environmental productivity plus autocorrelated error, which
+      # is an ordinary model. Nothing is double counted, so nothing is refused.
     }
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

@@ -108,34 +108,6 @@ testthat::test_that("the DSEM spec round-trips through a run configuration", {
   testthat::expect_null(Rceattle::load_config(f2)$model_config$dsem)
 })
 
-testthat::test_that("a DSEM and a recruitment linkage are rejected together", {
-  testthat::skip_on_cran()
-  testthat::skip_if_not_installed("TMB")
-  testthat::skip_if_not_installed("dsem")
-
-  # Regression: this compared linkage_table$process (a process NAME) against
-  # LINKAGE_PROCESS_CODES[["recruitment"]] (integer 0), which coerces to "0" and
-  # never matches -- so the check silently never fired. Once the C++ lands that
-  # would let a DSEM and a recruitment linkage both structure the recruitment
-  # deviations in the same fit.
-  d <- Rceattle::BS2017SS
-  nyr <- d$endyr - d$styr + 1
-  d$env_data <- data.frame(Year = d$styr:d$endyr,
-                           BT = as.numeric(scale(seq_len(nyr))))
-
-  testthat::expect_error(
-    suppressWarnings(suppressMessages(Rceattle::fit_mod(
-      data_list = d, inits = NULL, file = NULL, estimateMode = 3,
-      random_rec = TRUE, msmMode = 0,
-      recFun = Rceattle::build_srr(
-        srr_fun  = 0,
-        linkages = list(R0 = Rceattle::linkage_spec(~ BT, by = ~ species))),
-      dsem = Rceattle::build_DSEM(sem = sem_for(d$nspp)),
-      fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0)))),
-    "cannot be combined"
-  )
-})
-
 testthat::test_that("dsem must be a build_DSEM() specification", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
