@@ -146,6 +146,11 @@ rename_output <- function(data_list = NULL, quantities = NULL){
   # have no year dim, so they are not part of this last dimension.
   dimnames(quantities$growth_parameters) <- list(data_list$spnames, sex_labels, yrs_proj, .GROWTH_MEAN_PARAMS)
   dimnames(quantities$growth_linkage_offset) <- list(data_list$spnames, sex_labels, yrs_proj, .GROWTH_MEAN_PARAMS)
+  dimnames(quantities$growth_linkage_offset_nat) <- list(data_list$spnames, sex_labels, yrs_proj, .GROWTH_MEAN_PARAMS)
+  # The M offsets are age-resolved where the growth ones are parameter-resolved.
+  # Ages follow the convention above -- the label is the age bin index.
+  dimnames(quantities$M_linkage_offset) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$M_linkage_offset_nat) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
 
   dimnames(quantities$weight_hat) <- dimnames(quantities$length_hat) <- list(
     c(paste(rep(data_list$spnames, each = 2), rep(c("biomass length", "spawn length"), data_list$nspp)), data_list$fleet_control$Fleet_name),

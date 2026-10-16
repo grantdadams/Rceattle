@@ -122,13 +122,15 @@ the deepest rows rest on one or two fits. A species with \code{estDynamics > 0}
 is \code{NA} -- its numbers-at-age are input, so it was never forecast.
 
 A peel that did not converge is dropped, so \code{Rceattle_list} can be
-shorter than one plus the number of peels asked for (a message reports how
-many); \code{peels_requested} is that number and \code{peel_depths} the
+shorter than one plus the number of peels asked for (a warning reports how
+many, since a drop changes the rho that gets reported);
+\code{peels_requested} is that number and \code{peel_depths} the
 depths themselves. Each entry is named for its own terminal year
 (\code{Year_2017}, ...) rather than by position, so index it by name --
 \code{Rceattle_list[[3]]} is not necessarily the 3-year peel, and with a
-subset such as \code{peels = 2:10} it never is. With no peel left, Mohn's
-rho is \code{NaN} and the function warns.
+subset such as \code{peels = 2:10} it never is. With no peel left,
+\code{$mohns} comes back with no rows (its columns intact, so a subset or
+merge still works) and the function warns.
 
 A peel still estimates the years it dropped: that is its retrospective
 forecast, fit to observed catch with the survey and composition data

@@ -495,7 +495,7 @@ hindcast_skill <- function(object = NULL, peels = 5,
 #' Shared by [hindcast_skill()] and [retrospective()]; eq. 5 is implemented
 #' once, here.
 #'
-#' @param by_year rows from [.rce_mase_by_year_model()] or the observed path.
+#' @param by_year rows from `.rce_mase_by_year_model()` or the observed path.
 #' @return one row per `years_ahead` x `species` x `quantity`, with `n_peels`,
 #'   `peels_used` (which peels the row rests on), `mae_forecast`, `mae_naive`
 #'   and `mase`. Internal names; renamed on the way out, as above.

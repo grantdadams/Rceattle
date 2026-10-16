@@ -1072,9 +1072,6 @@ Type objective_function<Type>::operator() () {
     nages,
     nyrs
   );
-  REPORT(M_linkage_offset);
-  REPORT(M_linkage_offset_nat);
-
 
   // - GROWTH OFFSETS
   array<Type> growth_linkage_offset(nspp, max_sex, nyrs, RCEATTLE_N_GROWTH_PARAMS);
@@ -1113,9 +1110,6 @@ Type objective_function<Type>::operator() () {
     nsex,
     nyrs
   );
-  REPORT(growth_linkage_offset);
-  REPORT(growth_linkage_offset_nat);
-
 
   // 5.5b. DSEM ON THE RECRUITMENT DEVIATIONS
   // Where a DSEM is supplied, the recruitment deviations are the latent states
@@ -1332,6 +1326,15 @@ Type objective_function<Type>::operator() () {
       }
     }
   }
+
+  // Position matters: REPORT() copies the tensor at the call site, and these
+  // offsets are the seam section 5.5b writes a DSEM's growth and M latent
+  // states into. Reported above 5.5b they would be a pre-DSEM snapshot,
+  // contradicting growth_parameters and the M the dynamics read.
+  REPORT(M_linkage_offset);
+  REPORT(M_linkage_offset_nat);
+  REPORT(growth_linkage_offset);
+  REPORT(growth_linkage_offset_nat);
 
   // 5.6. RECRUITMENT PARAMETERS
   // Linkage offsets combine log-link (multiplicative) and identity-link

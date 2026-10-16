@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.64.0.9000`, the released line this branch now
+number: `DESCRIPTION` reads `5.64.0.9001`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -31,6 +31,29 @@ code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
 suffix stays until the DSEM work is given a release number of its own. The
 5.23.0 section below records the same divergence from when this branch was
 numbered on the 5.23.0 line.
+
+## Diagnostics
+
+* **The growth and M linkage offsets are reported after the DSEM section rather
+  than before it.** `REPORT()` copies the tensor at the call site, and these
+  offsets are the seam the DSEM writes its growth and M latent states into, so
+  a report taken above section 5.5b would be a snapshot from before the DSEM
+  contributed to it: `growth_linkage_offset` would disagree with
+  `growth_parameters`, which is reported after, and the documented identity
+  `growth_parameters == exp(log_growth_pars + growth_linkage_offset) +
+  growth_linkage_offset_nat` would not hold. The same for
+  `M_linkage_offset` against the M the dynamics read.
+
+  **No reported value moves.** Nothing writes a latent state into either tensor
+  yet, so the move is provably a no-op today -- which is why it goes in now,
+  before there is a number to get wrong. `test-dsem-source-order.R` pins the
+  position, and the clause it asserts flipped in this change rather than
+  silently.
+
+* **`M_linkage_offset`, `M_linkage_offset_nat` and
+  `growth_linkage_offset_nat` now carry dimnames**, as `growth_linkage_offset`
+  already did: species, sex, age bin (the M pair only) and year. A cell in them
+  could not be identified without counting dimensions.
 
 ## Behavior changes
 

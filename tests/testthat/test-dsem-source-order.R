@@ -17,11 +17,9 @@
 # four conflict hunks into this file, so the next merge gets this guard instead
 # of a re-derivation. It cannot be a numeric test until a growth latent exists.
 #
-# The REPORT assertions pin the CURRENT placement, which is above 5.5b. TMB
-# binds the reported copy at the call site, so once a latent is written into
-# these tensors that snapshot is pre-DSEM and disagrees with growth_parameters.
-# Moving them is a separate, deliberate change -- this guard is what makes that
-# move show up in a diff rather than pass unnoticed.
+# The REPORT assertions pin the placement between 5.5b and the reads. TMB binds
+# the reported copy at the call site, so a REPORT above 5.5b hands back a
+# pre-DSEM snapshot that disagrees with growth_parameters and M.
 
 cpp_lines_no_comments <- function() {
   cpp <- c("src/TMB/ceattle.cpp",
@@ -76,10 +74,23 @@ test_that("the linkage offset fill precedes the DSEM section, which precedes eve
   expect_lt(m_zero, min(m_fill))
 })
 
-test_that("the offset REPORTs sit above the DSEM section", {
+test_that("the offset REPORTs sit below the DSEM section, above every read", {
   src <- cpp_lines_no_comments()
 
-  dsem <- anchor(src, "calculate_dsem[(]")
-  expect_lt(anchor(src, "REPORT[(]growth_linkage_offset[)]"), dsem)
-  expect_lt(anchor(src, "REPORT[(]M_linkage_offset[)]"), dsem)
+  dsem   <- anchor(src, "calculate_dsem[(]")
+  g_read <- anchor(src, "growth_linkage_offset[(]sp, sex, yr, par[)]")
+  m_read <- anchor(src, "M_linkage_offset[(]sp, sex, age, yr[)]")
+
+  for (p in c("REPORT[(]growth_linkage_offset[)]",
+              "REPORT[(]growth_linkage_offset_nat[)]",
+              "REPORT[(]M_linkage_offset[)]",
+              "REPORT[(]M_linkage_offset_nat[)]")) {
+    expect_gt(anchor(src, p), dsem)
+  }
+
+  # Above the reads as well, so the reported tensor is the one the dynamics
+  # used -- a REPORT below a read would be the same value today but stops
+  # being a snapshot of the input to that read.
+  expect_lt(anchor(src, "REPORT[(]growth_linkage_offset[)]"), g_read)
+  expect_lt(anchor(src, "REPORT[(]M_linkage_offset[)]"), m_read)
 })
