@@ -367,7 +367,11 @@ version throughout.
   running the bounds-checked build on ubuntu alone could not reach it. `fail-fast: false` so a
   lost runner on one OS does not cancel the other, and `TESTTHAT_PARALLEL: false` so a crash is
   attributable to the file that caused it rather than to whichever parallel worker was holding
-  the corrupted heap.
+  the corrupted heap. **At this tag that arm measured nothing**: `verify-safebounds.R` passed the
+  flag to its rebuild through `system2(env=)`, which on Windows serves only a command taking
+  assignments on its command line, so the rebuild compiled nothing and the harness's positive
+  control refused the run. Fixed after the tag, in `tools/verify/verify-safebounds.R`; the Linux
+  arm was unaffected.
 * **`.par_description()` removed and `.is_timeout()` given its callers.** Both had no caller in
   `R/` and were kept alive only by their own tests. Nothing duplicated `.par_description()`, so it
   is gone; `.is_timeout()`'s regex was a literal in **three** places, so it now takes a condition

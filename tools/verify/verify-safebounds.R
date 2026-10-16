@@ -55,9 +55,11 @@ cat("Rebuilding with bounds checking (slow)...\n")
 build_log <- local({
   old <- setwd(file.path("src", "TMB"))
   on.exit(setwd(old), add = TRUE)
+  # The flag reaches the child through the environment set above. system2(env=)
+  # would not: on Windows it serves only a command that takes assignments on its
+  # command line, and Rscript does not, so the call compiled nothing at all.
   suppressWarnings(system2("Rscript", "compile.R",
-                           stdout = TRUE, stderr = TRUE,
-                           env = "RCEATTLE_SAFEBOUNDS=true"))
+                           stdout = TRUE, stderr = TRUE))
 })
 
 if (!any(grepl("-DTMB_SAFEBOUNDS", build_log, fixed = TRUE))) {
