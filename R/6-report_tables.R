@@ -626,24 +626,24 @@ report_tables <- function(object,
 }
 
 
-# Mohn's rho, reshaped from the wide species-per-column frame retrospective()
-# returns into one row per species and forecast year.
+# Mohn's rho as one row per species and forecast year. `$mohns` is already that
+# shape; `.rce_mohns_as_long()` is a no-op on it and converts the older
+# species-per-column frame a saved retro object may carry.
 .rce_tab_retro <- function(retro, model) {
   if (is.null(retro)) return(NULL)
-  m <- retro$mohns
+  m <- .rce_mohns_as_long(retro$mohns)
   if (is.null(m) || !nrow(m)) return(NULL)
-  keys <- c("Object", "Forecast year", "N")
-  sp_cols <- setdiff(names(m), keys)
-  if (!length(sp_cols)) return(NULL)
+  if (!all(c("Object", "Forecast year", "N", "species", "rho") %in% names(m)))
+    return(NULL)
 
-  do.call(rbind, c(lapply(sp_cols, function(s) data.frame(
+  data.frame(
     model         = model,
-    species       = s,
+    species       = m[["species"]],
     quantity      = m[["Object"]],
     forecast_year = m[["Forecast year"]],
     n_peels       = m[["N"]],
-    mohns_rho     = as.numeric(m[[s]]),
-    stringsAsFactors = FALSE)), list(make.row.names = FALSE)))
+    mohns_rho     = m[["rho"]],
+    stringsAsFactors = FALSE)
 }
 
 

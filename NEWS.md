@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.64.0.9001`, the released line this branch now
+number: `DESCRIPTION` reads `5.64.0.9002`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -31,6 +31,25 @@ code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
 suffix stays until the DSEM work is given a release number of its own. The
 5.23.0 section below records the same divergence from when this branch was
 numbered on the 5.23.0 line.
+
+## Bug fixes
+
+* **`report_tables()`'s retrospective section published a species called
+  `"rho"`, and lost half its Mohn's rho values.** `$mohns` is long -- one row
+  per `Object` x `Forecast year` x `species`, with the value in `rho` -- but
+  `.rce_tab_retro()` still read it as the wide species-per-column frame it used
+  to be, so `setdiff(names(m), keys)` returned the literal column names
+  `"species"` and `"rho"` and treated each as a species. On a 4-row input the
+  table came back with 8 rows, `species` holding `"species"` and `"rho"`, the
+  real rho values filed under the species `"rho"`, and `mohns_rho` `NA` for half
+  of them from `as.numeric()` on a character column -- a coercion warning, not
+  an error. `standard_output()` carries this section, so the NOAA reporting path
+  received it.
+
+  Both shapes now read correctly, through the existing `.rce_mohns_as_long()`,
+  so a retrospective saved before `$mohns` went long still tabulates.
+  `test-report-tables.R` pins each shape; the long case fails three assertions
+  against the old code.
 
 ## Diagnostics
 

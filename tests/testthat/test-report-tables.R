@@ -140,6 +140,57 @@ testthat::test_that("report_tables() rejects things that are not fits", {
 })
 
 
+# `$mohns` became LONG -- one row per Object x Forecast year x species, with the
+# value in `rho` -- while .rce_tab_retro() still read it as a species-per-column
+# frame. `setdiff(names(m), keys)` then returned the literal column names
+# "species" and "rho", so the table published a species called "rho", half its
+# mohns_rho NA by coercion, and twice the rows it should. It feeds
+# standard_output(), i.e. the NOAA SAFE reporting path, and nothing caught it:
+# the only other retro assertion here passes `retro = list(1, 2)` to check a
+# type refusal, and the vignette chunk that reaches it is not run on a PR.
+testthat::test_that(".rce_tab_retro() reads a long $mohns, one row per species", {
+  m <- data.frame(
+    Object          = c("ssb", "ssb", "biomass", "biomass"),
+    `Forecast year` = c(0, 0, 0, 0),
+    N               = c(3L, 3L, 3L, 3L),
+    species         = c("Pollock", "Cod", "Pollock", "Cod"),
+    rho             = c(-0.11, 0.07, -0.09, 0.05),
+    check.names = FALSE, stringsAsFactors = FALSE)
+
+  out <- Rceattle:::.rce_tab_retro(list(mohns = m), model = "M1")
+
+  testthat::expect_equal(nrow(out), 4L)
+  testthat::expect_setequal(out$species, c("Pollock", "Cod"))
+  # No rho may be lost: the defect turned half of them into NA.
+  testthat::expect_false(anyNA(out$mohns_rho))
+  testthat::expect_equal(
+    out$mohns_rho[out$species == "Pollock" & out$quantity == "ssb"], -0.11)
+  testthat::expect_equal(
+    out$mohns_rho[out$species == "Cod" & out$quantity == "biomass"], 0.05)
+})
+
+
+# A retro saved before $mohns went long carries the wide frame, and
+# .rce_mohns_as_long() is what keeps such an object readable.
+testthat::test_that(".rce_tab_retro() still reads a wide $mohns", {
+  m <- data.frame(
+    Object          = c("ssb", "biomass"),
+    `Forecast year` = c(0, 0),
+    N               = c(3L, 3L),
+    Pollock         = c(-0.11, -0.09),
+    Cod             = c(0.07, 0.05),
+    check.names = FALSE, stringsAsFactors = FALSE)
+
+  out <- Rceattle:::.rce_tab_retro(list(mohns = m), model = "M1")
+
+  testthat::expect_equal(nrow(out), 4L)
+  testthat::expect_setequal(out$species, c("Pollock", "Cod"))
+  testthat::expect_false(anyNA(out$mohns_rho))
+  testthat::expect_equal(
+    out$mohns_rho[out$species == "Pollock" & out$quantity == "ssb"], -0.11)
+})
+
+
 testthat::test_that("report_tables() never runs a diagnostic itself", {
   # A retrospective or a jitter is tens to hundreds of refits. Passing a
   # non-diagnostic object must error rather than quietly refitting.
