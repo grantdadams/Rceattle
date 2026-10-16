@@ -190,7 +190,7 @@ simData$sigma_rec <- rep(1, nspp)
 # multi-species mode to prevent unrealistically high predation mortality when
 # modeled prey are scarce. Setting this too low forces predators to over-eat
 # modeled prey; too high dilutes the predation signal.
-simData$other_food <- rep(1e5, nspp)
+simData$other_food <- rep(1e5, nspp)   # metric tons of non-modelled prey
 ```
 
 ## 2. Fleet control table
@@ -214,6 +214,12 @@ modeled. Multiple fleets can target the same species.
 #   "Hake"               (5), non-parametric selectivity à la Taylor et al. (Pacific hake)
 #   "2DAR1"              (6), 2D autoregressive random effects (bin × year)
 #   "3DAR1"              (7), 3D autoregressive random effects (bin × year × cohort)
+#   "DoubleNormal"       (8), Gaussian ascending/descending limbs blended at peak
+#   "NonParametricPM"    (9), Ianelli non-parametric, ADMB AMAK penalty
+#   "LogisticPM"        (11), AMAK logistic with multiplicative deviations
+#   "NonParametricIntegrable" (13), deviations with a proper density (random_sel)
+#   "DoubleNormalSS3"   (15), SS3 size pattern 24, six-parameter
+#   (sel_map in R/0-switches.R is the registry; 10, 12 and 14 are unused)
 #
 # Selectivity_dimension: "Age" or "Length"
 #   Length-based selectivity requires an age-to-length transition matrix (see below).
@@ -222,8 +228,9 @@ modeled. Multiple fleets can target the same species.
 #   "Fixed"                (0), Q fixed at Catchability_init; not estimated
 #   "Estimated"            (1), freely estimated on log scale
 #   "Estimated-with-prior" (2), estimated with a lognormal prior (Catchability_init, Catchability_prior_sd)
-#   "Analytical"           (3), Ludwig & Walters / Martell (1994) analytical Q
-#   "PowerEquation"        (4), power-equation Q (habitat area scaling)
+#   "Analytical"           (3), Walters & Ludwig (1994) analytical Q
+#   "PowerEquation"        (4), NOT YET IMPLEMENTED; data_check() refuses it
+#   "AnalyticalArith"      (7), arithmetic-mean analytical Q
 #   "Environmental"        (5), mu_q + X * beta, where X is a covariate in env_data
 #   "AR1"                  (6), REMOVED in 5.12.0; data_check() errors. Use a q
 #                                  linkage with ar1(1 | Year) and observe = <column>
@@ -240,7 +247,8 @@ simData$fleet_control <- data.frame(
   Fleet_code  = 1:(nspp * 2),       # unique integer ID per fleet
   Fleet_type  = rep(c("Survey", "Fishery"), nspp),
   Species     = rep(1:nspp, each = 2),
-  Month       = 0,                   # 0 = mid-year; calendar month otherwise
+  Month       = 0,                   # 0 = not specified; read for comps and
+                                     # weight-at-age when growth is estimated
 
   # Selectivity_index links fleets that share the same selectivity curve.
   # Fleets with the same index share all selectivity parameters.
@@ -260,7 +268,7 @@ simData$fleet_control <- data.frame(
   #   5 / "RandomWalkAscending" = random walk on ascending portion of double logistic
   Time_varying_sel          = 0,
   Time_varying_sel_sd = 1,
-  Bin_first_selected        = 1,     # youngest fully-selected age or length bin
+  Bin_first_selected        = 1,     # first bin selected; selectivity is 0 below it
   Sel_norm_bin             = "Off", # "Max", "Off", or a bin to normalize at
   Sel_norm_bin_upper       = "Off", # "Off", or the top of a bin range
   # Two-sex models only: whether the normalization reference is pooled over the
@@ -297,14 +305,14 @@ simData$fleet_control <- data.frame(
   # Estimate_index_sd:
   #   0 = fix at Log_sd from index_data
   #   1 = estimate a single SD
-  #   2 = analytical sigma (Ludwig & Walters 1994)
+  #   2 = analytical sigma (Walters & Ludwig 1994)
   Estimate_index_sd  = rep(c(0,  NA), nspp),
   Index_sd     = rep(c(1,  NA), nspp),
 
   # Estimate_catch_sd:
   #   0 = fix at Log_sd from catch_data (treats catch as known)
   #   1 = estimate
-  #   2 = analytical sigma (Ludwig & Walters 1994); concentrates the sd out of
+  #   2 = analytical sigma (Walters & Ludwig 1994); concentrates the sd out of
   #       the catch likelihood, so catch stops pinning F as tightly
   Estimate_catch_sd  = rep(c(NA, 0),  nspp),
   Catch_sd     = rep(c(NA, 1),  nspp),
@@ -333,6 +341,9 @@ simData$index_data <- data.frame(
   Fleet_code        = rep(seq(1, nspp * 2, by = 2), each = nyrs),
   Species           = rep(1:nspp, each = nyrs),
   Year              = rep(years, nspp),
+  # This is the month the index predictor uses: 0 = start of year, before any
+  # mortality; 6 = mid-year. A mid-year survey left at 0 is predicted ~9.5% high
+  # at Z = 0.2.
   Month             = 0,
   # Selectivity_block: integer index into the selectivity/Q parameter block.
   # Used when Time_varying_sel or Time_varying_q = 3 (time blocks).

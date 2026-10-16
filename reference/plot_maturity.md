@@ -25,19 +25,23 @@ plot_maturity(
 
 - file:
 
-  name of a file to identified the files exported by the function.
+  Path/prefix for the saved figure. `NULL` (default) draws without
+  saving.
 
 - model_names:
 
   Names of models to be used in legend
 
-- line_col:
+- line_col, lwd:
 
-  Colors of models to be used for line color
+  Deprecated base-graphics arguments, retained for back-compatibility
+  and ignored; colour comes from the shared model palette and the line
+  width is fixed.
 
 - species:
 
-  Species names for legend
+  Species labels for the facet strips, length `nspp`. Default is the
+  model's own names. It labels panels and does not subset.
 
 - width:
 
@@ -46,7 +50,3 @@ plot_maturity(
 - height:
 
   Figure height in inches
-
-- lwd:
-
-  Line width as specified by user

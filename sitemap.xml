@@ -1,5 +1,6 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://afsc-assessments.github.io/Rceattle/404.html</loc></url>
+<url><loc>https://afsc-assessments.github.io/Rceattle/AGENTS.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/CLAUDE.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/CONTRIBUTING.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/articles/adding-a-selectivity-form.html</loc></url>
@@ -17,6 +18,7 @@
 <url><loc>https://afsc-assessments.github.io/Rceattle/articles/single-vs-multispecies.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/articles/stock-synthesis-conversion.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/authors.html</loc></url>
+<url><loc>https://afsc-assessments.github.io/Rceattle/copilot-instructions.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/index.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/news/index.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/Atka2022.html</loc></url>
@@ -85,30 +87,6 @@
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/convergence_diagnostics.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/data_check.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/data_requirements.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-GROWTH_MEAN_PARAMS.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-M1_MODELS.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-M1_RES.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-comp_aggregate.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-comp_resid_long.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-model_labels.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-new_obs_ctl.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-okabe_ito.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-okabe_ito_pal.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-osa_bin_side.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-osa_comp_side.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-osa_composition_figures.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-osa_jointsex.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-osa_qqplot.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-osa_resid_year_plot.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-osa_source_label.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-osa_stack.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-prior_dispatch_mask.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-process_prior_spec.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-process_residual_one.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-rceattle_scale.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-rceattle_theme.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-save_ggplot.html</loc></url>
-<url><loc>https://afsc-assessments.github.io/Rceattle/reference/dot-set_linkage_param.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/encode_linkage_for_tmb.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/fit_control.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/fit_mod.html</loc></url>
@@ -153,6 +131,7 @@
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/plot_f.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/plot_form.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/plot_index.html</loc></url>
+<url><loc>https://afsc-assessments.github.io/Rceattle/reference/plot_index_residual.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/plot_indexresidual.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/plot_logindex.html</loc></url>
 <url><loc>https://afsc-assessments.github.io/Rceattle/reference/plot_m2_at_age_prop.html</loc></url>

@@ -99,15 +99,15 @@ Functions</h2></td></tr>
 <tr class="separator:aa580c2b12a8427109ba0fb887135045f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a13ba3dabd68b4f0e25b1e1bca42e04c0" id="r_a13ba3dabd68b4f0e25b1e1bca42e04c0"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:a13ba3dabd68b4f0e25b1e1bca42e04c0"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="predation_8hpp.html#a13ba3dabd68b4f0e25b1e1bca42e04c0">calculate_parametric_suitability</a> (array&lt; Type &gt; &amp;suitability, array&lt; Type &gt; &amp;suit_other, int nspp, int nyrs, const vector&lt; int &gt; &amp;nsex, const vector&lt; int &gt; &amp;nages, const vector&lt; int &gt; &amp;suitMode, array&lt; Type &gt; &amp;length_hat, array&lt; Type &gt; &amp;weight_hat, matrix&lt; Type &gt; &amp;vulnerability, const vector&lt; Type &gt; &amp;vulnerability_other, const vector&lt; Type &gt; &amp;gam_a, const vector&lt; Type &gt; &amp;gam_b)</td></tr>
-<tr class="memdesc:a13ba3dabd68b4f0e25b1e1bca42e04c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates parametric suitability (Gamma, Lognormal, and Normal forms) based on predator/prey size ratios.  <br /></td></tr>
+<tr class="memdesc:a13ba3dabd68b4f0e25b1e1bca42e04c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parametric suitability (Gamma, Lognormal, Normal) from size ratios.  <br /></td></tr>
 <tr class="separator:a13ba3dabd68b4f0e25b1e1bca42e04c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adea2cf10ce3f57b8b9c0e4978ceafec9" id="r_adea2cf10ce3f57b8b9c0e4978ceafec9"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:adea2cf10ce3f57b8b9c0e4978ceafec9"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="predation_8hpp.html#adea2cf10ce3f57b8b9c0e4978ceafec9">calculate_msvpa_suitability</a> (array&lt; Type &gt; &amp;stom_div_bio, array&lt; Type &gt; &amp;suitability, array&lt; Type &gt; &amp;suit_other, int nspp, int nyrs, const vector&lt; int &gt; &amp;suit_styr, const vector&lt; int &gt; &amp;suit_endyr, const vector&lt; int &gt; &amp;nyrs_suit, int msmMode, const vector&lt; int &gt; &amp;nsex, const vector&lt; int &gt; &amp;nages, const vector&lt; int &gt; &amp;suitMode, array&lt; Type &gt; &amp;diet_prop, array&lt; Type &gt; &amp;avgN_at_age, array&lt; Type &gt; &amp;weight_hat, array&lt; Type &gt; &amp;other_food_diet_prop)</td></tr>
-<tr class="memdesc:adea2cf10ce3f57b8b9c0e4978ceafec9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates MSVPA/empirical-based suitability based on stomach content and prey biomass.  <br /></td></tr>
+<tr class="memdesc:adea2cf10ce3f57b8b9c0e4978ceafec9"><td class="mdescLeft">&#160;</td><td class="mdescRight">MSVPA/empirical suitability, from stomach content and prey biomass.  <br /></td></tr>
 <tr class="separator:adea2cf10ce3f57b8b9c0e4978ceafec9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0f6958157a548b4dad7761662e93cf8c" id="r_a0f6958157a548b4dad7761662e93cf8c"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:a0f6958157a548b4dad7761662e93cf8c"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="predation_8hpp.html#a0f6958157a548b4dad7761662e93cf8c">calculate_msvpa_predation</a> (array&lt; Type &gt; &amp;avail_food, array&lt; Type &gt; &amp;avail_food_dB0, array&lt; Type &gt; &amp;avail_food_dBF, array&lt; Type &gt; &amp;M2_at_age, array&lt; Type &gt; &amp;M2_at_age_dB0, array&lt; Type &gt; &amp;M2_at_age_dBF, array&lt; Type &gt; &amp;M2_prop, array&lt; Type &gt; &amp;B_eaten, array&lt; Type &gt; &amp;B_eaten_as_prey, array&lt; Type &gt; &amp;diet_prop_hat, array&lt; Type &gt; &amp;other_diet_prop_hat, int nspp, int nyrs, const vector&lt; int &gt; &amp;nsex, const vector&lt; int &gt; &amp;nages, int msmMode, array&lt; Type &gt; &amp;avgN_at_age, array&lt; Type &gt; &amp;avgN_at_age_dB0, array&lt; Type &gt; &amp;avgN_at_age_dBF, array&lt; Type &gt; &amp;suitability, array&lt; Type &gt; &amp;suit_other, array&lt; Type &gt; &amp;weight_hat, array&lt; Type &gt; &amp;ration, const vector&lt; Type &gt; &amp;other_food)</td></tr>
-<tr class="memdesc:a0f6958157a548b4dad7761662e93cf8c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates available food, predation mortality (M2), and consumed biomass (MSVPA).  <br /></td></tr>
+<tr class="memdesc:a0f6958157a548b4dad7761662e93cf8c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Available food, predation mortality (M2), and consumed biomass (MSVPA).  <br /></td></tr>
 <tr class="separator:a0f6958157a548b4dad7761662e93cf8c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
@@ -271,46 +271,39 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Calculates available food, predation mortality (M2), and consumed biomass (MSVPA). </p>
-<p>This function calculates the core MSVPA predation dynamics in two passes. Pass 1 calculates the total available food for each predator. Pass 2 allocates predation mortality (M2) and consumption across prey species based on suitability and available food. Dynamic reference points (dB0 and dBF) are calculated simultaneously.</p><ul>
-<li>Highly optimized for TMB:</li>
-</ul>
-<ol type="1">
-<li>Prey loops are inverted in Step 1 to prevent redundant prey biomass calculations.</li>
-<li>Predator-specific division scalars are hoisted out of the deepest loops in Step 2.</li>
-<li>Year loops are moved to the outermost level to maximize column-major cache locality.</li>
-</ol>
+<p>Available food, predation mortality (M2), and consumed biomass (MSVPA). </p>
+<p>Available food is suitability-weighted prey biomass plus "other food": prey numbers (thousands of fish) x weight (kg) = mt, and other_food is mt. Under msmMode = 2 (Type III) the prey term is squared, so the denominator is not a biomass there. M2 divides each predator's consumption (avgN x ration) by that denominator, so a LARGER available-food denominator gives LESS predation mortality. The dB0 (F = 0) and dBF (F = Ftarget) arrays repeat the calculation for the dynamic reference points. Prey biomass and the predator scalars are each computed once outside the deepest loop.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">avail_food</td><td>Array updated with total available food [nspp, max_sex, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">avail_food_dB0</td><td>Array updated with available food at F=0. </td></tr>
-    <tr><td class="paramname">avail_food_dBF</td><td>Array updated with available food at F=Ftarget. </td></tr>
-    <tr><td class="paramname">M2_at_age</td><td>Array updated with calculated predation mortality [nspp, max_sex, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">M2_at_age_dB0</td><td>Array updated with predation mortality at F=0. </td></tr>
-    <tr><td class="paramname">M2_at_age_dBF</td><td>Array updated with predation mortality at F=Ftarget. </td></tr>
-    <tr><td class="paramname">M2_prop</td><td>Array updated with relative predation mortality. </td></tr>
-    <tr><td class="paramname">B_eaten</td><td>Array updated with biomass of prey eaten by specific predator. </td></tr>
-    <tr><td class="paramname">B_eaten_as_prey</td><td>Array updated with total biomass of prey eaten by all predators. </td></tr>
-    <tr><td class="paramname">diet_prop_hat</td><td>Array updated with predicted diet proportions. </td></tr>
-    <tr><td class="paramname">other_diet_prop_hat</td><td>Array updated with predicted proportion of "other food" in diet. </td></tr>
-    <tr><td class="paramname">nspp</td><td>Total number of species in the model. </td></tr>
-    <tr><td class="paramname">nyrs</td><td>Total number of years evaluated. </td></tr>
-    <tr><td class="paramname">nsex</td><td>Vector containing the number of sexes modeled for each species. </td></tr>
-    <tr><td class="paramname">nages</td><td>Vector containing the number of age classes for each species. </td></tr>
-    <tr><td class="paramname">msmMode</td><td>Integer specifying the multi-species predation mode (1 = Type II, 2 = Type III). </td></tr>
-    <tr><td class="paramname">avgN_at_age</td><td>Array of average numbers-at-age. </td></tr>
-    <tr><td class="paramname">avgN_at_age_dB0</td><td>Array of average numbers-at-age at F=0. </td></tr>
-    <tr><td class="paramname">avgN_at_age_dBF</td><td>Array of average numbers-at-age at F=Ftarget. </td></tr>
-    <tr><td class="paramname">suitability</td><td>Array of calculated suitability [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">suit_other</td><td>Array of suitability for "other food". </td></tr>
-    <tr><td class="paramname">weight_hat</td><td>Array of estimated weights-at-age. </td></tr>
-    <tr><td class="paramname">ration</td><td>Array of calculated individual consumption/ration (kg/yr). </td></tr>
-    <tr><td class="paramname">other_food</td><td>Vector of base biomass for "other food" by predator. </td></tr>
+    <tr><td class="paramname">avail_food</td><td>Available food (mt) [nspp, max_sex, max_age, nyrs], updated. </td></tr>
+    <tr><td class="paramname">avail_food_dB0</td><td>Available food at F=0, updated. </td></tr>
+    <tr><td class="paramname">avail_food_dBF</td><td>Available food at F=Ftarget, updated. </td></tr>
+    <tr><td class="paramname">M2_at_age</td><td>Predation mortality (yr^-1), updated; [nspp, max_sex, max_age, nyrs]. </td></tr>
+    <tr><td class="paramname">M2_at_age_dB0</td><td>Predation mortality at F=0, updated. </td></tr>
+    <tr><td class="paramname">M2_at_age_dBF</td><td>Predation mortality at F=Ftarget, updated. </td></tr>
+    <tr><td class="paramname">M2_prop</td><td>A predator age's contribution to prey M2, not a share of it. </td></tr>
+    <tr><td class="paramname">B_eaten</td><td>Prey biomass eaten by a specific predator age (mt), updated. </td></tr>
+    <tr><td class="paramname">B_eaten_as_prey</td><td>Prey biomass eaten by all predators (mt), updated. </td></tr>
+    <tr><td class="paramname">diet_prop_hat</td><td>Predicted diet proportions, updated. </td></tr>
+    <tr><td class="paramname">other_diet_prop_hat</td><td>Predicted proportion of "other food" in diet, updated. </td></tr>
+    <tr><td class="paramname">nspp</td><td>Number of species. </td></tr>
+    <tr><td class="paramname">nyrs</td><td>Years, hindcast plus projection. </td></tr>
+    <tr><td class="paramname">nsex</td><td>Sexes modelled per species: 1 = combined, 2 = both. </td></tr>
+    <tr><td class="paramname">nages</td><td>Age bins per species. </td></tr>
+    <tr><td class="paramname">msmMode</td><td>Predation mode (1 = Type II MSVPA, Holsman et al. 2015; 2 = Type III MSVPA, which squares the prey term). </td></tr>
+    <tr><td class="paramname">avgN_at_age</td><td>Average numbers-at-age (thousands of fish). </td></tr>
+    <tr><td class="paramname">avgN_at_age_dB0</td><td>Average numbers-at-age at F=0. </td></tr>
+    <tr><td class="paramname">avgN_at_age_dBF</td><td>Average numbers-at-age at F=Ftarget. </td></tr>
+    <tr><td class="paramname">suitability</td><td>Calculated suitability. </td></tr>
+    <tr><td class="paramname">suit_other</td><td>Suitability for "other food". </td></tr>
+    <tr><td class="paramname">weight_hat</td><td>Estimated weights-at-age (kg). </td></tr>
+    <tr><td class="paramname">ration</td><td>Individual consumption (kg/predator/yr); consumption_at_age. </td></tr>
+    <tr><td class="paramname">other_food</td><td>"Other food" biomass by predator (mt). </td></tr>
   </table>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="predation_8hpp_source.html#l00354">354</a> of file <a class="el" href="predation_8hpp_source.html">predation.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="predation_8hpp_source.html#l00349">349</a> of file <a class="el" href="predation_8hpp_source.html">predation.hpp</a>.</p>
 
 </div>
 </div>
@@ -426,33 +419,35 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Calculates MSVPA/empirical-based suitability based on stomach content and prey biomass. </p>
-<p>This function calculates suitability for predator species where suitMode == 0. It first computes the ratio of stomach proportion to available prey biomass (stom_div_bio). It then normalizes this ratio across all included prey and "other food" to determine suitability. The suitability is averaged over a specified reference period (suit_styr to suit_endyr) and held constant across all years. Two working arrays are allocated inside: suma_suit, the sum of stom_div_bio over prey, and diet_prop_sum, the sum of diet proportions, each [nspp, max_sex, max_age, nyrs].</p>
+<p>MSVPA/empirical suitability, from stomach content and prey biomass. </p>
+<p>For predators with suitMode = 0. stom_div_bio is the observed diet proportion divided by prey biomass (numbers in thousands x weight in kg = mt; the prey term is squared under msmMode = 2, Type III). That ratio is normalized over the modeled prey and "other
+food", averaged over suit_styr..suit_endyr, and held constant across all years.</p>
+<p>A prey age whose average numbers approach zero with a positive diet proportion sends stom_div_bio, and so the prey term, to infinity: that one cell takes the whole normalized share, "other food" vanishes, available food collapses with it, so M2 diverges. The other-food term is floored at a fixed fraction of the prey term, bounding suit_other below at floor/(1 + floor), leaving sum(suitability) + suit_other = 1 exact. .warn_suitability_floor() reports when it binds.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">stom_div_bio</td><td>Array updated with the ratio of diet proportion to biomass [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">suitability</td><td>Array updated with the final calculated suitability [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">suit_other</td><td>Array updated with the remaining suitability for "other food" [nspp, max_sex, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">nspp</td><td>Total number of species in the model. </td></tr>
-    <tr><td class="paramname">nyrs</td><td>Total number of years evaluated. </td></tr>
-    <tr><td class="paramname">suit_styr</td><td>Start year index (per predator species) for the suitability averaging period. </td></tr>
-    <tr><td class="paramname">suit_endyr</td><td>End year index (per predator species) for the suitability averaging period. </td></tr>
-    <tr><td class="paramname">nyrs_suit</td><td>Number of years in the suitability averaging period, per predator species. </td></tr>
-    <tr><td class="paramname">msmMode</td><td>Integer specifying the multi-species predation mode (e.g., 2 = Type III MSVPA). </td></tr>
-    <tr><td class="paramname">nsex</td><td>Vector containing the number of sexes modeled for each species. </td></tr>
-    <tr><td class="paramname">nages</td><td>Vector containing the number of age classes for each species. </td></tr>
-    <tr><td class="paramname">suitMode</td><td>Vector specifying the suitability mode for each predator species. </td></tr>
-    <tr><td class="paramname">diet_prop</td><td>Array of observed or estimated diet proportions. </td></tr>
-    <tr><td class="paramname">avgN_at_age</td><td>Array of average numbers-at-age. </td></tr>
-    <tr><td class="paramname">weight_hat</td><td>Array of estimated weights-at-age. </td></tr>
-    <tr><td class="paramname">other_food_diet_prop</td><td>Array of estimated diet proportion belonging to "other food". </td></tr>
+    <tr><td class="paramname">stom_div_bio</td><td>Ratio of diet proportion to biomass, updated; [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs]. </td></tr>
+    <tr><td class="paramname">suitability</td><td>Final calculated suitability, updated. </td></tr>
+    <tr><td class="paramname">suit_other</td><td>Remaining suitability for "other food", updated. </td></tr>
+    <tr><td class="paramname">nspp</td><td>Number of species. </td></tr>
+    <tr><td class="paramname">nyrs</td><td>Years, hindcast plus projection. </td></tr>
+    <tr><td class="paramname">suit_styr</td><td>Start year index of the suitability window, per predator. </td></tr>
+    <tr><td class="paramname">suit_endyr</td><td>End year index of the suitability window, per predator. </td></tr>
+    <tr><td class="paramname">nyrs_suit</td><td>Years in the suitability window, per predator. </td></tr>
+    <tr><td class="paramname">msmMode</td><td>Predation mode; 2 (Type III) squares the prey numbers. </td></tr>
+    <tr><td class="paramname">nsex</td><td>Sexes modelled per species: 1 = combined, 2 = both. </td></tr>
+    <tr><td class="paramname">nages</td><td>Age bins per species. </td></tr>
+    <tr><td class="paramname">suitMode</td><td>Suitability mode per predator species. </td></tr>
+    <tr><td class="paramname">diet_prop</td><td>Observed diet proportions from <a class="el" href="diet__data_8hpp.html#a1b440b2dfbcb3ae9de7ee8eb7cab05ef" title="Parses empirical diet observations and maps them into a 5D proportion array.">organize_diet_obs()</a>. </td></tr>
+    <tr><td class="paramname">avgN_at_age</td><td>Average numbers-at-age (thousands of fish). </td></tr>
+    <tr><td class="paramname">weight_hat</td><td>Estimated weights-at-age (kg). </td></tr>
+    <tr><td class="paramname">other_food_diet_prop</td><td>Residual diet proportion for "other food", per mt of it. </td></tr>
   </table>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="predation_8hpp_source.html#l00183">183</a> of file <a class="el" href="predation_8hpp_source.html">predation.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="predation_8hpp_source.html#l00180">180</a> of file <a class="el" href="predation_8hpp_source.html">predation.hpp</a>.</p>
 
-<p class="reference">References <a class="el" href="helper__functions_8hpp_source.html#l00014">imax()</a>, and <a class="el" href="helper__functions_8hpp_source.html#l00128">max2()</a>.</p>
+<p class="reference">References <a class="el" href="helper__functions_8hpp_source.html#l00011">imax()</a>, and <a class="el" href="helper__functions_8hpp_source.html#l00120">max2()</a>.</p>
 
 </div>
 </div>
@@ -550,35 +545,32 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Calculates parametric suitability (Gamma, Lognormal, and Normal forms) based on predator/prey size ratios. </p>
-<p>This function merges length-based and weight-based suitability calculations into a single, highly optimized pass. It calculates the relative size ratio of predators to prey and evaluates that ratio against a specified probability distribution function to determine suitability. The <code>suitMode</code> switch dictates both the distribution and the biological metric used:</p><ul>
-<li>suitMode = 1: Gamma distribution (Length-based) [NOT YET AVAILABLE &ndash; blocked in data_check()]</li>
-<li>suitMode = 2: Gamma distribution (Weight-based)</li>
-<li>suitMode = 3: Lognormal distribution (Length-based) [NOT YET AVAILABLE &ndash; blocked in data_check()]</li>
-<li>suitMode = 4: Lognormal distribution (Weight-based)</li>
-<li>suitMode = 5: Normal distribution (Length-based) [NOT YET AVAILABLE &ndash; blocked in data_check()]</li>
-<li>suitMode = 6: Normal distribution (Weight-based) Note: length-based modes (1, 3, 5) require a growth model to be active and are blocked at the R level until a growth-model validation pass is added to data_check().</li>
+<p>Parametric suitability (Gamma, Lognormal, Normal) from size ratios. </p>
+<p>Evaluates the predator-to-prey size ratio against a density scaled to a peak of 1. <code>suitMode</code> sets both the density and the size metric:</p><ul>
+<li>Gamma: suitMode 1 (length-based) or 2 (weight-based)</li>
+<li>Lognormal: suitMode 3 (length-based) or 4 (weight-based)</li>
+<li>Normal: suitMode 5 (length-based) or 6 (weight-based) The length-based modes 1, 3 and 5 are NOT YET AVAILABLE: they need an active growth model, and data_check() blocks them until that validation is added.</li>
 </ul>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">suitability</td><td>Array updated with size-based suitability [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">suit_other</td><td>Array updated with the baseline vulnerability to "other food" [nspp, max_sex, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">nspp</td><td>Total number of species in the model. </td></tr>
-    <tr><td class="paramname">nyrs</td><td>Total number of years evaluated. </td></tr>
-    <tr><td class="paramname">nsex</td><td>Vector containing the number of sexes modeled for each species. </td></tr>
-    <tr><td class="paramname">nages</td><td>Vector containing the number of age classes for each species. </td></tr>
-    <tr><td class="paramname">suitMode</td><td>Vector specifying the parametric suitability mode for each predator species. </td></tr>
-    <tr><td class="paramname">length_hat</td><td>Array of estimated lengths-at-age [nspp*2+n_flt, max_sex, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">weight_hat</td><td>Array of estimated weights-at-age [nspp*2+n_flt, max_sex, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">vulnerability</td><td>Matrix of bounded predator-prey vulnerability preferences [nspp, nspp]. </td></tr>
-    <tr><td class="paramname">vulnerability_other</td><td>Vector of vulnerability preference for "other food" [nspp]. </td></tr>
-    <tr><td class="paramname">gam_a</td><td>Vector of distribution shape/mean parameters for predator size-selectivity [nspp]. </td></tr>
-    <tr><td class="paramname">gam_b</td><td>Vector of distribution scale/sd parameters for predator size-selectivity [nspp]. </td></tr>
+    <tr><td class="paramname">suitability</td><td>Size-based suitability, updated [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs]. </td></tr>
+    <tr><td class="paramname">suit_other</td><td>Baseline vulnerability to "other food", updated; [nspp, max_sex, max_age, nyrs] &ndash; species NOT collapsed, unlike suitability. </td></tr>
+    <tr><td class="paramname">nspp</td><td>Number of species. </td></tr>
+    <tr><td class="paramname">nyrs</td><td>Years, hindcast plus projection. </td></tr>
+    <tr><td class="paramname">nsex</td><td>Sexes modelled per species: 1 = combined, 2 = both. </td></tr>
+    <tr><td class="paramname">nages</td><td>Age bins per species. </td></tr>
+    <tr><td class="paramname">suitMode</td><td>Parametric suitability mode per predator species. </td></tr>
+    <tr><td class="paramname">length_hat</td><td>Lengths-at-age [nspp*2+n_flt, max_sex, max_age, nyrs]. </td></tr>
+    <tr><td class="paramname">weight_hat</td><td>Weights-at-age [nspp*2+n_flt, max_sex, max_age, nyrs]. </td></tr>
+    <tr><td class="paramname">vulnerability</td><td>Bounded predator-prey vulnerability [nspp, nspp]. </td></tr>
+    <tr><td class="paramname">vulnerability_other</td><td>Vulnerability preference for "other food" [nspp]. </td></tr>
+    <tr><td class="paramname">gam_a</td><td>Shape/mean parameter for predator size-selectivity [nspp]. </td></tr>
+    <tr><td class="paramname">gam_b</td><td>Scale/sd parameter for predator size-selectivity [nspp]. </td></tr>
   </table>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="predation_8hpp_source.html#l00082">82</a> of file <a class="el" href="predation_8hpp_source.html">predation.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="predation_8hpp_source.html#l00076">76</a> of file <a class="el" href="predation_8hpp_source.html">predation.hpp</a>.</p>
 
 </div>
 </div>
@@ -629,14 +621,14 @@ template&lt;class Type &gt; </div>
 </div><div class="memdoc">
 
 <p>Transforms predator-prey preference parameters into vulnerability. </p>
-<p>Uses a multinomial logistic transformation to ensure that the sum of predator-prey preferences and the vulnerability to "other food" sums to 1. This is only applied to species using parametric suitability (suitMode &gt; 0). Adopted from Trijoulet et al. 2020 (<a href="https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp">https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp</a>).</p>
+<p>Multinomial logistic transform: each predator's prey preferences and its vulnerability to "other food" sum to 1. Parametric suitability only (suitMode &gt; 0). Adopted from Trijoulet et al. 2020 (<a href="https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp">https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp</a>).</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">vulnerability</td><td>Matrix updated with bounded predator-prey vulnerability [nspp, nspp]. </td></tr>
-    <tr><td class="paramname">vulnerability_other</td><td>Vector updated with the remaining vulnerability for "other food" [nspp]. </td></tr>
-    <tr><td class="paramname">nspp</td><td>Total number of species in the model. </td></tr>
-    <tr><td class="paramname">suitMode</td><td>Vector specifying the suitability/preference mode for each species. </td></tr>
-    <tr><td class="paramname">log_phi</td><td>Matrix of estimated log-preference parameters [nspp, nspp]. </td></tr>
+    <tr><td class="paramname">vulnerability</td><td>Bounded predator-prey vulnerability [nspp, nspp], updated. </td></tr>
+    <tr><td class="paramname">vulnerability_other</td><td>Remaining vulnerability for "other food" [nspp], updated. </td></tr>
+    <tr><td class="paramname">nspp</td><td>Number of species. </td></tr>
+    <tr><td class="paramname">suitMode</td><td>Suitability/preference mode per species. </td></tr>
+    <tr><td class="paramname">log_phi</td><td>Estimated log-preference parameters [nspp, nspp]. </td></tr>
   </table>
   </dd>
 </dl>

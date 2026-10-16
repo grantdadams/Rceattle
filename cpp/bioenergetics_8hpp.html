@@ -95,11 +95,11 @@ $(function() {
 Functions</h2></td></tr>
 <tr class="memitem:a364cceaaa8805710e64e664f1e25be3b" id="r_a364cceaaa8805710e64e664f1e25be3b"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:a364cceaaa8805710e64e664f1e25be3b"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="bioenergetics_8hpp.html#a364cceaaa8805710e64e664f1e25be3b">calculate_temperature_function</a> (matrix&lt; Type &gt; &amp;fT, int nspp, int nyrs, const vector&lt; int &gt; &amp;Ceq, const vector&lt; int &gt; &amp;Cindex, const vector&lt; Type &gt; &amp;Qc, const vector&lt; Type &gt; &amp;Tcm, const vector&lt; Type &gt; &amp;Tco, const vector&lt; Type &gt; &amp;Tcl, const vector&lt; Type &gt; &amp;CK1, const vector&lt; Type &gt; &amp;CK4, const matrix&lt; Type &gt; &amp;env_index)</td></tr>
-<tr class="memdesc:a364cceaaa8805710e64e664f1e25be3b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates the temperature-dependent function of consumption (fT) for bioenergetics.  <br /></td></tr>
+<tr class="memdesc:a364cceaaa8805710e64e664f1e25be3b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Temperature-dependent function of consumption (fT) for bioenergetics.  <br /></td></tr>
 <tr class="separator:a364cceaaa8805710e64e664f1e25be3b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a93688b17000b9a340f3949dd5951da01" id="r_a93688b17000b9a340f3949dd5951da01"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:a93688b17000b9a340f3949dd5951da01"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="bioenergetics_8hpp.html#a93688b17000b9a340f3949dd5951da01">calculate_ration</a> (array&lt; Type &gt; &amp;consumption_at_age, int nspp, int nyrs, int nyrs_hind, const vector&lt; int &gt; &amp;nsex, const vector&lt; int &gt; &amp;nages, const vector&lt; int &gt; &amp;Ceq, const vector&lt; Type &gt; &amp;CA, const vector&lt; Type &gt; &amp;CB, const vector&lt; Type &gt; &amp;fday, const vector&lt; Type &gt; &amp;Pvalue, matrix&lt; Type &gt; &amp;fT, array&lt; Type &gt; &amp;ration_data, array&lt; Type &gt; &amp;weight_hat)</td></tr>
-<tr class="memdesc:a93688b17000b9a340f3949dd5951da01"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates the historic daily and annual ration for predators.  <br /></td></tr>
+<tr class="memdesc:a93688b17000b9a340f3949dd5951da01"><td class="mdescLeft">&#160;</td><td class="mdescRight">Annual ration of a predator at age, in kg per predator per year.  <br /></td></tr>
 <tr class="separator:a93688b17000b9a340f3949dd5951da01"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
@@ -203,29 +203,29 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Calculates the historic daily and annual ration for predators. </p>
-<p>This function calculates the amount of food consumed by a predator of a specific age and sex in a given year. It updates both the <code>consumption_at_age</code> and <code>ration</code> arrays in place. It supports either full bioenergetics equations (Ceq &lt; 4) or direct empirical input of annual ration (Ceq == 4).</p>
+<p>Annual ration of a predator at age, in kg per predator per year. </p>
+<p>Updates <code>consumption_at_age</code> in place, from the bioenergetics equations (Ceq 1-3) or from input consumption (Ceq 4).</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">consumption_at_age</td><td>Array updated with individual consumption (kg/yr) [nspp, max_sex, max_age, nyrs]. </td></tr>
-    <tr><td class="paramname">nspp</td><td>Total number of species in the model. </td></tr>
-    <tr><td class="paramname">nyrs</td><td>Total number of years (hindcast + forecast). </td></tr>
-    <tr><td class="paramname">nyrs_hind</td><td>Number of years in the hindcast period. </td></tr>
-    <tr><td class="paramname">nsex</td><td>Vector containing the number of sexes modeled for each species. </td></tr>
-    <tr><td class="paramname">nages</td><td>Vector containing the number of age classes for each species. </td></tr>
-    <tr><td class="paramname">Ceq</td><td>Vector specifying the consumption equation type for each species. </td></tr>
-    <tr><td class="paramname">CA</td><td>Vector of intercepts for the allometric mass function (Cmax = CA * W^(1+CB)). </td></tr>
-    <tr><td class="paramname">CB</td><td>Vector of slopes for the allometric mass function. </td></tr>
-    <tr><td class="paramname">fday</td><td>Vector of the number of foraging days per year for each species. </td></tr>
-    <tr><td class="paramname">Pvalue</td><td>Vector of the proportion of maximum consumption (scales Cmax). </td></tr>
-    <tr><td class="paramname">fT</td><td>Matrix of the temperature-dependence function [nspp, nyrs]. </td></tr>
-    <tr><td class="paramname">ration_data</td><td>Array of empirical relative-foraging rates or input ration limits. </td></tr>
-    <tr><td class="paramname">weight_hat</td><td>Array of estimated weight-at-age [n_wt_indices, max_sex, max_age, nyrs]. </td></tr>
+    <tr><td class="paramname">consumption_at_age</td><td>Individual consumption, kg/yr [nspp, max_sex, max_age, nyrs]. </td></tr>
+    <tr><td class="paramname">nspp</td><td>Number of species. </td></tr>
+    <tr><td class="paramname">nyrs</td><td>Years, hindcast plus projection. </td></tr>
+    <tr><td class="paramname">nyrs_hind</td><td>Years in the hindcast. </td></tr>
+    <tr><td class="paramname">nsex</td><td>Sexes modelled per species: 1 = combined, 2 = both. </td></tr>
+    <tr><td class="paramname">nages</td><td>Age bins per species. </td></tr>
+    <tr><td class="paramname">Ceq</td><td>Consumption equation per species. </td></tr>
+    <tr><td class="paramname">CA</td><td>Allometric mass function intercept (Cmax = CA * W^(1+CB)). </td></tr>
+    <tr><td class="paramname">CB</td><td>Allometric mass function slope. </td></tr>
+    <tr><td class="paramname">fday</td><td>Foraging days per year, per species. </td></tr>
+    <tr><td class="paramname">Pvalue</td><td>Proportion of maximum consumption (scales Cmax). </td></tr>
+    <tr><td class="paramname">fT</td><td>Temperature-dependence function [nspp, nyrs]. </td></tr>
+    <tr><td class="paramname">ration_data</td><td>Relative foraging rates (Ceq 1-3), input consumption (Ceq 4). </td></tr>
+    <tr><td class="paramname">weight_hat</td><td>Weight-at-age [n_wt_indices, max_sex, max_age, nyrs]. </td></tr>
   </table>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="bioenergetics_8hpp_source.html#l00129">129</a> of file <a class="el" href="bioenergetics_8hpp_source.html">bioenergetics.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="bioenergetics_8hpp_source.html#l00125">125</a> of file <a class="el" href="bioenergetics_8hpp_source.html">bioenergetics.hpp</a>.</p>
 
 </div>
 </div>
@@ -317,22 +317,22 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Calculates the temperature-dependent function of consumption (fT) for bioenergetics. </p>
+<p>Temperature-dependent function of consumption (fT) for bioenergetics. </p>
 <p>Updates the fT matrix in place. Supports multiple bioenergetics models: 1 = Exponential function (Stewart et al. 1983) 2 = Warm-water species temperature dependence (Kitchell et al. 1977) 3 = Cool/cold-water species temperature dependence (Thornton and Lessem 1979) 4 = Constant (fT = 1.0)</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">fT</td><td>Matrix of temperature functions to be updated [nspp, nyrs]. </td></tr>
+    <tr><td class="paramname">fT</td><td>Temperature functions [nspp, nyrs], updated. </td></tr>
     <tr><td class="paramname">nspp</td><td>Number of species. </td></tr>
-    <tr><td class="paramname">nyrs</td><td>Number of years. </td></tr>
-    <tr><td class="paramname">Ceq</td><td>Vector specifying which consumption equation to use for each species. </td></tr>
-    <tr><td class="paramname">Cindex</td><td>Vector specifying which environmental index drives each species. </td></tr>
-    <tr><td class="paramname">Qc</td><td>Bioenergetics parameter (QC value / intercept). </td></tr>
-    <tr><td class="paramname">Tcm</td><td>Bioenergetics parameter (Thermal max). </td></tr>
-    <tr><td class="paramname">Tco</td><td>Bioenergetics parameter (Thermal optimum). </td></tr>
-    <tr><td class="paramname">Tcl</td><td>Bioenergetics parameter (Thermal limit for Thornton/Lessem). </td></tr>
-    <tr><td class="paramname">CK1</td><td>Bioenergetics parameter (Ascending limit for Thornton/Lessem). </td></tr>
-    <tr><td class="paramname">CK4</td><td>Bioenergetics parameter (Descending limit for Thornton/Lessem). </td></tr>
-    <tr><td class="paramname">env_index</td><td>Matrix of environmental predictors (e.g., bottom temperature) [nyrs, n_indices]. </td></tr>
+    <tr><td class="paramname">nyrs</td><td>Years, hindcast plus projection. </td></tr>
+    <tr><td class="paramname">Ceq</td><td>Consumption equation per species. </td></tr>
+    <tr><td class="paramname">Cindex</td><td>Environmental index driving each species. </td></tr>
+    <tr><td class="paramname">Qc</td><td>Q coefficient in equations 1-2, a temperature in equation 3. </td></tr>
+    <tr><td class="paramname">Tcm</td><td>Thermal max. </td></tr>
+    <tr><td class="paramname">Tco</td><td>Thermal optimum. </td></tr>
+    <tr><td class="paramname">Tcl</td><td>Thermal limit for Thornton/Lessem. </td></tr>
+    <tr><td class="paramname">CK1</td><td>Ascending limit for Thornton/Lessem. </td></tr>
+    <tr><td class="paramname">CK4</td><td>Descending limit for Thornton/Lessem. </td></tr>
+    <tr><td class="paramname">env_index</td><td>Environmental predictors, e.g. bottom temperature [nyrs, n_indices]. </td></tr>
   </table>
   </dd>
 </dl>

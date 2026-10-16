@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,7 +53,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Plot maturity</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/R/7-plot_ceattle.R" class="external-link"><code>R/7-plot_ceattle.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/R/7-plot_ceattle.R" class="external-link"><code>R/7-plot_ceattle.R</code></a></small>
       <div class="d-none name"><code>plot_maturity.Rd</code></div>
     </div>
 
@@ -84,20 +84,23 @@
 
 
 <dt id="arg-file">file<a class="anchor" aria-label="anchor" href="#arg-file"></a></dt>
-<dd><p>name of a file to identified the files exported by the
-function.</p></dd>
+<dd><p>Path/prefix for the saved figure. <code>NULL</code> (default) draws
+without saving.</p></dd>
 
 
 <dt id="arg-model-names">model_names<a class="anchor" aria-label="anchor" href="#arg-model-names"></a></dt>
 <dd><p>Names of models to be used in legend</p></dd>
 
 
-<dt id="arg-line-col">line_col<a class="anchor" aria-label="anchor" href="#arg-line-col"></a></dt>
-<dd><p>Colors of models to be used for line color</p></dd>
+<dt id="arg-line-col-lwd">line_col, lwd<a class="anchor" aria-label="anchor" href="#arg-line-col-lwd"></a></dt>
+<dd><p>Deprecated base-graphics arguments, retained for
+back-compatibility and ignored; colour comes from the shared model palette
+and the line width is fixed.</p></dd>
 
 
 <dt id="arg-species">species<a class="anchor" aria-label="anchor" href="#arg-species"></a></dt>
-<dd><p>Species names for legend</p></dd>
+<dd><p>Species labels for the facet strips, length <code>nspp</code>. Default is
+the model's own names. It labels panels and does not subset.</p></dd>
 
 
 <dt id="arg-width">width<a class="anchor" aria-label="anchor" href="#arg-width"></a></dt>
@@ -106,10 +109,6 @@ function.</p></dd>
 
 <dt id="arg-height">height<a class="anchor" aria-label="anchor" href="#arg-height"></a></dt>
 <dd><p>Figure height in inches</p></dd>
-
-
-<dt id="arg-lwd">lwd<a class="anchor" aria-label="anchor" href="#arg-lwd"></a></dt>
-<dd><p>Line width as specified by user</p></dd>
 
 </dl></div>
 

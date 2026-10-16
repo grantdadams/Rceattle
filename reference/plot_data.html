@@ -11,7 +11,7 @@ fleet. Modeled after Stock Synthesis's r4ss::SSplotData()."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -57,7 +57,7 @@ fleet. Modeled after Stock Synthesis's r4ss::SSplotData()."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Timeline of data used in the model likelihoods</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/R/7-plot_data.R" class="external-link"><code>R/7-plot_data.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/R/7-plot_data.R" class="external-link"><code>R/7-plot_data.R</code></a></small>
       <div class="d-none name"><code>plot_data.Rd</code></div>
     </div>
 
@@ -105,15 +105,13 @@ bundled datasets such as <code>BS2017MS</code>).</p></dd>
 <dt id="arg-file">file<a class="anchor" aria-label="anchor" href="#arg-file"></a></dt>
 <dd><p>Path/prefix used to save the figure. If <code>NULL</code> (default) the
 plot is drawn to the active device only. When supplied, the figure is
-written to <code>paste0(file, "_data_plot.png")</code> (and <code>_data_plot2.png</code> for
-the bubble subplot).</p></dd>
+written to <code>paste0(file, "_data_plot.png")</code>.</p></dd>
 
 
-<dt id="arg-subplots">subplots<a class="anchor" aria-label="anchor" href="#arg-subplots"></a></dt>
-<dd><p>Integer vector controlling which subplots are produced:</p><ul><li><p>1, equal-size points showing presence/absence by year/fleet</p></li>
-<li><p>2, points scaled to relative quantity / precision within each
-data type (catch tonnage, 1/SE for indices, sample size for comps)</p></li>
-</ul></dd>
+<dt id="arg-subplots-res-ptsize-margins-cex-lwd-maxsize-maintitle-cex-main">subplots, res, ptsize, margins, cex, lwd, maxsize, mainTitle, cex.main<a class="anchor" aria-label="anchor" href="#arg-subplots-res-ptsize-margins-cex-lwd-maxsize-maintitle-cex-main"></a></dt>
+<dd><p>Deprecated base-graphics arguments, retained for back-compatibility and
+ignored. One faceted figure is drawn; size, resolution and titles come
+from the ggplot theme and from <code>width</code>/<code>height</code>.</p></dd>
 
 
 <dt id="arg-datatypes">datatypes<a class="anchor" aria-label="anchor" href="#arg-datatypes"></a></dt>
@@ -146,47 +144,16 @@ shown after subsetting). Diet entries get an additional color appended.</p></dd>
 <dd><p>Figure dimensions in inches.</p></dd>
 
 
-<dt id="arg-res">res<a class="anchor" aria-label="anchor" href="#arg-res"></a></dt>
-<dd><p>Resolution (dpi) for the saved PNG.</p></dd>
-
-
-<dt id="arg-ptsize">ptsize<a class="anchor" aria-label="anchor" href="#arg-ptsize"></a></dt>
-<dd><p>Pointsize passed to <code><a href="https://rdrr.io/r/grDevices/png.html" class="external-link">png()</a></code>.</p></dd>
-
-
-<dt id="arg-margins">margins<a class="anchor" aria-label="anchor" href="#arg-margins"></a></dt>
-<dd><p><code>par("mar")</code> for the plot. Increase the right margin if
-long fleet names are clipped.</p></dd>
-
-
-<dt id="arg-cex">cex<a class="anchor" aria-label="anchor" href="#arg-cex"></a></dt>
-<dd><p>Character expansion for points showing isolated years.</p></dd>
-
-
-<dt id="arg-lwd">lwd<a class="anchor" aria-label="anchor" href="#arg-lwd"></a></dt>
-<dd><p>Line width for runs of consecutive years (subplot 1).</p></dd>
-
-
-<dt id="arg-maxsize">maxsize<a class="anchor" aria-label="anchor" href="#arg-maxsize"></a></dt>
-<dd><p>Max bubble radius (in plot units) for subplot 2.</p></dd>
-
-
 <dt id="arg-alphasize">alphasize<a class="anchor" aria-label="anchor" href="#arg-alphasize"></a></dt>
 <dd><p>Bubble fill transparency (0-1).</p></dd>
-
-
-<dt id="arg-maintitle">mainTitle<a class="anchor" aria-label="anchor" href="#arg-maintitle"></a></dt>
-<dd><p>Logical; if <code>TRUE</code> add a default title.</p></dd>
-
-
-<dt id="arg-cex-main">cex.main<a class="anchor" aria-label="anchor" href="#arg-cex-main"></a></dt>
-<dd><p>Title character expansion.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Invisibly, a list with <code>typetable</code>, the long data frame underlying
-the plot (year, fleet, data type, relative size).</p>
+the plot (year, fleet, data type, relative size). Point area is scaled
+within each data type: catch in metric tons, 1/SE for indices, sample
+size for compositions.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

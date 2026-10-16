@@ -56,7 +56,7 @@ get_growth_matrix_r(
 
 - maxage_sp:
 
-  Numeric. The age at which growth enters the asymptotic phase.
+  Unused by the body; `helpers-make-msm-data.R` passes it.
 
 - growth_params_sp:
 

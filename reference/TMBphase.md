@@ -55,7 +55,7 @@ TMBphase(
 
 - silent:
 
-  logical. If TRUE, suppresses output from TMB (default = TRUE).
+  logical. Suppress TMB's output. No default; phased fits set it.
 
 - use_gradient:
 

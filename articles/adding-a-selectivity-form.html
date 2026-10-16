@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
       <h1>Adding a selectivity form</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/vignettes/articles/adding-a-selectivity-form.Rmd" class="external-link"><code>vignettes/articles/adding-a-selectivity-form.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/vignettes/articles/adding-a-selectivity-form.Rmd" class="external-link"><code>vignettes/articles/adding-a-selectivity-form.Rmd</code></a></small>
       <div class="d-none name"><code>adding-a-selectivity-form.Rmd</code></div>
     </div>
 
@@ -201,9 +201,13 @@ name to be documented there.</td>
 <tr class="even">
 <td><code>src/TMB/selectivity.hpp</code></td>
 <td>always</td>
-<td>Add the <code>case N:</code> to <code>switch (sel_type)</code> in
-<code>calculate_selectivity()</code>. Write into <code>sel_at_age</code>
-or <code>sel_at_length</code> by <code>is_length_based</code>;
+<td>Add the <code>case N:</code> to <code>switch (sel_case)</code> in
+<code>calculate_selectivity()</code>. The switch is on
+<code>sel_case</code>, not <code>sel_type</code>: <code>sel_case</code>
+is the <code>Selectivity</code> code unless form 13 is under a random
+walk, which rewrites it to <code>-13</code>. Write into
+<code>sel_at_age</code> or <code>sel_at_length</code> by
+<code>is_length_based</code>;
 <code>normalize_and_project_selectivity()</code> then applies
 <code>Bin_first_selected</code>, the <code>Sel_norm_bin</code>
 normalization and the projection for every form except those it
@@ -258,9 +262,15 @@ tables label the slot for the logistic family.</td>
 <td>if the defaults are wrong for the form</td>
 <td>Starting values are shared across forms: <code>sel_inf</code> starts
 at the values 0 and 10 (slot 1 at the length midpoint on a length-based
-fleet), <code>log_sel_slp</code> at 0.5. LogisticPM is the one form with
-its own start. See the worked example for why DoubleNormal needs one
-too.</td>
+fleet), <code>log_sel_slp</code> at 0.5. Two forms override them because
+those defaults describe the wrong curve for their reading of the slots –
+LogisticPM, whose slot 2 is an age-1 LOG-selectivity, and DoubleNormal,
+whose slots are a peak and a logit floor (5.56.0). Both blocks sit
+together in <code><a href="../reference/build_params.html">build_params()</a></code>; copy their shape. Note the peak
+is on the <strong>1-based bin ordinal</strong>, because
+<code>selectivity.hpp</code> evaluates an age-based curve at
+<code>bin + 1</code> – <code>(nages + 1) / 2</code>, not an absolute
+age.</td>
 </tr>
 <tr class="even">
 <td>
@@ -362,18 +372,26 @@ receives.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/unname.html" class="external-link">unname</a></span><span class="op">(</span><span class="va">b</span><span class="op">$</span><span class="va">initial_params</span><span class="op">$</span><span class="va">log_sel_slp</span><span class="op">[</span>, <span class="va">flt</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unname.html" class="external-link">unname</a></span><span class="op">(</span><span class="va">b</span><span class="op">$</span><span class="va">quantities</span><span class="op">$</span><span class="va">sel_at_age</span><span class="op">[</span><span class="va">flt</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">10</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">#&gt; [1] 4 1 1 0 0 0 4 8</span></span>
-<span><span class="co">#&gt; [1]  0 10</span></span>
+<span><span class="co">#&gt; [1] 5.5 0.0</span></span>
 <span><span class="co">#&gt; [1] 0.5 0.5</span></span>
-<span><span class="co">#&gt;  [1] 1 1 1 1 1 1 1 1 1 1</span></span></code></pre>
+<span><span class="co">#&gt;  [1] 0.024 0.105 0.317 0.661 0.955 0.978 0.831 0.658 0.553 0.512</span></span></code></pre>
 <p>The fleet receives code 8 and the stored column reads
-<code>"DoubleNormal"</code>. The default starting values are the
-logistic family’s, and for this form they describe a flat curve: a peak
-at age 0 and a floor of <code>plogis(10)</code>, so selectivity is 1 at
-every age. The ascending width then has no effect on the likelihood, so
-its gradient is zero and the optimizer has no direction to move it in. A
-phased fit from those starts stays on that ridge, with an objective of
-3085.98 and selectivity 1.000 at every age. Give the form starting
-values that describe a dome:</p>
+<code>"DoubleNormal"</code>. The starting curve is already a dome,
+because <code><a href="../reference/build_params.html">build_params()</a></code> carries a DoubleNormal block: the
+peak starts at the bin mid-range <code>(nages + 1) / 2</code> and the
+floor at logit 0.</p>
+<p><strong>This is what that block is for, and it is the clearest reason
+to write one.</strong> Before 5.56.0 the form took the logistic family’s
+shared defaults, which for its reading of the slots describe a peak
+below the first bin and a floor of <code>plogis(10) = 0.99996</code> –
+selectivity 1 at every age. A flat curve leaves the ascending width with
+no effect on the likelihood, so its gradient is zero and the optimizer
+has no direction to move it in: a phased fit stayed on that ridge at an
+objective of <strong>3085.98</strong>, against <strong>914.10</strong>
+from the derived starts. The peak is what escapes it; a low floor alone
+does not.</p>
+<p>You can still supply your own, which is how the derived values were
+chosen – they reach the same optimum a hand-tuned set did:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">inits</span> <span class="op">&lt;-</span> <span class="va">b</span><span class="op">$</span><span class="va">initial_params</span></span>
 <span><span class="va">inits</span><span class="op">$</span><span class="va">sel_inf</span><span class="op">[</span><span class="fl">1</span>, <span class="va">flt</span>, <span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">4</span>          <span class="co"># peak at age 4</span></span>
@@ -396,7 +414,13 @@ values that describe a dome:</p>
 <p>The same data under the shipped <code>DoubleLogistic</code>, also
 static, reach an objective of 918.15 with the same 220 parameters (AIC
 2276.31), so the double normal fits these age compositions a little
-better. Terminal female spawning-stock biomass moves from 390,251 t to
+better – on this stock. That does not generalise: on the Atka mackerel
+fishery the dataset’s own <code>NonParametric</code> fits better still
+(755.6 against 989.9), and on the GOA cod trawl fishery the double
+normal collapses to a degenerate corner (<code>sigma_desc</code> to 0
+and the floor to 1, i.e. a plain logistic) and returns convergence FAIL.
+The floor is also only weakly identified here – see the standard error
+below. Terminal female spawning-stock biomass moves from 390,251 t to
 344,169 t.</p>
 <p><code><a href="../reference/parameter_index.html">parameter_index()</a></code> shows the relabelled slots, and the
 standard-error table shows what a floor at its limit looks like:</p>
@@ -426,12 +450,12 @@ direction. Either way the curve is the same.</p>
 Both were run red for this article by adding <code>"Fake" = 12</code> to
 <code>sel_map</code> with no <code>case</code>.</p>
 <p><strong><code>test-schema-cpp-dispatch.R</code></strong> parses every
-<code>case N:</code> inside <code>switch (sel_type)</code> in
+<code>case N:</code> inside <code>switch (sel_case)</code> in
 <code>src/TMB/</code> and requires the set to equal the map’s values,
 minus a pinned exemption in each direction (<code>Fixed = 0</code> is
 applied before the dispatch). A map entry with no <code>case</code>
 fails like this:</p>
-<pre><code>── Failure ('test-schema-cpp-dispatch.R:161:5'): every C++ dispatch branch matches the R map that selects it ──
+<pre><code>── Failure ('test-schema-cpp-dispatch.R:157:5'): every C++ dispatch branch matches the R map that selects it ──
 Expected `setdiff(r, cpp)` to have the same values as `sort(unique(as.integer(s$map_only)))`.
 Actual: 0, 12
 Expected: 0
@@ -482,11 +506,16 @@ which is the flat-curve case above.</p>
 <code><a href="../reference/build_map_selectivity.html">build_map_selectivity()</a></code> frees deviates only for the
 <code>Time_varying_sel</code> modes your block names. A mode it does not
 name is mapped out without a message unless <code><a href="../reference/data_check.html">data_check()</a></code>
-refuses it. The shipped GOA pollock fishery uses
-<code>RandomWalkAscending</code>, which the DoubleNormal block does not
-handle: switching that fleet’s form drops the fit from 316 to 220
-parameters silently. Refuse unsupported modes in
-<code><a href="../reference/data_check.html">data_check()</a></code> next to the existing per-form checks.</p>
+refuses it, so <strong>every mode your block omits needs a refusal next
+to the existing per-form checks</strong> – that is the only thing
+standing between a user and a static curve where they asked for a walk.
+<code>RandomWalkAscending</code> is the worked example: only the
+<code>DoubleLogistic</code> block frees its deviates, so
+<code><a href="../reference/data_check.html">data_check()</a></code> refuses it on every other form and points the
+user at a linkage on the ascending parameters, which fits the same
+model. The shipped GOA pollock fishery uses that mode, so switching its
+form used to drop the fit from 316 to 220 parameters silently
+(5.55.0).</p>
 <p><strong>The deviates are estimated but unpenalised.</strong> The map
 freed them and the <code>ceattle.cpp</code> type lists do not name your
 code, so <code>JNLL_SEL_DEV</code> is zero for the fleet while the

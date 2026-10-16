@@ -99,11 +99,11 @@ Functions</h2></td></tr>
 <tr class="separator:a1b440b2dfbcb3ae9de7ee8eb7cab05ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee7fcebc5b92689751e76d7d4b0783a9" id="r_aee7fcebc5b92689751e76d7d4b0783a9"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:aee7fcebc5b92689751e76d7d4b0783a9"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="diet__data_8hpp.html#aee7fcebc5b92689751e76d7d4b0783a9">calculate_other_food_diet_prop</a> (const int &amp;nspp, const int &amp;nyrs, const vector&lt; int &gt; &amp;nsex, const vector&lt; int &gt; &amp;nages, const vector&lt; Type &gt; &amp;other_food, array&lt; Type &gt; &amp;diet_prop, array&lt; Type &gt; &amp;other_food_diet_prop)</td></tr>
-<tr class="memdesc:aee7fcebc5b92689751e76d7d4b0783a9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates the residual stomach content representing "other food" not explicitly modeled.  <br /></td></tr>
+<tr class="memdesc:aee7fcebc5b92689751e76d7d4b0783a9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Residual stomach content: the "other food" not explicitly modeled.  <br /></td></tr>
 <tr class="separator:aee7fcebc5b92689751e76d7d4b0783a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a933afc3e03859053434d274e378c0c97" id="r_a933afc3e03859053434d274e378c0c97"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:a933afc3e03859053434d274e378c0c97"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="diet__data_8hpp.html#a933afc3e03859053434d274e378c0c97">predict_stomach_content</a> (const int &amp;nspp, const int &amp;nyrs_hind, const int &amp;styr, const vector&lt; int &gt; &amp;suit_styr, const vector&lt; int &gt; &amp;suit_endyr, const vector&lt; int &gt; &amp;minage, const vector&lt; int &gt; &amp;nsex, const vector&lt; int &gt; &amp;nages, matrix&lt; Type &gt; &amp;diet_obs, matrix&lt; int &gt; &amp;diet_ctl, array&lt; Type &gt; &amp;avgN_at_age, array&lt; Type &gt; &amp;diet_prop_hat, matrix&lt; Type &gt; &amp;diet_hat)</td></tr>
-<tr class="memdesc:a933afc3e03859053434d274e378c0c97"><td class="mdescLeft">&#160;</td><td class="mdescRight">Predicts the expected stomach content proportions given the modeled population state.  <br /></td></tr>
+<tr class="memdesc:a933afc3e03859053434d274e378c0c97"><td class="mdescLeft">&#160;</td><td class="mdescRight">Expected stomach content proportions given the modeled population state.  <br /></td></tr>
 <tr class="separator:a933afc3e03859053434d274e378c0c97"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
@@ -165,9 +165,10 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Calculates the residual stomach content representing "other food" not explicitly modeled. </p>
+<p>Residual stomach content: the "other food" not explicitly modeled. </p>
+<p>The unattributed diet share divided by other_food (mt) is on the same per-biomass scale as stom_div_bio, which <a class="el" href="predation_8hpp.html#adea2cf10ce3f57b8b9c0e4978ceafec9" title="MSVPA/empirical suitability, from stomach content and prey biomass.">calculate_msvpa_suitability()</a> sums over prey and adds it to. </p>
 
-<p class="definition">Definition at line <a class="el" href="diet__data_8hpp_source.html#l00100">100</a> of file <a class="el" href="diet__data_8hpp_source.html">diet_data.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="diet__data_8hpp_source.html#l00097">97</a> of file <a class="el" href="diet__data_8hpp_source.html">diet_data.hpp</a>.</p>
 
 </div>
 </div>
@@ -242,24 +243,21 @@ template&lt;class Type &gt; </div>
 </div><div class="memdoc">
 
 <p>Parses empirical diet observations and maps them into a 5D proportion array. </p>
-<ul>
-<li>This function takes the raw diet observation matrix (<code>diet_obs</code>) and its corresponding control matrix (<code>diet_ctl</code>) and maps the observed proportions into the structured 5D <code>diet_prop</code> array for MSVPA based suitability. It dynamically handles indexing for 1-sex versus 2-sex models. If the control matrix specifies a year <code>flt_yr == 0</code>, the observed proportion is applied as an average across all modeled years. Data rows missing specific predator or prey ages are skipped during this step.</li>
-<li><dl class="params"><dt>Parameters</dt><dd>
+<p>Maps <code>diet_obs</code> proportions onto the 5D <code>diet_prop</code> array used for MSVPA based suitability, handling 1-sex and 2-sex indexing. A row with <code>flt_yr == 0</code> is written to every modeled year. Rows aggregated over predator or prey ages are skipped: only diet-data type 1 (a prey age in a predator age) can be used for MSVPA suitability.</p>
+<dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">nspp</td><td>Number of modeled species. </td></tr>
-    <tr><td class="paramname">nyrs</td><td>Total number of years in the model (hindcast + projection). </td></tr>
-    <tr><td class="paramname">nyrs_hind</td><td>Number of years in the hindcast period. </td></tr>
-    <tr><td class="paramname">styr</td><td>The starting year of the model. </td></tr>
-    <tr><td class="paramname">minage</td><td>Vector containing the minimum modeled age for each species. </td></tr>
-    <tr><td class="paramname">nsex</td><td>Vector containing the number of sexes modeled for each species (1 or 2). </td></tr>
-    <tr><td class="paramname">diet_obs</td><td>Matrix of empirical diet observations (column 1 contains the proportions). </td></tr>
-    <tr><td class="paramname">diet_ctl</td><td>Control matrix mapping each observation row to predator, prey, sexes, ages, and year. </td></tr>
-    <tr><td class="paramname">diet_prop</td><td>[Output] 5D array (pred_idx, prey_idx, pred_age, prey_age, yr) of observed diet proportions. Modified by reference. </td></tr>
+    <tr><td class="paramname">nspp</td><td>Number of species. </td></tr>
+    <tr><td class="paramname">nyrs</td><td>Years, hindcast plus projection. </td></tr>
+    <tr><td class="paramname">nyrs_hind</td><td>Years in the hindcast. </td></tr>
+    <tr><td class="paramname">styr</td><td>First year of the model. </td></tr>
+    <tr><td class="paramname">minage</td><td>Minimum modeled age per species. </td></tr>
+    <tr><td class="paramname">nsex</td><td>Sexes modelled per species: 1 = combined, 2 = both. </td></tr>
+    <tr><td class="paramname">diet_obs</td><td>Diet observations; column 0 sample size, column 1 the proportion. </td></tr>
+    <tr><td class="paramname">diet_ctl</td><td>Maps each observation row to predator, prey, sexes, ages, and year. </td></tr>
+    <tr><td class="paramname">diet_prop</td><td>[Output] Observed diet proportions (pred_idx, prey_idx, pred_age, prey_age, yr). Modified by reference. </td></tr>
   </table>
   </dd>
 </dl>
-</li>
-</ul>
 
 <p class="definition">Definition at line <a class="el" href="diet__data_8hpp_source.html#l00024">24</a> of file <a class="el" href="diet__data_8hpp_source.html">diet_data.hpp</a>.</p>
 
@@ -359,36 +357,33 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Predicts the expected stomach content proportions given the modeled population state. </p>
-<ul>
-<li>This function maps the model's internal prediction of diet proportions (<code>diet_prop_hat</code>) back to the structure of the original empirical data (<code>diet_obs</code>). Because empirical stomach data is often aggregated across ages or sexes, this function dynamically calculates the appropriate expected value using abundance-weighted averages (<code>avgN_at_age</code>).</li>
-<li>It handles four types of data aggregation:</li>
-<li><b>Type 1:</b> Specific predator age and specific prey age (weighted across sexes if combined).</li>
+<p>Expected stomach content proportions given the modeled population state. </p>
+<p>Maps <code>diet_prop_hat</code> back onto the rows of the empirical <code>diet_obs</code>, which are often aggregated over ages or sexes. The four diet-data types, as the ages encode them:</p><ul>
+<li><b>Type 1:</b> Specific predator age and prey age (weighted across sexes if combined).</li>
 <li><b>Type 2:</b> Specific predator age, summed across all prey ages.</li>
-<li><b>Type 3:</b> Unweighted arithmetic mean across predator ages, summed across prey ages.</li>
-<li><b>Type 4:</b> Abundance-weighted mean across predator ages, summed across prey ages.</li>
-<li><dl class="params"><dt>Parameters</dt><dd>
+<li><b>Type 3:</b> Unweighted mean over predator ages, summed over prey ages (r_age &gt; -500).</li>
+<li><b>Type 4:</b> As Type 3, but weighted by predator numbers-at-age (r_age &lt; -500).</li>
+</ul>
+<dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">nspp</td><td>Number of modeled species. </td></tr>
-    <tr><td class="paramname">nyrs_hind</td><td>Number of years in the hindcast period. </td></tr>
-    <tr><td class="paramname">styr</td><td>The starting year of the model. </td></tr>
-    <tr><td class="paramname">suit_styr</td><td>The starting year (per predator species) used for suitability averaging. </td></tr>
-    <tr><td class="paramname">suit_endyr</td><td>The ending year (per predator species) used for suitability averaging. </td></tr>
-    <tr><td class="paramname">minage</td><td>Vector containing the minimum modeled age for each species. </td></tr>
-    <tr><td class="paramname">nsex</td><td>Vector containing the number of sexes modeled for each species. </td></tr>
-    <tr><td class="paramname">nages</td><td>Vector containing the maximum number of age bins for each species. </td></tr>
-    <tr><td class="paramname">diet_obs</td><td>Matrix of empirical diet observations (used here for row-matching). </td></tr>
-    <tr><td class="paramname">diet_ctl</td><td>Control matrix mapping each observation row to specific aggregation levels. </td></tr>
-    <tr><td class="paramname">avgN_at_age</td><td>4D array of average population numbers-at-age (used for weighting). </td></tr>
-    <tr><td class="paramname">diet_prop_hat</td><td>5D array of the model's predicted diet proportions for specific ages/sexes. </td></tr>
-    <tr><td class="paramname">diet_hat</td><td>[Output] Matrix of predicted diet proportions formatted to match <code>diet_obs</code>. Modified by reference. </td></tr>
+    <tr><td class="paramname">nspp</td><td>Number of species. </td></tr>
+    <tr><td class="paramname">nyrs_hind</td><td>Years in the hindcast. </td></tr>
+    <tr><td class="paramname">styr</td><td>First year of the model. </td></tr>
+    <tr><td class="paramname">suit_styr</td><td>Start year index of the suitability window, per predator. </td></tr>
+    <tr><td class="paramname">suit_endyr</td><td>End year index of the suitability window, per predator. </td></tr>
+    <tr><td class="paramname">minage</td><td>Minimum modeled age per species. </td></tr>
+    <tr><td class="paramname">nsex</td><td>Sexes modelled per species: 1 = combined, 2 = both. </td></tr>
+    <tr><td class="paramname">nages</td><td>Age bins per species. </td></tr>
+    <tr><td class="paramname">diet_obs</td><td>Empirical diet observations, used here for row-matching. </td></tr>
+    <tr><td class="paramname">diet_ctl</td><td>Maps each observation row to its aggregation levels. </td></tr>
+    <tr><td class="paramname">avgN_at_age</td><td>Average numbers-at-age (thousands of fish), used for weighting. </td></tr>
+    <tr><td class="paramname">diet_prop_hat</td><td>Predicted diet proportions for specific ages/sexes. </td></tr>
+    <tr><td class="paramname">diet_hat</td><td>[Output] Predicted diet proportions matching <code>diet_obs</code>. </td></tr>
   </table>
   </dd>
 </dl>
-</li>
-</ul>
 
-<p class="definition">Definition at line <a class="el" href="diet__data_8hpp_source.html#l00165">165</a> of file <a class="el" href="diet__data_8hpp_source.html">diet_data.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="diet__data_8hpp_source.html#l00161">161</a> of file <a class="el" href="diet__data_8hpp_source.html">diet_data.hpp</a>.</p>
 
 </div>
 </div>

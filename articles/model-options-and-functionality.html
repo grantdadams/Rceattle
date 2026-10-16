@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -83,27 +83,20 @@
 Adams</h4>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
       <div class="d-none name"><code>model-options-and-functionality.Rmd</code></div>
     </div>
 
     
     
-<p>This vignette is an overview of the parameterization choices and
-capabilities available in <code>Rceattle</code>. It complements:</p>
-<ul>
-<li>vignette 1, <a href="introduction.html">Rceattle: An
-Introduction</a>, which walks through fitting a model end-to-end;</li>
-<li>vignette 8, <a href="model-parameterizations.html">Model
-parameterizations</a>, the equation-level reference (in progress);
-and</li>
-<li>the per-topic vignettes 3 (diagnostics), 4 (projections / reference
-points), 5 (single- vs. multi-species), 6 (building a data object in R),
-and 7 (Stock Synthesis migration).</li>
-</ul>
-<p>If you’re building a new application, this is the menu of options you
-choose between when configuring <code>data_list</code> and the arguments
-to <code><a href="../reference/fit_mod.html">fit_mod()</a></code>.</p>
+<p>This is the menu of options you choose between when configuring a
+<code>data_list</code> and the arguments to <code><a href="../reference/fit_mod.html">fit_mod()</a></code>.
+Vignette 1, <a href="introduction.html">Rceattle: An Introduction</a>,
+fits a model end to end; vignette 8, <a href="model-parameterizations.html">Model parameterizations</a>, is the
+equation-level reference (in progress); and vignettes 2-7 cover HCRs and
+MSEs, diagnostics, projections and reference points, single-
+vs. multi-species models, building a data object in R, and Stock
+Synthesis migration.</p>
 <div class="section level2">
 <h2 id="model-dimensions-and-operating-mode">1. Model dimensions and operating mode<a class="anchor" aria-label="anchor" href="#model-dimensions-and-operating-mode"></a>
 </h2>
@@ -111,9 +104,9 @@ to <code><a href="../reference/fit_mod.html">fit_mod()</a></code>.</p>
 <p>Equations: see vignette 8 <a href="model-parameterizations.html#population-dynamics">§Population
 dynamics</a>.</p>
 </blockquote>
-<p>The top-level switches that decide the observation model live on the
-<code>data_list</code> and the population model and estimation switches
-live on the call to <code><a href="../reference/fit_mod.html">fit_mod()</a></code>:</p>
+<p>Dimensions and the time horizon are set on the
+<code>data_list</code>; the population and estimation switches are
+arguments to <code><a href="../reference/fit_mod.html">fit_mod()</a></code>:</p>
 <table class="table">
 <colgroup>
 <col width="33%">
@@ -277,8 +270,8 @@ ages the full F<sub>init</sub> and <code>4</code> applies it once</td>
 <p>Rceattle estimates one F<sub>init</sub> per species where SS3 carries
 one per fleet, so under mode <code>6</code> a species with more than one
 fishery decays its initial age structure at the <strong>mean</strong>
-selectivity of those fisheries. F<sub>init</sub> is then not the apical
-initial F of any one of them, and <code><a href="../reference/data_check.html">data_check()</a></code> warns — the
+selectivity of those fisheries. F<sub>init</sub> is then the apical
+initial F of none of them, and <code><a href="../reference/data_check.html">data_check()</a></code> warns: the
 initial state sets the SSB scale.</p>
 <div class="section level4">
 <h4 id="the-initial-equilibrium-catch">The initial equilibrium catch<a class="anchor" aria-label="anchor" href="#the-initial-equilibrium-catch"></a>
@@ -291,24 +284,24 @@ mortality, in the year before the hindcast. Write it as an ordinary
 <code>Catch</code> and <code>Log_sd</code>. No new columns.</p>
 <p><strong>It is read only under mode <code>6</code>.</strong> The
 prediction is Baranov at F<sub>init</sub> × selectivity, and mode
-<code>6</code> is the only mode that builds the initial age structure
-with that same mortality, so scoring it under <code>3</code> or
-<code>4</code> would fit F<sub>init</sub> to a catch the population was
-never subject to. Under any other mode the row is dropped, and
-<code><a href="../reference/data_check.html">data_check()</a></code> says so.</p>
+<code>6</code> alone builds the initial age structure with that same
+mortality, so scoring it under <code>3</code> or <code>4</code> would
+fit F<sub>init</sub> to a catch the population was never subject to.
+Under any other mode the row is dropped, and <code><a href="../reference/data_check.html">data_check()</a></code>
+says so.</p>
 <p>That year also holds ordinary catch history — <code>GOA2018SS</code>
 carries 23 rows before <code>styr</code>, two of them on
 <code>styr - 1</code> — so <code><a href="../reference/data_check.html">data_check()</a></code> names the fleets
 whose rows it reads whenever it reads any. It refuses two rows for one
 fleet, a non-positive catch or <code>Log_sd</code>, a fleet that is not
-an active fishery, and a species with more than one fishery (Rceattle
-carries one F<sub>init</sub> per species, so there is no per-fleet split
-to predict with).</p>
+an active fishery, and a species with more than one fishery (one
+F<sub>init</sub> per species leaves no per-fleet split to predict
+with).</p>
 <p><code><a href="../reference/clean_data.html">clean_data()</a></code> moves the row into
 <code>data_list$equil_catch_data</code> so <code>catch_data</code> keeps
-one row per fitted catch; <code><a href="../reference/write_data.html">write_data()</a></code> writes it back into
-the catch sheet. The prediction is reported as
-<code>quantities$equil_catch_hat</code> and scored on its own
+one row per fitted catch, and <code><a href="../reference/write_data.html">write_data()</a></code> writes it back
+into the catch sheet. The prediction is
+<code>quantities$equil_catch_hat</code>, scored on its own
 <code>jnll_comp</code> row,
 <code>"Initial equilibrium catch"</code>.</p>
 </div>
@@ -359,12 +352,11 @@ parameters mapped out (debug / mapping check).</td>
 <div class="section level3">
 <h3 id="random-effects-toggles">Random-effects toggles<a class="anchor" aria-label="anchor" href="#random-effects-toggles"></a>
 </h3>
-<p><code>random_rec</code>, <code>random_q</code>, and
-<code>random_sel</code> move log-recruitment, the log-catchability
-deviations, and the time-varying selectivity deviations, respectively,
-from penalized fixed effects to random effects. The deviations are
-marginalized via the Laplace approximation, and their distribution
-parameters are estimated.</p>
+<p><code>random_rec</code>, <code>random_q</code> and
+<code>random_sel</code> move the log-recruitment, log-catchability and
+time-varying selectivity deviations from penalized fixed effects to
+random effects, marginalized by the Laplace approximation with their
+distribution parameters estimated.</p>
 </div>
 </div>
 <div class="section level2">
@@ -375,8 +367,8 @@ parameters are estimated.</p>
 sub-model</a> (suitability, predation mortality, consumption /
 bioenergetics).</p>
 </blockquote>
-<p><code>suitMode</code> chooses how prey preference is modeled. Length
-1 (same for all predators) or length <code>nspp</code>.</p>
+<p><code>suitMode</code> sets how prey preference is modelled; length 1
+(all predators) or <code>nspp</code>.</p>
 <table class="table">
 <colgroup>
 <col width="31%">
@@ -436,11 +428,19 @@ Holsman et al. 2015)</td>
 </tr>
 </tbody>
 </table>
-<p>Suitability is averaged across years
-<code>suit_styr:suit_endyr</code> (defaults to the full hindcast) if
-year-specific diet data are not included (e.g. <code>Year = 0</code> in
-<code>diet_data</code>). Per-predator <code>suitMode</code> allows
-mixing parametric and empirical suitability across species.</p>
+<p>Where year-specific diet data are not supplied (<code>Year = 0</code>
+in <code>diet_data</code>), suitability is averaged across
+<code>suit_styr:suit_endyr</code>, the full hindcast by default.</p>
+<p>A <em>predicted</em> diet needs estimated suitability
+<strong>and</strong> a predation model: <code>suitMode</code> 2, 4 or 6
+with <code>msmMode &gt; 0</code>. Under <code>suitMode = 0</code> the
+model reads suitability from <code>diet_data</code> rather than
+predicting stomach proportions, and under <code>msmMode = 0</code> no
+predation is computed at all, so in both cases there is no fitted diet
+to compare against. <code>residuals(source = "diet")</code>,
+<code><a href="../reference/plot_diet_comp.html">plot_diet_comp()</a></code>, <code><a href="../reference/plot_diet_comp1.html">plot_diet_comp1()</a></code> and
+<code><a href="../reference/plot_diet_comp2.html">plot_diet_comp2()</a></code> refuse on such a fit instead of reporting
+every observation as a complete misfit.</p>
 </div>
 <div class="section level2">
 <h2 id="selectivity-per-fleet">3. Selectivity (per fleet)<a class="anchor" aria-label="anchor" href="#selectivity-per-fleet"></a>
@@ -449,8 +449,8 @@ mixing parametric and empirical suitability across species.</p>
 <p>Equations: see vignette 8 <a href="model-parameterizations.html#selectivity-parameterizations">§Selectivity
 parameterizations</a>.</p>
 </blockquote>
-<p>Set the <code>Selectivity</code> column of <code>fleet_control</code>
-to one of the values below (integers or strings both work):</p>
+<p>Set the <code>Selectivity</code> column of
+<code>fleet_control</code>; integers and strings both work:</p>
 <table class="table">
 <colgroup>
 <col width="45%">
@@ -636,7 +636,12 @@ only scores a deviation where it defines a density for it:</p>
 <td>
 <code>Off</code>, <code>IID</code>, <code>Block</code>,
 <code>RandomWalk</code>; <code>RandomWalkAscending</code> on
-<code>DoubleLogistic</code> and <code>DoubleNormal</code>
+<code>DoubleLogistic</code> only – it walks the ascending limb and only
+that form’s map frees those deviates. For the same model on another
+form, link its ascending parameters instead (<code>peak</code> /
+<code>sigma_asc</code> for <code>DoubleNormal</code>,
+<code>inf_asc</code> / <code>slp_asc</code> for the logistic family)
+with <code>~ rw(1 \| Year)</code>
 </td>
 </tr>
 <tr class="even">
@@ -694,24 +699,26 @@ integrated is the IID normal <em>times</em> those penalties. None of
 them scales with <code>Time_varying_sel_sd</code>, so the estimated sd
 is biased low whatever the penalty weights are (measured at about 5% of
 the precision at sd 0.35 from the average-selectivity term alone, more
-as the sd grows) and <code>Sel_curve_pen1</code> is also one-sided,
-which leaves the Laplace objective only piecewise smooth. Charging the
-shape penalties once on the base curve makes the mode integrable without
-moving any penalized fit: that is what
-<code>NonParametricIntegrable</code> (5.40.0) does, and it is the form
-to use with <code>random_sel = TRUE</code>. Their density is complete,
-but the Laplace marginal likelihood that <code>random_sel = TRUE</code>
-maximizes still underestimates a variance component on small multinomial
-samples: on <code>Atka2022</code>’s fishery (input sample sizes 2 to
-236) a true deviation SD of 0.35 comes back at 0.24 to 0.26, 0.70 near
-0.61, and 0.35 near 0.32 with ten times the sample size
+as the sd grows), and <code>Sel_curve_pen1</code> is one-sided, which
+leaves the Laplace objective only piecewise smooth.
+<code>NonParametricIntegrable</code> (5.40.0) is the form to fit with
+<code>random_sel = TRUE</code>: charging the shape penalties once on the
+base curve makes the mode integrable without moving any penalized
+fit.</p>
+<p>Even there, the Laplace marginal likelihood underestimates a variance
+component on small multinomial samples: on <code>Atka2022</code>’s
+fishery (input sample sizes 2 to 236) a true deviation SD of 0.35 comes
+back at 0.24 to 0.26, 0.70 near 0.61, and 0.35 near 0.32 with ten times
+the sample size
 (<code>tools/verify/verify-sim-recovery-np-integrable.R</code>). Read
 the reported SD as a lower bound unless the compositions are well
 sampled.</p>
-<p>The switch is <strong>soft-deprecated as a whole</strong>, and
-<code><a href="../reference/data_check.html">data_check()</a></code> says so on use. The linkage grammar expresses
-the same IID, random-walk and AR(1) deviations, <code>(1 | Year)</code>,
-<code>rw(1 | Year)</code>, <code>ar1(1 | Year)</code>, per selectivity
+<p><code>Time_varying_sel</code> is <strong>soft-deprecated as a
+whole</strong>, and <code><a href="../reference/data_check.html">data_check()</a></code> says so on use. The
+linkage grammar expresses the same IID, random-walk and AR(1)
+deviations, <code>(1 | Year)</code>, <code>rw(1 | Year)</code>,
+<code>ar1(1 | Year)</code>, and <a href="environmental-linkages-and-priors.html#time-blocks">time
+blocks</a> as <code>~ cut(Year, ...)</code>, per selectivity
 <em>parameter</em> rather than per fleet, and additionally lets the
 deviation standard deviation be estimated, given a prior, or held
 fixed:</p>
@@ -736,12 +743,11 @@ selectivity over that range instead.</p>
 <p>A numeric <code>Sel_norm_bin</code> is read on the fleet’s own
 <code>Selectivity_dimension</code>: an absolute <strong>age</strong> for
 an age-based fleet (<code>6</code> means age 6, not the sixth bin) or a
-1-based <strong>length-bin ordinal</strong> for a length-based one. Note
+1-based <strong>length-bin ordinal</strong> for a length-based one.
 <code>Bin_first_selected</code> beside it uses the opposite convention
-and is always a bin ordinal. The value must fall in the range the fleet
-is selected over: below <code>Bin_first_selected</code> the curve is
-zeroed, so a reference taken there would divide by nothing, and a value
-below it is read as <code>"Max"</code>, which is what a negative has
+and is always a bin ordinal. Below <code>Bin_first_selected</code> the
+curve is zeroed, so a reference taken there would divide by nothing;
+such a value is read as <code>"Max"</code>, which is what a negative has
 always meant. Legacy numbers still work: blank is <code>"Off"</code>,
 and <code>0</code>, <code>-1</code> or <code>-999</code> are
 <code>"Max"</code>.</p>
@@ -749,12 +755,11 @@ and <code>0</code>, <code>-1</code> or <code>-999</code> are
 <h3 id="sharing-a-selectivity-between-fleets">Sharing a selectivity between fleets<a class="anchor" aria-label="anchor" href="#sharing-a-selectivity-between-fleets"></a>
 </h3>
 <p>Fleets given the same <code>Selectivity_index</code> share one
-selectivity parameter block, and the penalties and priors on it are
-accumulated once, on the group’s first non-<code>Off</code> fleet.</p>
-<p>Sharing the parameters is not sufficient on its own. The columns that
-shape the curve are read <strong>per fleet</strong>, so they have to
-agree across the group or the fleets end up with different
-selectivities:</p>
+selectivity parameter block, and its penalties and priors are
+accumulated once, on the group’s first non-<code>Off</code> fleet. That
+is not sufficient on its own: the columns that shape the curve are read
+<strong>per fleet</strong>, so they have to agree across the group or
+the fleets end up with different selectivities:</p>
 <table class="table">
 <colgroup>
 <col width="50%">
@@ -817,17 +822,14 @@ catchability columns:</p>
 <strong>Every selectivity form is sex-specific by default</strong> when
 a species has two sexes: each sex gets its own free copy of every
 selectivity parameter, for all forms.</p>
-<p>What differs between configurations is the <em>relative</em> scale
-between the sexes, whether males and females can be selected at
-genuinely different levels, or only with different shapes. Normalization
-makes two independent decisions, held by two columns:</p>
+<p>What a configuration changes is the <em>relative</em> scale between
+the sexes: whether males and females can be selected at genuinely
+different levels, or only with different shapes. Normalization makes two
+independent decisions, held by two columns:</p>
 <ul>
 <li>
 <strong><code>Sel_norm_bin</code>, where the reference is
-taken.</strong> <code>"Off"</code> normalizes nothing; a bin takes it
-there (or, with <code>Sel_norm_bin_upper</code>, the mean over that
-range); <code>"Max"</code> takes it at the curve’s maximum over
-bins.</li>
+taken</strong>, as above.</li>
 <li>
 <strong><code>Sel_norm_scope</code>, whose scale it sets.</strong>
 <code>"AcrossSexes"</code> (default) pools one reference over the sexes,
@@ -878,20 +880,19 @@ falls</td>
 </tbody>
 </table>
 <p>For strongly dimorphic stocks the relative sex selectivity is usually
-the quantity of interest, so the <code>"AcrossSexes"</code> default is
-the one to keep. If instead the sexes plateau at different ages and you
-want each scaled at its own plateau, use
-<code>Sel_norm_bin = "Max"</code> with
-<code>Sel_norm_scope = "WithinSex"</code>: that is more robust than
-naming a bin, since a named bin stops being the plateau once selectivity
-is time-varying while the maximum tracks it.</p>
-<p>Note that <code>Sel_norm_scope</code> has no effect on a one-sex
-species, or where <code>Sel_norm_bin</code> is <code>"Off"</code>.
-Before Rceattle 5.8.0 a named bin always implied
-<code>"WithinSex"</code> and max-normalization always implied
-<code>"AcrossSexes"</code>; a two-sex fleet normalizing at a named bin
-should set <code>Sel_norm_scope = "WithinSex"</code> explicitly to keep
-its old behaviour.</p>
+the quantity of interest, so keep the <code>"AcrossSexes"</code>
+default. Where the sexes plateau at different ages and each should be
+scaled at its own plateau, use <code>Sel_norm_bin = "Max"</code> with
+<code>Sel_norm_scope = "WithinSex"</code>: more robust than naming a
+bin, since a named bin stops being the plateau once selectivity is
+time-varying while the maximum tracks it.</p>
+<p><code>Sel_norm_scope</code> has no effect on a one-sex species, or
+where <code>Sel_norm_bin</code> is <code>"Off"</code>. Before Rceattle
+5.8.0 a named bin always implied <code>"WithinSex"</code> and
+max-normalization always implied <code>"AcrossSexes"</code>; a two-sex
+fleet normalizing at a named bin should set
+<code>Sel_norm_scope = "WithinSex"</code> explicitly to keep its old
+behaviour.</p>
 <div class="section level4">
 <h4 id="which-forms-can-hold-a-sex-difference-in-level">Which forms can hold a sex difference in level<a class="anchor" aria-label="anchor" href="#which-forms-can-hold-a-sex-difference-in-level"></a>
 </h4>
@@ -956,32 +957,28 @@ own parameters</td>
 multiplier to any estimated form, so a “none” here means the shape
 cannot hold the difference, not that the model cannot. The multiplier is
 applied after the form’s own centring or normalization.</p>
-<p><strong>The form’s own parameters are already per sex, and stay that
-way.</strong> Each sex gets its own copy: a two-sex
-<code>Logistic</code> fleet estimates a slope and an inflection for
-each. An <code>apical</code> linkage adds a height on top of two
-already-free shapes, so that fleet estimates five parameters – slope and
-inflection per sex, plus one multiplier on the sex named. This is where
+<p>A two-sex <code>Logistic</code> fleet estimates a slope and an
+inflection for each sex, and an <code>apical</code> linkage adds a
+height on top of two already-free shapes: five parameters, slope and
+inflection per sex plus one multiplier on the sex named. This is where
 the Stock Synthesis analogy stops. An SS male offset is usually an
 offset from the female <em>shape</em>, so the shape is shared and one
 parameter carries the sex difference; here both shapes stay free and the
 offset carries only the height. The distinction matters when the sexes’
 compositions are thin: each shape is informed by every row for that sex,
-but the height is informed only by the joint-sex rows
-(<code>Sex = 3</code>). Sharing a shape across the sexes is not a switch
-today – it needs a hand-edited <code>map</code> that points one sex’s
-cells at the other’s.</p>
+but the height only by the joint-sex rows (<code>Sex = 3</code>).
+Sharing a shape across the sexes is not a switch today – it needs a
+hand-edited <code>map</code> that points one sex’s cells at the
+other’s.</p>
 <p>Measured on <code>GOAatf</code>’s two-sex fishery, as the ratio of
 male to female maximum selectivity: <code>Logistic</code> 1.00,
 <code>DoubleLogistic</code> 1.97, <code>2DAR1</code> 4.53. The same
 <code>DoubleLogistic</code> fit under <code>"WithinSex"</code> returns
 to 1.00, which is the column doing its job, not the form losing the
-difference.</p>
-<p>Going non-parametric does <strong>not</strong> open this up: those
-forms pin each sex’s mean to 1, so a level ratio is a by-product of
-shape rather than something the data can inform.
-<code>inst/dev/two-sex-selectivity-example.R</code> fits the
-comparison.</p>
+difference. Going non-parametric does <strong>not</strong> open this up:
+a level ratio is then a by-product of shape rather than something the
+data can inform. <code>inst/dev/two-sex-selectivity-example.R</code>
+fits the comparison.</p>
 <p>Two things constrain what is actually estimable:</p>
 <ul>
 <li>
@@ -999,14 +996,13 @@ component.</li>
 <code>Selectivity = "Hake"</code> or <code>"LogisticPM"</code></strong>,
 because neither goes through the shared normalizer;
 <code><a href="../reference/data_check.html">data_check()</a></code> says so for a two-sex fleet on the default
-<code>"AcrossSexes"</code>. The reason differs by form. Hake normalizes
-each sex to its own maximum in its own block, so both sexes reach 1 at
-their own peaks and the normalization cannot express a level difference.
-LogisticPM does not normalize at all, and reuses
-<code>Sel_norm_bin</code> as a penalty bin range. On either form an
-<code>apical</code> linkage can still set the per-sex level: the
-multiplier is applied after each form’s own rescaling, so Hake’s
-within-sex normalization does not remove it.</li>
+<code>"AcrossSexes"</code>. Hake normalizes each sex to its own maximum
+in its own block, so both sexes reach 1 at their own peaks and the
+normalization cannot express a level difference; LogisticPM does not
+normalize at all, and reuses <code>Sel_norm_bin</code> as a penalty bin
+range. On either form an <code>apical</code> linkage can still set the
+per-sex level, since the multiplier is applied after the form’s own
+rescaling.</li>
 </ul>
 <p>Related settings elsewhere: the sex ratio at recruitment is
 <strong>fixed input</strong>, not estimated, it comes from the
@@ -1015,10 +1011,10 @@ natural mortality is <code>build_M1(M1_model = )</code> (§7) and
 sex-specific growth is <code><a href="../reference/build_growth.html">build_growth()</a></code> (§8). The per-sex
 hooks in the linkage grammar are <code>linkage_spec(by = ~ sex)</code>
 and its <code>sex =</code> filter.</p>
-<p>Note that <code>fleet_control</code> also holds a <code>Sex</code>
-column. It is <strong>inert</strong>: read nowhere in the model, and is
-retained only so older workbooks still read. Sex is set per observation
-on <code>comp_data</code>, not per fleet.</p>
+<p><code>fleet_control</code> also holds a <code>Sex</code> column,
+which is <strong>inert</strong>: read nowhere in the model, retained
+only so older workbooks still read. Sex is set per observation on
+<code>comp_data</code>, not per fleet.</p>
 </div>
 </div>
 </div>
@@ -1106,9 +1102,8 @@ arithmetic-mean estimator; pair with
 <div class="section level3">
 <h3 id="index-likelihood-index_distribution">Index likelihood (<code>Index_distribution</code>)<a class="anchor" aria-label="anchor" href="#index-likelihood-index_distribution"></a>
 </h3>
-<p>How an index observation is scored, per fleet. This is the one switch
-whose choice also changes how residuals and plots are computed, so it is
-worth setting deliberately rather than inheriting.</p>
+<p>How an index observation is scored, per fleet. The choice also sets
+how residuals and plot intervals are computed.</p>
 <table class="table">
 <colgroup>
 <col width="35%">
@@ -1167,16 +1162,14 @@ comparison.</td>
 </tr>
 </tbody>
 </table>
-<p>The <code>MVN</code> families take a user-supplied
-variance-covariance matrix (e.g. a VAST-derived Σ) through
-<code>index_cov</code>, and pair naturally with
-<code>Catchability = "AnalyticalArith"</code> for the AMAK
-arithmetic-mean q.</p>
+<p>The <code>MVN</code> families read their Σ from
+<code>index_cov</code>, a VAST-derived covariance for instance, and pair
+with the AMAK arithmetic-mean q (<code>"AnalyticalArith"</code>).</p>
 <p><strong>A family’s scale is recorded in two places.</strong> Adding
 one to <code>index_distribution_map</code> is not enough: it must also
 be classified in <code>.index_rows_natural_scale()</code>, which is what
 <code>residuals(type = "pearson")</code>, <code><a href="../reference/plot_index.html">plot_index()</a></code>’s
-observation interval and <code><a href="../reference/plot_indexresidual.html">plot_indexresidual()</a></code> read. A
+observation interval and <code><a href="../reference/plot_index_residual.html">plot_index_residual()</a></code> read. A
 natural-scale family that misses it does not error, it silently gets the
 log-scale formula, whose <code>σ²/2</code> term is then a number the
 size of the index squared.</p>
@@ -1230,8 +1223,9 @@ for the fit it actually gave, or see the replacement below.</td>
 <p><code>Time_varying_q</code> is <strong>soft-deprecated as a
 whole</strong>, as <code>Time_varying_sel</code> is, and
 <code><a href="../reference/data_check.html">data_check()</a></code> says so on use. The linkage grammar expresses
-the same IID, random-walk and AR(1) deviations, and additionally lets
-the deviation standard deviation be estimated, given a prior, or held
+the same IID, random-walk and AR(1) deviations, and <a href="environmental-linkages-and-priors.html#time-blocks">time
+blocks</a> as <code>~ cut(Year, ...)</code>, and additionally lets the
+deviation standard deviation be estimated, given a prior, or held
 fixed:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_catchability.html">build_catchability</a></span><span class="op">(</span>linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -1247,11 +1241,10 @@ rather than a free AR(1) on q:</p>
 <p><code>obs_sd</code> is that series’ measurement standard deviation,
 which the old switch never asked for. GOA pollock 2025 is a worked
 example.</p>
-<p>If <code>Catchability</code> is <code>Environmental</code>,
-<code>Time_varying_q</code> can be an integer or character of integers
-specifying the environmental series in <code>env_data</code> to use
-(e.g. <code>Time_varying_q = 1</code> or
-<code>Time_varying_q = "1,2,3"</code>).</p>
+<p>Under <code>Catchability = "Environmental"</code>,
+<code>Time_varying_q</code> instead names the <code>env_data</code>
+series to use: an integer, or a string of them
+(<code>"1,2,3"</code>).</p>
 </div>
 <div class="section level3">
 <h3 id="which-fleets-get-a-catchability">Which fleets get a catchability<a class="anchor" aria-label="anchor" href="#which-fleets-get-a-catchability"></a>
@@ -1281,13 +1274,13 @@ and a fleet whose own <code>Catchability</code> is
 <code>"Fixed"</code>. Give a fleet its own
 <code>Catchability_index</code> when it should be estimated
 independently.</p>
-<p>The exception is <code>"Analytical"</code> and
-<code>"AnalyticalArith"</code>, which solve q from each fleet’s own
-index observations rather than from the shared parameter. A group
-containing one does <strong>not</strong> share a catchability, even when
-every fleet in it holds the same setting, since each still solves
-separately. Give those fleets their own <code>Catchability_index</code>,
-or use an estimated q for the whole group.</p>
+<p><code>"Analytical"</code> and <code>"AnalyticalArith"</code> are the
+exception to that sharing: they solve q from each fleet’s own index
+observations rather than from the shared parameter. A group containing
+one does <strong>not</strong> share a catchability, even when every
+fleet in it holds the same setting, since each still solves separately.
+Give those fleets their own <code>Catchability_index</code>, or use an
+estimated q for the whole group.</p>
 <p><code>"Environmental"</code> <em>does</em> share: it rebuilds q from
 the group’s shared parameters (<code>index_log_q</code>,
 <code>index_q_beta</code>), so the whole group follows the lead fleet,
@@ -1300,10 +1293,10 @@ group, its starting value is the mean of the group’s log
 <code>Catchability_init</code> (TMB averages the initial values of
 parameters mapped together) rather than the lead’s; only the prior
 centre uses the lead’s. <code><a href="../reference/build_map.html">build_map()</a></code> warns when those inits
-differ, and names the geometric mean the group will start from. Worth
-heeding: a shared q starting at the mean scales a survey’s whole
-predicted index by a constant factor, which no residual pattern
-distinguishes from a real change in abundance.</p>
+differ, and names the geometric mean the group will start from. A shared
+q starting at the mean scales a survey’s whole predicted index by a
+constant factor, which no residual pattern distinguishes from a real
+change in abundance.</p>
 <p><code>Time_varying_q_sd</code> is shared the same way once it is
 estimated, which is <code>random_q = TRUE</code> with a
 <code>Time_varying_q</code> of <code>"IID"</code> or
@@ -1323,9 +1316,9 @@ within a group.</p>
 <div class="section level3">
 <h3 id="how-an-index-is-timed-against-mortality">How an index is timed against mortality<a class="anchor" aria-label="anchor" href="#how-an-index-is-timed-against-mortality"></a>
 </h3>
-<p>An index is predicted from the numbers its fleet sees, and that
-depends on the kind of observation. The model keys this on
-<code>Fleet_type</code>; there is no column to set.</p>
+<p>Which numbers an index is predicted from depends on the kind of
+observation, which the model keys on <code>Fleet_type</code>; there is
+no column to set.</p>
 <p>A <strong>survey</strong> index is a snapshot at the month given in
 <code>index_data</code>:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>I</mi><mo accent="true">̂</mo></mover><mi>y</mi></msub><mo>=</mo><mi>q</mi><munder><mo>∑</mo><mi>a</mi></munder><msub><mi>s</mi><mi>a</mi></msub><mspace width="0.167em"></mspace><msub><mi>N</mi><mrow><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mspace width="0.167em"></mspace><msup><mi>e</mi><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">Month</mtext><mi>/</mi><mn>12</mn><mo stretchy="false" form="postfix">)</mo><msub><mi>Z</mi><mrow><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow></msup><mspace width="0.167em"></mspace><msub><mi>w</mi><mi>a</mi></msub></mrow><annotation encoding="application/x-tex">\hat{I}_y = q \sum_a s_a\, N_{a,y}\, e^{-(\text{Month}/12) Z_{a,y}}\, w_a</annotation></semantics></math></p>
@@ -1378,9 +1371,8 @@ the index its own <code>Survey</code> fleet and point that fleet’s
 <code>Selectivity_index</code> at the fishery: fleets sharing a
 <code>Selectivity_index</code> share one selectivity block, so the index
 gets the fishery’s selectivity along with its own <code>Month</code> and
-its own q.</p>
-<p>Build the mirror fleet by copying the fishery’s
-<code>fleet_control</code> row, see <a href="#sharing-a-selectivity-between-fleets">Sharing a selectivity
+its own q. Build the mirror by copying the fishery’s
+<code>fleet_control</code> row; see <a href="#sharing-a-selectivity-between-fleets">Sharing a selectivity
 between fleets</a> for the columns that have to agree, and why a
 hand-authored row can silently get a different curve.</p>
 </div>
@@ -1413,9 +1405,9 @@ hand-authored row can silently get a different curve.</p>
 </table>
 <p>Diet composition uses an analogous switch on the bioenergetics
 control sheet: <code>Diet_distribution = 0</code> (multinomial) or
-<code>1</code> (Dirichlet-multinomial).</p>
-<p>Conditional age-at-length (CAAL) data go through their own data path
-and are weighted via <code>CAAL_weights</code> per fleet.</p>
+<code>1</code> (Dirichlet-multinomial). Conditional age-at-length (CAAL)
+data go through their own data path and are weighted via
+<code>CAAL_weights</code> per fleet.</p>
 <div class="section level3">
 <h3 id="ageing-error-per-fleet">Ageing error, per fleet<a class="anchor" aria-label="anchor" href="#ageing-error-per-fleet"></a>
 </h3>
@@ -1427,9 +1419,8 @@ ones — so both <code>age_error</code> and <code>fleet_control</code>
 take an optional <code>Ageing_error_index</code>: give the matrices
 index values, then point each fleet at the one that aged its samples.
 Omit the column, or leave it <code>NA</code>, and the index is the
-species, which is what a model with one matrix per species has always
-done.</p>
-<p>The two eras of a survey are then two fleets sharing a
+species, the behaviour of a model with one matrix per species. The two
+eras of a survey are then two fleets sharing a
 <code>Selectivity_index</code> and a <code>Catchability_index</code>, so
 they still estimate one selectivity and one catchability between
 them.</p>
@@ -1472,11 +1463,9 @@ complete.</p>
 </tr>
 </tbody>
 </table>
-<p>Priors and environmental relationships can be added to
-stock-functions via <code><a href="../reference/build_srr.html">build_srr()</a></code>. See
-<code><a href="../reference/build_srr.html">?build_srr</a></code> for options and
-<code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code> for
-details.</p>
+<p>Priors and environmental relationships go on the curve through
+<code><a href="../reference/build_srr.html">build_srr()</a></code>; see <code><a href="../reference/build_srr.html">?build_srr</a></code> and
+<code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code>.</p>
 <p>Under multispecies mode (<code>msmMode &gt; 0</code>) spawning
 biomass per recruit is undefined, because mortality includes predation.
 A curve fitted in the hindcast then estimates its initial recruitment
@@ -1522,10 +1511,9 @@ refused.</p>
 </tr>
 </tbody>
 </table>
-<p>Priors and environmental relationships can be added to M1 via
-<code><a href="../reference/build_M1.html">build_M1()</a></code>. See <code><a href="../reference/build_M1.html">?build_M1</a></code> for options and
-<code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code> for
-details.</p>
+<p>Priors and environmental relationships go on M1 through
+<code><a href="../reference/build_M1.html">build_M1()</a></code>; see <code><a href="../reference/build_M1.html">?build_M1</a></code> and
+<code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code>.</p>
 </div>
 <div class="section level3">
 <h3 id="m1_re-random-effects-structure-on-m1">
@@ -1576,6 +1564,21 @@ details.</p>
 </tr>
 </tbody>
 </table>
+<p><code>M1_re &gt; 0</code> requires an <code>M1_model</code> of
+<code>0</code>, <code>1</code> or <code>2</code>, or <code>3</code> with
+a by-year family (<code>2</code> or <code>5</code>). Under
+<code>M1_model = 0</code> the input schedule is held fixed and the
+deviations carry all of M’s variation, which makes them the most
+identifiable of any level. Under <code>M1_model = 3</code> only a
+by-year deviation stays identifiable: an age-varying one
+(<code>1</code>, <code>3</code>, <code>4</code>, <code>6</code>) and the
+age-specific level enter the likelihood only as their sum, and
+<code>M1_model = 1</code> with <code>M1_re = 4</code> is the
+identifiable version of that model. The deprecated env-driven
+<code>M1_model</code> <code>4</code> and <code>5</code> are refused for
+every family – a request there would silently give constant M, and
+<code>linkage_spec(~ temp + (1 | Year))</code> expresses the same
+model.</p>
 <p>Variance and correlation parameters are species-specific but
 sex-invariant. <code>M1_dev_log_sd</code> is the AR(1)
 <strong>innovation</strong> standard deviation, the marginal is
@@ -1703,21 +1706,18 @@ sheet</td>
 </tr>
 </tbody>
 </table>
-<p>Priors and environmental relationships can be added to growth via
-<code><a href="../reference/build_growth.html">build_growth()</a></code>. See <code><a href="../reference/build_growth.html">?build_growth</a></code> for options
-and <code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code> for
-details.</p>
+<p>Priors and environmental relationships go on growth through
+<code><a href="../reference/build_growth.html">build_growth()</a></code>; see <code><a href="../reference/build_growth.html">?build_growth</a></code> and
+<code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code>.</p>
 <p>Time-varying growth is specified through the linkage grammar rather
 than a switch of its own,
 <code>build_growth(linkages = list(K = linkage_spec(~ rw(1 | Year))))</code>
-puts a random walk on the von Bertalanffy <code>k</code>, and
+puts a random walk on the von Bertalanffy <code>K</code>, and
 <code>ar1()</code> / <code>(1 | Year)</code> give the autoregressive and
 independent alternatives.</p>
-<p>The length-based suitability modes (<code>suitMode = 1/3/5</code>)
-are not yet enabled; use a weight-based mode (<code>2/4/6</code>) for
-parametric suitability. When the length-based modes are enabled, prey
-length-at-age is taken from the estimated growth model
-(<code>growth_model &gt; 0</code>).</p>
+<p>When the not-yet-enabled length-based suitability modes
+(<code>suitMode = 1/3/5</code>) arrive, prey length-at-age will be taken
+from the estimated growth model (<code>growth_model &gt; 0</code>).</p>
 </div>
 </div>
 <div class="section level2">
@@ -1851,9 +1851,9 @@ Flimit), P(SSB &lt; SSBlimit), terminal depletion</td>
 </tr>
 </tbody>
 </table>
-<p><code><a href="../reference/run_mse.html">run_mse()</a></code> parallelizes over simulations on a PSOCK
-cluster. See the <a href="hcrs-and-mses.html">MSE vignette</a> for the
-seed plumbing and reproducibility guarantees.</p>
+<p><code><a href="../reference/run_mse.html">run_mse()</a></code> parallelizes over simulations, on a FORK
+cluster where the platform allows one and PSOCK on Windows. The <a href="hcrs-and-mses.html">MSE vignette</a> has the seed plumbing and the
+reproducibility guarantees.</p>
 </div>
 <div class="section level2">
 <h2 id="diagnostics-and-inference">11. Diagnostics and inference<a class="anchor" aria-label="anchor" href="#diagnostics-and-inference"></a>
@@ -1919,11 +1919,11 @@ optional bootstrap uncertainty</td>
 <p>Pop / mortality / fit / predation / biology plots, all named after
 the quantity they show: <code>plot_biomass</code>,
 <code>plot_ssb</code>, <code>plot_recruitment</code>,
-<code>plot_depletion</code>, <code>plot_depletionSSB</code>,
+<code>plot_depletion</code>, <code>plot_ssb_depletion</code>,
 <code>plot_exploitable_biomass</code>, <code>plot_catch</code>,
 <code>plot_f</code>, <code>plot_mortality</code>,
 <code>plot_m_at_age</code>, <code>plot_m2_at_age_prop</code>,
-<code>plot_index</code>, <code>plot_indexresidual</code>,
+<code>plot_index</code>, <code>plot_index_residual</code>,
 <code>plot_comp</code>, <code>plot_data</code>, <code>plot_form</code>,
 <code>plot_b_eaten</code>, <code>plot_b_eaten_prop</code>,
 <code>plot_diet_comp</code>, <code>plot_ration</code>,
@@ -1933,13 +1933,24 @@ the quantity they show: <code>plot_biomass</code>,
 accept a single fitted model or a list of models with
 <code>model_names</code>.</p>
 <p>These are built with <strong>ggplot2</strong> (colorblind-safe
-Okabe-Ito palette for discrete series, viridis for continuous ones,
-<code>theme_classic</code>) and <strong>return the <code>ggplot</code>
-object</strong>, so they print when called interactively and can be
-further customized by adding ggplot2 layers
+Okabe-Ito palette for discrete series, viridis for continuous ones;
+<code>theme_classic</code> with a panel border for the trajectory
+figures, <code>theme_bw</code> for the OSA and composition panels) and
+<strong>return the <code>ggplot</code> object</strong>, so they print
+when called interactively and take further ggplot2 layers
 (e.g. <code>plot_biomass(fit) + ggplot2::ggtitle("My title")</code>).
-Pass <code>file = "stem"</code> to also write the figure to
-<code>stem_&lt;plot&gt;.png</code>.</p>
+Pass <code>file = "stem"</code> to also write the figure to a PNG. The
+suffix is per-plotter and not derived from the function name –
+<code><a href="../reference/plot_recruitment.html">plot_recruitment()</a></code> writes
+<code>stem_R_trajectory.png</code>, <code><a href="../reference/plot_catch.html">plot_catch()</a></code>
+<code>stem_fishery_catch.png</code>, <code><a href="../reference/plot_data.html">plot_data()</a></code>
+<code>stem_data_plot.png</code> – and the per-fleet plotters write one
+file each: <code><a href="../reference/plot_comp.html">plot_comp()</a></code> writes
+<code>stem_comp_pearson.png</code> plus
+<code>stem_comp_annual_fleet&lt;N&gt;_&lt;age|length&gt;.png</code> and
+<code>stem_comp_aggregated_fleet&lt;N&gt;_&lt;age|length&gt;.png</code>.
+<code>tests/testthat/test-plot-save-paths.R</code> records every
+name.</p>
 <p><strong>Shared arguments.</strong> The timeseries plotters
 (<code>plot_biomass</code>, <code>plot_ssb</code>,
 <code>plot_recruitment</code>, the depletions,

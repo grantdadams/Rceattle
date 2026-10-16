@@ -329,7 +329,7 @@ plot_comp(model_1)
 [`plot_index()`](https://afsc-assessments.github.io/Rceattle/reference/plot_index.md)
 shows observed vs. predicted survey biomass; pass `log = TRUE` for the
 log scale.
-[`plot_indexresidual()`](https://afsc-assessments.github.io/Rceattle/reference/plot_indexresidual.md)
+[`plot_index_residual()`](https://afsc-assessments.github.io/Rceattle/reference/plot_index_residual.md)
 plots the residuals as observed minus predicted, on whichever scale the
 fleet is fitted on (log for a `Lognormal` fleet, the natural scale for
 the others), a useful first check for time trends or heteroscedasticity.
@@ -340,7 +340,7 @@ These return `ggplot` objects.
 
 plot_index(model_1)
 plot_index(model_1, log = TRUE)
-plot_indexresidual(model_1)
+plot_index_residual(model_1)
 ```
 
 [`plot_catchability()`](https://afsc-assessments.github.io/Rceattle/reference/plot_catchability.md)
@@ -396,7 +396,11 @@ builds the required observation data on demand and skips a requested
 source the model has no observations for (it errors only if *none* of
 them do). `"diet"` is the one source not in the default set, it applies
 only to multispecies models and can be slow, so pass `source = "all"` to
-include it.
+include it. It needs a *predicted* diet, which means `msmMode > 0`
+**and** estimated suitability (`suitMode` 2, 4 or 6); under empirical
+suitability the model reads suitability from `diet_data` rather than
+predicting stomach proportions, and the diet diagnostics refuse rather
+than report every observation as a complete misfit.
 
 ``` r
 
@@ -592,10 +596,11 @@ both kinds of data, so it makes the same choice per observation type
 inside one call rather than across two packages.
 
 One caveat that applies to every method:
-`Estimate_index_sd = "Analytical"` and the analytical `Catchability`
-forms concentrate their parameter out using **all** the observations,
-including the one being residualized, so the conditioning is not
-strictly one-step-ahead and the residuals are approximate.
+`Estimate_index_sd = "Analytical"`, `Estimate_catch_sd = "Analytical"`
+and the analytical `Catchability` forms concentrate their parameter out
+using **all** the observations, including the one being residualized, so
+the conditioning is not strictly one-step-ahead and the residuals are
+approximate – by an amount that shrinks as the series lengthens.
 
 ### Fleets with tail accumulation
 
@@ -764,11 +769,19 @@ The `nyrs_forecast` argument (default 3) also evaluates rho for years
 projected beyond each terminal peel, so a single call quantifies
 forecast skill alongside retrospective bias.
 
-A peel that did not converge is dropped and a message reports how many,
+A peel that did not converge is dropped and a warning reports how many,
 so `Rceattle_list` can be shorter than `peels + 1`. Index it by name
 rather than position, with a peel missing, `Rceattle_list[[3]]` is not
 the 3-year peel. If no peel converges, Mohn’s rho is `NaN` and the call
 warns.
+
+A separate warning means something different: under `getsd = TRUE` a
+peel whose standard errors could not be rebuilt is **kept**, with its
+point estimates intact and no `sdrep` at all, so its uncertainty band is
+absent rather than drawn at zero width. Mohn’s rho reads point estimates
+only and is unaffected. [`print()`](https://rdrr.io/r/base/print.html)
+reports how many peels that happened to, and each carries the reason in
+`attr(peel, "sd_report_error")`.
 
 ## Jitter testing
 
@@ -810,9 +823,9 @@ back.
 and
 [`jitter()`](https://afsc-assessments.github.io/Rceattle/reference/jitter.md)
 both fit peels / starts in parallel by default. Pass `cores = 1` to
-force sequential execution; otherwise the call uses a PSOCK cluster
-sized at `parallel::detectCores() - 6` (capped at 2 under
-`R CMD check`).
+force sequential execution; otherwise the call uses a FORK cluster where
+the platform allows one, PSOCK on Windows, sized at
+`parallel::detectCores() - 6` (capped at 2 under `R CMD check`).
 
 ## Self-test (simulation–estimation)
 
@@ -1168,7 +1181,7 @@ mod_names <- 1:length(mod_list)
 
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
-plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
+plot_ssb_depletion(Rceattle = mod_list, model_names = mod_names)
 ```
 
 ## Collecting it into report tables

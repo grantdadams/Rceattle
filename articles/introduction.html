@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
       <h1>1. Rceattle: An Introduction</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
     </div>
 
@@ -348,7 +348,11 @@ values.</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_1_retro</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/retrospective.html">retrospective</a></span><span class="op">(</span><span class="va">model_1</span>, peels <span class="op">=</span> <span class="fl">7</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span><span class="va">model_1_retro</span><span class="op">$</span><span class="va">Rceattle_list</span>, model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Pollock; mohns ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">model_1_retro</span><span class="op">$</span><span class="va">mohns</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># `mohns` is long: columns Object, `Forecast year` (0 = terminal peel), N, then one</span></span>
+<span><span class="co"># column per species. Read the rho by name -- column 2 is the peel year, not a rho.</span></span>
+<span><span class="va">rho</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">model_1_retro</span><span class="op">$</span><span class="va">mohns</span>, <span class="va">Object</span> <span class="op">==</span> <span class="st">"biomass"</span> <span class="op">&amp;</span> <span class="va">`Forecast year`</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span><span class="va">model_1_retro</span><span class="op">$</span><span class="va">Rceattle_list</span>,</span>
+<span>             model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Pollock; mohns ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">rho</span><span class="op">[[</span><span class="st">"Pollock"</span><span class="op">]</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="model-plots-and-diagnostics">6. Model plots and diagnostics<a class="anchor" aria-label="anchor" href="#model-plots-and-diagnostics"></a>
@@ -375,7 +379,7 @@ accept a list of models (see above).</p>
 <span></span>
 <span><span class="co"># SSB depletion (female spawning biomass / SB0), the quantity a Tier 3 HCR</span></span>
 <span><span class="co"># compares against B40%</span></span>
-<span><span class="fu"><a href="../reference/plot_depletionSSB.html">plot_depletionSSB</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, incl_proj <span class="op">=</span> <span class="cn">FALSE</span>, add_ci <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/plot_ssb_depletion.html">plot_ssb_depletion</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, incl_proj <span class="op">=</span> <span class="cn">FALSE</span>, add_ci <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <p>Diagnostic plots cover selectivity, composition fits, index fits, and
 catch fits. Composition plots take a single model; selectivity, index
 and catch plots take one or more.</p>

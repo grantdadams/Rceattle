@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -83,7 +83,7 @@
 Adams</h4>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/vignettes/hcrs-and-mses.Rmd" class="external-link"><code>vignettes/hcrs-and-mses.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/vignettes/hcrs-and-mses.Rmd" class="external-link"><code>vignettes/hcrs-and-mses.Rmd</code></a></small>
       <div class="d-none name"><code>hcrs-and-mses.Rmd</code></div>
     </div>
 
@@ -257,9 +257,9 @@ exact same trajectories from the same package tag.</p>
 <p>Plotting the OM’s spawning-biomass depletion across simulations shows
 the range of stock trajectories the strategy produces.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_depletionSSB.html">plot_depletionSSB</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">mse1</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="va">x</span><span class="op">$</span><span class="va">OM</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_ssb_depletion.html">plot_ssb_depletion</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">mse1</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="va">x</span><span class="op">$</span><span class="va">OM</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_depletionSSB.html">plot_depletionSSB</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_ssb_depletion.html">plot_ssb_depletion</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">mse1</span><span class="op">$</span><span class="va">Sim_1</span><span class="op">$</span><span class="va">EM</span>,           <span class="co"># EMs</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">mse1</span><span class="op">$</span><span class="va">Sim_1</span><span class="op">$</span><span class="va">OM</span>,      <span class="co"># OM</span></span>
 <span>         <span class="va">mse1</span><span class="op">$</span><span class="va">Sim_1</span><span class="op">$</span><span class="va">OM_no_F</span>  <span class="co"># OM with no fishing after the original OM's endyr</span></span>

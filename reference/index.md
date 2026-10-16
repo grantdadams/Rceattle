@@ -230,7 +230,7 @@ Visualize biomass, recruitment, SSB, and depletion trajectories.
   : Plot recruitment
 - [`plot_depletion()`](https://afsc-assessments.github.io/Rceattle/reference/plot_depletion.md)
   : Plot biomass depletion
-- [`plot_depletionSSB()`](https://afsc-assessments.github.io/Rceattle/reference/plot_depletionSSB.md)
+- [`plot_ssb_depletion()`](https://afsc-assessments.github.io/Rceattle/reference/plot_ssb_depletion.md)
   : Plot SSB depletion
 - [`plot_exploitable_biomass()`](https://afsc-assessments.github.io/Rceattle/reference/plot_exploitable_biomass.md)
   : Plot exploitable biomass
@@ -256,7 +256,7 @@ Visualize survey indices, fits, and residuals.
 
 - [`plot_index()`](https://afsc-assessments.github.io/Rceattle/reference/plot_index.md)
   : Survey index fits
-- [`plot_indexresidual()`](https://afsc-assessments.github.io/Rceattle/reference/plot_indexresidual.md)
+- [`plot_index_residual()`](https://afsc-assessments.github.io/Rceattle/reference/plot_index_residual.md)
   : Survey index residuals
 - [`plot_catchability()`](https://afsc-assessments.github.io/Rceattle/reference/plot_catchability.md)
   : Survey catchability over time
@@ -395,5 +395,7 @@ but emit a deprecation message; use the named replacement in new code.
 
 - [`plot_logindex()`](https://afsc-assessments.github.io/Rceattle/reference/plot_logindex.md)
   : Survey index fits on the log scale (deprecated)
-- [`plot_ssb_depletion()`](https://afsc-assessments.github.io/Rceattle/reference/plot_ssb_depletion.md)
+- [`plot_depletionSSB()`](https://afsc-assessments.github.io/Rceattle/reference/plot_depletionSSB.md)
   : Plot SSB depletion (deprecated name)
+- [`plot_indexresidual()`](https://afsc-assessments.github.io/Rceattle/reference/plot_indexresidual.md)
+  : Plot survey index residuals (deprecated name)

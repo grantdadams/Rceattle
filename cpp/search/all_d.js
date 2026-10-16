@@ -2,5 +2,6 @@ var searchData=
 [
   ['fill_5fage_5flength_5fkey_0',['fill_age_length_key',['../growth_8hpp.html#a98a9553b417f4427702bebf21aa315a7',1,'growth.hpp']]],
   ['first_5fdifference_1',['first_difference',['../helper__functions_8hpp.html#ae118e56a848386e6498dd69e34701dc2',1,'helper_functions.hpp']]],
-  ['fishery_20components_20equations_2',['9. FISHERY COMPONENTS EQUATIONS                                          //',['..//home/runner/work/Rceattle/Rceattle/src/TMB/ceattle.cpp#autotoc_md8',1,'']]]
+  ['fishery_20components_20equations_2',['9. FISHERY COMPONENTS EQUATIONS                                          //',['..//home/runner/work/Rceattle/Rceattle/src/TMB/ceattle.cpp#autotoc_md8',1,'']]],
+  ['forms_3',['Selectivity forms',['../selectivity_8hpp.html#functional_forms',1,'']]]
 ];

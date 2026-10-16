@@ -103,15 +103,15 @@ Functions</h2></td></tr>
 <tr class="separator:a98a9553b417f4427702bebf21aa315a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a51b9eaf89069f579bd6d636dd249e1da" id="r_a51b9eaf89069f579bd6d636dd249e1da"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:a51b9eaf89069f579bd6d636dd249e1da"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="growth_8hpp.html#a51b9eaf89069f579bd6d636dd249e1da">estimate_growth</a> (int wtind, int sp, int nspp, int nyrs, const vector&lt; int &gt; &amp;nsex, const vector&lt; int &gt; &amp;nages, const vector&lt; int &gt; &amp;nlengths, const vector&lt; int &gt; &amp;minage, const vector&lt; Type &gt; &amp;growth_age_L1, const vector&lt; int &gt; &amp;growth_model, const vector&lt; int &gt; &amp;growth_sd_style, const vector&lt; int &gt; &amp;growth_sd_form, const vector&lt; int &gt; &amp;growth_plus_length, const vector&lt; Type &gt; &amp;plus_group_decay, matrix&lt; Type &gt; &amp;lengths, const vector&lt; int &gt; &amp;nlengths_pop, matrix&lt; Type &gt; &amp;lengths_pop, array&lt; Type &gt; &amp;growth_parameters, array&lt; Type &gt; &amp;growth_log_sd, matrix&lt; Type &gt; &amp;weight_length_pars, const vector&lt; int &gt; &amp;mat_len_use, matrix&lt; Type &gt; &amp;mat_len_pars, array&lt; Type &gt; &amp;log_M1, array&lt; Type &gt; &amp;length_hat, array&lt; Type &gt; &amp;growth_matrix, array&lt; Type &gt; &amp;weight_hat, array&lt; Type &gt; &amp;mat_weight_hat)</td></tr>
-<tr class="memdesc:a51b9eaf89069f579bd6d636dd249e1da"><td class="mdescLeft">&#160;</td><td class="mdescRight">Integrated Growth, Size-Transition, and Weight-at-Age Module for Month = 0.  <br /></td></tr>
+<tr class="memdesc:a51b9eaf89069f579bd6d636dd249e1da"><td class="mdescLeft">&#160;</td><td class="mdescRight">Jan-1 (month 0) mean length, age-length key and weight-at-age for one species.  <br /></td></tr>
 <tr class="separator:a51b9eaf89069f579bd6d636dd249e1da"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aba0fcdf30c929793bff18c40a7830300" id="r_aba0fcdf30c929793bff18c40a7830300"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:aba0fcdf30c929793bff18c40a7830300"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="growth_8hpp.html#aba0fcdf30c929793bff18c40a7830300">estimate_growth_within_yr</a> (int wtind, int id_pop, int sp, Type fracyr, int nspp, int nyrs, const vector&lt; int &gt; &amp;nsex, const vector&lt; int &gt; &amp;nages, const vector&lt; int &gt; &amp;nlengths, const vector&lt; int &gt; &amp;minage, const vector&lt; Type &gt; &amp;growth_age_L1, const vector&lt; int &gt; &amp;growth_model, const vector&lt; int &gt; &amp;growth_sd_style, const vector&lt; int &gt; &amp;growth_sd_form, const vector&lt; int &gt; &amp;growth_plus_length, matrix&lt; Type &gt; &amp;lengths, const vector&lt; int &gt; &amp;nlengths_pop, matrix&lt; Type &gt; &amp;lengths_pop, array&lt; Type &gt; &amp;growth_parameters, array&lt; Type &gt; &amp;growth_log_sd, matrix&lt; Type &gt; &amp;weight_length_pars, const vector&lt; int &gt; &amp;mat_len_use, matrix&lt; Type &gt; &amp;mat_len_pars, array&lt; Type &gt; &amp;length_hat, array&lt; Type &gt; &amp;growth_matrix, array&lt; Type &gt; &amp;weight_hat, array&lt; Type &gt; &amp;mat_weight_hat)</td></tr>
-<tr class="memdesc:aba0fcdf30c929793bff18c40a7830300"><td class="mdescLeft">&#160;</td><td class="mdescRight">Integrated Predator Growth, Size-Transition, and Weight-at-Age Module at Month X.  <br /></td></tr>
+<tr class="memdesc:aba0fcdf30c929793bff18c40a7830300"><td class="mdescLeft">&#160;</td><td class="mdescRight">Mean length-at-age, age-length key and weight-at-age <code>fracyr</code> into the year.  <br /></td></tr>
 <tr class="separator:aba0fcdf30c929793bff18c40a7830300"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a49bb9f3b6109f77a05e466c6ac3f115f" id="r_a49bb9f3b6109f77a05e466c6ac3f115f"><td class="memTemplParams" colspan="2">template&lt;class Type &gt; </td></tr>
 <tr class="memitem:a49bb9f3b6109f77a05e466c6ac3f115f"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="growth_8hpp.html#a49bb9f3b6109f77a05e466c6ac3f115f">calculate_weight</a> (array&lt; Type &gt; &amp;weight_hat, array&lt; Type &gt; &amp;length_hat, array&lt; Type &gt; &amp;growth_matrix, array&lt; Type &gt; &amp;mat_weight_hat, array&lt; Type &gt; &amp;weight_obs, const vector&lt; int &gt; &amp;growth_model, const vector&lt; int &gt; &amp;growth_sd_style, const vector&lt; int &gt; &amp;growth_sd_form, const vector&lt; int &gt; &amp;growth_plus_length, const vector&lt; Type &gt; &amp;plus_group_decay, const int &amp;nspp, const int &amp;nyrs, const int &amp;nyrs_hind, const int &amp;n_flt, const vector&lt; int &gt; &amp;flt_spp, vector&lt; Type &gt; flt_month, const vector&lt; int &gt; &amp;nsex, const vector&lt; int &gt; &amp;minage, const vector&lt; Type &gt; &amp;growth_age_L1, const vector&lt; int &gt; &amp;nages, const vector&lt; int &gt; &amp;nlengths, const vector&lt; int &gt; &amp;pop_wt_index, const vector&lt; int &gt; &amp;ssb_wt_index, const vector&lt; int &gt; &amp;flt_wt_index, vector&lt; Type &gt; spawn_month, matrix&lt; Type &gt; &amp;lengths, const vector&lt; int &gt; &amp;nlengths_pop, matrix&lt; Type &gt; &amp;lengths_pop, array&lt; Type &gt; &amp;growth_parameters, array&lt; Type &gt; &amp;growth_log_sd, matrix&lt; Type &gt; weight_length_pars, const vector&lt; int &gt; &amp;mat_len_use, matrix&lt; Type &gt; &amp;mat_len_pars, array&lt; Type &gt; &amp;log_M1)</td></tr>
-<tr class="memdesc:a49bb9f3b6109f77a05e466c6ac3f115f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates population and fleet-specific weight-at-age.  <br /></td></tr>
+<tr class="memdesc:a49bb9f3b6109f77a05e466c6ac3f115f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Population, SSB and fleet weight-at-age (kg) for every species and fleet.  <br /></td></tr>
 <tr class="separator:a49bb9f3b6109f77a05e466c6ac3f115f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
@@ -335,38 +335,31 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Calculates population and fleet-specific weight-at-age. </p>
-<p>This function populates the weight_hat array based on either empirical data (growth_model == 0) or estimated growth parameters (growth_model &gt; 0). It handles both hindcast and projection years by carrying over the last hindcast year's empirical data.</p>
+<p>Population, SSB and fleet weight-at-age (kg) for every species and fleet. </p>
+<p>Empirical weight-at-age (<code>growth_model == 0</code>) is read straight from <code>weight_obs</code>, each projection year carrying the last hindcast year forward. Under estimated growth (<code>growth_model &gt; 0</code>) population weight comes from <a class="el" href="growth_8hpp.html#a51b9eaf89069f579bd6d636dd249e1da" title="Jan-1 (month 0) mean length, age-length key and weight-at-age for one species.">estimate_growth()</a> at Jan-1, and SSB and fleet weight from <a class="el" href="growth_8hpp.html#aba0fcdf30c929793bff18c40a7830300" title="Mean length-at-age, age-length key and weight-at-age fracyr into the year.">estimate_growth_within_yr()</a> at the spawning month and at each fleet's own month. Arguments not listed below pass through to those two, except n_flt, which this function's own fleet loop consumes.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">weight_hat</td><td>[ref] 4D array to store calculated weights (wt_index, sex, age, year) </td></tr>
-    <tr><td class="paramname">length_hat</td><td>[ref] 4D array for estimated lengths </td></tr>
-    <tr><td class="paramname">growth_matrix</td><td>[ref] 5D array for age-length transition matrices </td></tr>
+    <tr><td class="paramname">weight_hat</td><td>[ref] weight-at-age (wt_index, sex, age, year), kg </td></tr>
+    <tr><td class="paramname">length_hat</td><td>[ref] mean length-at-age (cm) </td></tr>
+    <tr><td class="paramname">growth_matrix</td><td>[ref] age-length key on the population length bins </td></tr>
+    <tr><td class="paramname">mat_weight_hat</td><td>[ref] mature weight-at-age (kg), maturity-at-length species only </td></tr>
     <tr><td class="paramname">weight_obs</td><td>Empirical weight-at-age input (wt_index, sex, age, year), kg </td></tr>
-    <tr><td class="paramname">growth_model</td><td>Integer vector indicating growth type (0=empirical, &gt;0=estimated) </td></tr>
-    <tr><td class="paramname">growth_sd_style</td><td>Per species, plus-group SD-at-age: 1 = pinned to exp(sd_Linf) (WHAM), 2 = interpolated by length </td></tr>
-    <tr><td class="paramname">growth_sd_form</td><td>Per species, 1 = SD endpoints in cm, 2 = CV endpoints </td></tr>
-    <tr><td class="paramname">growth_plus_length</td><td>Per species, plus-group mean length form (see <a class="el" href="growth_8hpp.html#a51b9eaf89069f579bd6d636dd249e1da" title="Integrated Growth, Size-Transition, and Weight-at-Age Module for Month = 0.">estimate_growth()</a>) </td></tr>
-    <tr><td class="paramname">mat_weight_hat</td><td>[ref] Mature weight-at-age (kg) for maturity-at-length species </td></tr>
-    <tr><td class="paramname">nspp</td><td>Number of species </td></tr>
-    <tr><td class="paramname">nyrs</td><td>Total number of years (hindcast + projection) </td></tr>
-    <tr><td class="paramname">nyrs_hind</td><td>Number of hindcast years </td></tr>
-    <tr><td class="paramname">n_flt</td><td>Number of fleets </td></tr>
-    <tr><td class="paramname">flt_spp</td><td>Vector mapping fleet to species index </td></tr>
-    <tr><td class="paramname">flt_month</td><td>Vector mapping fleet to month of operation </td></tr>
-    <tr><td class="paramname">nsex</td><td>Vector of number of sexes per species </td></tr>
-    <tr><td class="paramname">nages</td><td>Vector of number of ages per species </td></tr>
-    <tr><td class="paramname">pop_wt_index</td><td>Index for population biomass weights </td></tr>
-    <tr><td class="paramname">ssb_wt_index</td><td>Index for spawning stock biomass weights </td></tr>
-    <tr><td class="paramname">flt_wt_index</td><td>Index for fleet-specific weights </td></tr>
-    <tr><td class="paramname">spawn_month</td><td>Vector of spawning months per species [Other parameters for estimate_growth: lengths, nlengths, minage, growth_parameters, growth_log_sd, weight_length_pars] </td></tr>
+    <tr><td class="paramname">growth_model</td><td>Per species, 0 = empirical, 1 = von Bertalanffy, 2 = Richards </td></tr>
+    <tr><td class="paramname">nyrs</td><td>Years, hindcast plus projection. </td></tr>
+    <tr><td class="paramname">nyrs_hind</td><td>Years in the hindcast. </td></tr>
+    <tr><td class="paramname">flt_spp</td><td>Species index of each fleet </td></tr>
+    <tr><td class="paramname">flt_month</td><td>Fleet observation month (0 = not specified); flt_month/12 of a year </td></tr>
+    <tr><td class="paramname">pop_wt_index</td><td>Weight-at-age input index for population biomass </td></tr>
+    <tr><td class="paramname">ssb_wt_index</td><td>Weight-at-age input index for spawning-stock biomass </td></tr>
+    <tr><td class="paramname">flt_wt_index</td><td>Weight-at-age input index per fleet </td></tr>
+    <tr><td class="paramname">spawn_month</td><td>Spawning month per species; spawn_month/12 of a year (0 = Jan-1) </td></tr>
   </table>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00589">589</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00498">498</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
 
-<p class="reference">References <a class="el" href="growth_8hpp_source.html#l00157">estimate_growth()</a>, and <a class="el" href="growth_8hpp_source.html#l00408">estimate_growth_within_yr()</a>.</p>
+<p class="reference">References <a class="el" href="growth_8hpp_source.html#l00129">estimate_growth()</a>, and <a class="el" href="growth_8hpp_source.html#l00338">estimate_growth_within_yr()</a>.</p>
 
 </div>
 </div>
@@ -548,58 +541,35 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Integrated Growth, Size-Transition, and Weight-at-Age Module for Month = 0. </p>
-<p>Computes Jan-1 mean length-at-age, the age-&gt;length probability matrix, and integrated weight-at-age for a single species.</p>
-<h1><a class="anchor" id="math_models"></a>
-Mathematical Models:</h1>
-<ol type="1">
-<li>Mean Length-at-Age ( \(L_a\)) — anchored at \(L(a_{L1}) = l_1\):<ul>
-<li>Von Bertalanffy (Model 1): \(L_a = L_{\infty} + (l_1 - L_{\infty}) \cdot e^{-K(a - a_{L1})}\)</li>
-<li>Richards (Model 2): \(L_a = [L_{\infty}^m + (l_1^m - L_{\infty}^m) \cdot e^{-K(a - a_{L1})}]^{1/m}\)</li>
-<li>For year &gt; 0, a cohort recursion advances \(L_{a, y}\) from \(L_{a-1, y-1}\) using lag-year parameters. At the cohort boundary (current_age == age_L1_ceil) the closed-form anchor at \(l_1\) is used; <code>age_L1_safe</code> keeps this anchor at \(l_1\) for both minage &gt; 0 and minage = 0.</li>
-<li>Linear ramp from Lmin_sp at age 0 to \(l_1\) at age_L1 applies when current_age &lt;= age_L1 (only reachable for minage &gt; 0).</li>
+<p>Jan-1 (month 0) mean length, age-length key and weight-at-age for one species. </p>
+<p>Mean length-at-age (cm) is anchored at \(L(a_{L1}) = l_1\):</p><ul>
+<li>von Bertalanffy (<code>growth_model</code> 1): \(L_a = L_{\infty} + (l_1 - L_{\infty}) \cdot e^{-K(a - a_{L1})}\)</li>
+<li>Richards (2): \(L_a = [L_{\infty}^m + (l_1^m - L_{\infty}^m) \cdot e^{-K(a - a_{L1})}]^{1/m}\)</li>
+<li>Below the anchor, a linear ramp from <code>Lmin_sp</code> at age 0 to \(l_1\) at <code>age_L1</code>.</li>
+<li>After year 0 a cohort recursion advances \(L_{a, y}\) from \(L_{a-1, y-1}\) with the previous year's parameters; where that predecessor is still on the ramp, or at slot 0, the closed-form anchor at \(l_1\) is used instead.</li>
 </ul>
-</li>
-<li>Weight-at-Age ( \(W_a\)): Integrated across length to account for Jensen's Inequality: \(W_a = \sum_{ln} P(ln | a) \cdot \alpha \cdot L_{mid}^{\beta}\) Bin midpoints are computed per-bin to support non-uniform length bins; the length plus-group is extended by half the final interior bin width.</li>
-</ol>
-<h1><a class="anchor" id="logic"></a>
-Biological Logic:</h1>
-<ul>
-<li><b>Temporal Resolution</b>: Jan-1 (month = 0).</li>
-<li><b>Plus-Age Group</b>: The oldest age's mean length is set by <code>growth_plus_length</code>: an M1-weighted mean toward \(L_{\infty}\) (1, the default), no adjustment (2), or SS3's Linf_decay forms (3 = -999, 4 = a decay rate). See section 2 of the body.</li>
-<li><b>SD-at-Age</b>: <a class="el" href="growth_8hpp.html#a483523908dda4b421f4f375db73361c5" title="SD of length-at-age (cm) for one age, year and sex.">length_sd_at_age()</a>; <code>growth_sd_form</code> makes the two endpoints SDs (cm) or CVs.</li>
-<li><b>Size Transition</b>: <a class="el" href="growth_8hpp.html#a98a9553b417f4427702bebf21aa315a7" title="Age-length key, weight-at-age and mature weight-at-age for one cell.">fill_age_length_key()</a>, on the population length bins; consumers bin the product with selectivity, not the key itself.</li>
-</ul>
+<p>Weight-at-age (kg) is integrated across the length distribution rather than taken at mean length, which Jensen's inequality would bias: \(W_a = \sum_{ln} P(ln | a) \cdot \alpha \cdot L_{mid}^{\beta}\).</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">wtind</td><td>Weight index slot to write into. </td></tr>
     <tr><td class="paramname">sp</td><td>Species index. </td></tr>
-    <tr><td class="paramname">nyrs</td><td>Number of years in the simulation/model. </td></tr>
-    <tr><td class="paramname">nsex/nages/nlengths</td><td>Vectors of species-specific counts per dimension. </td></tr>
-    <tr><td class="paramname">minage</td><td>Vector of minimum modeled ages (0 supported). </td></tr>
-    <tr><td class="paramname">growth_model</td><td>Per-species growth model selector (1 = VBGF, 2 = Richards). </td></tr>
-    <tr><td class="paramname">lengths</td><td>Matrix of length bin boundaries (nspp x length_bins). Bin widths may be non-uniform. </td></tr>
-    <tr><td class="paramname">growth_parameters</td><td>4D array of time-varying growth parameters (K, L1, Linf, m). </td></tr>
-    <tr><td class="paramname">growth_log_sd</td><td>3D array of log-scale SDs (index 0 = SD at L1, index 1 = SD at Linf). </td></tr>
-    <tr><td class="paramname">weight_length_pars</td><td>Matrix of length-weight parameters ( \(\alpha\), \(\beta\)).</td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section note"><dt>Note</dt><dd>Outputs are passed by reference. </dd></dl>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">length_hat</td><td>[Output] 4D array filled with mean length-at-age. </td></tr>
-    <tr><td class="paramname">growth_matrix</td><td>[Output] 5D array filled with the growth transition matrix. </td></tr>
-    <tr><td class="paramname">weight_hat</td><td>[Output] 4D array filled with integrated weight-at-age. </td></tr>
+    <tr><td class="paramname">minage</td><td>Minimum modelled age per species; 0 is supported. </td></tr>
+    <tr><td class="paramname">growth_model</td><td>Per species, 1 = von Bertalanffy, 2 = Richards. </td></tr>
+    <tr><td class="paramname">growth_parameters</td><td>Time-varying growth parameters by species, sex, year and parameter: K (per year), L1 and Linf (cm), Richards m. </td></tr>
+    <tr><td class="paramname">growth_log_sd</td><td>Log-scale variability endpoints: index 0 at L1, index 1 at Linf. </td></tr>
+    <tr><td class="paramname">weight_length_pars</td><td>Allometric \(\alpha\) and \(\beta\), kg from cm. </td></tr>
+    <tr><td class="paramname">length_hat</td><td>[Output] mean length-at-age (cm). </td></tr>
+    <tr><td class="paramname">growth_matrix</td><td>[Output] age-length key on the population length bins. </td></tr>
+    <tr><td class="paramname">weight_hat</td><td>[Output] integrated weight-at-age (kg). </td></tr>
   </table>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00157">157</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00129">129</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
 
-<p class="reference">References <a class="el" href="growth_8hpp_source.html#l00049">fill_age_length_key()</a>, and <a class="el" href="growth_8hpp_source.html#l00015">length_sd_at_age()</a>.</p>
+<p class="reference">References <a class="el" href="growth_8hpp_source.html#l00045">fill_age_length_key()</a>, and <a class="el" href="growth_8hpp_source.html#l00014">length_sd_at_age()</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="growth_8hpp_source.html#l00589">calculate_weight()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="growth_8hpp_source.html#l00498">calculate_weight()</a>.</p>
 
 </div>
 </div>
@@ -781,56 +751,31 @@ template&lt;class Type &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Integrated Predator Growth, Size-Transition, and Weight-at-Age Module at Month X. </p>
-<h1><a class="anchor" id="math_models_within"></a>
-Mathematical Models:</h1>
-<ol type="1">
-<li>Mean Length-at-Age ( \(L_a\)): Advances the Jan-1 length stored at id_pop forward by fracyr of growth.<ul>
-<li>Von Bertalanffy (Model 1): \(L_a = L_{\infty} + (L_{a, jan1} - L_{\infty}) \cdot e^{-K \cdot fracyr}\)</li>
-<li>Richards (Model 2): \(L_a = [L_{\infty}^m + (L_{a, jan1}^m - L_{\infty}^m) \cdot e^{-K \cdot fracyr}]^{1/m}\)</li>
-<li>Linear growth is applied for ages &lt; minage (current_age &lt;= age_L1).</li>
+<p>Mean length-at-age, age-length key and weight-at-age <code>fracyr</code> into the year. </p>
+<p>Advances the Jan-1 mean length stored at <code>id_pop</code> by <code>fracyr</code> of growth, for SSB weight-at-age at the spawning month and each fleet's weight-at-age at its own month:</p><ul>
+<li>von Bertalanffy (<code>growth_model</code> 1): \(L_a = L_{\infty} + (L_{a, jan1} - L_{\infty}) \cdot e^{-K \cdot fracyr}\)</li>
+<li>Richards (2): \(L_a = [L_{\infty}^m + (L_{a, jan1}^m - L_{\infty}^m) \cdot e^{-K \cdot fracyr}]^{1/m}\)</li>
+<li>Below the anchor age (<code>current_age &lt;= age_L1</code>) the linear ramp applies, as at Jan-1.</li>
 </ul>
-</li>
-<li>Weight-at-Age ( \(W_a\)): Calculated via integration across the length distribution to account for Jensen's Inequality: \(W_a = \sum_{ln} P(ln | a) \cdot \alpha \cdot L_{mid}^{\beta}\)</li>
-</ol>
-<h1><a class="anchor" id="logic_within"></a>
-Biological Logic:</h1>
-<ul>
-<li><b>Temporal Resolution</b>: Incorporates <code>fracyr</code> to allow within-year (seasonal) growth and differentiability for time-varying parameters.</li>
-<li><b>Plus Group</b>: Starts from the Jan-1 plus-group length that <code><a class="el" href="growth_8hpp.html#a51b9eaf89069f579bd6d636dd249e1da" title="Integrated Growth, Size-Transition, and Weight-at-Age Module for Month = 0.">estimate_growth()</a></code> set (<code>id_pop</code>). Under <code>growth_plus_length == 1</code> it keeps that length through the year; under the SS3 forms (2-4) it grows within the year like every other age, as in SS3.</li>
-<li><b>SD-at-Age</b>: <a class="el" href="growth_8hpp.html#a483523908dda4b421f4f375db73361c5" title="SD of length-at-age (cm) for one age, year and sex.">length_sd_at_age()</a>, as in <code><a class="el" href="growth_8hpp.html#a51b9eaf89069f579bd6d636dd249e1da" title="Integrated Growth, Size-Transition, and Weight-at-Age Module for Month = 0.">estimate_growth()</a></code>.</li>
-<li><b>Size Transition</b>: <a class="el" href="growth_8hpp.html#a98a9553b417f4427702bebf21aa315a7" title="Age-length key, weight-at-age and mature weight-at-age for one cell.">fill_age_length_key()</a>, on the population length bins; consumers bin the product with selectivity, not the key itself.</li>
-</ul>
+<p>Under <code>growth_plus_length == 1</code> the plus group keeps the Jan-1 mean length <code><a class="el" href="growth_8hpp.html#a51b9eaf89069f579bd6d636dd249e1da" title="Jan-1 (month 0) mean length, age-length key and weight-at-age for one species.">estimate_growth()</a></code> set for it; under the SS3 forms (2-4) it grows within the year like every other age, as SS3 does.</p>
+<p>Weight-at-age (kg) is integrated over the length distribution as in <a class="el" href="growth_8hpp.html#a51b9eaf89069f579bd6d636dd249e1da" title="Jan-1 (month 0) mean length, age-length key and weight-at-age for one species.">estimate_growth()</a>.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">wtind</td><td>Weight index for population/fleet. </td></tr>
-    <tr><td class="paramname">id_pop</td><td>Index for population (Jan-1) weight-at-age; the within-year growth advance is anchored on <code>length_hat(id_pop, ...)</code>. </td></tr>
+    <tr><td class="paramname">wtind</td><td>Weight index slot to write into. </td></tr>
+    <tr><td class="paramname">id_pop</td><td>Weight index holding the Jan-1 lengths the advance starts from. </td></tr>
     <tr><td class="paramname">sp</td><td>Species index. </td></tr>
-    <tr><td class="paramname">fracyr</td><td>Fraction of the year (0.0 - 1.0) for within-year growth. </td></tr>
-    <tr><td class="paramname">nyrs</td><td>Number of years in the simulation/model. </td></tr>
-    <tr><td class="paramname">nsex/nages/nlengths</td><td>Vectors of species-specific counts per dimension. </td></tr>
-    <tr><td class="paramname">lengths</td><td>Matrix of length bin boundaries (nspp x length_bins). Bin widths may be non-uniform. </td></tr>
-    <tr><td class="paramname">growth_parameters</td><td>4D array of time-varying growth parameters (K, L1, Linf, m). </td></tr>
-    <tr><td class="paramname">growth_log_sd</td><td>3D array of log-scale SDs (index 0 = SD at L1, index 1 = SD at Linf). </td></tr>
-    <tr><td class="paramname">weight_length_pars</td><td>Matrix of length-weight parameters ( \(\alpha\), \(\beta\)).</td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section note"><dt>Note</dt><dd>Outputs are passed by reference. </dd></dl>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">length_hat</td><td>[Output] 4D array filled with mean length-at-age. </td></tr>
-    <tr><td class="paramname">growth_matrix</td><td>[Output] 5D array filled with the growth transition matrix. </td></tr>
-    <tr><td class="paramname">weight_hat</td><td>[Output] 4D array filled with integrated weight-at-age. </td></tr>
+    <tr><td class="paramname">fracyr</td><td>Fraction of the year (0.0 - 1.0) to advance growth by. </td></tr>
+    <tr><td class="paramname">growth_parameters,growth_log_sd,weight_length_pars</td><td>As in <a class="el" href="growth_8hpp.html#a51b9eaf89069f579bd6d636dd249e1da" title="Jan-1 (month 0) mean length, age-length key and weight-at-age for one species.">estimate_growth()</a>. </td></tr>
+    <tr><td class="paramname">length_hat,growth_matrix,weight_hat</td><td>[Output] As in <a class="el" href="growth_8hpp.html#a51b9eaf89069f579bd6d636dd249e1da" title="Jan-1 (month 0) mean length, age-length key and weight-at-age for one species.">estimate_growth()</a>. </td></tr>
   </table>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00408">408</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00338">338</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
 
-<p class="reference">References <a class="el" href="growth_8hpp_source.html#l00049">fill_age_length_key()</a>, and <a class="el" href="growth_8hpp_source.html#l00015">length_sd_at_age()</a>.</p>
+<p class="reference">References <a class="el" href="growth_8hpp_source.html#l00045">fill_age_length_key()</a>, and <a class="el" href="growth_8hpp_source.html#l00014">length_sd_at_age()</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="growth_8hpp_source.html#l00589">calculate_weight()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="growth_8hpp_source.html#l00498">calculate_weight()</a>.</p>
 
 </div>
 </div>
@@ -941,12 +886,12 @@ template&lt;class Type &gt; </div>
 </div><div class="memdoc">
 
 <p>Age-length key, weight-at-age and mature weight-at-age for one cell. </p>
-<p>Length is normal with mean <code>mu</code> and SD <code>sd</code> (cm). Probabilities are taken on the population length bins <code>lengths_pop</code> (lower edges): the first bin is a minus group below the second edge and the last a plus group above the last edge (SS3's convention). They stay on that grid; the consumers that need data bins sum each bin's run of population bins themselves.</p>
-<p>Weight-at-age is \(\sum_l P(l|a) \alpha L_{mid}^\beta\) at population-bin midpoints (kg); the last bin's midpoint sits half a bin width above its lower edge. When the species has maturity-at-length, mature weight-at-age is the same sum with the logistic maturity \(1/(1+e^{-s(L_{mid} - L_{50})})\) inside: SS3's fecundity-at-age when fecundity equals body weight. </p>
+<p>Length is normal with mean <code>mu</code> and SD <code>sd</code> (cm) on the population length bins <code>lengths_pop</code> (lower edges): the first bin is a minus group, the last a plus group (SS3's convention).</p>
+<p>Weight-at-age is \(\sum_l P(l|a) \alpha L_{mid}^\beta\) at population-bin midpoints (kg). With maturity-at-length, mature weight-at-age is the same sum with the logistic maturity \(1/(1+e^{-s(L_{mid} - L_{50})})\) inside: SS3's fecundity-at-age when fecundity equals body weight. </p>
 
-<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00049">49</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00045">45</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="growth_8hpp_source.html#l00157">estimate_growth()</a>, and <a class="el" href="growth_8hpp_source.html#l00408">estimate_growth_within_yr()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="growth_8hpp_source.html#l00129">estimate_growth()</a>, and <a class="el" href="growth_8hpp_source.html#l00338">estimate_growth_within_yr()</a>.</p>
 
 </div>
 </div>
@@ -1027,11 +972,11 @@ template&lt;class Type &gt; </div>
 </div><div class="memdoc">
 
 <p>SD of length-at-age (cm) for one age, year and sex. </p>
-<p>The variability term v is \(e^{sd_0}\) at or below <code>age_L1</code>, pinned to \(e^{sd_1}\) for the plus group under <code>sd_style == 1</code> (WHAM; also SS3 when Growth_Age_for_L2 = 999), and otherwise interpolated linearly in length between \((l_1, e^{sd_0})\) and \((L_\infty, e^{sd_1})\). <code>sd_form</code> says what v is: 1 = an SD in cm (SS3 CV_Growth_Pattern 2), 2 = a CV, so SD = v * L (SS3 CV_Growth_Pattern 0). </p>
+<p>The variability term v is \(e^{sd_0}\) at or below <code>age_L1</code>, pinned to \(e^{sd_1}\) for the plus group under <code>sd_style == 1</code> (WHAM; also SS3 with Growth_Age_for_L2 = 999), and otherwise interpolated linearly in length between \((l_1, e^{sd_0})\) and \((L_\infty, e^{sd_1})\). <code>sd_form</code> 1 makes v an SD in cm (SS3 CV_Growth_Pattern 2), 2 a CV, so SD = v * L (SS3 CV_Growth_Pattern 0). </p>
 
-<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00015">15</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="growth_8hpp_source.html#l00014">14</a> of file <a class="el" href="growth_8hpp_source.html">growth.hpp</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="growth_8hpp_source.html#l00157">estimate_growth()</a>, and <a class="el" href="growth_8hpp_source.html#l00408">estimate_growth_within_yr()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="growth_8hpp_source.html#l00129">estimate_growth()</a>, and <a class="el" href="growth_8hpp_source.html#l00338">estimate_growth_within_yr()</a>.</p>
 
 </div>
 </div>

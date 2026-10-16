@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,7 +53,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Jitter analysis</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/R/9-retro_and_jitter.R" class="external-link"><code>R/9-retro_and_jitter.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/R/9-retro_and_jitter.R" class="external-link"><code>R/9-retro_and_jitter.R</code></a></small>
       <div class="d-none name"><code>jitter.Rd</code></div>
     </div>
 
@@ -73,6 +73,7 @@
 <span>  getsd <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  timeout <span class="op">=</span> <span class="cn">Inf</span>,</span>
 <span>  fit_control <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">...</span>,</span>
 <span>  Rceattle <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -135,6 +136,12 @@ function evaluations rather than inside one.</p></dd>
 <code>phase</code> and <code>getsd</code> are read; see <strong>What <code><a href="fit_control.html">fit_control()</a></code> reaches</strong>.</p></dd>
 
 
+<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
+<dd><p>for a numeric <code>object</code>, passed to <code><a href="https://rdrr.io/r/base/jitter.html" class="external-link">base::jitter()</a></code>;
+for a fitted model, refused, so that a misspelled argument is not silently
+ignored.</p></dd>
+
+
 <dt id="arg-rceattle">Rceattle<a class="anchor" aria-label="anchor" href="#arg-rceattle"></a></dt>
 <dd><p>deprecated name for <code>object</code>, still accepted so existing
 scripts keep working. Supplying both is an error.</p></dd>
@@ -150,10 +157,17 @@ is what fraction of random starts reach the same optimum.</p>
     </div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
-    <p>Attaching Rceattle masks <code><a href="https://rdrr.io/r/base/jitter.html" class="external-link">jitter</a></code>, so <code>jitter(x)</code>
-on a numeric vector reaches this function and reports a missing model rather
-than adding noise to <code>x</code>. Call <code><a href="https://rdrr.io/r/base/jitter.html" class="external-link">base::jitter()</a></code> explicitly for the
-base-graphics behaviour.</p>
+    <p>Attaching Rceattle masks <code><a href="https://rdrr.io/r/base/jitter.html" class="external-link">jitter</a></code>, because that
+function is not generic and this name is exported, so the mask cannot be
+removed by making this an S3 method. It is harmless for the spellings base
+callers use: a numeric first argument is handed straight to
+<code><a href="https://rdrr.io/r/base/jitter.html" class="external-link">base::jitter()</a></code>, so <code>jitter(1:5)</code> and
+<code>jitter(1:5, factor = 2)</code> behave as base does. <code>jitter(x = 1:5)</code>
+and a positional second argument do not. <code>x</code> is not a parameter here,
+so it is refused as an unused argument; a positional second argument binds
+<code>njitter</code>, so <code>jitter(1:5, 2)</code> jitters with base's defaults and
+silently drops the <code>2</code>. Name base's arguments, or call
+<code><a href="https://rdrr.io/r/base/jitter.html" class="external-link">base::jitter()</a></code> directly.</p>
     </div>
 
     <div class="section level2">

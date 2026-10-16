@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
       <h1>Developer guide</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/vignettes/articles/developer-guide.Rmd" class="external-link"><code>vignettes/articles/developer-guide.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/vignettes/articles/developer-guide.Rmd" class="external-link"><code>vignettes/articles/developer-guide.Rmd</code></a></small>
       <div class="d-none name"><code>developer-guide.Rmd</code></div>
     </div>
 
@@ -109,8 +109,10 @@ wiki</a>.</p>
 <tbody>
 <tr class="odd">
 <td><code>R/</code></td>
-<td>The R side. Files are number-prefixed in rough pipeline order (see
-below).</td>
+<td>The R side, 67 files. The number prefix tracks pipeline order for
+the <code>1-</code> to <code>6-</code> chain; everything under
+<code>0-</code> is shared machinery. Every file is listed in <a href="#every-file-in-r-and-what-it-does">Every file in <code>R/</code>,
+and what it does</a>.</td>
 </tr>
 <tr class="even">
 <td><code>src/TMB/</code></td>
@@ -141,6 +143,38 @@ articles like this one.</td>
 <td>
 <code>R-CMD-check.yaml</code> and <code>pkgdown.yaml</code> CI.</td>
 </tr>
+<tr class="even">
+<td><code>inst/dev/</code></td>
+<td>Committed developer notes that ship with the package:
+<code>TRAPS.md</code> (verified traps with their measured numbers — read
+it before touching anything it names), <code>SIBLING-REPOS.md</code>
+(the consumer repositories an API change is swept against),
+<code>SIMPLIFY-LOG.md</code> (design wishes; a defect never goes here),
+and two runnable selectivity examples. The working notes — the session
+handoff, the triaged backlog and the per-subsystem
+<code>TODO-*.md</code> records — live in a separate maintainer
+repository, and the open items that code comments used to cite are now
+GitHub issues.</td>
+</tr>
+<tr class="odd">
+<td><code>data-raw/</code></td>
+<td>Generators for committed artefacts, notably
+<code>regenerate_meta_xlsx.R</code> for
+<code>meta_data_names.xlsx</code>.</td>
+</tr>
+<tr class="even">
+<td><code>tools/verify/</code></td>
+<td>22 standalone verification harnesses <code>/golden-check</code> does
+not cover — the optimizer path, array bounds, the MSE draw digests, the
+simulation recoveries.</td>
+</tr>
+<tr class="odd">
+<td><code>.claude/commands/</code></td>
+<td>The slash commands referenced below (<code>/golden-check</code>,
+<code>/new-column</code>, <code>/verify</code>,
+<code>/ecosystem-sweep</code>). Each is a markdown file stating the full
+procedure, usable as a checklist by a person.</td>
+</tr>
 </tbody>
 </table>
 <p>The whole model (observation model, population dynamics, and
@@ -149,6 +183,190 @@ likelihood) is a single C++ TMB script,
 topical <code>.hpp</code> modules. <code><a href="../reference/fit_mod.html">fit_mod()</a></code> is the R entry
 point; it calls a chain of helpers that build the TMB inputs, optimize,
 and label the output.</p>
+</div>
+<div class="section level2">
+<h2 id="i-want-to-change-x-where-do-i-start">I want to change X — where do I start?<a class="anchor" aria-label="anchor" href="#i-want-to-change-x-where-do-i-start"></a>
+</h2>
+<p>The question most people arrive with. Find the row, start at the
+file, and read its row in <a href="#every-file-in-r-and-what-it-does">Every file in
+<code>R/</code></a>, which covers all 67. Where a row names a vignette,
+read that first — these rows are orientation, and a recipe is the
+job.</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>I want to …</th>
+<th>Start at</th>
+<th>Then usually also</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>add a <strong>selectivity form</strong>
+</td>
+<td>
+<strong><code>adding-a-selectivity-form.html</code> — read it
+first.</strong> It names all the files and the two static tests that
+catch a half-finished form; this row is orientation, not the job</td>
+<td>the dispatch is <code>switch (sel_case)</code> in
+<code>src/TMB/selectivity.hpp</code>, <strong>not</strong>
+<code>switch (sel_type)</code> — <code>sel_case</code> is derived, and
+form 13 under a random walk rewrites itself to <code>-13</code>. Five
+files are always touched: <code>R/0-switches.R</code>
+(<code>sel_map</code>), <code>R/0-column_schema.R</code>,
+<code>R/data.R</code>, <code>R/1-data_check.R</code>,
+<code>R/3-build_map.R</code>. Codes 1-9, 11, 13 and 15 are taken; the
+next free one is 16</td>
+</tr>
+<tr class="even">
+<td>add a <strong>likelihood component</strong>
+</td>
+<td>
+<code>src/TMB/ceattle.cpp</code> §13 and the <code>JnllRow</code>
+enum</td>
+<td>
+<code>R/6-rename_output.R</code> (row labels) and
+<code>.JNLL_ROW_AXIS</code> in <code>R/9-profile.R</code> — all three
+must agree, and <code>test-schema-jnll-rows.R</code> checks it</td>
+</tr>
+<tr class="odd">
+<td>add a <strong>workbook column</strong>
+</td>
+<td><code>R/0-column_schema.R</code></td>
+<td>
+<strong>not only there.</strong> <code><a href="../reference/switch_check.html">switch_check()</a></code> fills
+defaults through 23 hand-written calls, not a loop, so a column with a
+default needs a 24th in <code>R/0-switches.R</code>;
+<code>meta = TRUE</code> is the constructor default and
+<code>R/data.R</code>’s <code>@format</code> is pinned to the schema by
+<code>test-schema-canonical.R</code>; and
+<code>meta_data_names.xlsx</code> is a committed file regenerated by
+<code>data-raw/regenerate_meta_xlsx.R</code>.
+<code>.claude/commands/new-column.md</code> has the full eight-step
+recipe</td>
+</tr>
+<tr class="even">
+<td>add a <strong>switch value</strong> (a new form name)</td>
+<td>
+<code>R/0-switches.R</code> (the relevant <code>*_map</code>)</td>
+<td>
+<code>validate_switches()</code> rejects anything not in the
+map</td>
+</tr>
+<tr class="odd">
+<td>change <strong>what a parameter starts at</strong>
+</td>
+<td><code>R/2-build_params.R</code></td>
+<td>
+<code>R/4-build_parameter_bounds.R</code> if it needs bounds</td>
+</tr>
+<tr class="even">
+<td>change <strong>which parameters are estimated</strong>
+</td>
+<td><code>R/3-build_map.R</code></td>
+<td>
+<code>R/6-phaser.R</code> if it should be phased</td>
+</tr>
+<tr class="odd">
+<td>add a <strong>covariate or time-varying effect</strong> to a
+process</td>
+<td>
+<code><a href="../reference/linkage_spec.html">linkage_spec()</a></code> in <code>R/0-build_linkage.R</code>
+</td>
+<td>the process’s own <code>build_*()</code>. Nothing in the TMB
+template if the parameter already accepts a linkage; a <strong>new
+parameter</strong> needs <code>R/0-linkage_encode.R</code> and
+<code>src/TMB/linkage.hpp</code> changed in lockstep, and a <strong>new
+process or link</strong> must be added to
+<code>LINKAGE_PROCESSES_IMPLEMENTED</code> /
+<code>LINKAGE_LINKS_IMPLEMENTED</code> in
+<code>R/0-linkage_table.R</code> or it is refused as reserved</td>
+</tr>
+<tr class="even">
+<td>add a <strong>data input</strong>
+</td>
+<td>
+<code>R/0-column_schema.R</code> +
+<code>R/0-read_write_excel_data.R</code>
+</td>
+<td>
+<code>R/1-data_check.R</code>, <code>R/5-rearrange_data.R</code>,
+and the <code>DATA_*</code> block in <code>ceattle.cpp</code>. A
+<code>data_list</code> element with no read/write support round-trips to
+nothing</td>
+</tr>
+<tr class="odd">
+<td>change a <strong>reported quantity</strong>
+</td>
+<td>
+<code>REPORT()</code>/<code>ADREPORT()</code> in
+<code>ceattle.cpp</code> §14</td>
+<td>
+<code>R/6-rename_output.R</code> and
+<code>R/0-quantity_dictionary.R</code>
+</td>
+</tr>
+<tr class="even">
+<td>change <strong>predation / suitability</strong>
+</td>
+<td><code>src/TMB/predation.hpp</code></td>
+<td>
+<code>R/3-build_map.R</code> (<code>build_map_predation</code>), and
+run the hake MSE — <code>/golden-check</code> does not reach estimated
+suitability</td>
+</tr>
+<tr class="odd">
+<td>change <strong>growth or weight-at-age</strong>
+</td>
+<td><code>src/TMB/growth.hpp</code></td>
+<td><code>R/0-build_growth.R</code></td>
+</tr>
+<tr class="even">
+<td>change a <strong>reference point or the HCR</strong>
+</td>
+<td>
+<code>src/TMB/spr.hpp</code> and <code>ceattle.cpp</code> §6.2 for
+the SPR proxies; §6.6–6.7 for the depletion-based points and the
+projection HCR</td>
+<td>
+<code>R/0-build_hcr.R</code>, and <code><a href="../reference/build_hcr_map.html">build_hcr_map()</a></code> in
+the same file for its parameters</td>
+</tr>
+<tr class="odd">
+<td>add a <strong>plot</strong>
+</td>
+<td>
+<code>R/7-plot_helpers.R</code> for the shared resolvers, then the
+topical <code>R/7-plot_*.R</code>
+</td>
+<td>
+<code><a href="../reference/rceattle-plot-args.html">?"rceattle-plot-args"</a></code> documents the shared argument
+vocabulary once; <code><a href="../reference/quantity_dictionary.html">quantity_dictionary()</a></code> gives the axis label
+and units</td>
+</tr>
+<tr class="even">
+<td>add an <strong>observation-error draw</strong>
+</td>
+<td>the <code>SIMULATE{}</code> block beside the density that scores it,
+in <code>ceattle.cpp</code>
+</td>
+<td>
+<code><a href="../reference/sim_mod.html">sim_mod()</a></code> implements no observation model in R; a new
+likelihood family owes a draw</td>
+</tr>
+<tr class="odd">
+<td>change <strong>projection or the MSE</strong>
+</td>
+<td><code>R/10-run_mse.R</code></td>
+<td>
+<code>R/10-mse_summary.R</code>; anything touching row counts or
+draw order changes every subsequent random draw</td>
+</tr>
+</tbody>
+</table>
 </div>
 <div class="section level2">
 <h2 id="the-fit-pipeline">The fit pipeline<a class="anchor" aria-label="anchor" href="#the-fit-pipeline"></a>
@@ -243,6 +461,582 @@ fitted <code>Rceattle</code> object returned by
 <code>data_list</code> programmatically and see exactly what a given
 model needs, see <strong>Data assembly and the column schema</strong>
 below.</p>
+</div>
+<div class="section level2">
+<h2 id="every-file-in-r-and-what-it-does">Every file in <code>R/</code>, and what it does<a class="anchor" aria-label="anchor" href="#every-file-in-r-and-what-it-does"></a>
+</h2>
+<p>All 67, one row each, grouped by what they are <em>for</em> rather
+than by their number prefix — the prefix tracks pipeline order only for
+the <code>1-</code> to <code>6-</code> chain, and the 31 files under
+<code>0-</code> are shared machinery that the chain draws on. The nine
+files a fit passes through are repeated here so this table is complete
+on its own; <a href="#the-fit-pipeline">The fit pipeline</a> gives them
+in order.</p>
+<p>A note on vocabulary used below, because two words do double duty in
+this package. <strong>The map</strong> means the TMB <code>map</code>,
+the mask saying which parameters are estimated and which are held fixed;
+a parameter that is “mapped out” is not estimated. A <strong>switch
+map</strong> (<code>sel_map</code>, <code>q_map</code>) is a different
+thing: a lookup from the readable name a user types to the integer the
+template consumes. <strong>Deviates</strong> are the annual offsets that
+make a parameter time-varying — estimated per year, and penalized or
+integrated as random effects depending on the setting.
+<strong>Apical</strong> selectivity is selectivity at the age or length
+where the curve peaks.</p>
+<p><strong>Specifications and registries</strong> — the source of truth
+for what a setting means. Change a value here and the rest of the
+package follows.</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>0-column_schema.R</code></td>
+<td>
+<strong>Every workbook column</strong>: name, sheet, type, default,
+allowed values, old spellings, TMB target, and the one-line
+<code>doc</code> that is written verbatim into
+<code>meta_data_names.xlsx</code>. Note the <code><a href="../reference/BS2017SS.html">?BS2017SS</a></code> field
+text is <em>not</em> generated from it — that lives in
+<code>data.R</code> and is only asserted to agree.
+<code>has_default</code> is wired for <code>fleet_control</code> only;
+for the 34 control and bioenergetics scalars the <code>default</code>
+field is documentation.</td>
+</tr>
+<tr class="even">
+<td><code>0-switches.R</code></td>
+<td>The 20 switch maps (<code>sel_map</code>, <code>q_map</code>,
+<code>initMode_map</code>, …) mapping a readable name to the template’s
+integer, plus <code><a href="../reference/switch_check.html">switch_check()</a></code> /
+<code>validate_switches()</code> / <code>convert_switches()</code> /
+<code>revert_switches()</code>. Also the selectivity-penalty sign
+registry <code>.RCE_SEL_PEN_POSITIVE</code> and the
+<code>Sel_norm_bin</code> codes. <code><a href="../reference/switch_check.html">switch_check()</a></code> fills
+defaults through 23 hand-written calls, one per column — not a loop over
+the schema.</td>
+</tr>
+<tr class="odd">
+<td><code>0-parameter_dictionary.R</code></td>
+<td>Internal parameter name → natural-scale name, process, meaning,
+dimensions. Exported as <code><a href="../reference/parameter_dictionary.html">parameter_dictionary()</a></code>.</td>
+</tr>
+<tr class="even">
+<td><code>0-parameter_index.R</code></td>
+<td>Parameter → model coordinate: which axes a block’s dimensions mean
+(species, sex, fleet, year, age, bin), the slot labels for seven
+non-selectivity blocks <em>and</em> for each selectivity form, and the
+shortened-axis registry. Exported as
+<code><a href="../reference/parameter_index.html">parameter_index()</a></code>.</td>
+</tr>
+<tr class="odd">
+<td><code>0-quantity_dictionary.R</code></td>
+<td>Reported quantity → meaning, <strong>units</strong>, dimensions.
+Exported as <code><a href="../reference/quantity_dictionary.html">quantity_dictionary()</a></code>.</td>
+</tr>
+<tr class="even">
+<td><code>1-data_requirements.R</code></td>
+<td>
+<code><a href="../reference/data_requirements.html">data_requirements()</a></code>: which inputs a given configuration
+requires, which are optional, which are ignored.</td>
+</tr>
+<tr class="odd">
+<td><code>1-data_requirements_table.R</code></td>
+<td>The requirement catalogue that function reads, plus the per-element
+classification helpers.</td>
+</tr>
+<tr class="even">
+<td><code>data.R</code></td>
+<td>The <code>@format</code> field dictionary for the bundled datasets —
+hand-maintained, and pinned name-for-name against
+<code>0-column_schema.R</code>’s <code>doc</code> by
+<code>test-schema-canonical.R</code>. Adding a schema column with
+<code>meta = TRUE</code> and not updating this file is a CI
+failure.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Building a model specification</strong> — the
+<code>build_*()</code> family, called before fitting.</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>0-build_data.R</code></td>
+<td>
+<code><a href="../reference/build_data.html">build_data()</a></code>: assemble or edit a <code>data_list</code>
+in R, supplying only the inputs a configuration uses.</td>
+</tr>
+<tr class="even">
+<td><code>0-model_config.R</code></td>
+<td>
+<code><a href="../reference/model_config.html">model_config()</a></code>: the model-level switch bundle, and its
+print method.</td>
+</tr>
+<tr class="odd">
+<td><code>0-build_srr.R</code></td>
+<td>The stock–recruit relationship: form, priors, fixed or estimated,
+and its linkages.</td>
+</tr>
+<tr class="even">
+<td><code>0-build_m1.R</code></td>
+<td>Natural mortality <code>M1</code>: form, priors, linkages, and the
+retired-argument refusals.</td>
+</tr>
+<tr class="odd">
+<td><code>0-build_growth.R</code></td>
+<td>Growth form (von Bertalanffy, Richards), the population length grid,
+and growth linkages.</td>
+</tr>
+<tr class="even">
+<td><code>0-build_selectivity.R</code></td>
+<td>Selectivity linkages, the apical-offset rows, and which forms accept
+which linkage.</td>
+</tr>
+<tr class="odd">
+<td><code>0-build_catchability.R</code></td>
+<td>Catchability linkages and the analytical-q forms.</td>
+</tr>
+<tr class="even">
+<td><code>0-build_composition.R</code></td>
+<td>Composition weighting, including the Dirichlet-multinomial weight
+priors.</td>
+</tr>
+<tr class="odd">
+<td><code>0-build_hcr.R</code></td>
+<td>
+<code><a href="../reference/build_hcr.html">build_hcr()</a></code>, the harvest control rule, and
+<code><a href="../reference/build_hcr_map.html">build_hcr_map()</a></code>, which maps its parameters.</td>
+</tr>
+<tr class="even">
+<td><code>0-fit_control.R</code></td>
+<td>The optimizer, <code>sdreport</code> and phasing knobs, bundled for
+<code><a href="../reference/fit_mod.html">fit_mod()</a></code>.</td>
+</tr>
+<tr class="odd">
+<td><code>0-save_config.R</code></td>
+<td>
+<code><a href="../reference/save_config.html">save_config()</a></code> / <code><a href="../reference/load_config.html">load_config()</a></code> /
+<code><a href="../reference/run_config.html">run_config()</a></code>: a run’s whole configuration as commented
+YAML.</td>
+</tr>
+<tr class="even">
+<td><code>0-priors.R</code></td>
+<td>
+<code><a href="../reference/prior_normal.html">prior_normal()</a></code> and friends, for linkage
+coefficients.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The linkage system</strong> — one formula grammar covering
+every way a parameter can vary (covariate, time block, random effect),
+for every process.</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>0-build_linkage.R</code></td>
+<td>
+<code><a href="../reference/linkage_spec.html">linkage_spec()</a></code>, the user entry point; materialization;
+the random-effect registry. The largest file in this subsystem.</td>
+</tr>
+<tr class="even">
+<td><code>0-linkage_formula.R</code></td>
+<td>Splits a formula into its fixed and random parts.</td>
+</tr>
+<tr class="odd">
+<td><code>0-linkage_table.R</code></td>
+<td>The long-format coefficient registry every process writes into, and
+the refusals for a reserved-but-unwired process or link.</td>
+</tr>
+<tr class="even">
+<td><code>0-linkage_encode.R</code></td>
+<td>Turns that table into the parallel vectors and the dense design
+matrix the template reads. Must stay in lockstep with
+<code>src/TMB/linkage.hpp</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Reading and writing data.</strong></p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>0-read_write_excel_data.R</code></td>
+<td>
+<code><a href="../reference/read_data.html">read_data()</a></code>, <code><a href="../reference/write_data.html">write_data()</a></code>,
+<code><a href="../reference/write_template.html">write_template()</a></code> — the workbook round-trip, including the
+legacy sheet-name aliases.</td>
+</tr>
+<tr class="even">
+<td><code>0-clean_data.R</code></td>
+<td>Coerce and tidy an incoming <code>data_list</code>; split the
+initial equilibrium catch out of <code>catch_data</code>.</td>
+</tr>
+<tr class="odd">
+<td><code>0-combine_data_sets.R</code></td>
+<td>
+<code><a href="../reference/combine_data.html">combine_data()</a></code>: merge two data lists.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The fit chain</strong> — the nine stages
+<code><a href="../reference/fit_mod.html">fit_mod()</a></code> runs, in order.</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>1-data_check.R</code></td>
+<td>
+<code><a href="../reference/data_check.html">data_check()</a></code>: validate the inputs and refuse
+unsupported combinations. Emits conditions only; returns nothing a fit
+reads. The per-form <code>Time_varying_sel</code> restrictions live
+here.</td>
+</tr>
+<tr class="even">
+<td><code>2-build_params.R</code></td>
+<td>
+<code><a href="../reference/build_params.html">build_params()</a></code>: the starting parameter list, and the
+linkage intercept initial values.</td>
+</tr>
+<tr class="odd">
+<td><code>3-build_map.R</code></td>
+<td>
+<code><a href="../reference/build_map.html">build_map()</a></code>: the TMB map — which parameters are
+estimated and which are held fixed — assembled per process, plus the
+shared-parameter-block adjustment.</td>
+</tr>
+<tr class="even">
+<td><code>4-build_parameter_bounds.R</code></td>
+<td>
+<code><a href="../reference/build_bounds.html">build_bounds()</a></code>: lower and upper bounds, on the scale
+each parameter is stored on.</td>
+</tr>
+<tr class="odd">
+<td><code>5-rearrange_data.R</code></td>
+<td>
+<code><a href="../reference/rearrange_data.html">rearrange_data()</a></code>: reshape the data into the arrays the
+template expects, and build the OSA observation vector.</td>
+</tr>
+<tr class="even">
+<td><code>6-fit_mod.R</code></td>
+<td>
+<code><a href="../reference/fit_mod.html">fit_mod()</a></code>: the entry point. Assembles the TMB inputs,
+optimizes, projects under the HCR, and labels the output.</td>
+</tr>
+<tr class="odd">
+<td><code>6-phaser.R</code></td>
+<td>
+<code><a href="../reference/set_phases.html">set_phases()</a></code> / <code><a href="../reference/TMBphase.html">TMBphase()</a></code>: ADMB-style
+phased estimation.</td>
+</tr>
+<tr class="even">
+<td><code>6-rename_output.R</code></td>
+<td>
+<code><a href="../reference/rename_output.html">rename_output()</a></code>: labels every derived quantity,
+including the <code>jnll_comp</code> row names. Also holds the
+McAllister–Ianelli weight <em>calculation</em>
+(<code>calc_mcall_ianelli()</code>), which <code>6-reweight.R</code>
+iterates.</td>
+</tr>
+<tr class="odd">
+<td><code>0-tmb_helpers.R</code></td>
+<td>The <code>nlminb</code> + <code>sdreport</code> wrapper, the
+estimability check, and the marginal-gap diagnostic.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Post-fit: refits, reweighting, reporting.</strong></p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>6-refit_like.R</code></td>
+<td>
+<code>.refit_like()</code>: re-fit a model reusing a source
+<code>data_list</code>’s structural choices. Eight entry points route
+through it — every refit diagnostic, plus <code><a href="../reference/run_mse.html">run_mse()</a></code>,
+<code><a href="../reference/reweight_comps.html">reweight_comps()</a></code>, <code><a href="../reference/remove_F.html">remove_F()</a></code> and
+<code><a href="../reference/sim_mod.html">sim_mod()</a></code>.</td>
+</tr>
+<tr class="even">
+<td><code>6-reweight.R</code></td>
+<td>
+<code><a href="../reference/reweight_comps.html">reweight_comps()</a></code>: iterate composition weights toward
+the McAllister–Ianelli target.</td>
+</tr>
+<tr class="odd">
+<td><code>6-tmb_aic.R</code></td>
+<td>
+<code><a href="../reference/TMBAIC.html">TMBAIC()</a></code>: marginal AIC.</td>
+</tr>
+<tr class="even">
+<td><code>6-report_tables.R</code></td>
+<td>
+<code><a href="../reference/report_tables.html">report_tables()</a></code> and <code><a href="../reference/standard_output.html">standard_output()</a></code>:
+assessment tables and the NOAA standard output.</td>
+</tr>
+<tr class="odd">
+<td><code>0-rceattle_class.R</code></td>
+<td>The nine S3 methods on a fit — <code>print</code>,
+<code>summary</code>, <code>plot</code>, <code>coef</code>,
+<code>vcov</code>, <code>logLik</code>, <code>residuals</code>,
+<code>as.data.frame</code>, <code>simulate</code> — and the Pearson
+residual machinery.</td>
+</tr>
+<tr class="even">
+<td><code>0-rceattle_data_class.R</code></td>
+<td>
+<code>print</code> / <code>summary</code> for a
+<code>data_list</code>, rendered as an indented spec tree.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Diagnostics.</strong></p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>0-convergence.R</code></td>
+<td>
+<code><a href="../reference/convergence_diagnostics.html">convergence_diagnostics()</a></code> and its thirteen checks, and
+the four gates every refit diagnostic shares (converged, timeout,
+dropped, errors).</td>
+</tr>
+<tr class="even">
+<td><code>0-diagnostic_print.R</code></td>
+<td>The shared header, table and tally the diagnostic print methods
+use.</td>
+</tr>
+<tr class="odd">
+<td><code>9-diagnostic_helpers.R</code></td>
+<td>
+<code>.parallel_lapply()</code> and the argument vocabulary the
+refit diagnostics share.</td>
+</tr>
+<tr class="even">
+<td><code>9-retro_and_jitter.R</code></td>
+<td>
+<code><a href="../reference/retrospective.html">retrospective()</a></code> (Mohn’s rho) and
+<code><a href="../reference/jitter.html">jitter()</a></code>.</td>
+</tr>
+<tr class="odd">
+<td><code>9-self_test.R</code></td>
+<td>
+<code><a href="../reference/self_test.html">self_test()</a></code>: simulate from the fit and check the model
+recovers its own parameters.</td>
+</tr>
+<tr class="even">
+<td><code>9-profile.R</code></td>
+<td>Likelihood profiles, and <code><a href="../reference/profile_components.html">profile_components()</a></code> for the
+per-component breakdown.</td>
+</tr>
+<tr class="odd">
+<td><code>6-osa_residuals.R</code></td>
+<td>One-step-ahead residuals — the only residuals with a known null
+distribution under random effects.</td>
+</tr>
+<tr class="even">
+<td><code>0-osa_data.R</code></td>
+<td>Builds the flat observation vector the OSA machinery needs. Called
+from <code>5-rearrange_data.R</code>.</td>
+</tr>
+<tr class="odd">
+<td><code>6-process_residuals.R</code></td>
+<td>Residuals for the random-effect <em>processes</em> rather than the
+observations.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Simulation, projection and MSE.</strong></p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>8-sim_mod.R</code></td>
+<td>
+<code><a href="../reference/sim_mod.html">sim_mod()</a></code>: draws new data by calling the template’s
+<code>SIMULATE</code> blocks — no observation model is implemented in R.
+Also <code><a href="../reference/sample_rec.html">sample_rec()</a></code>, <code><a href="../reference/compare_sim.html">compare_sim()</a></code>, and R
+mirrors of the growth equations (<code><a href="../reference/get_growth_matrix_r.html">get_growth_matrix_r()</a></code>,
+<code><a href="../reference/get_weight_at_age_r.html">get_weight_at_age_r()</a></code>).</td>
+</tr>
+<tr class="even">
+<td><code>10-run_mse.R</code></td>
+<td>
+<code><a href="../reference/run_mse.html">run_mse()</a></code>: the operating model, the assessment
+schedule, and the estimation-model refit.</td>
+</tr>
+<tr class="odd">
+<td><code>10-mse_summary.R</code></td>
+<td>
+<code><a href="../reference/mse_summary.html">mse_summary()</a></code> performance metrics, plus
+<code><a href="../reference/check_mse.html">check_mse()</a></code> and <code><a href="../reference/load_mse.html">load_mse()</a></code> for runs on
+disk.</td>
+</tr>
+<tr class="even">
+<td><code>10-project-no-F.R</code></td>
+<td>
+<code><a href="../reference/remove_F.html">remove_F()</a></code>: rerun with F set to zero from a given
+year.</td>
+</tr>
+<tr class="odd">
+<td><code>11-model_average.R</code></td>
+<td>
+<code><a href="../reference/model_average.html">model_average()</a></code>: average derived quantities across
+fits.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Plotting</strong> — the shared argument vocabulary lives in
+<code>7-plot_helpers.R</code> and is documented once, in
+<code><a href="../reference/rceattle-plot-args.html">?"rceattle-plot-args"</a></code>.</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>7-plot_helpers.R</code></td>
+<td>The resolvers every plotter should use: species, years, colour, line
+parameters, faceting, age indexing, the projection divider.</td>
+</tr>
+<tr class="even">
+<td><code>7-plot_ceattle.R</code></td>
+<td>
+<code><a href="../reference/plot_timeseries.html">plot_timeseries()</a></code> and the wrappers over it (biomass,
+SSB, recruitment, depletion, F), plus selectivity, mortality, maturity,
+ration and the predation plots.</td>
+</tr>
+<tr class="odd">
+<td><code>7-plot_comp.R</code></td>
+<td>Composition and diet-composition fits and residuals.</td>
+</tr>
+<tr class="even">
+<td><code>7-plot_diagnostics.R</code></td>
+<td>Index and catch fits, catchability, index residuals.</td>
+</tr>
+<tr class="odd">
+<td><code>7-plot_osa.R</code></td>
+<td>OSA residual diagnostics.</td>
+</tr>
+<tr class="even">
+<td><code>7-plot_profile.R</code></td>
+<td>Likelihood profiles.</td>
+</tr>
+<tr class="odd">
+<td><code>7-plot_data.R</code></td>
+<td>Timeline of which data enter which likelihood.</td>
+</tr>
+<tr class="even">
+<td><code>7-plot_stock_recruit.R</code></td>
+<td>The stock–recruit curve with the fitted points.</td>
+</tr>
+<tr class="odd">
+<td><code>7-plot_sel_vs_mat.R</code></td>
+<td>Selectivity against maturity, for one species.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Package infrastructure.</strong></p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>What it holds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>Rceattle-package.R</code></td>
+<td>Package-level roxygen and the import directives.</td>
+</tr>
+<tr class="even">
+<td><code>0-deprecate.R</code></td>
+<td>
+<code>.rce_deprecated_arg()</code>: the warning a renamed argument
+raises.</td>
+</tr>
+</tbody>
+</table>
+<div class="section level3">
+<h3 id="three-dictionaries-you-can-just-run">Three dictionaries you can just run<a class="anchor" aria-label="anchor" href="#three-dictionaries-you-can-just-run"></a>
+</h3>
+<p>Worth knowing before reading any code: three of the registries above
+are <strong>exported functions</strong>, and between them they answer
+“what is this variable and what are its units” without opening the
+template.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/quantity_dictionary.html">quantity_dictionary</a></span><span class="op">(</span><span class="op">)</span>   <span class="co"># reported quantity -&gt; meaning, units, dimensions</span></span>
+<span><span class="fu"><a href="../reference/parameter_dictionary.html">parameter_dictionary</a></span><span class="op">(</span><span class="op">)</span>  <span class="co"># internal parameter name -&gt; natural-scale name, process</span></span>
+<span><span class="fu"><a href="../reference/parameter_index.html">parameter_index</a></span><span class="op">(</span><span class="op">)</span>       <span class="co"># parameter -&gt; which axis each dimension means</span></span></code></pre></div>
+<p>Note the output names changed in the 5.x series: the quantities older
+scripts and the wiki call <code>NByage</code> and
+<code>biomassSSB</code> are now <code>N_at_age</code> and
+<code>ssb</code>. <code><a href="../reference/quantity_dictionary.html">quantity_dictionary()</a></code> is the authority on
+the current name.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="the-switch-system">The switch system<a class="anchor" aria-label="anchor" href="#the-switch-system"></a>
@@ -378,11 +1172,15 @@ decomposition.</td>
 </tr>
 <tr class="even">
 <td><code>selectivity.hpp</code></td>
-<td>Selectivity forms, dispatched by the integer case of the
-<code>switch</code> on <code>Selectivity</code>: logistic (1), Ianelli
-non-parametric (2), double logistic (3), descending logistic (4),
-Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7), double normal (8),
-NonParametricPM (9), LogisticPM (11), NonParametricIntegrable (13).</td>
+<td>Selectivity forms, dispatched by <code>switch (sel_case)</code> —
+<code>sel_case</code> is <code>Selectivity</code> unless form 13 is
+under a random walk, which rewrites it to <code>-13</code>: logistic
+(1), Ianelli non-parametric (2), double logistic (3), descending
+logistic (4), Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7), double
+normal (8), NonParametricPM (9), LogisticPM (11),
+NonParametricIntegrable (13), DoubleNormalSS3 (15, Stock Synthesis size
+pattern 24, with its own <code>sel_dn6</code> parameter array). Codes
+10, 12 and 14 are unused; the next free code is 16.</td>
 </tr>
 <tr class="odd">
 <td><code>recruitment.hpp</code></td>
@@ -487,7 +1285,7 @@ selectivity.</p>
 <p>Placing a <strong>prior</strong> on a selectivity, catchability, or
 composition-weight parameter is the <code>~ 1</code> case, keyed by
 <code>`(Intercept)`</code>, e.g.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_selectivity.html">build_selectivity</a></span><span class="op">(</span>linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  inf_asc <span class="op">=</span> <span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span><span class="op">~</span> <span class="fl">1</span>, by <span class="op">=</span> <span class="op">~</span> <span class="va">fleet</span>,</span>
 <span>                         priors <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>`(Intercept)` <span class="op">=</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">50</span>, <span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -762,7 +1560,7 @@ conversion</a> article.)</li>
 (5.11.0). <code>Rceattle</code> and <code>fit</code> still work and are
 silent; they warn from 5.12.0 and go in 6.0.0. To find your own call
 sites now:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>Rceattle.warn_deprecated_args <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 <p>Three keep their own names on purpose. <code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile()</a></code> takes
 <code>fitted</code> because it is an S3 method for
@@ -845,7 +1643,7 @@ wiki</a>, the original developer notes this page consolidates.</li>
 equation-level detail on selectivity, catchability, and predation.</li>
 <li>Adams et al. (2022), <em>Fisheries Research</em> 251:106303, the TMB
 generalisation of CEATTLE. Holsman et al. (2016), <em>Deep-Sea Research
-II</em> 134:360–378 (the original model. Wassermann et al. (2024),
+II</em> 134:360–378 (the original model. Wassermann et al. (2025),
 <em>ICES JMS</em>) the hake/cannibalism extension.</li>
 </ul>
 </div>

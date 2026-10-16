@@ -2,7 +2,7 @@
 
 Reports what a self-test is run to find out: how many simulations the
 estimator brought back to an optimum, and under what the replicates were
-generated. The returned list cannot say the first on its own ,
+generated. The returned list cannot say the first on its own:
 non-converged runs are dropped before it is returned, so the number of
 fits returned is not the number attempted.
 

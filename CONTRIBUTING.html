@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,13 +53,13 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Contributing to Rceattle</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/CONTRIBUTING.md" class="external-link"><code>CONTRIBUTING.md</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/CONTRIBUTING.md" class="external-link"><code>CONTRIBUTING.md</code></a></small>
     </div>
 
 <div id="contributing-to-rceattle" class="section level1">
 
 <p>Rceattle fits CEATTLE, a single- and multispecies age-structured stock assessment. Its output sets US federal catch limits. A wrong number here does not crash; it becomes a quota. Every convention below exists so that a change cannot move a fit without someone noticing.</p>
-<p>This guide is written for a fisheries scientist or ecologist who wants to fix, extend or understand the package. <code>CLAUDE.md</code> holds the same rules as an operating manual for the coding agent; where a rule is stated in full there, this guide points to it rather than repeating it.</p>
+<p>This guide is written for a fisheries scientist or ecologist who wants to fix, extend or understand the package. <code>CLAUDE.md</code> is the coding agent’s operating manual, and holds these rules plus three that bind only an agent — one of them more strictly than this guide does, since an agent must ask before changing an API where you may change one that carries a deprecation path. Where a rule is stated in full there, this guide points to it rather than repeating it.</p>
 <div class="section level2">
 <h2 id="setting-up">Setting up<a class="anchor" aria-label="anchor" href="#setting-up"></a></h2>
 <p>You need R 4.1 or later, a C++ compiler and the packages in <code>DESCRIPTION</code>. The likelihood is a TMB template under <code>src/TMB/</code>; it compiles the first time you load the package.</p>
@@ -97,8 +97,9 @@
 <code>vignettes/articles/adding-a-selectivity-form.Rmd</code>: one extension traced end to end, with the files it touches and the tests that catch a half-finished job.</li>
 <li>
 <code>R/0-column_schema.R</code>: the source of truth for every workbook column and switch value.</li>
-<li>The C++ reference on the package site (built from the Doxygen comments in <code>src/TMB/</code>): the model equations, function by function. <code>src/TMB/recruitment.hpp</code> is the header to emulate when you document C++.</li>
-</ul></div>
+<li>The C++ reference on the package site (built from the Doxygen comments in <code>src/TMB/</code>): the model equations, function by function. <code>src/TMB/spr.hpp</code> is the header to emulate when you document C++ — one of the four that carry a file block.</li>
+</ul><p><code>AGENTS.md</code> at the repository root is the tool-neutral version of this, for an AI assistant that does not read <code>CLAUDE.md</code>.</p>
+</div>
 <div class="section level2">
 <h2 id="making-a-change">Making a change<a class="anchor" aria-label="anchor" href="#making-a-change"></a></h2>
 <p><strong>Branches.</strong> Cut a branch from <code>dev</code> and open a pull request into <code>dev</code>. The maintainer merges <code>dev</code> into <code>main</code> as a release, following <code>inst/RELEASE-CHECKLIST.md</code>. Operational assessments pin a tagged release, so <code>main</code> moves only at a release.</p>
@@ -108,8 +109,8 @@
 </div>
 <div class="section level2">
 <h2 id="the-rules-that-constrain-a-change">The rules that constrain a change<a class="anchor" aria-label="anchor" href="#the-rules-that-constrain-a-change"></a></h2>
-<p>Stated in full under “Hard rules” in <code>CLAUDE.md</code>. In brief:</p>
-<ol style="list-style-type: decimal"><li>Preserve the public API. Deprecate an argument; do not delete it.</li>
+<p>Numbered as in <code>CLAUDE.md</code>’s “Hard rules”, which states rule 1 more strictly for an agent — it must ask before an API change, where you need only the deprecation path below. In brief:</p>
+<ol style="list-style-type: decimal"><li>Preserve the public API. Deprecate an argument; do not delete it. You may change one — rename it, or move a default — but it owes a deprecation path that keeps old fits working, a <code>NEWS.md</code> entry, and a sweep of the repositories in <code>inst/dev/SIBLING-REPOS.md</code>. Giving a switch a new meaning has no such path, so it is a breaking change: classify it as one. (A coding agent works under a stricter version of this and has to ask first; see doctrine 1 in <code>CLAUDE.md</code>.)</li>
 <li>A change that can move a fit needs the golden regression, and the <code>tools/verify/</code> harness that covers what golden cannot.</li>
 <li>The column schema defines every switch value, default and column order. Read them from it; never hardcode one elsewhere.</li>
 <li>Do not invent a switch code, a default or a unit. If it is not in the schema or a vignette, ask.</li>
@@ -122,14 +123,15 @@
 <div class="section level2">
 <h2 id="code-style">Code style<a class="anchor" aria-label="anchor" href="#code-style"></a></h2>
 <p>Follow the file you are editing. Where it does not settle the question, R follows the <a href="https://style.tidyverse.org" class="external-link">tidyverse style guide</a> and C++ the <a href="https://google.github.io/styleguide/cppguide.html" class="external-link">Google C++ style guide</a>: snake_case, two-space indents, about 80 columns, full words over abbreviations. Neither guide is a reason to reformat code you did not otherwise need to touch, and TMB idiom outranks both — the C++ keeps its snake_case function names.</p>
-<p>Three habits are specific to this package:</p>
-<ul><li>Read a list or a <code>fleet_control</code> column with <code>[[ ]]</code>, not <code>$</code>. <code>$</code> partial-matches without a warning, so where <code>Time_varying_sel</code> is missing, <code>fleet_control$Time_varying_sel</code> hands back <code>Time_varying_sel_sd</code>. Ten pairs among the schema’s 83 columns have that shape.</li>
+<p>Four habits are specific to this package:</p>
+<ul><li>Read a list or a <code>fleet_control</code> column with <code>[[ ]]</code>, not <code>$</code>. <code>$</code> partial-matches without a warning, so where <code>Time_varying_sel</code> is missing, <code>fleet_control$Time_varying_sel</code> hands back <code>Time_varying_sel_sd</code>. Ten pairs among the schema’s columns have that shape. In new code only: the existing <code>$</code> reads are safe because of which accessor runs first, and rewriting one of them as a bare <code>$</code> would trade a loud failure for a silent one.</li>
+<li>Add nothing the change does not need now — no helper, wrapper, class, config layer or option flag for later. <code>CLAUDE.md</code>’s doctrine 2 states this in full, with what earns a helper its place and why an unreachable guard is not safety. <strong>But registering in a registry that already exists is the opposite, and is not optional:</strong> a new <code>jnll_comp</code> row owes the <code>JnllRow</code> partners and <code>.JNLL_ROW_AXIS</code>, and a new <code>Index_distribution</code> family owes <code>.index_rows_natural_scale()</code> — miss that one and the family silently gets the log-scale residual.</li>
 <li>Write in the idiom of the file you are in, and do not convert one to the other. The plotters and <code>R/5-rearrange_data.R</code> use dplyr and the pipe; most of <code>R/1-*</code> to <code>R/6-*</code> is base R. Inside the fitting pipeline a rewrite is how a fit moves silently — a verb that reorders rows, drops a dimension name or returns a tibble does not error, and the C++ template reads the type it gets.</li>
 <li>Keep a pull request to one concern, and keep reformatting out of a change that can move a number. A reviewer checking a fit change should not have to read past whitespace to find it. Ask before adding a dependency.</li>
 </ul></div>
 <div class="section level2">
 <h2 id="writing-comments-and-documentation">Writing comments and documentation<a class="anchor" aria-label="anchor" href="#writing-comments-and-documentation"></a></h2>
-<p>Write for a fisheries scientist who was not in the room: the assessment reason, the units and the convention, in one or two lines. The “Comments” and “Domain vocabulary” sections of <code>CLAUDE.md</code> give the rules and a before-and-after example; <code>src/TMB/recruitment.hpp</code> is the C++ header to emulate.</p>
+<p>Write for a fisheries scientist who was not in the room: the assessment reason, the units and the convention, in one or two lines. The “Comments” and “Domain vocabulary” sections of <code>CLAUDE.md</code> give the rules and a before-and-after example; <code>src/TMB/spr.hpp</code> is the C++ header to emulate.</p>
 </div>
 <div class="section level2">
 <h2 id="getting-help">Getting help<a class="anchor" aria-label="anchor" href="#getting-help"></a></h2>

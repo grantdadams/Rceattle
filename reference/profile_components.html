@@ -4,18 +4,16 @@ components out of every fit in a profile() and returns them as one long
 data frame, one row per grid point per component.
 The total is the least informative curve on a profile: a well-behaved
 quadratic total can hide two data sources pulling the parameter in
-opposite directions, and their conflict is visible only once the
-components are drawn separately. This is the extractor behind
-plot_profile(); use it directly to tabulate, or to draw the figure
-yourself."><meta property="og:description" content="Pulls the per-fleet and per-species negative log-likelihood
+opposite directions, and their conflict shows only once the components are
+drawn separately. This is the extractor behind plot_profile(); use it to
+tabulate, or to draw the figure yourself."><meta property="og:description" content="Pulls the per-fleet and per-species negative log-likelihood
 components out of every fit in a profile() and returns them as one long
 data frame, one row per grid point per component.
 The total is the least informative curve on a profile: a well-behaved
 quadratic total can hide two data sources pulling the parameter in
-opposite directions, and their conflict is visible only once the
-components are drawn separately. This is the extractor behind
-plot_profile(); use it directly to tabulate, or to draw the figure
-yourself."></head><body>
+opposite directions, and their conflict shows only once the components are
+drawn separately. This is the extractor behind plot_profile(); use it to
+tabulate, or to draw the figure yourself."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -23,7 +21,7 @@ yourself."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -69,7 +67,7 @@ yourself."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Likelihood components along a profile</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/R/9-profile.R" class="external-link"><code>R/9-profile.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/R/9-profile.R" class="external-link"><code>R/9-profile.R</code></a></small>
       <div class="d-none name"><code>profile_components.Rd</code></div>
     </div>
 
@@ -79,10 +77,9 @@ components out of every fit in a <code><a href="https://rdrr.io/r/stats/profile.
 data frame, one row per grid point per component.</p>
 <p>The total is the least informative curve on a profile: a well-behaved
 quadratic total can hide two data sources pulling the parameter in
-opposite directions, and their conflict is visible only once the
-components are drawn separately. This is the extractor behind
-<code><a href="plot_profile.html">plot_profile()</a></code>; use it directly to tabulate, or to draw the figure
-yourself.</p>
+opposite directions, and their conflict shows only once the components are
+drawn separately. This is the extractor behind <code><a href="plot_profile.html">plot_profile()</a></code>; use it to
+tabulate, or to draw the figure yourself.</p>
     </div>
 
     <div class="section level2">
@@ -106,51 +103,19 @@ yourself.</p>
 
 <dt id="arg-weighted">weighted<a class="anchor" aria-label="anchor" href="#arg-weighted"></a></dt>
 <dd><p>Report the weighted components the optimizer minimized
-(<code>TRUE</code>, the default, <code>quantities$jnll_comp</code>) or the unweighted ones
-(<code>FALSE</code>, <code>quantities$unweighted_jnll_comp</code>). Conflict is normally read off
-the weighted components, since those are what moved the fit.
-<code>unweighted_jnll_comp</code> exists so Francis and McAllister-Ianelli can read a
-composition likelihood without its <code>Comp_weights</code> multiplier, so only the
-rows that hold such a multiplier are filled: composition, CAAL, stomach
-content and the two linkage rows. Every other row is zero there and is
-dropped as unfitted, so <code>weighted = FALSE</code> returns a much smaller set of
-series, the index, catch, selectivity, catchability and penalty
-components are absent, not flat.</p></dd>
+(<code>TRUE</code>, the default) or the unweighted ones (<code>FALSE</code>). See Details.</p></dd>
 
 
 <dt id="arg-relative">relative<a class="anchor" aria-label="anchor" href="#arg-relative"></a></dt>
-<dd><p>How to place each series on the y axis.</p><dl><dt><code>"own"</code></dt>
-<dd><p>(default) subtract each series' own minimum, so every
-curve starts at zero and its minimum marks the value that component
-prefers. Objective units, so depth still says how strongly.</p></dd>
-
-<dt><code>"scaled"</code></dt>
-<dd><p>as <code>"own"</code>, then divide each series by its own change
-over the grid, so every curve runs 0 to 1. Use it when one component
-dwarfs the rest and flattens the others onto the axis. It <strong>discards
-magnitude</strong>: a component moving 0.02 draws like one moving 40, so
-raise <code>minfraction</code> with it. A series that does not move stays at
-zero.</p></dd>
-
-<dt><code>"minimum"</code></dt>
-<dd><p>subtract each series' value at the grid point where
-the total is lowest, so the curves show each component's change away
-from the fitted optimum.</p></dd>
-
-<dt><code>"none"</code></dt>
-<dd><p>the raw negative log-likelihoods.</p></dd>
-
-
-</dl><p><code>minfraction</code> and the series ordering are always computed on the raw
-change over the grid, before any of this is applied, so <code>"scaled"</code> does
-not quietly disable the filter by making every span 1.</p></dd>
+<dd><p>How to place each series on the y axis: <code>"own"</code> (default),
+<code>"scaled"</code>, <code>"minimum"</code> or <code>"none"</code>. See Details.</p></dd>
 
 
 <dt id="arg-minfraction">minfraction<a class="anchor" aria-label="anchor" href="#arg-minfraction"></a></dt>
 <dd><p>Drop components whose change over the grid is less than
 this fraction of the total's change, as in <code>r4ss::SSplotProfile()</code>. Default
-<code>0</code> keeps everything; <code><a href="plot_profile.html">plot_profile()</a></code> uses <code>0.01</code>. <code>"Total"</code> is never
-dropped.</p></dd>
+<code>0</code> keeps everything; <code><a href="plot_profile.html">plot_profile()</a></code> uses <code>0.01</code>, so a total moving 60
+units cuts at 0.6. <code>"Total"</code> is never dropped.</p></dd>
 
 
 <dt id="arg-include-total">include_total<a class="anchor" aria-label="anchor" href="#arg-include-total"></a></dt>
@@ -160,33 +125,63 @@ also disables <code>minfraction</code>, which is defined against the total.</p><
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame with one row per grid point per retained component:
-the profile's <code>grid</code> columns (<code>slot_1</code>, ...) holding the value profiled
-over, then <code>fit</code> (grid row index), <code>component</code> (the <code>jnll_comp</code> row),
-<code>unit</code> (fleet or species name, <code>NA</code> for model-wide rows), <code>axis</code>
-(<code>"fleet"</code>, <code>"species"</code> or <code>"model"</code>), <code>series</code> (the plotting label), and
-<code>value</code> (the re-zeroed negative log-likelihood). Series are ordered by
-decreasing change over the grid, with <code>"Total"</code> first. The profile's
-<code>param</code>, <code>alias</code> and the <code>relative</code> used are held as attributes.</p>
+    <p>A data frame with one row per grid point per retained component: the
+profile's <code>grid</code> columns (<code>slot_1</code>, ...), then <code>fit</code> (grid row index),
+<code>component</code> (the <code>jnll_comp</code> row), <code>unit</code> (fleet or species name, <code>NA</code> for
+model-wide rows), <code>axis</code> (<code>"fleet"</code>, <code>"species"</code> or <code>"model"</code>), <code>series</code>
+(the plotting label) and <code>value</code> (the re-zeroed negative log-likelihood).
+Series are ordered by decreasing change over the grid, <code>"Total"</code> first. The
+profile's <code>param</code>, <code>alias</code> and the <code>relative</code> used are attributes.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p><strong>Which cells are reported.</strong> <code>jnll_comp</code> is a component-by-column matrix
-whose columns mean different things on different rows, fleets on the data,
-selectivity and catchability rows, species on the priors, penalties and
-predation rows. Each cell is labelled from the axis its row uses, so a cell
-becomes e.g. <code>"Shelikof acoustic: Index data"</code>. The unit is dropped from the
-label when the model has only one fleet (or one species) to distinguish.
-Cells that are zero at every grid point are dropped: they are components the
-model does not fit.</p>
+    <p><strong>Which cells are reported.</strong> <code>jnll_comp</code>'s columns mean different things on
+different rows – fleets on the data, selectivity and catchability rows,
+species on the priors, penalties and predation rows – so each cell is
+labelled from the axis its row uses, giving e.g.
+<code>"Shelikof acoustic: Index data"</code>. The unit is dropped from the label when
+the model has only one fleet (or species) to distinguish. Cells that are zero
+at every grid point are dropped as components the model does not fit.</p>
 <p><strong>What <code>Total</code> is.</strong> The <code>"Total"</code> series is <code>object$nll</code>, the objective each
-grid fit actually minimized. Under <code>random_rec = TRUE</code> that is the
+grid fit minimized. Under <code>random_rec = TRUE</code> that is the
 Laplace-approximated marginal likelihood while the components are the inner
-joint negative log-likelihood, so the components will not sum to it; the
-function says so when they differ. Compare the shapes, not the sums.</p>
+joint negative log-likelihood, so they will not sum to it, and the function
+says so when they differ. Compare the shapes, not the sums.</p>
 <p><strong>Non-converged grid points</strong> keep their row with a value of <code>NA</code>, so a
-failed fit leaves a gap in the curve rather than a straight segment drawn
-across it.</p>
+failed fit leaves a gap in the curve rather than a segment drawn across it.</p>
+<p><strong>Weighted or unweighted components</strong> (<code>weighted</code>). Conflict is normally read
+off the weighted components, since those are what moved the fit.
+<code>unweighted_jnll_comp</code> exists so Francis and McAllister-Ianelli can read a
+composition likelihood without its <code>Comp_weights</code> multiplier, so only the
+rows carrying such a multiplier are filled – composition, CAAL, stomach
+content and the two linkage rows. Every other row is zero there and is
+dropped as unfitted, so <code>weighted = FALSE</code> returns a much smaller set: the
+index, catch, selectivity, catchability and penalty components are absent,
+not flat.</p>
+<p><strong>Placing each series on the y axis</strong> (<code>relative</code>).</p><dl><dt><code>"own"</code></dt>
+<dd><p>(default) subtract each series' own minimum, so every curve
+starts at zero and its minimum marks the value that component prefers.
+Objective units, so depth still says how strongly.</p></dd>
+
+<dt><code>"scaled"</code></dt>
+<dd><p>as <code>"own"</code>, then divide by each series' own change over
+the grid, so every curve runs 0 to 1. Use it where one component dwarfs
+the rest and flattens them onto the axis. It <strong>discards magnitude</strong> – a
+component moving 0.02 draws like one moving 40 – so raise <code>minfraction</code>
+with it. A series that does not move stays at zero.</p></dd>
+
+<dt><code>"minimum"</code></dt>
+<dd><p>subtract each series' value at the grid point where the
+total is lowest, showing each component's change away from the fitted
+optimum.</p></dd>
+
+<dt><code>"none"</code></dt>
+<dd><p>the raw negative log-likelihoods.</p></dd>
+
+
+</dl><p><code>minfraction</code> and the series ordering are always computed on the raw change
+over the grid, before any of this, so <code>"scaled"</code> cannot quietly disable the
+filter by making every span 1.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

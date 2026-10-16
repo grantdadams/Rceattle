@@ -1,10 +1,7 @@
-# Plot SSB depletion (deprecated name)
+# Plot SSB depletion
 
-Deprecated alias for
-[`plot_depletionSSB`](https://afsc-assessments.github.io/Rceattle/reference/plot_depletionSSB.md).
-Please use
-[`plot_depletionSSB()`](https://afsc-assessments.github.io/Rceattle/reference/plot_depletionSSB.md)
-instead.
+Plots the mean SSB depletion and 95\\ Depletion reference lines for
+Ptarget and Plimit are drawn in blue and red respectively.
 
 ## Usage
 
@@ -148,3 +145,22 @@ plot_ssb_depletion(
 
   Y-axis label. `NULL` (default) derives one from `output` and the
   model's `minage`.
+
+## Value
+
+Returns and saves a figure with the SSB depletion trajectory.
+
+## Details
+
+The denominator differs by configuration, so say which one a figure
+uses. `DynamicHCR = TRUE` gives that year's `DynamicSB0`. Otherwise it
+is static `SB0`, except under `HCR = 0` with `msmMode > 0`, where it is
+female SSB in the **last projection year** – which approximates
+multispecies SB0 only once `projyr` is far enough out to equilibrate. An
+`msmMode = 0` fit and an `msmMode = 1, HCR = 0` fit drawn on one axis
+are therefore two different ratios.
+
+## See also
+
+[`report_tables()`](https://afsc-assessments.github.io/Rceattle/reference/report_tables.md),
+which states the same multispecies denominator.

@@ -50,9 +50,8 @@ fit_mod(
 
   (Optional) A named list of initial parameter values, as returned by
   [`build_params`](https://afsc-assessments.github.io/Rceattle/reference/build_params.md)
-  or extracted from a previous fit (`model$estimated_params`). If
-  `NULL`, parameters are initialized from scratch via
-  [`build_params`](https://afsc-assessments.github.io/Rceattle/reference/build_params.md).
+  or taken from a previous fit (`model$estimated_params`). `NULL`
+  initializes from scratch.
 
 - map:
 
@@ -66,41 +65,34 @@ fit_mod(
 
 - file:
 
-  (Optional) Filename where files will be saved. If NULL, no file is
-  saved.
+  (Optional) Filename to save to. If NULL, no file is saved.
 
 - estimateMode:
 
-  What to fit, given as a string alias or the integer code:
-  `"Estimate"` (0) = fit the hindcast model and the HCR projection
-  (`HCR`); `"Hindcast"` (1) = fit the hindcast only (no fitting
-  BRPs/HCR/projection); `"Projection"` (2) = fit the BRPs/HCR/projection
-  only, from the initial parameters in `inits`; `"DebugBuild"` (3) =
-  build through `MakeADFun` but not `nlminb`, the returned `obj` holds
-  the real objective and gradient, so `obj$fn()` / `obj$gr()` are usable
-  for diagnosing a model before committing to a fit;
-  `"DebugOptimize"` (4) = optimize with all parameters mapped out, so
-  the objective is a placeholder (`dummy^2`), not a likelihood. Defaults
-  to `"Estimate"`.
+  What to fit, as a string alias or integer code: `"Estimate"` (0) fits
+  the hindcast and the `HCR` projection, `"Hindcast"` (1) the hindcast
+  alone, `"Projection"` (2) the reference points and projection alone
+  from `inits`, `"DebugBuild"` (3) builds through `MakeADFun` without
+  optimizing, leaving a usable `obj$fn()` / `obj$gr()`, and
+  `"DebugOptimize"` (4) maps every parameter out, so its objective is a
+  placeholder rather than a likelihood. Default `"Estimate"`.
 
 - random_rec:
 
-  logical. If TRUE, treats recruitment deviations as random effects
-  using the Laplace approximation. The default is FALSE.
+  logical; treat recruitment deviations as random effects via the
+  Laplace approximation. Default FALSE.
 
 - random_q:
 
-  logical (default FALSE); if TRUE the `Time_varying_q` deviations are
-  integrated as random effects with one estimated sd per
-  `Catchability_index` group, not fixed at `Time_varying_q_sd` (linkage
-  random effects are integrated either way).
+  logical; integrate the `Time_varying_q` deviations as random effects
+  with one estimated sd per `Catchability_index` group instead of fixing
+  them at `Time_varying_q_sd`. Default FALSE. Linkage random effects are
+  integrated either way.
 
 - random_sel:
 
-  logical (default FALSE); if TRUE the `Time_varying_sel` deviations are
-  integrated as random effects with one estimated sd per
-  `Selectivity_index` group, not fixed at `Time_varying_sel_sd` (linkage
-  random effects are integrated either way).
+  logical; the same for `Time_varying_sel` deviations, one estimated sd
+  per `Selectivity_index` group. Default FALSE.
 
 - HCR:
 
@@ -148,15 +140,17 @@ fit_mod(
   The predation-mortality mode, as a string alias or integer code:
   `"SingleSpecies"` (0, the default, no predation), `"MSVPA"` (1, the
   Type-II MSVPA predation of Holsman et al. 2015) or `"TypeIIIMSVPA"`
-  (2). Higher integer codes (Kinzey-Punt, Holling forms) are declared
-  but not implemented, and are rejected by the data check.
+  (2). Codes 3 to 9 (Kinzey & Punt 2009 functional responses, Holling
+  forms, Ecosim) are declared but refused by
+  [`data_check()`](https://afsc-assessments.github.io/Rceattle/reference/data_check.md)
+  until validated against the current parameter set; see
+  `src/TMB/predation.hpp`.
 
 - avgnMode:
 
-  the average abundance-at-age approximation used in the
-  predation-mortality equations. Only mode 0, \\N/Z(1 - exp(-Z))\\ (the
-  MSVPA form), is implemented; the alternatives are declared but have no
-  effect.
+  the average abundance-at-age approximation in the predation equations.
+  Only mode 0, \\N/Z(1 - exp(-Z))\\ (the MSVPA form), is implemented;
+  the alternatives are declared but have no effect.
 
 - initMode:
 
@@ -164,43 +158,38 @@ fit_mod(
   `"FreeParams"` (0), `"Equilibrium"` (1), `"NonEquilibrium"` (2, the
   default), `"FishedNonEquilibrium"` (3), `"FishedNonEquilibriumScaled"`
   (4), `"OffsetEquilibrium"` (5), `"FishedNonEquilibriumSelected"` (6).
-  See the **Initial age structure** section below for what each one
-  estimates.
+  What each one estimates, and how \\F\_{init}\\ reaches an age under 3,
+  4 and 6, is tabulated in
+  [`vignette("model-options-and-functionality")`](https://afsc-assessments.github.io/Rceattle/articles/model-options-and-functionality.md).
+  In multispecies mode the initial decay uses \\M1\\ only, so predation
+  does not shape the initial age structure under any mode.
 
 - suitMode:
 
-  how predator-prey suitability is derived, per predator (a single value
-  or a vector of length `nspp`): 0 = empirical from diet data (Holsman
-  et al. 2015), 2 = weight-based gamma, 4 = weight-based lognormal, 6 =
+  how predator-prey suitability is derived, per predator (one value or a
+  vector of length `nspp`): 0 = empirical from diet data (Holsman et al.
+  2015), 2 = weight-based gamma, 4 = weight-based lognormal, 6 =
   weight-based normal. The length-based forms (1, 3, 5) are declared but
-  not implemented and are rejected by the data check.
+  refused by the data check.
 
 - suit_styr:
 
-  The first year used to calculate mean suitability. A single integer is
-  applied to every predator, or a vector of length `nspp` sets a
-  distinct start year per predator. Defaults to `styr` in `data_list`.
-  Used when diet data were sampled from a subset of years.
+  The first year used to calculate mean suitability, as one integer for
+  every predator or a vector of length `nspp`. Defaults to `styr`. Set
+  it where diet data were sampled from a subset of years.
 
 - suit_endyr:
 
-  The last year used to calculate mean suitability. A single integer is
-  applied to every predator, or a vector of length `nspp` sets a
-  distinct end year per predator. Defaults to `endyr` in `data_list`.
-  Used when diet data were sampled from a subset of years.
+  The last year used to calculate mean suitability, in the same form.
+  Defaults to `endyr`.
 
 - fit_control:
 
-  A list returned by
+  A list from
   [`fit_control()`](https://afsc-assessments.github.io/Rceattle/reference/fit_control.md)
-  that bundles the optimizer / sdreport / phasing knobs (`phase`,
-  `bias.correct`, `getsd`, `getJointPrecision`, `getReportCovariance`,
-  `use_gradient`, `rel_tol`, `loopnum`, `newtonsteps`, `TMBfilename`,
-  `verbose`, `nlminb_control`). Defaults to
-  [`fit_control()`](https://afsc-assessments.github.io/Rceattle/reference/fit_control.md).
-  See
-  [`fit_control()`](https://afsc-assessments.github.io/Rceattle/reference/fit_control.md)
-  for the meaning and defaults of each field.
+  bundling the optimizer, sdreport and phasing settings. Defaults to
+  [`fit_control()`](https://afsc-assessments.github.io/Rceattle/reference/fit_control.md),
+  which documents each field.
 
 - config:
 
@@ -209,34 +198,30 @@ fit_mod(
   or
   [`run_config()`](https://afsc-assessments.github.io/Rceattle/reference/run_config.md)
   whose stored settings overlay the ones you did not pass; `NULL`
-  (default) applies no configuration. See Details for what it overlays.
+  (default) applies none. See Details.
 
 - quiet_data_check:
 
-  Drop the warnings the fit-time validation raises (errors still stop
-  the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
-  ,
-  [`retrospective()`](https://afsc-assessments.github.io/Rceattle/reference/retrospective.md),
+  Drop the warnings fit-time validation raises; errors still stop the
+  fit. `FALSE` (default) for an ordinary fit. The diagnostic refits
+  ([`retrospective()`](https://afsc-assessments.github.io/Rceattle/reference/retrospective.md),
   [`jitter()`](https://afsc-assessments.github.io/Rceattle/reference/jitter.md),
   [`self_test()`](https://afsc-assessments.github.io/Rceattle/reference/self_test.md),
   [`profile()`](https://rdrr.io/r/stats/profile.html),
   [`run_mse()`](https://afsc-assessments.github.io/Rceattle/reference/run_mse.md),
   [`remove_F()`](https://afsc-assessments.github.io/Rceattle/reference/remove_F.md),
   [`sample_rec()`](https://afsc-assessments.github.io/Rceattle/reference/sample_rec.md),
-  [`reweight_comps()`](https://afsc-assessments.github.io/Rceattle/reference/reweight_comps.md),
+  [`reweight_comps()`](https://afsc-assessments.github.io/Rceattle/reference/reweight_comps.md))
   set it, since they re-validate a `data_list` the caller has already
-  fitted once and would otherwise repeat the same warnings per peel,
-  jitter, or MSE iteration. Also drops a linkage filter's "has no
-  effect" warning; a filter that drops its whole spec still warns.
-  Convergence and TMB warnings are unaffected.
+  fitted and would otherwise repeat each warning per peel or iteration.
+  It also drops a linkage filter's "has no effect" warning, though a
+  filter that drops its whole spec still warns. Convergence and TMB
+  warnings are unaffected.
 
 - ...:
 
-  Deprecated optimizer / sdreport / phasing arguments (e.g. `phase`,
-  `getsd`, `bias.correct`, `use_gradient`, `rel_tol`, `control`,
-  `getJointPrecision`, `getReportCovariance`, `loopnum`, `newtonsteps`,
-  `verbose`, `TMBfilename`). These are forwarded into `fit_control` with
-  a deprecation warning; pass them via
+  Deprecated optimizer / sdreport / phasing arguments, forwarded into
+  `fit_control` with a deprecation warning. Pass them via
   [`fit_control()`](https://afsc-assessments.github.io/Rceattle/reference/fit_control.md)
   instead.
 
@@ -256,8 +241,7 @@ A list of class "Rceattle" including:
 
 - opt: Optimized model object from `nlminb`
 
-- sdrep: Object of class `sdreport` exported by TMB including the
-  standard errors of estimated parameters
+- sdrep: Object of class `sdreport` from TMB, with standard errors
 
 - estimated_params: List of estimated parameters
 
@@ -267,110 +251,20 @@ A list of class "Rceattle" including:
 
 ## Details
 
-CEATTLE is an age-structured population dynamics model that can be fit
-with or without predation mortality. The default is to exclude predation
-mortality by setting `msmMode` to 0. Predation mortality can be included
-by setting `msmMode` with the following options:
+CEATTLE is an age-structured population model, fit with or without
+predation mortality; `msmMode` selects which.
 
-- 0\. Single species mode
-
-- 1\. Holsman et al. 2015 predation based on multi-species virtual
-  population analysis (MSVPA) based predation formation.
-
-- 2\. MSVPA Holling Type III
-
-Values 3 through 9 (Kinzey & Punt 2009 functional responses, Holling
-Type I/II/III, predator interference, predator preemption,
-Hassell-Varley, Ecosim) are blocked at runtime by
-[`data_check()`](https://afsc-assessments.github.io/Rceattle/reference/data_check.md)
-because the implementations have not been validated against the current
-parameter set. See `src/TMB/predation.hpp`.
-
-**What `config` overlays.** Two overlays happen, at different levels.
-The estimation controls (`estimateMode`, `random_rec` / `random_q` /
-`random_sel`, `suit_styr` / `suit_endyr`, `fit_control`) overlay only
-the arguments you did not pass, so an explicit argument always wins. The
-stored `model_config` is merged into the data object's **field by
-field**, not wholesale: only the fields the config actually set are
-imposed, and the data object keeps the rest. Since 5.36.0 a config built
-with
+**What `config` overlays**, at two levels. The estimation controls
+(`estimateMode`, `random_rec` / `random_q` / `random_sel`, `suit_styr` /
+`suit_endyr`, `fit_control`) overlay only arguments you did not pass, so
+an explicit argument always wins. The stored `model_config` merges into
+the data object's **field by field**: only fields the config actually
+set are imposed, so a config built with
 [`model_config()`](https://afsc-assessments.github.io/Rceattle/reference/model_config.md)
-therefore no longer drops the linkages held on the data object, which it
-did when the whole structure was replaced. Where a field is set on both
-and the two disagree, the config's value is used and the difference is
-reported as a warning naming the field. A config written before that
-field record existed is treated as having set its non-default fields.
-
-## Initial age structure
-
-What `initMode` estimates, and from what:
-
-- `"FreeParams"` (0):
-
-  The initial age-structure is estimated directly, one free parameter
-  per age.
-
-- `"Equilibrium"` (1):
-
-  Unfished (\\F\_{init} = 0\\) equilibrium age-structure, projected from
-  \\R_0\\ and residual natural mortality \\M1\\.
-
-- `"NonEquilibrium"` (2):
-
-  As (1), plus estimated initial population deviates, so the first year
-  need not sit at equilibrium. The default.
-
-- `"FishedNonEquilibrium"` (3):
-
-  As (2), with an estimated initial fishing mortality \\F\_{init}\\
-  added to the mortality that shapes the first year.
-
-- `"FishedNonEquilibriumScaled"` (4):
-
-  As (3), but \\F\_{init}\\ scales \\R_0\\ rather than entering the
-  mortality directly.
-
-- `"OffsetEquilibrium"` (5):
-
-  Unfished equilibrium seeded by the first year's recruitment,
-  `R_init * exp(rec_dev[1])`, decayed by \\M1\\ and closed with the
-  usual geometric plus group. Initial deviates are turned off and no
-  init-dev penalty is applied. This is the Cole Monnahan / AFSC GOA
-  pollock convention.
-
-- `"FishedNonEquilibriumSelected"` (6):
-
-  As (3), but \\F\_{init}\\ is weighted by the fishery's selectivity at
-  age before it accumulates, so the first year decays with \\\sum\_{a'
-  \< a} (M1\_{a'} + F\_{init} s\_{a'})\\. This is Stock Synthesis's
-  InitF convention. \\F\_{init}\\ is the apical initial F, since \\s\\
-  is normalized to a maximum of 1. The selectivity is the mean over the
-  species' fishery fleets in the first hindcast year, which is exact for
-  a single fishery; Rceattle carries one \\F\_{init}\\ per species where
-  SS3 carries one per fleet, so a multi-fishery stock gets the mean
-  shape.
-
-Modes 3, 4 and 6 differ in how \\F\_{init}\\ reaches an age. (3) charges
-every age the same \\F\_{init}\\, (4) applies it once rather than
-accumulating it, and (6) weights it by selectivity. Under a
-size-selective fishery only (6) is an equilibrium: (3) kills unselected
-young ages at the full initial F and (4) does not decay the older ages
-with it at all.
-
-Modes 1 and 5 differ by exactly one term: both start from the initial
-equilibrium recruitment \\R\_{init}\\, but (1) projects it forward
-unchanged while (5) seeds the first year with the realized recruitment
-`R_init * exp(rec_dev[1])`. On a stock whose first year was not average,
-that is not a small difference.
-
-\\R\_{init}\\ is not always \\R_0\\: under a random-about-mean
-stock-recruit relationship the two are equal, but under Beverton-Holt or
-Ricker \\R\_{init}\\ is the equilibrium recruitment implied by the
-curve.
-
-**In multispecies mode the decay uses \\M1\\ only**, so predation
-mortality (\\M2\\) does not enter the initial age structure under any of
-these modes.
+keeps the linkages held on the data object. Where both set a field and
+disagree, the config wins and the difference is warned about by name. A
+config written before that field record existed counts as having set its
+non-default fields.
 
 ## Examples
 

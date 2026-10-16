@@ -40,10 +40,11 @@ build_M1(
 
 - M1_re:
 
-  Vector or scalar specifying the M1 random-effects model. Either an
-  integer code or the equivalent string alias: `0` / `"none"`, `1` /
+  Vector or scalar specifying the M1 random-effects model, as an integer
+  code or the equivalent string alias: `0` / `"none"`, `1` /
   `"iid_age"`, `2` / `"iid_year"`, `3` / `"iid_age_year"`, `4` /
-  `"ar1_age"`, `5` / `"ar1_year"`, `6` / `"ar1_age_year"`.
+  `"ar1_age"`, `5` / `"ar1_year"`, `6` / `"ar1_age_year"`. Default `0`.
+  Which combinations with `M1_model` are allowed is under Details.
 
 - updateM1:
 
@@ -91,6 +92,30 @@ build_M1(
 ## Value
 
 A list of switches for defining the M1 model.
+
+## Details
+
+**Which `M1_re` families work with which `M1_model`.** Anything but `0`
+needs an `M1_model` of `0`, `1`, `2`, or `3` with a by-year family (`2`
+/ `5`); the by-age families are refused under `3` because an age-varying
+deviation and an age-specific level are not separately identifiable, and
+`4` and `5` are refused entirely (use a catchability-style linkage
+instead). `M1_model = 2` needs two sexes under every `M1_re` family,
+because a single-sex species would take its deviations in the padding
+sex slot, free and scored by no density.
+[`fit_mod()`](https://afsc-assessments.github.io/Rceattle/reference/fit_mod.md)
+downgrades `M1_model` to `1` there, so the distinction shows only in a
+direct
+[`build_map()`](https://afsc-assessments.github.io/Rceattle/reference/build_map.md)
+call.
+
+## `M1_base` completeness
+
+`M1_base` needs a finite, positive residual M (per year) for every age
+of every sex the species has; it is taken on the log scale, so a blank
+or a zero is refused, naming the offending `(species, sex, age)` cells.
+Columns past a species' own `nages` are ignored, so a row may stop at
+its last age.
 
 ## Examples
 

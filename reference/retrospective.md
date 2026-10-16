@@ -1,21 +1,16 @@
 # Retrospective peels
 
-Calculate Mohn's rho and run retrospective peels for an Rceattle model.
-The function also evaluates retrospective forecast skill. To evaluate
-both retrospective bias and forecast skill, the function uses the map
-functionality of TMB to peel the model:
+Calculate Mohn's rho and run retrospective peels for an Rceattle model,
+and evaluate retrospective forecast skill. Each peel uses TMB's map to:
 
-1.  Filters data, filters fixed inputs, and maps out time-varying
-    parameters for the peeled years. All time-varying parameters for the
-    peeled years are set to the terminal year of the model for that
-    peel.
+1.  filter the data and fixed inputs and map out time-varying parameters
+    for the peeled years, holding them at that peel's terminal year;
 
-2.  Fits the peeled model.
+2.  fit the peeled model;
 
-3.  Turns off all hindcast parameters, turns on F for the peeled years,
-    and fits to the peeled catch series to update the "forecast"
-    dynamics given projection assumptions and observed catch from the
-    peeled years.
+3.  turn the hindcast parameters off and F for the peeled years on, and
+    fit to the peeled catch series, updating the "forecast" dynamics
+    given the projection assumptions and the observed catch.
 
 ## Usage
 
@@ -42,17 +37,16 @@ retrospective(
 
 - peels:
 
-  the number of retrospective peels to use in the calculation of rho and
-  for model estimation
+  number of retrospective peels used for rho and estimation
 
 - rescale:
 
-  TRUE/FALSE whether to subset and rescale environmental predictors for
-  the range of peel years.
+  TRUE/FALSE whether to subset and rescale environmental predictors over
+  the peel years.
 
 - nyrs_forecast:
 
-  Number of forecast years to calculate Mohn's Rho in addition to
+  forecast years over which to calculate Mohn's rho, in addition to the
   terminal year
 
 - cores:
@@ -64,19 +58,19 @@ retrospective(
 - getsd:
 
   whether each peel runs
-  [`TMB::sdreport`](https://rdrr.io/pkg/TMB/man/sdreport.html) (standard
-  errors). Costs an extra model build per peel; see Details. Mohn's rho
-  uses only point estimates, so `FALSE` is faster with no effect on rho.
-  Default `NULL` inherits the input model's setting (`TRUE` if it was
-  fit with `getsd = TRUE`, i.e. holds an `sdrep`); the returned peel
-  models then hold standard errors only when `getsd` is `TRUE`.
+  [`TMB::sdreport`](https://rdrr.io/pkg/TMB/man/sdreport.html), which
+  costs an extra model build per peel (see Details). Mohn's rho uses
+  point estimates only, so `FALSE` is faster with no effect on it.
+  `NULL` (default) inherits the input model's setting (`TRUE` only if it
+  holds an `sdrep`), and the returned peels hold standard errors only
+  when it is `TRUE`.
 
 - phase:
 
-  whether each peel is refitted in phases (default `TRUE`). A peel
-  restarts from the unpeeled fit's starting values with a year removed;
-  without phasing the parameters barely move, the peels sit on top of
-  the full model, and Mohn's rho is biased towards zero. Change it only
+  whether each peel is refitted in phases, default `TRUE`. A peel
+  restarts from the unpeeled fit's starting values with a year removed,
+  so without phasing the parameters barely move, the peels sit on top of
+  the full model, and Mohn's rho is biased toward zero. Change it only
   deliberately.
 
 - fit_control:
@@ -94,28 +88,22 @@ retrospective(
 
 ## Value
 
-a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
-each species.
+a list of 1. a list of Rceattle models and 2. Mohn's rho per species.
 
 A peel that did not converge is dropped, so `Rceattle_list` can be
-shorter than `peels + 1` (a message reports how many). Each entry is
-named for its own terminal year (`Year_2017`, ...) rather than by
-position, so index it by name, `Rceattle_list[[3]]` is not necessarily
-the 3-year peel. With no peel left, Mohn's rho is `NaN` and the function
-warns.
+shorter than `peels + 1`, with a message. Entries are named for their
+own terminal year (`Year_2017`, ...), so index by name:
+`Rceattle_list[[3]]` is not necessarily the 3-year peel. With no peel
+left, rho is `NaN` and the function warns. Each peel reports its own
+terminal year as `data_list$endyr`, so plots draw it only as far as it
+was fit.
 
-Each peel reports its own terminal year as `data_list$endyr`, so plots
-draw it only as far as it was fit and the peels fan out.
-
-A peel still estimates the years it dropped. They are its retrospective
-forecast, fit to the observed catch with the survey and composition data
-withheld. Their recruitment deviation is the one
+A peel still estimates the years it dropped: that is its retrospective
+forecast, fit to observed catch with the survey and composition data
+withheld. Its recruitment deviation is the one
 [`sample_rec()`](https://afsc-assessments.github.io/Rceattle/reference/sample_rec.md)
-sets with `sample_rec = FALSE`, computed from the peel's own fit; a
-penalty-form peel with no penalty years averages over its own years
-after the first (or over its one year, for a peel that keeps a single
-year), with a warning. Three years therefore matter, and each peel has
-all three:
+sets with `sample_rec = FALSE`, computed from the peel's own fit. Three
+years matter, and every peel carries all three:
 
 - `endyr`, `endyr_peel`:
 
@@ -131,35 +119,42 @@ all three:
 
   the end of the harvest-control-rule projection.
 
-So the forecast years are those after `endyr_peel` through `endyr_full`,
-and the projection follows through `projyr`; `incl_proj = TRUE` plots
-both. Take the forecast years as
+A peel whose standard errors could not be rebuilt carries
+`attr(peel, "sd_report_error")`, a one-line reason naming the peel and
+its terminal year; it is absent on every other peel.
+
+Take the forecast years as
 `endyr_peel + seq_len(endyr_full - endyr_peel)`, which is empty for the
 unpeeled model, rather than `(endyr_peel + 1):endyr_full`, which counts
-*down* there.
+*down* there. Mohn's rho is computed from `endyr_peel` and is unaffected
+by any of this.
 
-Mohn's rho is computed from `endyr_peel` and is unaffected by any of
-this.
-
-Catchability is estimated only for a fleet that holds fitted index rows
+Catchability is estimated only for a fleet holding fitted index rows
 (see
 [`build_map`](https://afsc-assessments.github.io/Rceattle/reference/build_map.md)),
-and a peel moves `endyr`. A survey whose index observations all fall in
-the peeled-off years therefore has no q estimated in that peel, the
-parameter count is not constant across peels. That is deliberate: a q
-with no index to inform it is a flat direction in the likelihood. It
-does not affect Mohn's rho, which is computed from SSB, but it does mean
-`npar` and the reported catchability differ between a shallow and a deep
-peel for such a fleet.
+and a peel moves `endyr`, so a survey whose index observations all fall
+in the peeled-off years has no q estimated in that peel: the parameter
+count is not constant across peels. That is deliberate, since a q with
+no index to inform it is a flat direction in the likelihood. Rho is
+computed from SSB and is unaffected, but `npar` and the reported
+catchability do differ between a shallow and a deep peel for such a
+fleet.
 
 ## Details
 
-Each peel is fitted twice: a peeled hindcast, then a forecast refit that
-estimates only the peeled years' F. The second holds every hindcast
-parameter fixed, so on its own it reports a standard error of zero for
-the whole hindcast. Under `getsd = TRUE` the peel is therefore rebuilt
+Each peel is fitted twice: a peeled hindcast, then a forecast refit
+estimating only the peeled years' F. The second holds every hindcast
+parameter fixed, so on its own it reports a standard error of zero
+across the hindcast. Under `getsd = TRUE` the peel is therefore rebuilt
 at those same parameters with the hindcast free in the map and reported
-from there. Nothing is re-estimated, so no point estimate moves.
+from there; nothing is re-estimated, so no point estimate moves. Where
+that rebuild fails – it throws, or comes back with a Hessian it could
+not factor, or with no finite standard error – the peel keeps its point
+estimates and carries no `sdrep` at all, rather than the forecast
+refit's zero standard errors. The reason is named in one warning per
+call and carried on the peel;
+[`print()`](https://rdrr.io/r/base/print.html) reports how many peels
+could not report standard errors.
 
 ## Examples
 

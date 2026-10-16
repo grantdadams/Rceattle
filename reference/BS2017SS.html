@@ -9,7 +9,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,7 +55,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Data inputs for single species CEATTLE of the Bering Sea from 1979 to 2017</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/R/data.R" class="external-link"><code>R/data.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/R/data.R" class="external-link"><code>R/data.R</code></a></small>
       <div class="d-none name"><code>BS2017SS.Rd</code></div>
     </div>
 
@@ -114,7 +114,9 @@
 <dd><p>Standard deviation of the log-scale recruitment deviations (fixed, or an initial value if estimated)</p></dd>
 
 <dt>other_food</dt>
-<dd><p>Other food in the ecosystem for each species</p></dd>
+<dd><p>Other food in the ecosystem for each species, in metric
+tons: it is summed into the available-food denominator beside
+numbers-at-age (thousands) times weight-at-age (kg)</p></dd>
 
 <dt>estDynamics</dt>
 <dd><p>Estimate or fix numbers-at-age. Accepts integer codes or the equivalent readable strings: 0 / "Estimated" = estimate dynamics; 1 / "Fixed" = use input numbers-at-age in NByageFixed; 2 / "FixedScaled" = multiply input numbers-at-age (NByageFixed) by a single scaling coefficient, estimated under predation (msmMode &gt; 0) and fixed at 1 otherwise.</p></dd>
@@ -198,13 +200,10 @@
 <dd><p>Parameter for temperature scaling function of maximum consumption specified by Ceq</p></dd>
 
 <dt>env_data</dt>
-<dd><p>Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5 or 6. Will use the mean for missing years. Temperature should be in Celsius.</p></dd>
+<dd><p>Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5. Will use the mean for missing years. Temperature should be in Celsius.</p></dd>
 
 <dt>ration_data</dt>
 <dd><p>Annual relative foraging rate by age or input consumption at age. Multiplied by pvalue and fday to scale maximum consumption to the number of days in a year that foraging occurs.</p></dd>
-
-<dt>UobsAge</dt>
-<dd><p>Stomach proportion by numbers for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"</p></dd>
 
 <dt>UobsWtAge</dt>
 <dd><p>Stomach proportion by weight for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"</p></dd>
@@ -317,7 +316,7 @@ NA.</p></dd>
 <dd><p>Index used to give fleets the same catchability (otherwise, same as Fleet_code). Fleets sharing a value share one q parameter, so the group holds only one answer to whether q is estimated: the group's first non-Off fleet decides for all of them, regardless of fleet type. Give a fleet its own value when it should be estimated independently. "Analytical" and "AnalyticalArith" are the exception, they solve q from each fleet's own index observations, so a group containing one does <em>not</em> share a catchability. <code><a href="data_check.html">data_check()</a></code> reports that case, a Fixed lead that leaves fleets on different inits, and a <code>Catchability</code> or <code>Time_varying_q</code> that differs within a group. See <code><a href="../articles/model-options-and-functionality.html">vignette("model-options-and-functionality")</a></code>.</p></dd>
 
 <dt>Catchability</dt>
-<dd><p>Estimate catchability? 0 or "Fixed" = fixed at prior; 1 or "Estimated" = estimate a single parameter; 2 or "Estimated-with-prior" = estimate a single parameter with a prior; 3 or "Analytical" = geometric-mean analytical q (Ludwig and Walters 1994); 4 = power equation (not yet implemented); 5 or "Environmental" = linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = removed, and <code><a href="data_check.html">data_check()</a></code> errors on it, the deviates were never estimated, so q came back constant; express the Rogers et al. (2024) form as a q linkage with ar1(1 | Year) and <code>observe</code>, passed to <code>fit_mod(qFun = )</code>; 7 or "AnalyticalArith" = arithmetic-mean analytical q = mean(obs)/mean(pred), the AMAK/ebswp form used with the MVN survey likelihood.</p></dd>
+<dd><p>Estimate catchability? 0 or "Fixed" = fixed at prior; 1 or "Estimated" = estimate a single parameter; 2 or "Estimated-with-prior" = estimate a single parameter with a prior; 3 or "Analytical" = geometric-mean analytical q (Walters and Ludwig 1994); 4 = power equation (not yet implemented); 5 or "Environmental" = linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = removed, and <code><a href="data_check.html">data_check()</a></code> errors on it, the deviates were never estimated, so q came back constant; express the Rogers et al. (2024) form as a q linkage with ar1(1 | Year) and <code>observe</code>, passed to <code>fit_mod(qFun = )</code>; 7 or "AnalyticalArith" = arithmetic-mean analytical q = mean(obs)/mean(pred), the AMAK/ebswp form used with the MVN survey likelihood.</p></dd>
 
 <dt>Catchability_init</dt>
 <dd><p>Starting value (or fixed value) for catchability. When Catchability = "Estimated-with-prior" this also centers the q prior.</p></dd>
@@ -332,13 +331,13 @@ NA.</p></dd>
 <dd><p>The sd to use for the random walk of time varying q if set to 1</p></dd>
 
 <dt>Estimate_index_sd</dt>
-<dd><p>Estimate survey/index observation SD. Accepts integer codes or readable strings: 0 / "Fixed" = use the fixed SD from the data CV; 1 / "Estimated" = estimate; 2 / "Analytical" = analytically estimate following Ludwig and Walters 1994.</p></dd>
+<dd><p>Estimate survey/index observation SD. Accepts integer codes or readable strings: 0 / "Fixed" = use the fixed SD from the data CV; 1 / "Estimated" = estimate; 2 / "Analytical" = analytically estimate following Walters and Ludwig 1994.</p></dd>
 
 <dt>Index_sd</dt>
 <dd><p>Starting/fixed value for the index observation SD, used when Estimate_index_sd = "Estimated".</p></dd>
 
 <dt>Estimate_catch_sd</dt>
-<dd><p>Estimate fishery/catch observation SD. Accepts integer codes or readable strings: 0 / "Fixed" = use the fixed SD from the data CV; 1 / "Estimated" = estimate; 2 / "Analytical" = analytically estimate following Ludwig and Walters 1994.</p></dd>
+<dd><p>Estimate fishery/catch observation SD. Accepts integer codes or readable strings: 0 / "Fixed" = use the fixed SD from the data CV; 1 / "Estimated" = estimate; 2 / "Analytical" = analytically estimate following Walters and Ludwig 1994.</p></dd>
 
 <dt>Catch_sd</dt>
 <dd><p>Starting/fixed value for the catch observation SD, used when Estimate_catch_sd = "Estimated".</p></dd>

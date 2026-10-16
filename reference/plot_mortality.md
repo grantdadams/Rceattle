@@ -38,7 +38,8 @@ plot_mortality(
 
 - file:
 
-  name of a file to identified the files exported by the function.
+  Path/prefix for the saved figure. `NULL` (default) draws without
+  saving.
 
 - incl_proj:
 

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,7 +53,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Specify the growth model for Rceattle</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/R/0-build_growth.R" class="external-link"><code>R/0-build_growth.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/R/0-build_growth.R" class="external-link"><code>R/0-build_growth.R</code></a></small>
       <div class="d-none name"><code>build_growth.Rd</code></div>
     </div>
 
@@ -80,76 +80,65 @@
 
 
 <dl><dt id="arg-fun">fun<a class="anchor" aria-label="anchor" href="#arg-fun"></a></dt>
-<dd><p>Growth function. Either a string (<a href="GROWTH_FUNS.html">GROWTH_FUNS</a>:
-<code>"empirical"</code> (default), <code>"vonBertalanffy"</code>, <code>"Richards"</code>) or the
-equivalent integer code (<code>0</code>, <code>1</code>, <code>2</code>). The canonical string form
-is stored on the returned object.</p></dd>
+<dd><p>Growth function: a string (<a href="GROWTH_FUNS.html">GROWTH_FUNS</a>: <code>"empirical"</code> (default),
+<code>"vonBertalanffy"</code>, <code>"Richards"</code>) or the equivalent integer code (<code>0</code>, <code>1</code>,
+<code>2</code>). The canonical string is stored on the returned object.</p></dd>
 
 
 <dt id="arg-growth-age-l-">growth_age_L1<a class="anchor" aria-label="anchor" href="#arg-growth-age-l-"></a></dt>
-<dd><p>Von Bertalanffy / Richards anchor age (the age at
-which mean length equals <code>L1</code>). Matches SS3's <code>Growth_Age_for_L1</code>
-control input. Scalar (recycled across species) or a length-<code>nspp</code>
-vector for per-species values. Default <code>NA</code> inherits
-<code>data_list$growth_age_L1</code> if supplied (e.g. from the SS3 converter),
-otherwise falls back to <code>max(0.5, minage[sp])</code> so <code>minage &gt;= 1</code>
-models stay backwards-compatible and <code>minage = 0</code> models pick up an
-SS3-consistent half-year anchor.</p></dd>
+<dd><p>Von Bertalanffy / Richards anchor age, where mean length
+equals <code>L1</code>; SS3's <code>Growth_Age_for_L1</code>. Falls back to
+<code>max(0.5, minage[sp])</code>, which keeps <code>minage &gt;= 1</code> models
+backwards-compatible and gives <code>minage = 0</code> models an SS3-consistent
+half-year anchor.</p></dd>
 
 
 <dt id="arg-sd-plus-group">sd_plus_group<a class="anchor" aria-label="anchor" href="#arg-sd-plus-group"></a></dt>
-<dd><p>How the oldest age class's SD-at-age is treated (only
-affects estimated growth, <code>fun != "empirical"</code>). <code>"WHAM"</code> pins the
-plus-group SD to the upper anchor <code>exp(sd_Linf)</code> (the WHAM SDAA
-convention); <code>"SS3"</code> instead interpolates it by length like any interior
-age. Accepts a string or the integer code (<code>1</code>/<code>2</code>), scalar or a
-length-<code>nspp</code> vector. Default <code>NA</code> inherits <code>data_list$growth_sd_style</code>
-if present (so a refit keeps the original choice), otherwise <code>"WHAM"</code>.
-When SS3's <code>Growth_Age_for_L2</code> is 999, SS3 pins the plus group to the
-upper anchor, which is <code>"WHAM"</code> here.</p></dd>
+<dd><p>How the oldest age class's SD-at-age is treated, and
+only for estimated growth. <code>"WHAM"</code> (the fallback) pins the plus-group SD
+to the upper anchor <code>exp(sd_Linf)</code>, the WHAM SDAA convention; <code>"SS3"</code>
+interpolates it by length like any interior age. Integer codes <code>1</code>/<code>2</code> are
+accepted. Where SS3's <code>Growth_Age_for_L2</code> is 999 it pins the plus group to
+the upper anchor, which is <code>"WHAM"</code> here.</p></dd>
 
 
 <dt id="arg-linkages">linkages<a class="anchor" aria-label="anchor" href="#arg-linkages"></a></dt>
-<dd><p>Optional named list of <code><a href="linkage_spec.html">linkage_spec()</a></code> objects
-keyed by parameter name (must be one of <a href="GROWTH_LINKAGE_PARAMS.html">GROWTH_LINKAGE_PARAMS</a>).
-The mean-growth keys (<code>K</code>, <code>L1</code>, <code>Linf</code>, <code>m</code>)
-accept arbitrary one-sided formulas and make that growth parameter
-year-varying (a per-year offset around its mean). The SD-endpoint keys
-(<code>sd_L1</code>, <code>sd_Linf</code>) only honor intercept-bearing
-formulas (typically <code>~ 1</code>), they thread <code>init</code>, <code>bounds</code>, and
-<code>priors</code> onto the growth SD-at-age, giving
-the SDs the same prior/fix/initial-value contract as the mean
-parameters. Slope rows on SD specs raise a warning and have no
-effect; slope-only formulas (<code>~ 0 + temp</code>) error.</p></dd>
+<dd><p>Optional named list of <code><a href="linkage_spec.html">linkage_spec()</a></code> objects keyed by
+parameter name (one of <a href="GROWTH_LINKAGE_PARAMS.html">GROWTH_LINKAGE_PARAMS</a>). The mean-growth keys
+(<code>K</code>, <code>L1</code>, <code>Linf</code>, <code>m</code>) take arbitrary one-sided formulas and make that
+parameter year-varying, as a per-year offset around its mean. The
+SD-endpoint keys (<code>sd_L1</code>, <code>sd_Linf</code>) honour only intercept-bearing
+formulas, typically <code>~ 1</code>, threading <code>init</code>, <code>bounds</code> and <code>priors</code> onto the
+growth SD-at-age so the SDs get the same prior, fix and starting-value
+contract as the means. A slope row on an SD spec warns and has no effect; a
+slope-only formula (<code>~ 0 + temp</code>) is an error.</p></dd>
 
 
 <dt id="arg-sd-form">sd_form<a class="anchor" aria-label="anchor" href="#arg-sd-form"></a></dt>
-<dd><p>What the two growth-variability endpoints (<code>sd_L1</code>,
-<code>sd_Linf</code>) are: <code>"SD"</code>, standard deviations of length-at-age in cm (SS3
-<code>CV_Growth_Pattern</code> 2), or <code>"CV"</code>, coefficients of variation so the SD is
-CV x mean length (SS3 pattern 0). Scalar or length-<code>nspp</code>; default <code>NA</code>
-inherits <code>data_list$growth_sd_form</code>, otherwise <code>"SD"</code>.</p></dd>
+<dd><p>What the two variability endpoints (<code>sd_L1</code>, <code>sd_Linf</code>) are:
+<code>"SD"</code> (the fallback), standard deviations of length-at-age in cm, SS3's
+<code>CV_Growth_Pattern</code> 2; or <code>"CV"</code>, coefficients of variation, so the SD is
+CV x mean length, SS3 pattern 0.</p></dd>
 
 
 <dt id="arg-plus-group-length">plus_group_length<a class="anchor" aria-label="anchor" href="#arg-plus-group-length"></a></dt>
-<dd><p>How the plus group's mean length is set: <code>"M1"</code>,
-<code>"none"</code>, <code>"SS3.24"</code> or <code>"decay"</code> (see Details). Scalar or length-<code>nspp</code>;
-default <code>NA</code> inherits <code>data_list$growth_plus_length</code>, otherwise <code>"M1"</code>.</p></dd>
+<dd><p>How the plus group's mean length is set: <code>"M1"</code> (the
+fallback), <code>"none"</code>, <code>"SS3.24"</code> or <code>"decay"</code>. See Details.</p></dd>
 
 
 <dt id="arg-plus-group-decay">plus_group_decay<a class="anchor" aria-label="anchor" href="#arg-plus-group-decay"></a></dt>
-<dd><p>Annual decay rate (per year) for
+<dd><p>Annual decay rate for
 <code>plus_group_length = "decay"</code>, SS3's positive <code>Linf_decay</code>, roughly the
-plus group's total mortality. Required for, and only used by, <code>"decay"</code>.</p></dd>
+plus group's total mortality. Required for, and used only by, <code>"decay"</code>.</p></dd>
 
 
 <dt id="arg-pop-lengths">pop_lengths<a class="anchor" aria-label="anchor" href="#arg-pop-lengths"></a></dt>
 <dd><p>Population length bins (lower edges, cm) on which the
-age-length key, weight-at-length and maturity-at-length are computed
-before being summed into the data length bins: SS3's population length
-bins. A vector applies to every species, a list gives one per species.
-Every data-bin lower edge must also be a population-bin edge. Default
-<code>NULL</code> inherits <code>data_list$pop_lengths</code>, otherwise uses the data bins.</p></dd>
+age-length key, weight-at-length and maturity-at-length are computed before
+being summed into the data length bins: SS3's population length bins. Every
+data-bin lower edge must also be a population-bin edge. A vector applies to
+every species, a list gives one per species, and the fallback is the data
+bins.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -158,8 +147,13 @@ Every data-bin lower edge must also be a population-bin edge. Default
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p><strong>Plus-group mean length.</strong> Fish older than the oldest age are pooled, so
-the plus group's mean length lies between the growth curve at the oldest age,
+    <p>Every switch above takes a scalar, recycled across species, or a
+length-<code>nspp</code> vector for per-species values. Each defaults to <code>NA</code>, which
+inherits the matching field from <code>data_list</code> when it is set – so a refit, or
+a model built by the SS3 converter, keeps the original choice – and
+otherwise uses the fallback named with it.</p>
+<p><strong>Plus-group mean length.</strong> Fish older than the oldest age are pooled, so the
+plus group's mean length lies between the growth curve at the oldest age,
 L_A, and L-infinity:</p><ul><li><p><code>"M1"</code>: mean of L_A + (a/n)(Linf - L_A) over a = 0..n (n = <code>nages</code>),
 weighted by survival at the oldest age's base M1.</p></li>
 <li><p><code>"none"</code>: L_A (SS3 <code>Linf_decay = -998</code>).</p></li>
@@ -171,8 +165,8 @@ Bertalanffy curve, weighted by exp(-d a) with d = <code>plus_group_decay</code>
 </ul><p>Under <code>"none"</code>, <code>"SS3.24"</code> and <code>"decay"</code> the plus group also grows within the
 year like every other age, as SS3 does; under <code>"M1"</code> it keeps its Jan-1
 length through the year.</p>
-<p><strong>Maturity-at-length</strong> is set in the data, not here: the per-species
-control columns <code>L50_mat_len</code> and <code>slope_mat_len</code>.</p>
+<p><strong>Maturity-at-length</strong> is set in the data, not here: the per-species control
+columns <code>L50_mat_len</code> and <code>slope_mat_len</code>.</p>
     </div>
 
     <div class="section level2">

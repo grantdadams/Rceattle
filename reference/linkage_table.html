@@ -21,7 +21,7 @@ estimation phase."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,7 +67,7 @@ estimation phase."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Linkage table: long-format coefficient registry for Rceattle processes</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/R/0-linkage_table.R" class="external-link"><code>R/0-linkage_table.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/R/0-linkage_table.R" class="external-link"><code>R/0-linkage_table.R</code></a></small>
       <div class="d-none name"><code>linkage_table.Rd</code></div>
     </div>
 
@@ -86,8 +86,8 @@ estimation phase.</p>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The motivation is that the historical Rceattle pattern of one wide
-parameter array per process (e.g. <code>beta_rec_pars[nspp, n_env]</code>,
-<code>M1_beta[nspp, nsex, n_env]</code>) does not generalize cleanly across
+parameter array per process (e.g. <code>M1_beta[nspp, nsex, n_env]</code>)
+does not generalize cleanly across
 processes that need different stratifications. A long-format table
 grows only with the linkages the user actually requests, regardless
 of the underlying species/sex/age dimensionality.</p>

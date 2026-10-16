@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,7 +53,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Capture a linkage specification</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/R/0-build_linkage.R" class="external-link"><code>R/0-build_linkage.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/R/0-build_linkage.R" class="external-link"><code>R/0-build_linkage.R</code></a></small>
       <div class="d-none name"><code>linkage_spec.Rd</code></div>
     </div>
 
@@ -94,168 +94,133 @@ predictor for <code>param</code> (e.g. <code>~ 1</code>, <code>~ temp</code>, <c
 
 
 <dt id="arg-param">param<a class="anchor" aria-label="anchor" href="#arg-param"></a></dt>
-<dd><p>target parameter name on the natural scale
-(e.g. <code>"alpha"</code>, <code>"M1"</code>, <code>"K"</code>). May be <code>NULL</code> when the
-spec is built inside a <code>build_*()</code> call that infers the parameter
-name from the enclosing list key (see <code><a href="build_growth.html">build_growth()</a></code>).</p></dd>
+<dd><p>target parameter name on the natural scale (e.g. <code>"alpha"</code>,
+<code>"M1"</code>, <code>"K"</code>). May be <code>NULL</code> when the spec is built inside a <code>build_*()</code>
+call that infers it from the enclosing list key; see <code><a href="build_growth.html">build_growth()</a></code>.</p></dd>
 
 
 <dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
-<dd><p>Optional data frame for formula validation; validation is
-performed at fit time inside <code><a href="fit_mod.html">fit_mod()</a></code>.</p></dd>
+<dd><p>Optional data frame for formula validation; validation happens at
+fit time inside <code><a href="fit_mod.html">fit_mod()</a></code>.</p></dd>
 
 
 <dt id="arg-by">by<a class="anchor" aria-label="anchor" href="#arg-by"></a></dt>
-<dd><p>one-sided formula naming stratifying factors that should
-each get their own coefficients. Allowed names are <code>species</code>,
-<code>sex</code>, <code>age_bin</code>, and <code>fleet</code> (<code>fleet</code> for catchability and
-selectivity linkages). <strong>When omitted, <code>by</code> defaults to the base
-stratum of whichever process the spec is attached to</strong>, <code>~fleet</code>
-for catchability, selectivity, and the fleet composition weights
-(<code>theta_comp</code> / <code>theta_caal</code>), and <code>~species</code> for recruitment, M,
-growth, and the diet weight (<code>theta_diet</code>), so you rarely need to
-spell it out for the base case. Pass it explicitly to override:
-e.g. <code>~species + sex</code> for per-(species, sex) coefficients, or
-<code>NULL</code> to share a single coefficient across every stratum. An
-explicit <code>by</code> (including <code>NULL</code>) is always kept as given.</p></dd>
+<dd><p>one-sided formula naming stratifying factors that each get their
+own coefficients: <code>species</code>, <code>sex</code>, <code>age_bin</code>, or <code>fleet</code>. <strong>Omitted, it
+defaults to the base stratum of the process the spec is attached to</strong> –
+<code>~fleet</code> for catchability, selectivity and the fleet composition weights,
+<code>~species</code> for recruitment, M, growth and the diet weight – so the base
+case needs no <code>by</code>. Pass <code>~species + sex</code> for per-(species, sex)
+coefficients, or <code>NULL</code> to share one coefficient across every stratum; an
+explicit <code>by</code>, <code>NULL</code> included, is kept as given. In a <strong>selectivity or
+catchability</strong> linkage under <code>~fleet</code>, fleets sharing a
+<code>Selectivity_index</code> or <code>Catchability_index</code> still take one coefficient
+between them, because they share one parameter block.</p></dd>
 
 
 <dt id="arg-species">species<a class="anchor" aria-label="anchor" href="#arg-species"></a></dt>
-<dd><p>optional vector of species that this spec applies to,
-given either as 1-based species ids (<code>c(1L, 2L)</code>) or as species
-<strong>names</strong> matching <code>data_list$spnames</code> (<code>c("Pollock", "Cod")</code>).
-Names are matched exactly, after trimming whitespace, when the model
-is assembled in <code><a href="fit_mod.html">fit_mod()</a></code>; an unrecognized name is an error that
-lists the model's species. Give ids or names, not a mix, R coerces
-<code>c(1, "Cod")</code> to <code>c("1", "Cod")</code>. <code>NULL</code> (default) means every species in
-<code>strata$species</code> at materialization time. Use this to give
-different species different formulas, e.g. by registering
-multiple specs against the same parameter, see
-<code><a href="build_growth.html">build_growth()</a></code> for the multi-spec syntax.</p></dd>
+<dd><p>optional species this spec applies to, as 1-based ids
+(<code>c(1L, 2L)</code>) or as names matching <code>data_list$spnames</code>
+(<code>c("Pollock", "Cod")</code>). Names are matched exactly after trimming
+whitespace, and an unrecognized one is an error listing the model's
+species. Give ids or names, not a mix, since R coerces <code>c(1, "Cod")</code> to
+character. <code>NULL</code> (default) means every species. Register several specs
+against one parameter to give species different formulas.</p></dd>
 
 
 <dt id="arg-sex">sex<a class="anchor" aria-label="anchor" href="#arg-sex"></a></dt>
-<dd><p>optional vector of sex ids that this spec applies to.
-May be supplied as integers (<code>1L</code> = female, <code>2L</code> = male) or as
-character strings (<code>"Females"</code>/<code>"Males"</code>, case-insensitive;
-<code>"female"</code>, <code>"male"</code>, <code>"f"</code>, <code>"m"</code> are also accepted). <code>NULL</code>
-(default) means every sex in <code>strata$sex</code> at materialization
-time. <code>by</code> must include <code>sex</code> for it to apply; otherwise it warns
-and has no effect. Use this to register separate specs per sex
-(e.g. one prior on females, another on males) against the same
-parameter.</p></dd>
+<dd><p>optional sex ids, as integers (<code>1L</code> female, <code>2L</code> male) or strings
+(<code>"Females"</code>/<code>"Males"</code>, case-insensitive; <code>"f"</code>/<code>"m"</code> accepted). <code>NULL</code>
+(default) means every sex. <code>by</code> must include <code>sex</code> or it warns and has no
+effect.</p></dd>
 
 
 <dt id="arg-fleet">fleet<a class="anchor" aria-label="anchor" href="#arg-fleet"></a></dt>
-<dd><p>optional vector of fleets this spec applies to, given
-either as 1-based <code>Fleet_code</code>s (<code>c(1L, 3L)</code>) or as fleet <strong>names</strong>
-matching <code>fleet_control$Fleet_name</code> (<code>c("Shelikof", "Summer BT")</code>).
-Names are matched exactly, after trimming whitespace, when the model
-is assembled in <code><a href="fit_mod.html">fit_mod()</a></code>; an unrecognized name, or one that is
-not unique in <code>fleet_control</code>, is an error that lists the model's
-fleets. Prefer names: a <code>Fleet_code</code> that is wrong but in range
-attaches the linkage to a different fleet and still fits, whereas a
-misspelled name cannot. Give ids or names, not a mix, R coerces
-<code>c(7, "Pollock")</code> to <code>c("7", "Pollock")</code>. <code>NULL</code> (default) means every fleet in
-<code>strata$fleet</code> at materialization time. <code>by</code> must include <code>fleet</code>
-for it to apply; otherwise it warns and has no effect. Used by
-catchability and selectivity linkages to give different fleets
-different formulas.</p></dd>
+<dd><p>optional fleets, as 1-based <code>Fleet_code</code>s or as names matching
+<code>fleet_control$Fleet_name</code>. <strong>Prefer names:</strong> a <code>Fleet_code</code> that is wrong
+but in range attaches the linkage to a different fleet and still fits,
+where a misspelled name cannot. Names are matched exactly after trimming;
+one that is unrecognized or not unique is an error listing the fleets. Give
+ids or names, not a mix. <code>NULL</code> (default) means every fleet, and <code>by</code> must
+include <code>fleet</code> or it warns and has no effect.</p></dd>
 
 
 <dt id="arg-link">link<a class="anchor" aria-label="anchor" href="#arg-link"></a></dt>
-<dd><p>link function relating the linear predictor to the
-natural-scale target parameter: one of <code>"log"</code> (default), <code>"identity"</code>,
-or <code>"exponential"</code>. With <code>link = "log"</code>, <code>log(param) = X * beta</code>, slope
-contributions are multiplicative on the natural-scale parameter. With
-<code>link = "identity"</code>, <code>param = X * beta</code>, slope contributions are additive
-on the natural scale. With <code>link = "exponential"</code> the linear predictor
-MULTIPLIES the log instead of shifting it, <code>param^exp(X * beta)</code>; it
-reproduces Stock Synthesis's environmental link type 1 and is accepted on
-catchability only, for a lognormal index, with an estimated intercept. The
-linkage targets are estimated on the log scale, so <code>"log"</code> is the default.</p></dd>
+<dd><p>how the linear predictor reaches the natural-scale parameter:
+<code>"log"</code> (default), so <code>log(param) = X * beta</code> and slopes are multiplicative;
+<code>"identity"</code>, so <code>param = X * beta</code> and slopes are additive; or
+<code>"exponential"</code>, where the predictor multiplies the log rather than
+shifting it, <code>param^exp(X * beta)</code>. The exponential form reproduces Stock
+Synthesis's environmental link type 1 and is accepted on catchability only,
+for a lognormal index, with an estimated intercept.</p></dd>
 
 
 <dt id="arg-init">init<a class="anchor" aria-label="anchor" href="#arg-init"></a></dt>
-<dd><p>optional named list of initial values keyed by the
-design-matrix column name (e.g. <code>list(`(Intercept)` = 4, temp = 0)</code>),
-an intercept on the parameter's natural scale and a slope on the link
-scale; missing entries default to <code>0</code>. An intercept's natural-scale value
-is logged onto the parameter's base (<code>rec_pars</code>, <code>log_M1</code>, ...), or, for
-recruitment <code>R_init</code>, which has no base, onto the coefficient itself.</p></dd>
+<dd><p>optional named list of initial values keyed by design-matrix
+column (e.g. <code>list(`(Intercept)` = 4, temp = 0)</code>), an intercept on the
+parameter's natural scale and a slope on the link scale; missing entries
+default to <code>0</code>. An intercept's value is logged onto the parameter's base
+(<code>rec_pars</code>, <code>log_M1</code>, ...), or onto the coefficient itself for recruitment
+<code>R_init</code>, which has no base.</p></dd>
 
 
 <dt id="arg-bounds">bounds<a class="anchor" aria-label="anchor" href="#arg-bounds"></a></dt>
-<dd><p>optional named list of <code>c(lower, upper)</code> keyed the same
-way as <code>init</code>, and read on the same scales.</p></dd>
+<dd><p>optional named list of <code>c(lower, upper)</code>, keyed and scaled as
+<code>init</code>.</p></dd>
 
 
 <dt id="arg-priors">priors<a class="anchor" aria-label="anchor" href="#arg-priors"></a></dt>
-<dd><p>optional named list of <a href="Rceattle_priors.html">Rceattle_priors</a> objects, keyed by
-design-matrix column name. Inside this argument you may write <code>normal()</code>,
-<code>lognormal()</code>, <code><a href="https://rdrr.io/r/base/Special.html" class="external-link">gamma()</a></code>, or <code><a href="https://rdrr.io/r/base/Special.html" class="external-link">beta()</a></code> directly, e.g.
-<code>priors = list(temp = normal(0, 1))</code>, equivalent to
-<code>priors = list(temp = prior_normal(0, 1))</code>.</p></dd>
+<dd><p>optional named list of <a href="Rceattle_priors.html">Rceattle_priors</a> objects keyed by
+design-matrix column. Inside this argument <code>normal()</code>, <code>lognormal()</code>,
+<code><a href="https://rdrr.io/r/base/Special.html" class="external-link">gamma()</a></code> and <code><a href="https://rdrr.io/r/base/Special.html" class="external-link">beta()</a></code> may be written directly, so
+<code>priors = list(temp = normal(0, 1))</code> is the same as <code>prior_normal(0, 1)</code>.</p></dd>
 
 
 <dt id="arg-re-group">re_group<a class="anchor" aria-label="anchor" href="#arg-re-group"></a></dt>
-<dd><p>optional character: name of a random-effect grouping
-for these coefficients. <code>NA</code> (default) means fixed.</p></dd>
+<dd><p>optional character naming a random-effect grouping for these
+coefficients. <code>NA</code> (default) means fixed.</p></dd>
 
 
 <dt id="arg-est-phase">est_phase<a class="anchor" aria-label="anchor" href="#arg-est-phase"></a></dt>
-<dd><p>optional integer estimation phase. Default <code>1L</code>; <code>0</code> fixes
+<dd><p>optional integer estimation phase, default <code>1L</code>. <code>0</code> fixes
 the coefficient at its <code>init</code>, which then holds over any <code>inits</code> given to
 <code><a href="fit_mod.html">fit_mod()</a></code> (an estimated intercept's <code>init</code> is only a starting value, and
-<code>inits</code> win). Applies to <strong>fixed-effect</strong> rows only, the
-coefficients in <code>beta_linkage</code>. A random-effect term's deviations are held
-in a separate vector that <code>est_phase</code> does not reach, so <code>est_phase &lt; 1</code> on
-a formula containing one is an error rather than a silent no-op; drop the
-term, or fix a small SD via <code>init = list(sigma = )</code>, to remove the time
-variation. Values above <code>1</code> are currently inert for every linkage row.</p></dd>
+<code>inits</code> win). It applies to the fixed-effect rows in <code>beta_linkage</code> only: a
+random-effect term's deviations live in a separate vector it cannot reach,
+so <code>est_phase &lt; 1</code> on a formula containing one is an error rather than a
+silent no-op. Drop the term, or fix a small SD with
+<code>init = list(sigma = )</code>, to remove the time variation. Values above <code>1</code> are
+inert for every linkage row.</p></dd>
 
 
 <dt id="arg-observe">observe<a class="anchor" aria-label="anchor" href="#arg-observe"></a></dt>
-<dd><p>optional character: for an <code>ar1(1 | group)</code> term, the name of
-an <code>env_data</code> column that measures the AR1 latent (a state-space covariate,
-sensu Rogers et al. 2024). The latent enters the linked parameter through
-an estimated effect size and is observed against this column. <code>NULL</code>
-(default) leaves the AR1 as a plain random effect. The latent is zero-mean
-(no estimated level), so standardize the observed covariate to mean 0; a
-non-zero-mean column confounds its level with the intercept and warns.</p></dd>
+<dd><p>optional <code>env_data</code> column measuring the AR1 latent of an
+<code>ar1(1 | group)</code> term, making it a state-space covariate (sensu Rogers et
+al. 2024): the latent reaches the linked parameter through an estimated
+effect size and is observed against this column. <code>NULL</code> (default) leaves
+the AR1 a plain random effect. The latent is zero-mean, so standardize the
+column to mean 0; a non-zero-mean column confounds its level with the
+intercept and warns.</p></dd>
 
 
 <dt id="arg-obs-sd">obs_sd<a class="anchor" aria-label="anchor" href="#arg-obs-sd"></a></dt>
-<dd><p>optional positive numeric: the measurement SD for the <code>observe</code>
-covariate (one per observed group). Required with <code>observe</code>, unused
-otherwise. Held <strong>fixed</strong> at this value by default (<code>obs_sd_est = FALSE</code>); it
-is the <em>starting</em> value when <code>obs_sd_est = TRUE</code>.</p></dd>
+<dd><p>optional positive measurement SD for the <code>observe</code> covariate,
+one per observed group. Required with <code>observe</code> and unused otherwise. Held
+fixed by default, or the starting value when <code>obs_sd_est = TRUE</code>.</p></dd>
 
 
 <dt id="arg-obs-sd-est">obs_sd_est<a class="anchor" aria-label="anchor" href="#arg-obs-sd-est"></a></dt>
-<dd><p>optional single <code>TRUE</code>/<code>FALSE</code> (default <code>FALSE</code>): estimate the
-<code>observe</code> measurement SD instead of holding it fixed, as the state-space
-survey-catchability (GOA pollock) model does. <strong>Caveat:</strong> the effect size and
-<code>obs_sd</code> are only jointly identified when the observed covariate is
-informative; on a smooth series the AR1 latent can track it exactly and the
-freely-estimated <code>obs_sd</code> collapses toward 0. Keep it fixed unless the
-covariate is informative. Only used with <code>observe</code>.</p></dd>
+<dd><p>estimate the <code>observe</code> measurement SD instead of fixing it,
+as the state-space survey-catchability (GOA pollock) model does. Default
+<code>FALSE</code>. <strong>Caveat:</strong> the effect size and <code>obs_sd</code> are jointly identified
+only when the observed covariate is informative; on a smooth series the AR1
+latent tracks it exactly and a free <code>obs_sd</code> collapses toward 0.</p></dd>
 
 
 <dt id="arg-integrate">integrate<a class="anchor" aria-label="anchor" href="#arg-integrate"></a></dt>
-<dd><p>single <code>TRUE</code>/<code>FALSE</code> (default <code>TRUE</code>): whether the random
-effect's deviations are integrated out by the Laplace approximation.
-<code>integrate = FALSE</code> instead estimates them as a <strong>penalized fixed effect</strong>,
-the deviations stay in the objective as a plain penalty and are reported
-with standard errors like any other fixed effect. This reproduces the
-ADMB/AMAK convention behind the legacy <code>Time_varying_sel</code> /
-<code>Time_varying_q</code> switches, which a Laplace-integrated <code>rw()</code> cannot match
-(the marginal likelihood holds a log-determinant term the penalized form
-has no counterpart for). Permitted <strong>only with a fixed SD</strong>,
-<code>init = list(sigma = )</code> and no <code>sigma</code> prior, plus a fixed <code>rho</code> for <code>ar1</code>,
-because estimating deviations and their SD jointly as fixed effects is
-degenerate. Cannot be combined with <code>observe</code>: an observed latent state must
-stay integrated.</p></dd>
+<dd><p>whether the random effect's deviations are integrated out by
+the Laplace approximation, default <code>TRUE</code>. <code>FALSE</code> estimates them as a
+penalized fixed effect instead; see Details for when that is permitted.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -265,11 +230,19 @@ stay integrated.</p></dd>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The reserved keys <code>sigma</code> and <code>rho</code> in <code>init</code> / <code>priors</code> route the
-random-effect deviation SD and (for <code>ar1</code>) the correlation: e.g.
-<code>init = list(sigma = 0.1)</code> fixes the SD, <code>priors = list(rho = normal(0, 0.3))</code> places a prior on the correlation. <code>sigma</code> means different things by
-structure: for <code>rw()</code> it is the innovation (per-step) SD; for <code>ar1()</code> it is
-the marginal (stationary) SD. The two are not directly comparable across
-structures, see <code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code>.</p>
+random-effect deviation SD and, for <code>ar1</code>, the correlation. <code>sigma</code> means
+different things by structure – the innovation (per-step) SD for <code>rw()</code>,
+the marginal (stationary) SD for <code>ar1()</code> – so the two are not comparable
+across structures; see <code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code>.</p>
+<p><code>integrate = FALSE</code> leaves the deviations in the objective as a plain
+penalty and reports them with standard errors. That reproduces the
+ADMB/AMAK convention behind the legacy <code>Time_varying_sel</code> /
+<code>Time_varying_q</code> switches, which a Laplace-integrated <code>rw()</code> cannot match,
+because the marginal likelihood carries a log-determinant term the
+penalized form has no counterpart for. Permitted only with a fixed SD
+(<code>init = list(sigma = )</code>, no <code>sigma</code> prior, plus a fixed <code>rho</code> for <code>ar1</code>),
+since estimating deviations and their SD jointly as fixed effects is
+degenerate, and never with <code>observe</code>, which must stay integrated.</p>
     </div>
 
     <div class="section level2">
@@ -291,14 +264,6 @@ structures, see <code><a href="../articles/environmental-linkages-and-priors.htm
 <span class="r-out co"><span class="r-pr">#&gt;</span>   fleet:   Pollock_survey_1_shelikof_acoustic</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   link:    log</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># A separate coefficient per year, the fixed-effect alternative to rw()/ar1().</span></span></span>
-<span class="r-in"><span><span class="fu">linkage_spec</span><span class="op">(</span><span class="op">~</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">Year</span><span class="op">)</span>, fleet <span class="op">=</span> <span class="st">"Pollock_survey_1_shelikof_acoustic"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;Rceattle linkage spec&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   param:   NA</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   formula: ~factor(Year)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   fleet:   Pollock_survey_1_shelikof_acoustic</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   link:    log</span>
-<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># IID annual deviations; rw() for a random walk, ar1() for AR1.</span></span></span>
 <span class="r-in"><span><span class="fu">linkage_spec</span><span class="op">(</span><span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Year</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;Rceattle linkage spec&gt;</span>
@@ -306,9 +271,8 @@ structures, see <code><a href="../articles/environmental-linkages-and-priors.htm
 <span class="r-out co"><span class="r-pr">#&gt;</span>   formula: ~(1 | Year)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   link:    log</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># A random walk estimated as a penalized fixed effect, which requires a</span></span></span>
-<span class="r-in"><span><span class="co"># fixed SD, the ADMB/AMAK convention behind the legacy Time_varying_*</span></span></span>
-<span class="r-in"><span><span class="co"># switches.</span></span></span>
+<span class="r-in"><span><span class="co"># A random walk estimated as a penalized fixed effect, which requires a fixed</span></span></span>
+<span class="r-in"><span><span class="co"># SD: the ADMB/AMAK convention behind the legacy Time_varying_* switches.</span></span></span>
 <span class="r-in"><span><span class="fu">linkage_spec</span><span class="op">(</span><span class="op">~</span> <span class="fu">rw</span><span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Year</span><span class="op">)</span>, init <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>sigma <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>, integrate <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;Rceattle linkage spec&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   param:   NA</span>
@@ -316,8 +280,7 @@ structures, see <code><a href="../articles/environmental-linkages-and-priors.htm
 <span class="r-out co"><span class="r-pr">#&gt;</span>   link:    log</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   estimate: penalized fixed effect (integrate = FALSE)</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Intercept-only: a prior on the base parameter itself. The bare normal()</span></span></span>
-<span class="r-in"><span><span class="co"># resolves to prior_normal() inside `priors`.</span></span></span>
+<span class="r-in"><span><span class="co"># Intercept-only: a prior on the base parameter itself.</span></span></span>
 <span class="r-in"><span><span class="fu">linkage_spec</span><span class="op">(</span><span class="op">~</span> <span class="fl">1</span>, priors <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>`(Intercept)` <span class="op">=</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;Rceattle linkage spec&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   param:   NA</span>

@@ -11,7 +11,7 @@ and an estimation phase like any other linkage."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -57,7 +57,7 @@ and an estimation phase like any other linkage."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Catchability specification</h1>
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/R/0-build_catchability.R" class="external-link"><code>R/0-build_catchability.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/R/0-build_catchability.R" class="external-link"><code>R/0-build_catchability.R</code></a></small>
       <div class="d-none name"><code>build_catchability.Rd</code></div>
     </div>
 
@@ -79,7 +79,9 @@ and an estimation phase like any other linkage.</p>
 <dl><dt id="arg-linkages">linkages<a class="anchor" aria-label="anchor" href="#arg-linkages"></a></dt>
 <dd><p>Optional named list of <code><a href="linkage_spec.html">linkage_spec()</a></code> objects keyed by
 catchability parameter. The only parameter is <code>q</code>. Coefficients are per
-fleet by default (<code>by = ~ fleet</code>); use the <code>fleet</code> argument of
+fleet by default (<code>by = ~ fleet</code>), except that fleets sharing a
+<code>Catchability_index</code> estimate one parameter block and so take ONE
+coefficient for the whole group. Use the <code>fleet</code> argument of
 <code><a href="linkage_spec.html">linkage_spec()</a></code> to restrict a spec to particular fleets.</p></dd>
 
 </dl></div>

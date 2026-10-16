@@ -170,7 +170,7 @@ mod_names <- c("Single-species", "Multi-species")
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_ssb(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
-plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
+plot_ssb_depletion(Rceattle = mod_list, model_names = mod_names)
 
 # Mortality breakdown (M1 vs M2), these accept model lists
 plot_m_at_age(Rceattle = mod_list, model_names = mod_names, age = 2)

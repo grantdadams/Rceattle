@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,9 +80,9 @@
 
       <h1>3. Model diagnostics</h1>
             
-            <h4 data-toc-skip class="date">2026-10-04</h4>
+            <h4 data-toc-skip class="date">2026-10-16</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
       <div class="d-none name"><code>model-diagnostics.Rmd</code></div>
     </div>
 
@@ -411,7 +411,7 @@ and males below zero.</p>
 </h3>
 <p><code><a href="../reference/plot_index.html">plot_index()</a></code> shows observed vs. predicted survey
 biomass; pass <code>log = TRUE</code> for the log scale.
-<code><a href="../reference/plot_indexresidual.html">plot_indexresidual()</a></code> plots the residuals as observed minus
+<code><a href="../reference/plot_index_residual.html">plot_index_residual()</a></code> plots the residuals as observed minus
 predicted, on whichever scale the fleet is fitted on (log for a
 <code>Lognormal</code> fleet, the natural scale for the others), a
 useful first check for time trends or heteroscedasticity. A positive
@@ -420,7 +420,7 @@ return <code>ggplot</code> objects.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_index.html">plot_index</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_index.html">plot_index</a></span><span class="op">(</span><span class="va">model_1</span>, log <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/plot_indexresidual.html">plot_indexresidual</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/plot_index_residual.html">plot_index_residual</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span></code></pre></div>
 <p><code><a href="../reference/plot_catchability.html">plot_catchability()</a></code> draws the other half of the same
 fit: the catchability the model scaled each survey by, faceted by fleet.
 It reads the realized <code>q</code>, so one figure covers an estimated
@@ -472,7 +472,12 @@ the required observation data on demand and skips a requested source the
 model has no observations for (it errors only if <em>none</em> of them
 do). <code>"diet"</code> is the one source not in the default set, it
 applies only to multispecies models and can be slow, so pass
-<code>source = "all"</code> to include it.</p>
+<code>source = "all"</code> to include it. It needs a <em>predicted</em>
+diet, which means <code>msmMode &gt; 0</code> <strong>and</strong>
+estimated suitability (<code>suitMode</code> 2, 4 or 6); under empirical
+suitability the model reads suitability from <code>diet_data</code>
+rather than predicting stomach proportions, and the diet diagnostics
+refuse rather than report every observation as a complete misfit.</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Aggregate (catch + index) residuals</span></span>
 <span><span class="va">osa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/osa_residuals.html">osa_residuals</a></span><span class="op">(</span><span class="va">model_1</span>, source <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"index"</span>, <span class="st">"catch"</span><span class="op">)</span><span class="op">)</span></span>
@@ -752,11 +757,13 @@ implementation Trijoulet et al. (2023) cite, instead hardcodes
 of data, so it makes the same choice per observation type inside one
 call rather than across two packages.</p>
 <p>One caveat that applies to every method:
-<code>Estimate_index_sd = "Analytical"</code> and the analytical
+<code>Estimate_index_sd = "Analytical"</code>,
+<code>Estimate_catch_sd = "Analytical"</code> and the analytical
 <code>Catchability</code> forms concentrate their parameter out using
 <strong>all</strong> the observations, including the one being
 residualized, so the conditioning is not strictly one-step-ahead and the
-residuals are approximate.</p>
+residuals are approximate – by an amount that shrinks as the series
+lengthens.</p>
 </div>
 <div class="section level3">
 <h3 id="fleets-with-tail-accumulation">Fleets with tail accumulation<a class="anchor" aria-label="anchor" href="#fleets-with-tail-accumulation"></a>
@@ -956,12 +963,20 @@ with mean relative error (Mohn’s rho)</td>
 <p>The <code>nyrs_forecast</code> argument (default 3) also evaluates
 rho for years projected beyond each terminal peel, so a single call
 quantifies forecast skill alongside retrospective bias.</p>
-<p>A peel that did not converge is dropped and a message reports how
+<p>A peel that did not converge is dropped and a warning reports how
 many, so <code>Rceattle_list</code> can be shorter than
 <code>peels + 1</code>. Index it by name rather than position, with a
 peel missing, <code>Rceattle_list[[3]]</code> is not the 3-year peel. If
 no peel converges, Mohn’s rho is <code>NaN</code> and the call
 warns.</p>
+<p>A separate warning means something different: under
+<code>getsd = TRUE</code> a peel whose standard errors could not be
+rebuilt is <strong>kept</strong>, with its point estimates intact and no
+<code>sdrep</code> at all, so its uncertainty band is absent rather than
+drawn at zero width. Mohn’s rho reads point estimates only and is
+unaffected. <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> reports how many peels that happened
+to, and each carries the reason in
+<code>attr(peel, "sd_report_error")</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="jitter-testing">Jitter testing<a class="anchor" aria-label="anchor" href="#jitter-testing"></a>
@@ -996,7 +1011,8 @@ same threshold <code><a href="../reference/convergence_diagnostics.html">converg
 did not come back.</p>
 <p><code><a href="../reference/retrospective.html">retrospective()</a></code> and <code><a href="../reference/jitter.html">jitter()</a></code> both fit peels
 / starts in parallel by default. Pass <code>cores = 1</code> to force
-sequential execution; otherwise the call uses a PSOCK cluster sized at
+sequential execution; otherwise the call uses a FORK cluster where the
+platform allows one, PSOCK on Windows, sized at
 <code>parallel::detectCores() - 6</code> (capped at 2 under
 <code>R CMD check</code>).</p>
 </div>
@@ -1317,7 +1333,7 @@ divergences in biomass or mortality deserve scrutiny.</p>
 <span></span>
 <span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">mod_list</span>, model_names <span class="op">=</span> <span class="va">mod_names</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_recruitment.html">plot_recruitment</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">mod_list</span>, model_names <span class="op">=</span> <span class="va">mod_names</span>, add_ci <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/plot_depletionSSB.html">plot_depletionSSB</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">mod_list</span>, model_names <span class="op">=</span> <span class="va">mod_names</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/plot_ssb_depletion.html">plot_ssb_depletion</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">mod_list</span>, model_names <span class="op">=</span> <span class="va">mod_names</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="collecting-it-into-report-tables">Collecting it into report tables<a class="anchor" aria-label="anchor" href="#collecting-it-into-report-tables"></a>

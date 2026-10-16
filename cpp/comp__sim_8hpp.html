@@ -111,14 +111,12 @@ Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Random draws for composition-style observations, used by SIMULATE. </p>
-<p>Every composition likelihood in the model &ndash; age/length comps, conditional age-at-length, and stomach contents &ndash; is either a multinomial or a Dirichlet-multinomial over a vector of bins. Simulation needs the matching random draws, and TMB supplies neither: <code>distributions_R.hpp</code> stops at univariate generators (<code>rbinom</code>, <code>rgamma</code>, <code>runif</code>, ...). These are the two multivariate draws built from them.</p>
-<p>Both are the standard constructions and are exact given <code>N</code> and <code>p</code>; <code>N</code> is rounded to a whole count, which is the only approximation either makes:</p>
+<p>Every composition likelihood in the model &ndash; age/length comps, conditional age-at-length, and stomach contents &ndash; is a multinomial or a Dirichlet-multinomial over a vector of bins, and TMB supplies neither draw: <code>distributions_R.hpp</code> stops at univariate generators (<code>rbinom</code>, <code>rgamma</code>, <code>runif</code>, ...). These are the two multivariate draws built from them, both the standard constructions and exact given <code>N</code> and <code>p</code>, with <code>N</code> rounded to a whole count the only approximation either makes:</p>
 <ul>
-<li>A multinomial is drawn as a sequence of conditional binomials. Having placed the first <code>a</code> bins, the count in bin <code>a+1</code> is binomial in the observations still unplaced, with probability rescaled by the probability still unspent. This costs one <code>rbinom</code> per bin. Drawing one categorical variate per observation instead (as WHAM's <code>rmultinom</code> does, src/age_comp_sim.hpp) is equally valid but costs one uniform per observation, which stomach sample sizes make expensive.</li>
-<li>A Dirichlet-multinomial is a multinomial whose probabilities are themselves a Dirichlet draw, and a Dirichlet is a vector of independent gammas divided by its own sum.</li>
+<li>A multinomial is drawn as a sequence of conditional binomials: having placed the first <code>a</code> bins, the count in bin <code>a+1</code> is binomial in the observations still unplaced, with probability rescaled by the probability still unspent &ndash; one <code>rbinom</code> per bin. One categorical variate per observation instead (as WHAM's <code>rmultinom</code> does, src/age_comp_sim.hpp) is equally valid but costs one uniform per observation, which stomach sample sizes make expensive.</li>
+<li>A Dirichlet-multinomial is a multinomial whose probabilities are a Dirichlet draw, itself a vector of independent gammas divided by its own sum.</li>
 </ul>
-<p>Both return COUNTS summing to <code>N</code>, matching what the densities in <code><a class="el" href="helper__functions_8hpp.html" title="Small differentiable (AD-safe) utilities used across the CEATTLE template: integer max (imax),...">helper_functions.hpp</a></code> and <code><a class="el" href="comp__osa_8hpp.html" title="One-step-ahead (OSA) residual helpers for composition data.">comp_osa.hpp</a></code> read. The caller converts back to whatever scale its data object stores.</p>
-<p>These run only inside <code>SIMULATE{}</code>, where <code>Type</code> is always double and there is no AD tape, so <code>CppAD::Integer()</code> and the R generators underneath are safe. </p>
+<p>Both return COUNTS summing to <code>N</code>, as the densities in <code><a class="el" href="helper__functions_8hpp.html" title="Small differentiable (AD-safe) utilities used across the CEATTLE template: numeric guards and transfo...">helper_functions.hpp</a></code> and <code><a class="el" href="comp__osa_8hpp.html" title="One-step-ahead (OSA) residual helpers for composition data.">comp_osa.hpp</a></code> read them; the caller converts back to its data object's scale. They run only inside <code>SIMULATE{}</code>, where <code>Type</code> is always double and there is no AD tape, so <code>CppAD::Integer()</code> and the R generators underneath are safe. </p>
 
 <p class="definition">Definition in file <a class="el" href="comp__sim_8hpp_source.html">comp_sim.hpp</a>.</p>
 </div><h2 class="groupheader">Function Documentation</h2>
@@ -141,7 +139,7 @@ template&lt;class Type &gt; </div>
 </div><div class="memdoc">
 
 <p>Draw Dirichlet proportions as normalized independent gammas. </p>
-<p>With a very small concentration every gamma can underflow to zero in double precision, leaving nothing to normalize. The limit of a Dirichlet as <code>alpha -&gt; 0</code> is degenerate &ndash; all the mass in ONE bin, chosen with probability proportional to <code>alpha</code> &ndash; so that is what is returned. Returning a flat vector instead would be the opposite of the near-degenerate composition the parameters describe, and would turn a concentrated diet into a diffuse one. Onset is around <code>sum(alpha)</code> below 1e-3.</p>
+<p>With a very small concentration every gamma can underflow to zero in double precision, leaving nothing to normalize; onset is around <code>sum(alpha)</code> below 1e-3. The limit of a Dirichlet as <code>alpha -&gt; 0</code> is degenerate &ndash; all the mass in ONE bin, chosen with probability proportional to <code>alpha</code> &ndash; so that is what is returned. A flat vector would be the opposite of the near-degenerate composition the parameters describe, turning a concentrated diet into a diffuse one.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">alpha</td><td>Concentration parameters, one per bin, non-negative. </td></tr>
@@ -150,9 +148,9 @@ template&lt;class Type &gt; </div>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>Proportions summing to 1. </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="comp__sim_8hpp_source.html#l00096">96</a> of file <a class="el" href="comp__sim_8hpp_source.html">comp_sim.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="comp__sim_8hpp_source.html#l00088">88</a> of file <a class="el" href="comp__sim_8hpp_source.html">comp_sim.hpp</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="comp__sim_8hpp_source.html#l00139">rdirmultinom_rce()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="comp__sim_8hpp_source.html#l00128">rdirmultinom_rce()</a>.</p>
 
 </div>
 </div>
@@ -188,15 +186,15 @@ template&lt;class Type &gt; </div>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">N</td><td>Number of observations to place. </td></tr>
-    <tr><td class="paramname">alpha</td><td>Concentration parameters, one per bin. In this model these are <code>predicted proportion * N * theta</code>. The draw reproduces the MEAN the density predicts; it is not identical to the density in every moment, because the density is evaluated on offset data while the draw is taken on the raw scale. </td></tr>
+    <tr><td class="paramname">alpha</td><td>Concentration parameters, one per bin; here <code>predicted proportion * N * theta</code>. The draw reproduces the MEAN the density predicts but not every moment of it: the density is evaluated on offset data while the draw is on the raw scale. </td></tr>
   </table>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>Counts, one per bin, summing to the rounded <code>N</code>. </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="comp__sim_8hpp_source.html#l00139">139</a> of file <a class="el" href="comp__sim_8hpp_source.html">comp_sim.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="comp__sim_8hpp_source.html#l00128">128</a> of file <a class="el" href="comp__sim_8hpp_source.html">comp_sim.hpp</a>.</p>
 
-<p class="reference">References <a class="el" href="comp__sim_8hpp_source.html#l00096">rdirichlet_rce()</a>, and <a class="el" href="comp__sim_8hpp_source.html#l00048">rmultinom_rce()</a>.</p>
+<p class="reference">References <a class="el" href="comp__sim_8hpp_source.html#l00088">rdirichlet_rce()</a>, and <a class="el" href="comp__sim_8hpp_source.html#l00041">rmultinom_rce()</a>.</p>
 
 </div>
 </div>
@@ -231,16 +229,16 @@ template&lt;class Type &gt; </div>
 <p>Draw multinomial counts by sequential conditional binomials. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">N</td><td>Number of observations to place. Rounded to a whole number, since the binomial size must be an integer; effective sample sizes reaching here are whole counts (stomachs sampled, fish aged) or a weighting of them. </td></tr>
+    <tr><td class="paramname">N</td><td>Number of observations to place. Rounded to a whole number, as the binomial size must be an integer; effective sample sizes reaching here are whole counts (stomachs sampled, fish aged) or a weighting of them. </td></tr>
     <tr><td class="paramname">p</td><td>Bin probabilities. Rescaled internally, so they need not sum to 1, but must be non-negative. </td></tr>
   </table>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>Counts, one per bin, summing to the rounded <code>N</code>. </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="comp__sim_8hpp_source.html#l00048">48</a> of file <a class="el" href="comp__sim_8hpp_source.html">comp_sim.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="comp__sim_8hpp_source.html#l00041">41</a> of file <a class="el" href="comp__sim_8hpp_source.html">comp_sim.hpp</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="comp__sim_8hpp_source.html#l00139">rdirmultinom_rce()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="comp__sim_8hpp_source.html#l00128">rdirmultinom_rce()</a>.</p>
 
 </div>
 </div>

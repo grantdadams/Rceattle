@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.49.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.64.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,9 +80,9 @@
 
       <h1>6. Building a data object in R</h1>
             
-            <h4 data-toc-skip class="date">2026-10-04</h4>
+            <h4 data-toc-skip class="date">2026-10-16</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.49.1/vignettes/data-without-excel.Rmd" class="external-link"><code>vignettes/data-without-excel.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/afsc-assessments/Rceattle/blob/5.64.0/vignettes/data-without-excel.Rmd" class="external-link"><code>vignettes/data-without-excel.Rmd</code></a></small>
       <div class="d-none name"><code>data-without-excel.Rmd</code></div>
     </div>
 
@@ -288,7 +288,7 @@ species and control which population model is used.</p>
 <span><span class="co"># multi-species mode to prevent unrealistically high predation mortality when</span></span>
 <span><span class="co"># modeled prey are scarce. Setting this too low forces predators to over-eat</span></span>
 <span><span class="co"># modeled prey; too high dilutes the predation signal.</span></span>
-<span><span class="va">simData</span><span class="op">$</span><span class="va">other_food</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1e5</span>, <span class="va">nspp</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">simData</span><span class="op">$</span><span class="va">other_food</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1e5</span>, <span class="va">nspp</span><span class="op">)</span>   <span class="co"># metric tons of non-modelled prey</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="fleet-control-table">2. Fleet control table<a class="anchor" aria-label="anchor" href="#fleet-control-table"></a>
@@ -310,6 +310,12 @@ modeled. Multiple fleets can target the same species.</p>
 <span><span class="co">#   "Hake"               (5), non-parametric selectivity à la Taylor et al. (Pacific hake)</span></span>
 <span><span class="co">#   "2DAR1"              (6), 2D autoregressive random effects (bin × year)</span></span>
 <span><span class="co">#   "3DAR1"              (7), 3D autoregressive random effects (bin × year × cohort)</span></span>
+<span><span class="co">#   "DoubleNormal"       (8), Gaussian ascending/descending limbs blended at peak</span></span>
+<span><span class="co">#   "NonParametricPM"    (9), Ianelli non-parametric, ADMB AMAK penalty</span></span>
+<span><span class="co">#   "LogisticPM"        (11), AMAK logistic with multiplicative deviations</span></span>
+<span><span class="co">#   "NonParametricIntegrable" (13), deviations with a proper density (random_sel)</span></span>
+<span><span class="co">#   "DoubleNormalSS3"   (15), SS3 size pattern 24, six-parameter</span></span>
+<span><span class="co">#   (sel_map in R/0-switches.R is the registry; 10, 12 and 14 are unused)</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Selectivity_dimension: "Age" or "Length"</span></span>
 <span><span class="co">#   Length-based selectivity requires an age-to-length transition matrix (see below).</span></span>
@@ -318,8 +324,9 @@ modeled. Multiple fleets can target the same species.</p>
 <span><span class="co">#   "Fixed"                (0), Q fixed at Catchability_init; not estimated</span></span>
 <span><span class="co">#   "Estimated"            (1), freely estimated on log scale</span></span>
 <span><span class="co">#   "Estimated-with-prior" (2), estimated with a lognormal prior (Catchability_init, Catchability_prior_sd)</span></span>
-<span><span class="co">#   "Analytical"           (3), Ludwig &amp; Walters / Martell (1994) analytical Q</span></span>
-<span><span class="co">#   "PowerEquation"        (4), power-equation Q (habitat area scaling)</span></span>
+<span><span class="co">#   "Analytical"           (3), Walters &amp; Ludwig (1994) analytical Q</span></span>
+<span><span class="co">#   "PowerEquation"        (4), NOT YET IMPLEMENTED; data_check() refuses it</span></span>
+<span><span class="co">#   "AnalyticalArith"      (7), arithmetic-mean analytical Q</span></span>
 <span><span class="co">#   "Environmental"        (5), mu_q + X * beta, where X is a covariate in env_data</span></span>
 <span><span class="co">#   "AR1"                  (6), REMOVED in 5.12.0; data_check() errors. Use a q</span></span>
 <span><span class="co">#                                  linkage with ar1(1 | Year) and observe = &lt;column&gt;</span></span>
@@ -336,7 +343,8 @@ modeled. Multiple fleets can target the same species.</p>
 <span>  Fleet_code  <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">nspp</span> <span class="op">*</span> <span class="fl">2</span><span class="op">)</span>,       <span class="co"># unique integer ID per fleet</span></span>
 <span>  Fleet_type  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Survey"</span>, <span class="st">"Fishery"</span><span class="op">)</span>, <span class="va">nspp</span><span class="op">)</span>,</span>
 <span>  Species     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">nspp</span>, each <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>,</span>
-<span>  Month       <span class="op">=</span> <span class="fl">0</span>,                   <span class="co"># 0 = mid-year; calendar month otherwise</span></span>
+<span>  Month       <span class="op">=</span> <span class="fl">0</span>,                   <span class="co"># 0 = not specified; read for comps and</span></span>
+<span>                                     <span class="co"># weight-at-age when growth is estimated</span></span>
 <span></span>
 <span>  <span class="co"># Selectivity_index links fleets that share the same selectivity curve.</span></span>
 <span>  <span class="co"># Fleets with the same index share all selectivity parameters.</span></span>
@@ -356,7 +364,7 @@ modeled. Multiple fleets can target the same species.</p>
 <span>  <span class="co">#   5 / "RandomWalkAscending" = random walk on ascending portion of double logistic</span></span>
 <span>  Time_varying_sel          <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  Time_varying_sel_sd <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  Bin_first_selected        <span class="op">=</span> <span class="fl">1</span>,     <span class="co"># youngest fully-selected age or length bin</span></span>
+<span>  Bin_first_selected        <span class="op">=</span> <span class="fl">1</span>,     <span class="co"># first bin selected; selectivity is 0 below it</span></span>
 <span>  Sel_norm_bin             <span class="op">=</span> <span class="st">"Off"</span>, <span class="co"># "Max", "Off", or a bin to normalize at</span></span>
 <span>  Sel_norm_bin_upper       <span class="op">=</span> <span class="st">"Off"</span>, <span class="co"># "Off", or the top of a bin range</span></span>
 <span>  <span class="co"># Two-sex models only: whether the normalization reference is pooled over the</span></span>
@@ -393,14 +401,14 @@ modeled. Multiple fleets can target the same species.</p>
 <span>  <span class="co"># Estimate_index_sd:</span></span>
 <span>  <span class="co">#   0 = fix at Log_sd from index_data</span></span>
 <span>  <span class="co">#   1 = estimate a single SD</span></span>
-<span>  <span class="co">#   2 = analytical sigma (Ludwig &amp; Walters 1994)</span></span>
+<span>  <span class="co">#   2 = analytical sigma (Walters &amp; Ludwig 1994)</span></span>
 <span>  Estimate_index_sd  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>,  <span class="cn">NA</span><span class="op">)</span>, <span class="va">nspp</span><span class="op">)</span>,</span>
 <span>  Index_sd     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,  <span class="cn">NA</span><span class="op">)</span>, <span class="va">nspp</span><span class="op">)</span>,</span>
 <span></span>
 <span>  <span class="co"># Estimate_catch_sd:</span></span>
 <span>  <span class="co">#   0 = fix at Log_sd from catch_data (treats catch as known)</span></span>
 <span>  <span class="co">#   1 = estimate</span></span>
-<span>  <span class="co">#   2 = analytical sigma (Ludwig &amp; Walters 1994); concentrates the sd out of</span></span>
+<span>  <span class="co">#   2 = analytical sigma (Walters &amp; Ludwig 1994); concentrates the sd out of</span></span>
 <span>  <span class="co">#       the catch likelihood, so catch stops pinning F as tightly</span></span>
 <span>  Estimate_catch_sd  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">0</span><span class="op">)</span>,  <span class="va">nspp</span><span class="op">)</span>,</span>
 <span>  Catch_sd     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">1</span><span class="op">)</span>,  <span class="va">nspp</span><span class="op">)</span>,</span>
@@ -427,6 +435,9 @@ checking.</p>
 <span>  Fleet_code        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">nspp</span> <span class="op">*</span> <span class="fl">2</span>, by <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>, each <span class="op">=</span> <span class="va">nyrs</span><span class="op">)</span>,</span>
 <span>  Species           <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">nspp</span>, each <span class="op">=</span> <span class="va">nyrs</span><span class="op">)</span>,</span>
 <span>  Year              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="va">years</span>, <span class="va">nspp</span><span class="op">)</span>,</span>
+<span>  <span class="co"># This is the month the index predictor uses: 0 = start of year, before any</span></span>
+<span>  <span class="co"># mortality; 6 = mid-year. A mid-year survey left at 0 is predicted ~9.5% high</span></span>
+<span>  <span class="co"># at Z = 0.2.</span></span>
 <span>  Month             <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  <span class="co"># Selectivity_block: integer index into the selectivity/Q parameter block.</span></span>
 <span>  <span class="co"># Used when Time_varying_sel or Time_varying_q = 3 (time blocks).</span></span>

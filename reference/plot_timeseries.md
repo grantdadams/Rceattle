@@ -163,7 +163,7 @@ plot_timeseries(
   reference-point layers, added before the figure is saved. Supplied by
   [`plot_f()`](https://afsc-assessments.github.io/Rceattle/reference/plot_f.md)
   and
-  [`plot_depletionSSB()`](https://afsc-assessments.github.io/Rceattle/reference/plot_depletionSSB.md)
+  [`plot_ssb_depletion()`](https://afsc-assessments.github.io/Rceattle/reference/plot_ssb_depletion.md)
   through `.ts_wrapper()`; `sp_sel` is the species resolution the panels
   were built from.
 

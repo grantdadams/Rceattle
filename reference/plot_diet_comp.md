@@ -24,7 +24,8 @@ plot_diet_comp(Rceattle, file = NULL, species = NULL)
 
 - file:
 
-  name of a file to identified the files exported by the function.
+  Path/prefix for the saved figure. `NULL` (default) draws without
+  saving.
 
 - species:
 

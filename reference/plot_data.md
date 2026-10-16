@@ -43,17 +43,14 @@ plot_data(
 
   Path/prefix used to save the figure. If `NULL` (default) the plot is
   drawn to the active device only. When supplied, the figure is written
-  to `paste0(file, "_data_plot.png")` (and `_data_plot2.png` for the
-  bubble subplot).
+  to `paste0(file, "_data_plot.png")`.
 
-- subplots:
+- subplots, res, ptsize, margins, cex, lwd, maxsize, mainTitle,
+  cex.main:
 
-  Integer vector controlling which subplots are produced:
-
-  - 1, equal-size points showing presence/absence by year/fleet
-
-  - 2, points scaled to relative quantity / precision within each data
-    type (catch tonnage, 1/SE for indices, sample size for comps)
+  Deprecated base-graphics arguments, retained for back-compatibility
+  and ignored. One faceted figure is drawn; size, resolution and titles
+  come from the ggplot theme and from `width`/`height`.
 
 - datatypes:
 
@@ -84,47 +81,16 @@ plot_data(
 
   Figure dimensions in inches.
 
-- res:
-
-  Resolution (dpi) for the saved PNG.
-
-- ptsize:
-
-  Pointsize passed to [`png()`](https://rdrr.io/r/grDevices/png.html).
-
-- margins:
-
-  `par("mar")` for the plot. Increase the right margin if long fleet
-  names are clipped.
-
-- cex:
-
-  Character expansion for points showing isolated years.
-
-- lwd:
-
-  Line width for runs of consecutive years (subplot 1).
-
-- maxsize:
-
-  Max bubble radius (in plot units) for subplot 2.
-
 - alphasize:
 
   Bubble fill transparency (0-1).
 
-- mainTitle:
-
-  Logical; if `TRUE` add a default title.
-
-- cex.main:
-
-  Title character expansion.
-
 ## Value
 
 Invisibly, a list with `typetable`, the long data frame underlying the
-plot (year, fleet, data type, relative size).
+plot (year, fleet, data type, relative size). Point area is scaled
+within each data type: catch in metric tons, 1/SE for indices, sample
+size for compositions.
 
 ## Details
 

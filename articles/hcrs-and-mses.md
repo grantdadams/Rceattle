@@ -180,12 +180,12 @@ the range of stock trajectories the strategy produces.
 
 ``` r
 
-plot_depletionSSB(lapply(mse1, function(x) x$OM))
+plot_ssb_depletion(lapply(mse1, function(x) x$OM))
 ```
 
 ``` r
 
-plot_depletionSSB(
+plot_ssb_depletion(
   c(mse1$Sim_1$EM,           # EMs
     list(mse1$Sim_1$OM,      # OM
          mse1$Sim_1$OM_no_F  # OM with no fishing after the original OM's endyr

@@ -17,6 +17,7 @@ jitter(
   getsd = NULL,
   timeout = Inf,
   fit_control = NULL,
+  ...,
   Rceattle = NULL
 )
 ```
@@ -85,6 +86,12 @@ jitter(
   [`fit_control()`](https://afsc-assessments.github.io/Rceattle/reference/fit_control.md)
   reaches**.
 
+- ...:
+
+  for a numeric `object`, passed to
+  [`base::jitter()`](https://rdrr.io/r/base/jitter.html); for a fitted
+  model, refused, so that a misspelled argument is not silently ignored.
+
 - Rceattle:
 
   deprecated name for `object`, still accepted so existing scripts keep
@@ -101,10 +108,16 @@ random starts reach the same optimum.
 ## Note
 
 Attaching Rceattle masks [`jitter`](https://rdrr.io/r/base/jitter.html),
-so `jitter(x)` on a numeric vector reaches this function and reports a
-missing model rather than adding noise to `x`. Call
-[`base::jitter()`](https://rdrr.io/r/base/jitter.html) explicitly for
-the base-graphics behaviour.
+because that function is not generic and this name is exported, so the
+mask cannot be removed by making this an S3 method. It is harmless for
+the spellings base callers use: a numeric first argument is handed
+straight to [`base::jitter()`](https://rdrr.io/r/base/jitter.html), so
+`jitter(1:5)` and `jitter(1:5, factor = 2)` behave as base does.
+`jitter(x = 1:5)` and a positional second argument do not. `x` is not a
+parameter here, so it is refused as an unused argument; a positional
+second argument binds `njitter`, so `jitter(1:5, 2)` jitters with base's
+defaults and silently drops the `2`. Name base's arguments, or call
+[`base::jitter()`](https://rdrr.io/r/base/jitter.html) directly.
 
 ## Examples
 
