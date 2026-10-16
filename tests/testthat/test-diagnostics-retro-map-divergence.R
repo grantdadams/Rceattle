@@ -45,9 +45,14 @@ drift_warnings <- function(expr) {
 testthat::test_that("a current fit's stored map matches a fresh build", {
   testthat::skip_on_cran()
   fit <- retro_fit()
+  # Mirrors retrospective()'s own probe, random_sel included. Omitting it here
+  # is what let the production call omit it too: build_map() hard-defaults
+  # random_sel to FALSE with no data_list fallback, so a random_sel = TRUE fit
+  # compared against a defaulted rebuild reports sel_dev_log_sd as drift.
   fresh <- suppressWarnings(suppressMessages(Rceattle::build_map(
     data_list = fit$data_list, params = fit$estimated_params,
-    debug = FALSE, random_rec = fit$data_list$random_rec)))
+    debug = FALSE, random_rec = fit$data_list$random_rec,
+    random_sel = isTRUE(as.logical(fit$data_list$random_sel)))))
   shared <- intersect(names(fit$map$mapList), names(fresh$mapList))
   differing <- shared[!vapply(shared, function(nm) identical(
     as.integer(fit$map$mapList[[nm]]),
@@ -94,4 +99,51 @@ testthat::test_that("the warning survives the parallel peel path", {
       suppressMessages(Rceattle::retrospective(stale, peels = 2, cores = cr)),
       "stored map differs")
   }
+})
+
+
+# retrospective()'s drift probe rebuilt the map without random_sel, which
+# build_map() hard-defaults to FALSE and, unlike random_q, does not read off the
+# data_list. So a random_sel = TRUE fit -- whose stored map frees
+# sel_dev_log_sd -- was compared against a rebuild that maps it out, and
+# retrospective() told a correct fit to refit itself. No number moved.
+#
+# Measured on GOA2018SS with fleet 8 set to DoubleLogistic/RandomWalkAscending:
+# 49 blocks compared, sel_dev_log_sd the single difference -- the same 49 that
+# 5.54.1 reports as "0 differ", so that measurement was taken without
+# random_sel. Pure R: build_params() and build_map() need no DLL, so this runs
+# in the blocking jobs rather than only in deep-checks.
+testthat::test_that("random_sel changes the map, so the probe must pass it", {
+  data("GOA2018SS", package = "Rceattle", envir = environment())
+  d <- GOA2018SS
+  d$fleet_control$Selectivity[8] <- "DoubleLogistic"
+  d$fleet_control$Time_varying_sel[8] <- "RandomWalkAscending"
+  d <- suppressMessages(Rceattle::switch_check(d))
+  d$growth_model <- rep(0, d$nspp)
+  d$suitMode <- rep(0, d$nspp)
+  p <- suppressWarnings(suppressMessages(Rceattle::build_params(d)))
+  mk <- function(rs) suppressWarnings(suppressMessages(
+    Rceattle::build_map(d, p, debug = FALSE, random_rec = FALSE,
+                        random_sel = rs)))
+  off <- mk(FALSE); on <- mk(TRUE)
+  shared <- intersect(names(off$mapList), names(on$mapList))
+  differing <- shared[!vapply(shared, function(nm) identical(
+    as.integer(off$mapList[[nm]]),
+    as.integer(on$mapList[[nm]])), logical(1))]
+
+  testthat::expect_gt(length(shared), 40L)      # 49 at the time of writing
+  testthat::expect_equal(differing, "sel_dev_log_sd")
+
+  # fit_mod() stores as.numeric(random_sel), so the probe's recovery expression
+  # has to read a 1 as TRUE. Asserted against the map it yields, not against
+  # as.logical() itself.
+  d_on <- d
+  d_on$random_sel <- 1
+  recovered <- suppressWarnings(suppressMessages(
+    Rceattle::build_map(d_on, p, debug = FALSE, random_rec = FALSE,
+                        random_sel = isTRUE(as.logical(d_on$random_sel)))))
+  testthat::expect_equal(as.integer(recovered$mapList$sel_dev_log_sd),
+                         as.integer(on$mapList$sel_dev_log_sd))
+  testthat::expect_false(identical(as.integer(recovered$mapList$sel_dev_log_sd),
+                                   as.integer(off$mapList$sel_dev_log_sd)))
 })

@@ -95,6 +95,19 @@ version throughout.
   vectors rather than reporting a bound against its neighbour.
   (Reported by a parallel session reviewing the SS3 bridge.)
 
+* **`retrospective()` told a correct fit to refit itself when selectivity
+  deviations were random effects.** Its map-drift probe rebuilt the comparison
+  map without `random_sel`, which `build_map()` hard-defaults to `FALSE` and,
+  unlike `random_q`, does not read off the `data_list`. So a
+  `random_sel = TRUE` fit, whose stored map frees `sel_dev_log_sd`, was compared
+  against a rebuild that maps it out. Measured on `GOA2018SS` with a
+  `DoubleLogistic`/`RandomWalkAscending` fleet: 49 blocks compared,
+  `sel_dev_log_sd` the single difference -- the same 49 that 5.54.1 reports as
+  "0 differ", so that figure was taken on a fit without `random_sel`. The probe
+  now passes the stored value. No number moves: the warning is advisory and each
+  peel's map is unchanged. One sibling script fits with `random_sel = TRUE` and
+  does not call `retrospective()`, so nothing shipping saw it.
+
 * **The suitability-floor warning counted each bound cell once per hindcast
   year, and could fire for a predator that never reached the floor.**
   `suit_other` holds one value per predator-sex-age, written to every year

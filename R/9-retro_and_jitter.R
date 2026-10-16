@@ -162,11 +162,15 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # a warning() raised inside a .parallel_lapply() worker is discarded (see
   # inst/dev/TRAPS.md), so this fires once per call, never per peel.
   .map_drift <- tryCatch({
+    # random_sel must be passed: build_map() hard-defaults it to FALSE and has
+    # no data_list fallback, unlike random_q, so a random_sel = TRUE fit's
+    # stored map frees sel_dev_log_sd where a defaulted fresh map maps it out.
     .fresh <- suppressWarnings(suppressMessages(build_map(
       data_list  = object$data_list,
       params     = object$estimated_params,
       debug      = FALSE,
-      random_rec = object$data_list$random_rec)))
+      random_rec = object$data_list$random_rec,
+      random_sel = isTRUE(as.logical(object$data_list$random_sel)))))
     .shared <- intersect(names(object$map$mapList), names(.fresh$mapList))
     .shared[!vapply(.shared, function(nm) identical(
       as.integer(object$map$mapList[[nm]]),
