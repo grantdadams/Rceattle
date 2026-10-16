@@ -5,9 +5,9 @@
 # refuse the pair on the process NAME rather than its target.
 #
 # This is not hypothetical: the SS3 bridge carries SS3's initial recruitment
-# level as an `R_init` linkage, and the refusal forced the GOA cod circulation
-# study onto a configuration that folds the level into `init_dev` instead,
-# costing 49.7 nats on the forward pass and biasing R0 31% low.
+# level as an `R_init` linkage, and the refusal forced it off, folding the level
+# into the penalised `init_dev` instead. Wherever the initial-level prior is on,
+# the optimiser then retires the shift by lowering R0 0.37 log units, 31% low.
 
 testthat::test_that("a recruitment linkage is allowed alongside a DSEM", {
   testthat::skip_on_cran()

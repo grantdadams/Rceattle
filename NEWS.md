@@ -45,13 +45,17 @@ numbered on the 5.23.0 line.
   No fit moves: a configuration that worked before works the same, and only one
   that was refused becomes available.
 
-  *Why it mattered:* the SS3 bridge carries SS3's initial recruitment level as an
-  `R_init` linkage, so the refusal forced the GOA cod circulation study onto a
-  configuration folding that level into `init_dev` instead -- 49.7 nats worse on
-  the forward pass, with R0 biased 31% low (measured in
-  `../Rceattle-models/GOA cod/Bridging/`). `test-dsem-recruitment-linkage.R`
-  pins that the pair now builds, that the linkage reaches its offset tensor, and
-  that the GMRF is still the only density on the recruitment deviations.
+  *Why it mattered:* the SS3 bridge carries SS3's initial recruitment level as
+  an `R_init` linkage, and the refusal forced it off, folding that level into
+  `init_dev` instead. The two parameterisations put the same numbers at age in
+  the initial year -- the GOA cod forward pass is 1912.2067 either way -- but
+  `init_dev` is penalised where the linkage is not, so wherever the
+  initial-level prior is on, the optimiser retires the shift by lowering R0 by
+  0.37 log units, i.e. 31% low (`../Rceattle-models/SS3-bridge/
+  GOA-estimation-parity.md`). `test-dsem-recruitment-linkage.R` pins that the
+  pair now builds, that the linkage contributes one estimated coefficient per
+  species, and that the GMRF is still the only density on the recruitment
+  deviations.
 
   One configuration this does NOT make identifiable: the same covariate on `R0`
   *and* on a lag-0 path into `recdevs`, which enters the likelihood twice and
