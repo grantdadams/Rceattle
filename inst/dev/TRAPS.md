@@ -1037,6 +1037,12 @@ indistinguishable on a Unix-alike, which is why review on Linux could not see it
 macOS with `env =` dropped, the flag off gives 81 lines of compile output and no
 `-DTMB_SAFEBOUNDS`, the flag on gives 82 and the define.
 
+**The first real `windows-latest` result, 2026-10-16: all 8 configurations clean.** The rebuild
+took 2m39s where the broken call took 0.1s, and `test-selectivity-catchability.R` -- the file the
+0xC0000005 died in -- ran 14.9s with no violation. Evidence, not clearance: `safebounds` range-
+tests Eigen array access, so a clean run does not rule out the other ways that fault arises, and
+the crash was intermittent to begin with.
+
 **The golden regression ran in NO automated job.** `test-golden-regression.R` carries both
 `skip_on_cran()` and `skip_on_covr()`. `R-CMD-check` sets `NOT_CRAN=false` deliberately (to keep
 the multi-OS matrix fast), so the first fires; `test-coverage` runs under covr, so the second
