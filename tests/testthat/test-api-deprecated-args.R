@@ -190,3 +190,67 @@ test_that("functions that take something other than a fitted model kept their na
   expect_identical(names(formals(mse_summary))[1], "mse")
   expect_identical(names(formals(compare_sim))[1], "operating_mod")
 })
+
+
+# Exporting `jitter` masks base::jitter(), which is not generic and so cannot be
+# dispatched on. Making this an S3 generic is no escape: UseMethod() errors
+# before any method runs when the dispatch argument is absent, so a generic on
+# `x` could not also accept the fitted model as `object` or `Rceattle` -- and
+# `jitter(Rceattle = mod, ...)` is live in Rceattle-models. A numeric fast-path
+# makes the mask harmless instead, which is what these pin.
+test_that("a numeric first argument reaches base::jitter() unchanged", {
+  set.seed(1); ours <- jitter(1:5)
+  set.seed(1); theirs <- base::jitter(1:5)
+  expect_identical(ours, theirs)
+
+  # ... carries base's own arguments through.
+  set.seed(3); ours2 <- jitter(1:5, factor = 2)
+  set.seed(3); theirs2 <- base::jitter(1:5, factor = 2)
+  expect_identical(ours2, theirs2)
+  # factor is doing something, so the comparison above is not vacuous.
+  set.seed(3)
+  expect_false(identical(ours2, base::jitter(1:5)))
+
+  # Doubles and a longer vector, not just the integer case.
+  set.seed(5); d1 <- jitter(c(0.5, 2.5, 10))
+  set.seed(5); d2 <- base::jitter(c(0.5, 2.5, 10))
+  expect_identical(d1, d2)
+})
+
+
+test_that("the masked spellings that still do NOT work are the documented ones", {
+  # Stated in @note rather than fixed: this function's first formal is `object`
+  # and its second `njitter`, so a named `x` or a positional second argument
+  # cannot reach base. Pinned so the note stays true.
+  # `x` is not a formal here, so it lands in `...` and the unused-argument
+  # guard names it. That is the message for this call; what the @note pins is
+  # that the call does not reach base::jitter(), which is still true.
+  expect_error(jitter(x = 1:5), "does not take these arguments: x")
+  expect_equal(names(formals(jitter))[1:2], c("object", "njitter"))
+  expect_true("..." %in% names(formals(jitter)))
+  # The deprecated name stays last, so positional calls keep binding `object`.
+  expect_equal(tail(names(formals(jitter)), 1), "Rceattle")
+})
+
+
+test_that("on the model path a misspelled argument is refused, not ignored", {
+  # `...` exists for the numeric fast path only, so on the model path anything
+  # in it is a typo. Measured before the guard: jitter(mod, njiter = 10) ran 50
+  # jitters, not the 10 asked for. The guard precedes the class check, so this
+  # needs no fitted model.
+  expect_error(jitter("notamodel", njiter = 10),
+               "does not take these arguments: njiter")
+  expect_error(jitter("notamodel", sdev = 0.5),
+               "does not take these arguments: sdev")
+  # The remedy names the arguments it does take.
+  expect_error(jitter("notamodel", njiter = 10), "njitter")
+
+  # The negative case: a correctly spelled argument gets past the guard and
+  # reaches the class check, so the guard is not swallowing valid arguments.
+  expect_error(jitter("notamodel", njitter = 2), "class 'Rceattle'")
+
+  # Not a blanket refusal: the numeric path still forwards its dots to base.
+  set.seed(3); ours <- jitter(1:5, factor = 2)
+  set.seed(3); theirs <- base::jitter(1:5, factor = 2)
+  expect_identical(ours, theirs)
+})

@@ -43,6 +43,7 @@ Each script prints a pass/fail digest and leaves its numbers on stdout.
 | `verify-sim-recovery-np-integrable.R` | Under `NonParametricIntegrable` with `random_sel = TRUE`, the reported selectivity-deviation SD recovers a known one (deviates drawn in R on `Atka2022`'s fishery, observations from `sim_mod()`). |
 | `verify-osa-cdf.R` | `osa_residuals(method = "cdf")` returns iid N(0, 1) residuals when observations simulated from `BS2017SS` are residualized at the parameters that generated them; the Gaussian default is scored alongside. |
 | `verify-osa-cdf-accuracy.R` | The two `"cdf"` trade-offs `?osa_residuals` states: its error under random effects against exact Kalman innovations, and what the 8.04 censoring costs a reported statistic. |
+| `verify-osa-compresidual.R` | Composition OSA residuals against `compResidual` (Trijoulet et al. 2023) on `BS2017SS`. Scores the RATIO to compResidual's own seed-to-seed ceiling, not the bare correlation — their residuals carry a random draw, and reading the bare number produced a false "fleet 2 diverges". Needs `compResidual`, which is not a dependency. |
 | `verify-sim-recovery-srr-msm.R` | Whether the data can inform a Beverton-Holt curve under predation, where no equilibrium anchors it: a curve bending inside a 7x SSB range is imposed on the two-species fixture and refitted after redrawing observations and recruitment. |
 
 ## ci/

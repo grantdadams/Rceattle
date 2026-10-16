@@ -35,6 +35,17 @@
   Rceattle::linkage_spec(~ temp, init = list(intercept = init), ...)
 }
 
+# Intercept only, for the two shared-block blocks below. `~ temp` also emits a
+# `temp` SLOPE column, and a slope reaches one fleet's offset tensor rather than
+# the group's shared base -- so naming one member of a mirrored block gives that
+# member a time-varying offset the others never get, which is refused since
+# 5.57.0 (`test-linkage-shared-block.R` measures the 0.265 of divergence it
+# caused). These two blocks are about where an intercept `init` lands, so they
+# drop the covariate rather than carry a configuration they do not test.
+.ibp_spec_int <- function(init, ...) {
+  Rceattle::linkage_spec(~ 1, init = list(intercept = init), ...)
+}
+
 
 testthat::test_that("natural mortality takes an intercept init", {
   testthat::skip_on_cran(); testthat::skip_if_not_installed("TMB")
@@ -179,7 +190,7 @@ testthat::test_that("an init on the follower of a shared block is refused", {
   # dropped without a word -- and it is the catch advice that moves.
   testthat::expect_error(
     .ibp_fit(.ibp_shared(), selFun = Rceattle::build_selectivity(linkages = list(
-      slp_asc = .ibp_spec(0.5, by = ~ fleet, fleet = 5L)))),
+      slp_asc = .ibp_spec_int(0.5, by = ~ fleet, fleet = 5L)))),
     "mirrors fleet 4")
 })
 
@@ -190,9 +201,47 @@ testthat::test_that("an init on the donor of a shared block lands", {
   # be refused -- the guard has to tell donor from follower, not merely detect
   # that a fleet belongs to a group.
   fit <- .ibp_fit(.ibp_shared(), selFun = Rceattle::build_selectivity(
-    linkages = list(slp_asc = .ibp_spec(0.5, by = ~ fleet, fleet = 4L))))
+    linkages = list(slp_asc = .ibp_spec_int(0.5, by = ~ fleet, fleet = 4L))))
   testthat::expect_equal(
     as.numeric(fit$estimated_params$log_sel_slp[1, 4, 1]), log(0.5))
+
+  # And it lands on the parameter the OPTIMIZER starts from, which is the thing
+  # that matters and did not hold before 5.58.0. `TMB:::updateMap()` is
+  # `tapply(parameter.entry, map.entry, mean)`, so a shared level starts at the
+  # mean over the whole level: writing the donor's cell alone left fleet 5 at
+  # its build default 0.5 and started the level at -0.096574, where log(0.5) is
+  # -0.693147 -- a slope of 0.908 for a requested 0.5. The init is injected per
+  # BLOCK now, so every member's cell carries it and the mean is the request.
+  testthat::expect_equal(
+    as.numeric(fit$estimated_params$log_sel_slp[1, 5, 1]), log(0.5))
+  pv <- fit$obj$env$parList(fit$obj$par)$log_sel_slp
+  testthat::expect_equal(as.numeric(pv[1, 4, 1]), log(0.5), tolerance = 1e-10)
+  testthat::expect_equal(as.numeric(pv[1, 4, 1]), as.numeric(pv[1, 5, 1]))
+})
+
+
+testthat::test_that("an intercept BOUND on a shared block reaches its level", {
+  testthat::skip_on_cran(); testthat::skip_if_not_installed("TMB")
+  # Same defect on the bounds push, and worse for a reason worth stating:
+  # `fit_mod()` reduces bounds to one entry per map LEVEL by first occurrence
+  # (`keep <- match(levels(droplevels(mf)), as.character(mf))`), so if only the
+  # donor's cell is written and the donor is not first in array order, the
+  # surviving bound is an unwritten DEFAULT rather than the requested one.
+  # Injecting per block makes every member's cell carry it, so whichever cell
+  # `match()` picks is right.
+  d <- .ibp_shared()
+  fit <- .ibp_fit(d, selFun = Rceattle::build_selectivity(linkages = list(
+    slp_asc = Rceattle::linkage_spec(
+      ~ 1, init = list(intercept = 0.5),
+      bounds = list(`(Intercept)` = c(0.2, 0.8)),
+      by = ~ fleet, fleet = 4L))))
+  # Both members' cells carry the natural-scale bound, logged.
+  for (f in c(4L, 5L)) {
+    testthat::expect_equal(as.numeric(fit$bounds$lower$log_sel_slp[1, f, 1]),
+                           log(0.2), info = paste("fleet", f))
+    testthat::expect_equal(as.numeric(fit$bounds$upper$log_sel_slp[1, f, 1]),
+                           log(0.8), info = paste("fleet", f))
+  }
 })
 
 

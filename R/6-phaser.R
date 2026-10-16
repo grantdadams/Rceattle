@@ -13,7 +13,7 @@
 #' @param  map a list of map object from the model
 #' @param  random A character vector of names of parameters that are random effects
 #' @param  phases Tagged list assigning each named parameter its integer phase (as returned by [set_phases()]).
-#' @param silent logical. If TRUE, suppresses output from TMB (default = TRUE).
+#' @param silent logical. Suppress TMB's output. No default; phased fits set it.
 #' @param use_gradient logical. If TRUE, uses gradient in optimization (default = TRUE).
 #' @param control A list of control parameters. For details see \code{?nlminb}
 #' @param  model_name A string describing the model name. Must be the name of your .cpp file
@@ -113,10 +113,10 @@ set_phases <- function(){
     init_dev = 2,      # Age specific initial age-structure deviates or parameters
     # sex_ratio_log_sd = 3, # Variance of sex ratio (usually fixed)
     log_M1 = 4,         #  Estimated natural or residual mortality
-    log_M1_dev = 5,     #  Estimated natural or residual mortality
-    M1_beta = 5,       #  Estimated natural or residual mortality
-    M1_rho = 5,        #  Estimated natural or residual mortality
-    M1_dev_log_sd = 5,  #  Estimated natural or residual mortality
+    log_M1_dev = 5,     #  M1 deviations (random effects)
+    M1_beta = 5,       #  Covariate coefficient on M1
+    M1_rho = 5,        #  AR1 correlation for the M1 deviations
+    M1_dev_log_sd = 5,  #  Innovation sd of the M1 deviations
     log_Flimit = 3,     # Estimated F limit
     log_Ftarget = 3,    # Estimated F target
     log_Finit = 3,      # Estimated fishing mortality for non-equilibrium initial age-structure
@@ -141,12 +141,6 @@ set_phases <- function(){
     catch_log_sd = 2,   # Log SD for lognormal catch likelihood (usually input)
     comp_weights = 5,  # Weights for comp likelihood
     caal_weights = 5,  # Weights for CAAL likelihood
-    # ,logH_1 = 6,     # Functional form parameter (not used in MSVPA functional form)
-    # logH_1a = 6,     # Functional form parameter (not used in MSVPA functional form)
-    # logH_1b = 6,     # Functional form parameter (not used in MSVPA functional form)
-    # logH_2 = 6,      # Functional form parameter (not used in MSVPA functional form)
-    # logH_3 = 6,      # Functional form parameter (not used in MSVPA functional form)
-    # H_4 = 6,         # Functional form parameter (not used in MSVPA functional form)
     log_gam_a = 5,     # Suitability parameter (size-preference mean)
     log_gam_b = 5,     # Suitability parameter (size-preference sd)
     log_phi = 5,       # Suitability parameter (pred-prey vulnerability)

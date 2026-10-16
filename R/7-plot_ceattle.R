@@ -66,7 +66,7 @@ rich.colors.short <- function(n,alpha=1){
 #'   if `line_col` is supplied.
 #' @param ref_lines Internal. `function(models, sp_sel)` returning per-species
 #'   reference-point layers, added before the figure is saved. Supplied by
-#'   [plot_f()] and [plot_depletionSSB()] through `.ts_wrapper()`; `sp_sel` is
+#'   [plot_f()] and [plot_ssb_depletion()] through `.ts_wrapper()`; `sp_sel` is
 #'   the species resolution the panels were built from.
 #' @param suffix Internal. Overrides the `<file>_<suffix>.png` stem, which
 #'   otherwise names the series.
@@ -437,9 +437,8 @@ plot_timeseries <- function(Rceattle,
 
 
 # Display divisor per derived series; a series absent here is plotted unscaled.
-# Any entry added needs its matching unit in .rce_ts_ylab(): the two drifting
-# apart is how recruitment came to be plotted in thousands under a "million"
-# label.
+# Any entry added needs its matching unit in .rce_ts_ylab(); a mismatch
+# silently mislabels the axis by the divisor.
 .RCE_TS_RESCALE <- c(
   biomass             = 1e6,   # mt              -> million mt
   ssb                 = 1e6,   # mt              -> million mt
@@ -531,9 +530,7 @@ plot_timeseries <- function(Rceattle,
 # are handed to plot_timeseries(), which adds the layers before it saves, so the
 # reference lines reach the written PNG and the CSV still has the `file` it
 # needs. They exist so every timeseries plotter goes through this factory: F and
-# SSB depletion both draw reference points, and writing either by hand outside
-# it is how plot_f() came to take a different argument list from its siblings
-# and to resolve `species` its own way.
+# SSB depletion both draw reference points.
 .ts_wrapper <- function(output, zero_y = FALSE, ref_lines = NULL,
                         suffix = NULL) {
   force(output); force(zero_y); force(ref_lines); force(suffix)
@@ -645,22 +642,36 @@ plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass", zero_y = TRUE)
 #' @description Plots the mean SSB depletion and 95\% CI trends as estimated from Rceattle.
 #'   Depletion reference lines for Ptarget and Plimit are drawn in blue and red respectively.
 #'
+#' @details The denominator differs by configuration, so say which one a figure
+#'   uses. `DynamicHCR = TRUE` gives that year's `DynamicSB0`. Otherwise it is
+#'   static `SB0`, except under `HCR = 0` with `msmMode > 0`, where it is female
+#'   SSB in the **last projection year** -- which approximates multispecies SB0
+#'   only once `projyr` is far enough out to equilibrate. An `msmMode = 0` fit
+#'   and an `msmMode = 1, HCR = 0` fit drawn on one axis are therefore two
+#'   different ratios.
+#'
 #' @inheritParams plot_timeseries
+#'
+#' @seealso [report_tables()], which states the same multispecies denominator.
 #'
 #' @export
 #'
 #' @return Returns and saves a figure with the SSB depletion trajectory.
-plot_depletionSSB <- .ts_wrapper("ssb_depletion", zero_y = TRUE,
-                                 ref_lines = .depletion_reference_lines)
+plot_ssb_depletion <- .ts_wrapper("ssb_depletion", zero_y = TRUE,
+                                  ref_lines = .depletion_reference_lines)
 
 #' Plot SSB depletion (deprecated name)
 #'
-#' @description Deprecated alias for \code{\link{plot_depletionSSB}}. Please use
-#'   \code{plot_depletionSSB()} instead.
+#' @description Deprecated alias for \code{\link{plot_ssb_depletion}}, which is
+#'   the snake_case spelling the rest of the package uses. Please use
+#'   \code{plot_ssb_depletion()} instead.
 #'
-#' @inheritParams plot_timeseries
+#' @param ... passed unchanged to \code{\link{plot_ssb_depletion}}.
 #' @export
-plot_ssb_depletion <- plot_depletionSSB
+plot_depletionSSB <- function(...) {
+  .Deprecated("plot_ssb_depletion")
+  plot_ssb_depletion(...)
+}
 
 #' Plot biomass depletion
 #'
@@ -795,9 +806,9 @@ plot_selectivity <-
     sp_sel  <- .resolve_species(models, species, spnames)
     keep_sp <- sp_sel$index
 
-    # Every model contributes: reading only the first silently dropped the rest
-    # of an overlay. Each is read with its own fleet_control and dimensions,
-    # since a comparison run may differ in both.
+    # Every model contributes, so an overlay draws all of them. Each is read
+    # with its own fleet_control and dimensions, since a comparison run may
+    # differ in both.
     se_list <- if (isTRUE(add_ci)) se_all else vector("list", length(models))
 
     df_list <- list()
@@ -1020,98 +1031,16 @@ plot_selectivity <-
 #' @param msmMode Multispecies mode integer specifying functional form
 #' @export
 plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode = 3){
-  # The Kinzey & Punt (2009) functional-response parameters are commented out
-  # in the TMB template, build_params(), build_map() and build_bounds(), and
-  # data_check() blocks msmMode 3:9. Body retained below so this can be revived
-  # alongside the C++.
+  # The Kinzey & Punt (2009) functional-response parameters are absent from the
+  # TMB template, and from build_params(), build_map() and
+  # build_bounds(), and data_check() refuses msmMode 3-9. The plotting body and
+  # the parameter starting values are in inst/dev/REMOVED-kinzey-and-dev-cpp.md.
   stop(paste0(
     "plot_form() plots the Kinzey & Punt (2009) functional responses ",
     "(msmMode 3-9), which are not available in this version of Rceattle: ",
     "the functional-response parameters are not estimated, and data_check() ",
     "blocks these modes. Use msmMode = 1 (Holsman et al. 2015 MSVPA) or ",
     "2 (Holling Type III MSVPA)."), call. = FALSE)
-
-  # ---- retained for future development ----
-  #
-  #   # Get indices
-  #   rsp = pred
-  #   ksp = prey
-  #
-  #   # Get parameter values
-  #   H_1 <- exp(params$logH_1)
-  #   H_1a <- exp(params$logH_1a)
-  #   H_1b <- exp(params$logH_1b)
-  #
-  #   H_2 <- exp(params$logH_2)
-  #   H_3 <- exp(params$logH_3)
-  #
-  #   H_4 <- params$H_4
-  #
-  #   # Set up ratios
-  #   Pred_r <- seq(from = 0.001, to = 5, length.out = 100) # Pred biomass relative to equilibrium
-  #   Prey_r <- seq(from = 0.001, to = 5, length.out = 100) # Prey biomass relative to equilibrium
-  #
-  #   # Calculate functional form
-  #   Term = H_1[rsp, ksp] * (1 + H_1a[rsp] * H_1b[rsp] / (pred_age + H_1b[rsp]))
-  #   response <- matrix(NA, ncol = length(Prey_r), nrow = length(Pred_r))
-  #   rownames(response) <- Pred_r
-  #   colnames(response) <- Prey_r
-  #
-  #   for(i in 1:length(Pred_r)){
-  #     for(j in 1:length(Prey_r)){
-  #       response[i, j] <- Prey_r[j] * switch (
-  #         as.character(msmMode),
-  #         "2" = { # Holling Type I (linear)
-  #           Term},
-  #         "3" = { #  Holling Type II
-  #           Term * (1 + H_2[rsp, ksp] ) / ( 1 + H_2[rsp, ksp] * Prey_r[j] )
-  #         },
-  #         "4" = { #  Holling Type III
-  #           Term * (1 + H_2[rsp, ksp]) * ((Prey_r[j] ) ^ H_4[rsp, ksp]) / (1 + H_2[rsp, ksp] * ((Prey_r[j] ) ^ H_4[rsp, ksp])  )},
-  #         "5" = { #  predator interference
-  #           Term * (1 + H_2[rsp, ksp] ) / ( 1 + H_2[rsp, ksp] * Prey_r[j] + H_3[rsp, ksp] * (Pred_r[i] - 1) )
-  #         },
-  #         "6" = { # predator preemption
-  #           Term * (1 + H_2[rsp, ksp] ) / ( (1 + H_2[rsp, ksp] * Prey_r[j]) * (1 + H_3[rsp, ksp] * (Pred_r[i] - 1)) )
-  #         },
-  #         "7" = { # Hassell-Varley
-  #           Term * (2 + H_2[rsp, ksp] ) / (1 + H_2[rsp, ksp] * Prey_r[j] + ((Prey_r[j] ) ^ H_4[rsp, ksp]))
-  #         },
-  #         "8" = { #  Ecosim
-  #           Term / (1 + H_3[rsp, ksp] * (Pred_r[i] - 1 ))},
-  #         {
-  #           stop("msmMode not implemented: ", msmMode)
-  #         }
-  #       )
-  #     }
-  #   }
-  #
-  #   df <- reshape2::melt(response)
-  #   colnames(df) <- c("Pred_r", "Prey_r", "Response")
-  #   df$Pred_r <- as.numeric(as.character(df$Pred_r))
-  #   df$Prey_r <- as.numeric(as.character(df$Prey_r))
-  #
-  #   if (msmMode %in% c(2, 3, 4, 7)) {
-  #     # functional response depends on the prey ratio only
-  #     d <- stats::aggregate(Response ~ Prey_r, data = df, FUN = mean)
-  #     p <- ggplot2::ggplot(d, ggplot2::aes(x = .data$Prey_r, y = .data$Response)) +
-  #       ggplot2::geom_line(linewidth = 1) +
-  #       ggplot2::labs(x = "Prey ratio", y = "Functional response")
-  #   } else if (msmMode == 8) {
-  #     d <- stats::aggregate(Response ~ Pred_r, data = df, FUN = mean)
-  #     p <- ggplot2::ggplot(d, ggplot2::aes(x = .data$Pred_r, y = .data$Response)) +
-  #       ggplot2::geom_line(linewidth = 1) +
-  #       ggplot2::labs(x = "Predator ratio", y = "Functional response")
-  #   } else if (msmMode %in% c(5, 6)) {
-  #     p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$Prey_r, y = .data$Pred_r,
-  #                                           fill = .data$Response)) +
-  #       ggplot2::geom_raster() +
-  #       ggplot2::scale_fill_viridis_c("Functional\nresponse") +
-  #       ggplot2::labs(x = "Prey ratio", y = "Predator ratio")
-  #   } else {
-  #     stop("msmMode not implemented: ", msmMode)
-  #   }
-  #   p + .rceattle_theme()
 }
 
 
@@ -1125,8 +1054,8 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #'   component at a time, never their sum, [plot_m_at_age()] draws total M
 #'   (M1 + M2) as a time series.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
+#' @param file Path/prefix for the saved figure. `NULL` (default) draws
+#'   without saving.
 #' @param Rceattle A single [fit_mod()] object. A list of more than one is an
 #'   error; call it per model.
 #' @param incl_proj Include the projection years (TRUE/FALSE)
@@ -1269,13 +1198,15 @@ plot_mortality <-
 #'
 #' @description Function that plots the maturity of each species
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
+#' @param file Path/prefix for the saved figure. `NULL` (default) draws
+#'   without saving.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param species Species names for legend
-#' @param lwd Line width as specified by user
+#' @param line_col,lwd Deprecated base-graphics arguments, retained for
+#'   back-compatibility and ignored; colour comes from the shared model palette
+#'   and the line width is fixed.
+#' @param species Species labels for the facet strips, length `nspp`. Default is
+#'   the model's own names. It labels panels and does not subset.
 #' @param width Figure width in inches
 #' @param height Figure height in inches
 #'

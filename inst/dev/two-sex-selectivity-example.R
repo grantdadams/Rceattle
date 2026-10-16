@@ -138,7 +138,7 @@ mod_list <- list(NP_IID      = m1,
 ##   NonParametric / NonParametricPM              each sex re-centered to mean 1
 ##   Hake                                         each sex scaled by its own max
 ##                                                (Sel_norm_scope is inert here --
-##                                                 inst/dev/TODO-selectivity.md) (open: the capability gap, not the silence --
+##                                                 issue #236) (open: the capability gap, not the silence --
 ##                                                 data_check() announces it since 5.35.0)
 ##   DoubleNormal                                 both sexes peak at exactly 1
 ##                                                (only the old-age plateau differs)

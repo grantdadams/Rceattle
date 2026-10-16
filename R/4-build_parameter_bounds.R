@@ -54,13 +54,6 @@ build_bounds <- function(param_list = NULL, data_list) {
       upper_bnd$log_gam_a[sp] <- 19.9
     }
   }
-  #
-  # # Kinzey functional form
-  # lower_bnd$logH_3 <- replace(lower_bnd$logH_3, values = rep(-30, length(lower_bnd$logH_3)))
-  # upper_bnd$logH_3 <- replace(upper_bnd$logH_3, values = rep(-1e-06, length(upper_bnd$logH_3)))
-  #
-  # lower_bnd$H_4 <- replace(lower_bnd$H_4, values = rep(-0.1, length(lower_bnd$H_4)))
-  # upper_bnd$H_4 <- replace(upper_bnd$H_4, values = rep(20, length(upper_bnd$H_4)))
 
 
   # Recruitment ----
@@ -233,8 +226,11 @@ build_bounds <- function(param_list = NULL, data_list) {
                  }
                },
                q = {
-                 lower_bnd$index_log_q[idx$fleet] <- log(lo)
-                 upper_bnd$index_log_q[idx$fleet] <- log(hi)
+                 # Per BLOCK: fit_mod() takes one bound per map level by first
+                 # occurrence, so the donor's cell alone may not be the one that wins.
+                 qblk <- .shared_block_members(data_list, idx$fleet, "q")
+                 lower_bnd$index_log_q[qblk] <- log(lo)
+                 upper_bnd$index_log_q[qblk] <- log(hi)
                },
                comp = {
                  # DM weight is exp(parameter), so natural-scale bounds log.
@@ -254,20 +250,21 @@ build_bounds <- function(param_list = NULL, data_list) {
                },
                sel = {
                  if (!is.null(sel_slot)) {
+                   sblk <- .shared_block_members(data_list, idx$fleet, "sel")
                    for (s in idx$species) {
                      sx <- idx$per_sp[[as.character(s)]]$sex
                      if (identical(sel_slot$arr, "log_sel_slp")) {
-                       lower_bnd$log_sel_slp[sel_slot$slot, idx$fleet, sx] <- log(lo)
-                       upper_bnd$log_sel_slp[sel_slot$slot, idx$fleet, sx] <- log(hi)
+                       lower_bnd$log_sel_slp[sel_slot$slot, sblk, sx] <- log(lo)
+                       upper_bnd$log_sel_slp[sel_slot$slot, sblk, sx] <- log(hi)
                      } else if (identical(sel_slot$arr, "sel_inf")) {
-                       lower_bnd$sel_inf[sel_slot$slot, idx$fleet, sx] <- lo
-                       upper_bnd$sel_inf[sel_slot$slot, idx$fleet, sx] <- hi
+                       lower_bnd$sel_inf[sel_slot$slot, sblk, sx] <- lo
+                       upper_bnd$sel_inf[sel_slot$slot, sblk, sx] <- hi
                      } else if (identical(sel_slot$arr, "sel_dn6")) {
-                       lower_bnd$sel_dn6[sel_slot$slot, idx$fleet, sx] <- lo
-                       upper_bnd$sel_dn6[sel_slot$slot, idx$fleet, sx] <- hi
+                       lower_bnd$sel_dn6[sel_slot$slot, sblk, sx] <- lo
+                       upper_bnd$sel_dn6[sel_slot$slot, sblk, sx] <- hi
                      } else if (identical(sel_slot$arr, "log_sel_apical")) {
-                       lower_bnd$log_sel_apical[idx$fleet, sx] <- log(lo)
-                       upper_bnd$log_sel_apical[idx$fleet, sx] <- log(hi)
+                       lower_bnd$log_sel_apical[sblk, sx] <- log(lo)
+                       upper_bnd$log_sel_apical[sblk, sx] <- log(hi)
                      }
                    }
                  }

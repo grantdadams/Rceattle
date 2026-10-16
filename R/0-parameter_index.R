@@ -1,5 +1,7 @@
 # Which model coordinate each estimated parameter belongs to.
 
+# Axis and label registries ----
+
 # Dimension token (parameter_dictionary()$dims) -> the axis it indexes. The
 # dictionary says what an axis MEANS; the extent is read off the built array,
 # because a declared extent can describe the estimated portion rather than the
@@ -168,6 +170,8 @@
     as.character(idx)
   )
 }
+
+# parameter_index() ----
 
 #' Locate every estimated parameter in the model's own coordinates
 #'
@@ -453,6 +457,8 @@ parameter_index <- function(object) {
   }
   lines
 }
+
+# Coordinates for the convergence checks ----
 
 # Two indices, because the checks do not count positions in the same vector: the
 # bounds and estimability tables are the hindcast's, sdrep$cov.fixed the final

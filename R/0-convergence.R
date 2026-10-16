@@ -102,18 +102,30 @@
     full <- tryCatch(obj$env$parList(par = obj$env$last.par.best),
                      error = function(e) NULL)
     if (!is.null(full)) {
+      # Same keep rule and same block order as fit_mod()'s section 7, so these
+      # line up with obj$par -- and therefore with `gradient` and `index` below.
+      # One bound per map LEVEL in level order: a first-occurrence rule swaps
+      # mirrored fleets, which share indices out of order. Blocks in obj$par
+      # order: build_params() lists the linkage coefficients after log_F and the
+      # template declares them before it.
+      blocks <- if (!is.null(par_fixed) && !is.null(names(par_fixed))) {
+        rle(names(par_fixed))$values
+      } else names(mapFactor)
       pv <- lv <- uv <- nv <- list()
-      for (nm in names(mapFactor)) {
+      for (nm in blocks) {
         if (nm %in% random_vars) next                 # random effects are unbounded
-        if (is.null(full[[nm]]) || is.null(bounds$lower[[nm]])) next
-        mf <- as.numeric(unlist(mapFactor[[nm]]))
-        pb <- as.numeric(unlist(full[[nm]]))
-        lb <- as.numeric(unlist(bounds$lower[[nm]]))
-        ub <- as.numeric(unlist(bounds$upper[[nm]]))
-        # one row per estimated coefficient (drop NA-mapped/fixed and duplicates)
-        keep <- which(!is.na(mf) & !duplicated(mf))
+        if (is.null(mapFactor[[nm]]) || is.null(full[[nm]]) ||
+            is.null(bounds$lower[[nm]])) next
+        mf <- unlist(mapFactor[[nm]])
+        if (!is.factor(mf)) mf <- factor(mf)
+        mf <- droplevels(mf)
+        # NA-mapped (fixed) cells cannot match a level, so they drop out here.
+        keep <- match(levels(mf), as.character(mf))
+        keep <- keep[!is.na(keep)]
         if (length(keep) == 0L) next
-        pv[[nm]] <- pb[keep]; lv[[nm]] <- lb[keep]; uv[[nm]] <- ub[keep]
+        pv[[nm]] <- as.numeric(unlist(full[[nm]]))[keep]
+        lv[[nm]] <- as.numeric(unlist(bounds$lower[[nm]]))[keep]
+        uv[[nm]] <- as.numeric(unlist(bounds$upper[[nm]]))[keep]
         nv[[nm]] <- rep(nm, length(keep))
       }
       if (length(pv)) {
@@ -121,6 +133,12 @@
                                    unlist(nv, use.names = FALSE))
         bnd_lo  <- unlist(lv, use.names = FALSE)
         bnd_hi  <- unlist(uv, use.names = FALSE)
+        # A block present in obj$par but not in `bounds` (or the reverse) leaves
+        # these shorter than par_fixed. Drop them rather than report a bound
+        # against whichever parameter happens to share its position.
+        if (!is.null(par_fixed) && length(bnd_par) != length(par_fixed)) {
+          bnd_par <- bnd_lo <- bnd_hi <- NULL
+        }
       }
     }
   }
@@ -214,21 +232,13 @@
 #' [retrospective()], [jitter()], [self_test()] and [profile.Rceattle()], each
 #' of which silently drops the runs that did not converge.
 #'
-#' These call sites used to test `opt$Convergence_check` against the string
-#' `TMBhelper::fit_tmb()` uses for a non-invertible Hessian. `fit_tmb()` assigns
-#' that particular string in exactly one place, when `sdreport` returns
-#' `pdHess = FALSE`, and the test could not work in either direction:
-#'
-#' * with `getsd = TRUE`, `fit_tmb()` returns early when the Hessian fails
-#'   `chol()`, so it never reaches that assignment, and the shape it returns
-#'   instead holds no `Convergence_check` at all, the run was dropped by the
-#'   enclosing `is.null()` guard, by accident rather than by the test;
-#' * with `getsd = FALSE` the assignment is unreachable, so *nothing* was ever
-#'   dropped, a run that ended with a maximum gradient of 1e13 counted as
-#'   converged. (`Convergence_check` is still set, but to one of the two gradient
-#'   verdicts, neither of which the test matched.)
-#'
-#' So judge the gradient, which is available either way.
+#' The gate is the maximum gradient, the one verdict that exists whether or not
+#' an `sdreport` was requested. `TMBhelper::fit_tmb()` assigns its
+#' `"The model is definitely not converged"` in exactly one place, under
+#' `getsd = TRUE` when `sdreport()` returns `pdHess = FALSE`. Under
+#' `getsd = FALSE` `Convergence_check` is still set, but only ever to one of two
+#' gradient verdicts, neither of which is that string -- so a run that ended at
+#' a maximum gradient of 1e13 is kept.
 #' `.capture_opt_convergence()` recomputes it from the objective function when
 #' the optimizer did not report one, and `fit_mod()` captures that snapshot from
 #' the *hindcast* optimization, before any projection re-optimization overwrites
@@ -274,12 +284,14 @@
   ch <- newmod[[".conv_hindcast"]]
   if (is.null(ch)) {
     # No hindcast snapshot, so no gradient to judge: fit_mod() captures one only
-    # for estimateMode 0 and 1. Defer to the optimizer's own verdict, which is
-    # what these call sites did before. All four rewrite estimateMode to 0/1/2,
-    # so in practice this branch is only reached at >= 3, where `opt` is never
-    # stored either and the run drops. It is NOT a safe general rule: at mode 2
-    # `opt` is attached from the PROJECTION optimization, so a fifth caller
-    # would be keeping a run on a verdict about its reference points.
+    # for estimateMode 0 and 1. Defer to the optimizer's own verdict. All four
+    # callers rewrite estimateMode to 0/1/2, so in practice this branch is only
+    # reached at >= 3, where `opt` is never stored either and the run drops. It
+    # is NOT a safe general rule: at mode 2 `opt` is attached from the
+    # PROJECTION optimization, so a fifth caller would be keeping a run on a
+    # verdict about its reference points. The string below is emitted only by
+    # TMBhelper and by .normalize_fit_tmb(); the in-package .fit_tmb() fallback
+    # sets one of two gradient verdicts instead, so there it drops nothing.
     cc <- newmod[["opt"]][["Convergence_check"]]
     return(!is.null(cc) && cc != "The model is definitely not converged")
   }
@@ -287,9 +299,8 @@
   mg <- ch[["max_gradient"]]
   if (length(mg) != 1L || !is.finite(mg) || mg > max_grad) return(FALSE)
 
-  # A Hessian that is not positive definite -- the condition the old string test
-  # was reaching for. Keep dropping on it, but only when an sdreport was actually
-  # asked for, since otherwise there is nothing to judge.
+  # Drop on a Hessian that is not positive definite, but only when an sdreport
+  # was actually asked for, since otherwise there is nothing to judge.
   #
   # Both ways it can present: TMBhelper::fit_tmb() bails at its own chol() and
   # never returns an SD at all, while the in-package .fit_tmb() fallback calls
@@ -309,12 +320,10 @@
 #'
 #' @description
 #' The re-fitting diagnostics drop non-converged runs and return a short list.
-#' While the keep/drop gate could not actually drop anything (see
-#' `.refit_converged()`) that silence cost nothing; now that it can, a caller
-#' who does not think to compare `length()` against what they asked for would
-#' read a thinned list as a complete one, and for `jitter()` and `self_test()`
-#' a thinned list is a biased sample, since the runs that failed are exactly the
-#' ones that would have shown the spread.
+#' A caller who does not think to compare `length()` against what they asked
+#' for reads a thinned list as a complete one, and for `jitter()` and
+#' `self_test()` a thinned list is a biased sample, since the runs that failed
+#' are exactly the ones that would have shown the spread.
 #'
 #' @param n_dropped,n_total Counts for the message.
 #' @param what Singular noun for the unit, e.g. `"peel"`.
@@ -369,11 +378,18 @@
 }
 
 
-#' Is this condition a `.refit_with_timeout()` timeout rather than a model error?
+
+# nlminb's and R's own wording when a refit is cut short by `timeout`.
+.TIMEOUT_PATTERN <- "reached elapsed time limit|reached CPU time limit"
+
+#' Is this a `.refit_with_timeout()` timeout rather than a model error?
+#'
+#' @param e A condition, or the error messages a caller already holds;
+#'   vectorised over a character vector.
 #' @noRd
 .is_timeout <- function(e) {
-  inherits(e, "condition") &&
-    grepl("reached elapsed time limit|reached CPU time limit", conditionMessage(e))
+  msg <- if (inherits(e, "condition")) conditionMessage(e) else as.character(e)
+  grepl(.TIMEOUT_PATTERN, msg)
 }
 
 
@@ -390,7 +406,7 @@
 .report_errors <- function(errs, what) {
   bad <- errs[!is.na(errs)]
   if (length(bad) == 0L) return(invisible(NULL))
-  n_to <- sum(grepl("reached elapsed time limit|reached CPU time limit", bad))
+  n_to <- sum(.is_timeout(bad))
   if (n_to > 0L) {
     message(sprintf("%d %s%s exceeded `timeout` and were stopped; raise it to let them finish.",
                     n_to, what, if (n_to == 1L) "" else "s"))
@@ -398,7 +414,7 @@
   if (length(bad) > n_to) {
     message(sprintf("%d %s%s errored; first: %s",
                     length(bad) - n_to, what, if (length(bad) - n_to == 1L) "" else "s",
-                    bad[!grepl("reached elapsed time limit|reached CPU time limit", bad)][1]))
+                    bad[!.is_timeout(bad)][1]))
   }
   invisible(NULL)
 }
@@ -820,26 +836,44 @@
   out <- list()
   id <- object$identified
   if (is.null(id) || is.character(id)) return(out)
-  bad <- tryCatch(id$WhichBad, error = function(e) NULL)
-  if (is.null(bad)) {
-    pc  <- tryCatch(id$BadParams$Param_check, error = function(e) NULL)
-    bad <- if (!is.null(pc)) which(pc == 2L) else NULL
-  }
+  # Names come from Param_check, never WhichBad. TMBhelper sets WhichBad to the
+  # positions of the near-zero EIGENVALUES and Param_check to "Bad"/"OK" per
+  # parameter, so indexing Param by WhichBad named the last k parameters,
+  # whatever they were -- eigen() sorts descending. "2" reads a saved
+  # `identified` from the pre-5.64.0 in-package fallback.
+  pc  <- tryCatch(as.character(id$BadParams$Param_check), error = function(e) NULL)
+  nms_all <- tryCatch(as.character(id$BadParams$Param), error = function(e) NULL)
+  bad <- if (!is.null(pc)) which(pc %in% c("Bad", "2")) else NULL
+
   if (!is.null(bad) && length(bad) > 0) {
-    nms <- tryCatch(unique(as.character(id$BadParams$Param[bad])),
-                    error = function(e) NULL)
-    # BadParams has one row per hindcast fixed parameter, in obj$par order, so
-    # its Param column is the vector `bad` indexes into.
-    idx <- .conv_index_for(index, tryCatch(as.character(id$BadParams$Param),
-                                           error = function(e) NULL))
+    nms <- unique(nms_all[bad])
+    idx <- .conv_index_for(index, nms_all)
     out$estimability <- .conv_record(
       "estimability", "fit", "FAIL",
       .conv_with_coords(
         sprintf("check_estimability flagged %d non-identifiable fixed parameter(s)%s.",
                 length(bad),
-                if (!is.null(nms)) paste0(" (", paste(nms, collapse = ", "), ")")
+                if (length(nms)) paste0(" (", paste(nms, collapse = ", "), ")")
                 else ""),
         bad, idx),
+      id)
+    return(out)
+  }
+
+  # Nothing flagged per parameter, but the Hessian can still hold near-zero
+  # eigenvalues that no single parameter loads on. Still a FAIL -- a singular
+  # direction is unidentified whether or not one parameter dominates it -- and
+  # reported as a count, because which parameters those directions involve is
+  # exactly what this check cannot say.
+  nbad <- length(tryCatch(id$WhichBad, error = function(e) NULL))
+  if (nbad > 0) {
+    out$estimability <- .conv_record(
+      "estimability", "fit", "FAIL",
+      sprintf(paste0("check_estimability found %d near-zero Hessian ",
+                     "eigenvalue(s) with no parameter flagged individually%s, ",
+                     "so the flat directions are combinations of parameters."),
+              nbad,
+              if (is.null(pc)) " (no per-parameter verdict available)" else ""),
       id)
   }
   out

@@ -132,7 +132,7 @@ testthat::test_that("Test SB40 under mean recruitment", {
   # -- NPFMC Tier 3
   ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
                                     inits = NULL, # Initial parameters from ss_run
-                                    estimateMode = 0, # Run projection only
+                                    estimateMode = 0, # Fit the hindcast and the HCR projection
                                     HCR = build_hcr(HCR = 5, # Tier3 HCR
                                                     Ftarget = 0.4, # F40%
                                                     Flimit = 0.35, # F35%
@@ -154,7 +154,7 @@ testthat::test_that("Test SB40 under R0", {
   # -- NPFMC Tier 3
   ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
                                     inits = NULL, # Initial parameters from ss_run
-                                    estimateMode = 0, # Run projection only
+                                    estimateMode = 0, # Fit the hindcast and the HCR projection
                                     HCR = build_hcr(HCR = 5, # Tier3 HCR
                                                     Ftarget = 0.4, # F40%
                                                     Flimit = 0.35, # F35%
@@ -245,9 +245,9 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
   # -- Constant F as a percentage of SB0
   ss_run_fb0 <- Rceattle::fit_mod(data_list = BS2017SS,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                  estimateMode = 0, # Run projection only
-                                  HCR = build_hcr(HCR = 3, # Constant F HCR
-                                                  DynamicHCR = FALSE, # Use dynamic reference points
+                                  estimateMode = 0, # Fit the hindcast and the HCR projection
+                                  HCR = build_hcr(HCR = 3, # F achieving a target % of SSB0
+                                                  DynamicHCR = FALSE, # Static reference points
                                                   Ftarget = 0.4), # F that achieves 40% SB0
                                   msmMode = 0, # Single species mode
                                   fit_control = fit_control(getsd = FALSE, 
@@ -256,8 +256,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
 
   ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = BS2017SS,
                                          inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                         estimateMode = 0, # Run projection only
-                                         HCR = build_hcr(HCR = 3, # Constant F HCR
+                                         estimateMode = 0, # Fit the hindcast and the HCR projection
+                                         HCR = build_hcr(HCR = 3, # F achieving a target % of SSB0
                                                          DynamicHCR = TRUE, # Use dynamic reference points
                                                          Ftarget = 0.4), # F that achieves 40% SB0
                                          msmMode = 0, # Single species mode
@@ -268,8 +268,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
   # -- Constant Fspr
   ss_run_Fspr <- Rceattle::fit_mod(data_list = BS2017SS,
                                    inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                   estimateMode = 0, # Run projection only
-                                   HCR = build_hcr(HCR = 4, # Tier3 HCR
+                                   estimateMode = 0, # Fit the hindcast and the HCR projection
+                                   HCR = build_hcr(HCR = 4, # Constant target Fspr
                                                    Ftarget = 0.4 # F40%
                                    ),
                                    msmMode = 0, # Single species mode
@@ -279,8 +279,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
 
   ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = BS2017SS,
                                           inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                          estimateMode = 0, # Run projection only
-                                          HCR = build_hcr(HCR = 4, # Tier3 HCR
+                                          estimateMode = 0, # Fit the hindcast and the HCR projection
+                                          HCR = build_hcr(HCR = 4, # Constant target Fspr
                                                           DynamicHCR = TRUE, # Use dynamic reference points
                                                           Ftarget = 0.4 # F40%
                                           ),
@@ -292,7 +292,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
   # -- NPFMC Tier 3
   ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
                                     inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                    estimateMode = 0, # Run projection only
+                                    estimateMode = 0, # Fit the hindcast and the HCR projection
                                     HCR = build_hcr(HCR = 5, # Tier3 HCR
                                                     Ftarget = 0.4, # F40%
                                                     Flimit = 0.35, # F35%
@@ -305,7 +305,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
 
   ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = BS2017SS,
                                            inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                           estimateMode = 0, # Run projection only
+                                           estimateMode = 0, # Fit the hindcast and the HCR projection
                                            HCR = build_hcr(HCR = 5, # Tier3 HCR
                                                            DynamicHCR = TRUE, # Use dynamic reference points
                                                            Ftarget = 0.4, # F40%
@@ -319,7 +319,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
   # -- PFMC Category 1
   ss_run_Cat1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                    inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                   estimateMode = 0, # Run projection only
+                                   estimateMode = 0, # Fit the hindcast and the HCR projection
                                    HCR = build_hcr(HCR = 6, # Cat 1 HCR
                                                    Flimit = 0.45, # F45%
                                                    Ptarget = 0.4, # Target is 40% B0
@@ -332,7 +332,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
 
   ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                           inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                          estimateMode = 0, # Run projection only
+                                          estimateMode = 0, # Fit the hindcast and the HCR projection
                                           HCR = build_hcr(HCR = 6, # Cat 1 HCR
                                                           DynamicHCR = TRUE, # Use dynamic reference points
                                                           Flimit = 0.45, # F45%
@@ -347,7 +347,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
   # -- SESSF Tier 1
   ss_run_Tier1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                     inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                    estimateMode = 0, # Run projection only
+                                    estimateMode = 0, # Fit the hindcast and the HCR projection
                                     HCR = build_hcr(HCR = 7, # Tier 1 HCR
                                                     Ftarget = 0.48, # F40%
                                                     Flimit = 0.20, # F20%
@@ -361,7 +361,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
 
   ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                            inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                           estimateMode = 0, # Run projection only
+                                           estimateMode = 0, # Fit the hindcast and the HCR projection
                                            HCR = build_hcr(HCR = 7, # Tier 1 HCR
                                                            DynamicHCR = TRUE,
                                                            Ftarget = 0.48, # F40%
@@ -474,9 +474,9 @@ testthat::test_that("Invalid HCRs/BRPs", {
   BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
 
   testthat::expect_error(Rceattle::fit_mod(data_list = BS2017SS,
-                                           estimateMode = 0, # Run projection only
+                                           estimateMode = 0, # Fit the hindcast and the HCR projection
                                            HCR = build_hcr(HCR = 10,
-                                                           DynamicHCR = FALSE, # Use dynamic reference points
+                                                           DynamicHCR = FALSE, # Static reference points
                                                            Ftarget = 0.4), # F that achieves 40% SB0
                                            msmMode = 0, # Single species mode
                                            fit_control = fit_control(getsd = FALSE, 
@@ -485,9 +485,9 @@ testthat::test_that("Invalid HCRs/BRPs", {
 
 
   testthat::expect_error(Rceattle::fit_mod(data_list = BS2017SS,
-                                           estimateMode = 0, # Run projection only
+                                           estimateMode = 0, # Fit the hindcast and the HCR projection
                                            HCR = build_hcr(HCR = "BadHCR",
-                                                           DynamicHCR = FALSE, # Use dynamic reference points
+                                                           DynamicHCR = FALSE, # Static reference points
                                                            Ftarget = 0.4), # F that achieves 40% SB0
                                            msmMode = 0, # Single species mode
                                            fit_control = fit_control(getsd = FALSE, 
@@ -501,7 +501,7 @@ testthat::test_that("No F prop", {
   BS2017SS$fleet_control$Proj_F_proportion <- rep(0, 7)
 
   testthat::expect_error(Rceattle::fit_mod(data_list = BS2017SS,
-                                           estimateMode = 0, # Run projection only
+                                           estimateMode = 0, # Fit the hindcast and the HCR projection
                                            HCR = build_hcr(HCR = 5, # Tier3 HCR
                                                            Ftarget = 0.4, # F40%
                                                            Flimit = 0.35, # F35%

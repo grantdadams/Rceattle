@@ -68,6 +68,10 @@ testthat::test_that("multispecies predation plotters run on a fitted model", {
     Rceattle::fit_mod(data_list = BS2017MS,
                       estimateMode = 3,
                       msmMode = 1,   # multispecies (predation on)
+                      # Estimated suitability, not the dataset's suitMode = 0:
+                      # predicted diet needs it, so plot_diet_comp() refuses on
+                      # an empirical-suitability fit and would smoke-test nothing.
+                      suitMode = 4,
                       fit_control = Rceattle::fit_control(verbose = 0))
   ))
 
@@ -107,7 +111,29 @@ testthat::test_that("catch plotter tolerates NA observations in projection rows"
   })
 })
 
-testthat::test_that("plot_indexresidual honours incl_proj", {
+testthat::test_that("plot_indexresidual is a deprecated alias that still draws", {
+  testthat::skip_if_not_installed("TMB")
+
+  data("BS2017SS")
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))))
+  with_null_device({
+    # It warns, and it draws the same figure -- a deprecation that silently
+    # changed the figure would be worse than the old name.
+    testthat::expect_warning(Rceattle::plot_indexresidual(ss),
+                             "plot_index_residual")
+    old <- suppressWarnings(Rceattle::plot_indexresidual(ss))
+    new <- Rceattle::plot_index_residual(ss)
+    testthat::expect_identical(old$data, new$data)
+    # And the canonical name does NOT warn, so the package is not warning at
+    # itself (the trap the plot_depletionSSB flip hit).
+    testthat::expect_no_warning(Rceattle::plot_index_residual(ss))
+  })
+})
+
+
+testthat::test_that("plot_index_residual honours incl_proj", {
   testthat::skip_if_not_installed("TMB")
 
   data("BS2017SS")
@@ -122,7 +148,7 @@ testthat::test_that("plot_indexresidual honours incl_proj", {
     Rceattle::fit_mod(data_list = dat, estimateMode = 3, msmMode = 0,
                       fit_control = Rceattle::fit_control(verbose = 0))))
 
-  yrs_of <- function(...) sort(unique(Rceattle::plot_indexresidual(...)$data$Year))
+  yrs_of <- function(...) sort(unique(Rceattle::plot_index_residual(...)$data$Year))
   with_null_device({
     testthat::expect_false(any(yrs_of(ss) > ss$data_list$endyr))
     testthat::expect_true(any(yrs_of(ss, incl_proj = TRUE) > ss$data_list$endyr))
@@ -155,30 +181,78 @@ testthat::test_that("every exported plotter runs on a minage != 1 model", {
 
   testthat::expect_equal(unique(fit$data_list$minage), 3L)
 
-  plotters <- c("plot_biomass", "plot_ssb", "plot_recruitment", "plot_depletion",
-                "plot_exploitable_biomass", "plot_index", "plot_catch", "plot_f",
-                "plot_selectivity", "plot_maturity", "plot_mortality",
-                "plot_stock_recruit", "plot_comp", "plot_data",
-                "plot_indexresidual", "plot_catchresidual", "plot_sel_vs_mat")
+  # Derived from the package, not written out here. A hand-written list is how
+  # this block came to name two functions that do not exist while omitting
+  # fourteen that do -- and an `if (!exists(fn)) next` plus an
+  # `expect_gt(ran, 10L)` floor kept it green at 15 of 17.
+  exported <- sort(grep("^plot_", getNamespaceExports("Rceattle"),
+                        value = TRUE))
+
+  # Plotters this fixture cannot drive, each with the reason. Anything not
+  # named here must run.
+  excluded <- c(
+    plot_form    = "a stub: refuses the Kinzey & Punt forms",
+    plot_profile = "takes an Rceattle_profile from profile(), not a fit",
+    # These two default to age 1, which no species has at minage = 3. They are
+    # asserted to refuse loudly below rather than skipped.
+    plot_m_at_age       = "defaults to age 1; asserted to refuse at minage = 3",
+    plot_m2_at_age_prop = "defaults to age 1; asserted to refuse at minage = 3",
+    # This fixture is msmMode = 0, so nothing predicts stomach proportions and
+    # all three refuse. They ran here until 5.61.0 only because they were drawn
+    # off an all-zero diet_hat. test-plot-smoke.R's multispecies block covers
+    # them on a suitMode = 4 fit.
+    plot_diet_comp      = "needs msmMode > 0 with estimated suitability",
+    plot_diet_comp1     = "needs msmMode > 0 with estimated suitability",
+    plot_diet_comp2     = "needs msmMode > 0 with estimated suitability"
+  )
+  # An exclusion that is no longer exported is a stale exclusion.
+  testthat::expect_equal(setdiff(names(excluded), exported), character(0))
+
+  # Pinned, because deriving the list closes one hole and opens another:
+  # un-exporting a plotter would otherwise shrink the set silently, and a new
+  # one would never be considered here. Update both numbers deliberately.
+  testthat::expect_equal(length(exported), 32L)
+  testthat::expect_equal(length(excluded), 7L)
+
+  plotters <- setdiff(exported, names(excluded))
 
   failed <- character(0)
-  ran <- 0L
+  built <- 0L
   with_null_device({
     for (fn in plotters) {
-      if (!exists(fn, envir = asNamespace("Rceattle"))) next
-      f <- get(fn, envir = asNamespace("Rceattle"))
-      ran <- ran + 1L
+      f <- getExportedValue("Rceattle", fn)
+      testthat::expect_true(is.function(f), info = fn)
       tryCatch({
         p <- suppressMessages(suppressWarnings(f(fit)))
-        # A ggplot that assembles but cannot build is not a pass.
-        if (inherits(p, "ggplot")) invisible(ggplot2::ggplot_build(p))
+        # Several plotters return a LIST of ggplots -- plot_comp alone returns
+        # 15. Build each, or the build gate covers one figure in sixteen.
+        gg <- if (inherits(p, "ggplot")) list(p) else
+          Filter(function(x) inherits(x, "ggplot"),
+                 if (is.list(p)) p else list())
+        for (g in gg) {
+          invisible(ggplot2::ggplot_build(g))
+          built <- built + 1L
+        }
       }, error = function(e) {
         failed <<- c(failed, paste0(fn, "(): ", conditionMessage(e)))
       })
     }
   })
 
-  # Guard against the whole loop silently skipping.
-  testthat::expect_gt(ran, 10L)
   testthat::expect_equal(failed, character(0))
+  # Every plotter yielded at least one built figure, and the list-returning
+  # ones yielded many: a count below the plotter count means a silent no-op.
+  testthat::expect_gte(built, length(plotters))
+
+  # The two age-defaulting plotters must REFUSE on a minage != 1 model, naming
+  # the real age range, rather than index the array at a position no species
+  # has. This is the defect this block exists to catch; neither was in the
+  # hand-written list.
+  for (fn in c("plot_m_at_age", "plot_m2_at_age_prop")) {
+    testthat::expect_error(
+      suppressMessages(suppressWarnings(getExportedValue("Rceattle", fn)(fit))),
+      "age 1", info = fn)
+  }
+  testthat::expect_error(
+    suppressMessages(suppressWarnings(Rceattle::plot_form())), "Kinzey")
 })

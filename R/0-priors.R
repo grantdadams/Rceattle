@@ -23,6 +23,8 @@
 NULL
 
 
+# Families, constructor and validation ----
+
 #' Allowed prior families for linkage coefficients
 #'
 #' @keywords internal
@@ -48,6 +50,8 @@ new_prior <- function(family, p1, p2) {
   }
 }
 
+
+# prior_*() constructors ----
 
 #' Normal prior on a linkage coefficient
 #'
@@ -120,6 +124,8 @@ prior_beta <- function(shape1, shape2) {
 }
 
 
+# Predicate, print and the inline dispatch mask ----
+
 #' Test whether an object is an Rceattle prior
 #' @param x object to test.
 #' @keywords internal
@@ -142,6 +148,7 @@ print.Rceattle_prior <- function(x, ...) {
 #' masking [base::gamma()] or [base::beta()] at the package level.
 #'
 #' @keywords internal
+#' @noRd
 .prior_dispatch_mask <- function() {
   list(
     normal    = prior_normal,

@@ -131,7 +131,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
       ggplot2::geom_hline(yintercept = 0, colour = "grey50", linewidth = 0.3) +
       ggplot2::scale_colour_manual(values = sex_cols, guide = "none") +
       ggplot2::labs(x = df$bin_lab[1], y = ylab, title = title) +
-      ggplot2::theme_bw(base_size = 9)
+      ggplot2::theme_bw(base_size = 10)
   }
 
   for (nm in unique(long$panel)) {
@@ -276,6 +276,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #' @param species Optional species code(s) to keep.
 #' @return A data frame, or `NULL` when there are no composition residuals.
 #' @keywords internal
+#' @noRd
 .comp_resid_long <- function(Rceattle, species = NULL) {
   r <- stats::residuals(Rceattle, type = "pearson", source = "comp",
                         species = species)
@@ -355,7 +356,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #' is slightly narrower than one that held the estimation uncertainty in
 #' `p_hat` as well.
 #'
-#' @param d One panel's rows from [.comp_resid_long()].
+#' @param d One panel's rows from `.comp_resid_long()`.
 #' @param endyr Last year the composition likelihood fits, or `NULL` to keep
 #'   every hindcast row. Default `NULL`.
 #' @return A data frame with `bin`, `sex_grp`, the pooled `obs` / `hat`
@@ -364,6 +365,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #'   assumed effective sample sizes `ISS` / `ESS`, and the sex-mirrored drawing
 #'   columns `y_obs`, `y_hat`, `y_lwr`, `y_upr`.
 #' @keywords internal
+#' @noRd
 .comp_aggregate <- function(d, endyr = NULL) {
   d <- d[d$Year > 0, , drop = FALSE]              # hindcast only
   # The C++ composition likelihood gates on Year <= endyr, so a projection row
@@ -424,7 +426,7 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
 #'
 #'
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param file name of a file to identified the files exported by the function.
+#' @param file Path/prefix for the saved figure. `NULL` (default) draws without saving.
 #' @param species Species names for legend
 #'
 #' @return Returns and saves a figure
@@ -743,7 +745,7 @@ plot_diet_comp2 <- function(Rceattle, file = NULL, species = NULL) {
           ggplot2::scale_linetype_manual(name = "Source", values = c("Observed" = "dashed", "Estimated" = "solid")) +
           ggplot2::scale_fill_manual(name = "95% CI", values = c("Observed" = "grey50", "Estimated" = "darkred")) +
           ggplot2::labs(x = "Predator Age", y = "Diet Proportion", title = paste("Diet of", species[pred_ind], "on", species[prey_ind])) +
-          ggplot2::theme_bw()
+          ggplot2::theme_classic()
 
         print(p)
         plot_list[[length(plot_list) + 1]] <- p
@@ -770,7 +772,7 @@ plot_diet_comp2 <- function(Rceattle, file = NULL, species = NULL) {
           ggplot2::scale_fill_manual(name = "95% CI", values = c("Observed" = "grey50", "Estimated" = "darkblue")) +
           ggplot2::labs(x = "Prey Age", y = "Diet Proportion",
                         title = paste("Prey Age Composition in Diet\nPred:", species[pred_ind], "eating", species[prey_ind])) +
-          ggplot2::theme_bw()
+          ggplot2::theme_classic()
 
         print(p)
         plot_list[[length(plot_list) + 1]] <- p
@@ -790,7 +792,7 @@ plot_diet_comp2 <- function(Rceattle, file = NULL, species = NULL) {
           ggplot2::facet_wrap(~ Year, scales = "free_y", labeller = ggplot2::labeller(Year = ~paste("Year:", .))) +
           ggplot2::scale_fill_manual(name = "Source", values = c("Observed" = "grey50", "Est" = "red")) +
           ggplot2::labs(x = "Prey Species", y = "Diet Proportion", title = paste("Fit to Aggregated Diet for Predator:", species[pred_ind])) +
-          ggplot2::theme_bw()
+          ggplot2::theme_classic()
 
         print(p_fit)
         plot_list[[length(plot_list) + 1]] <- p_fit

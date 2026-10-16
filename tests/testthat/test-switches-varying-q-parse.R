@@ -6,7 +6,7 @@
 # those rows unconverted. "Environmental" (Catchability = 5) may carry a
 # comma-separated list ("1,3"), which as.integer() turned into NA with a
 # coercion warning. TMB reads the resulting `index_varying_q` vector at
-# ceattle.cpp:3042/3049/3058 and process_residuals() tests it
+# ceattle.cpp (two sites, in the time-varying q block) and process_residuals() tests it
 # against 4, so the NA silently poisoned a branch test.
 #
 # Environmental fleets must now emit an explicit 0 ("not applicable") --
@@ -52,4 +52,33 @@ testthat::test_that("non-environmental fleets keep their tv_q mode code", {
   testthat::expect_false(anyNA(ivq))
   # tv_q_map: RandomWalk = 4
   testthat::expect_true(all(ivq == 4L))
+})
+
+
+testthat::test_that("an integer-coded Environmental fleet with no Time_varying_q column is refused", {
+  # The refusal stands in for a documented `missing value where TRUE/FALSE
+  # needed` death further downstream, and it tested the raw column -- which
+  # still holds whatever the workbook wrote, because switch_check() does not
+  # canonicalise Catchability until revert_switches() later in the same
+  # function. The schema documents 5 and 6 as legal, so the integer form fell
+  # straight through to the "Off" fill and reached the death it replaced.
+  mk <- function(cq) {
+    d <- make_test_data(seed = 1)
+    d$fleet_control$Catchability <- cq
+    d$fleet_control[["Time_varying_q"]] <- NULL
+    d
+  }
+  # The integer code is what this change adds; it passed silently before.
+  testthat::expect_error(suppressMessages(Rceattle::switch_check(mk(c(5L, 1L)))),
+                         "has no .Time_varying_q. column")
+  # The string spelling always reached the guard -- pinned so the fix is shown
+  # to be additive rather than a swap of one reachable form for another.
+  testthat::expect_error(
+    suppressMessages(Rceattle::switch_check(mk(c("Environmental", "Estimated")))),
+    "has no .Time_varying_q. column")
+  # Negative control: no env-driven fleet, so the missing column is defaulted
+  # rather than refused. Without this the two above would pass on a guard that
+  # refused every workbook.
+  testthat::expect_no_error(
+    suppressMessages(Rceattle::switch_check(mk(c(1L, 1L)))))
 })

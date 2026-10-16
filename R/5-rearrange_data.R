@@ -98,13 +98,19 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
 
   # Fail clearly on a malformed fleet_control rather than via a cryptic dplyr
-  # error deep in the reshaping below. These identity / structural columns are
-  # read by name (and by `$`) throughout; a missing one has no sensible default.
+  # error deep in the reshaping below. These columns are read by name (and by
+  # `$`) throughout. Most have no sensible default; `Sel_norm_bin` does have
+  # one, and is listed anyway because `$` partial-matches it to
+  # `Sel_norm_bin_upper` -- the only one of these names with exactly one longer
+  # sibling. Absent, that read silently returned the upper column and every
+  # fleet's `sel_norm_bin1` flipped from -99 (normalize by the maximum) to -999
+  # (do not normalize), which is a different selectivity scaling, hence a
+  # different q. switch_check() fills it, which is what the message says to do.
   if (is.null(data_list$fleet_control) || nrow(data_list$fleet_control) == 0)
     stop("rearrange_data(): 'fleet_control' is missing or empty.", call. = FALSE)
   .required_fc <- c("Species", "Fleet_code", "Fleet_type", "Fleet_name",
                     "Selectivity", "Selectivity_index", "Sel_start_year",
-                    "Catchability_init")
+                    "Catchability_init", "Sel_norm_bin")
   .missing_fc <- setdiff(.required_fc, names(data_list$fleet_control))
   if (length(.missing_fc) > 0)
     stop("rearrange_data(): 'fleet_control' is missing required column(s): ",
@@ -184,13 +190,14 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 6) Time-varying selectivity type.
   data_list$flt_varying_sel <- .pull_int(data_list$fleet_control, "Time_varying_sel")
 
-  # - 7) First age selected
+  # - 7) First selected bin, converted to 0-based for the template
   data_list$bin_first_selected <- data_list$fleet_control %>%
     dplyr::mutate(Bin_first_selected = .data$Bin_first_selected - 1, # R to C++ indexing
                   Bin_first_selected = ifelse(is.na(.data$Bin_first_selected), 0, .data$Bin_first_selected)) %>%
     dplyr::pull(.data$Bin_first_selected) %>% as.integer()
 
-  # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
+  # - 8) Normalization bin, 0-based; NA becomes -999 (no normalization) and a
+  #      negative value -99 (normalize by the maximum)
   # First bin each fleet may normalize at, on the column's own scale: below it
   # the curve is zeroed, so a value there means "normalize by the maximum".
   .norm_bounds <- lapply(seq_len(nrow(data_list$fleet_control)), function(i) {
@@ -210,7 +217,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # Resolve the word first, so only a real bin is shifted to the 0-based index:
   # -99 normalizes by the maximum and -999 does not normalize. An unreadable
   # value is refused here too -- switch_check() does not run on every path in.
-  .norm1 <- .rce_sel_norm_code(data_list$fleet_control$Sel_norm_bin,
+  .norm1 <- .rce_sel_norm_code(data_list$fleet_control[["Sel_norm_bin"]],
                                lo = .norm_lo, allow_all = .is_pm)
   .rce_stop_bad_sel_norm(.norm1, "Sel_norm_bin", data_list$fleet_control, .norm_hi)
   data_list$sel_norm_bin1 <- as.integer(dplyr::case_when(
@@ -889,29 +896,14 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
 #' Check and Clean Composition Data
 #'
-#' This function checks the composition data for zero sum rows, handles NA values,
-#' and verifies that the composition data spans the required range of ages/lengths.
+#' Converts NAs in `comp_obs` to 0 and refuses a `comp_obs` with fewer columns
+#' than the species' age/length bins, doubled for joint-sex rows.
 #'
-#' @param data_list A list containing the following components:
-#'   - comp_obs: A matrix or data frame of composition observations.
-#'   - comp_data: A data frame with metadata including species, sex, and age/length information.
-#'   - nsex: A vector of sex counts by species.
-#'   - nages: A vector of age counts by species.
-#'   - nlengths: A vector of length counts by species.
-#' throws An error if any rows of `comp_obs` sum to 0 or if the composition data does not span the range of ages/lengths.
+#' @param data_list A list carrying `comp_obs`, `comp_data`, `nsex`, `nages` and
+#'   `nlengths`.
 #'
 #' @return The modified `data_list` with NA values in `comp_obs` converted to 0.
-#' @examples
-#' data_list <- list(
-#'   comp_obs = matrix(c(1, 2, 3, 4, 5, 6), nrow = 2),
-#'   comp_data = data.frame(Species = c(1, 2), Sex = c(1, 1), Age0_Length1 = c(0, 0)),
-#'   nsex = c(1, 1),
-#'   nages = c(3, 3),
-#'   nlengths = c(3, 3)
-#' )
-#' cleaned_data_list <- check_composition_data(data_list)
 #'
-#' @keywords internal
 #' @noRd
 check_composition_data <- function(data_list) {
 
@@ -957,8 +949,8 @@ check_composition_data <- function(data_list) {
 
 #' Check and Clean CAAL Data
 #'
-#' This function checks the CAAL data for zero sum rows, handles NA values,
-#' and verifies that the CAAL data spans the required range of ages
+#' Converts NAs in `caal_obs` to 0 and refuses a `caal_obs` with fewer columns
+#' than the species' age bins, doubled for joint-sex rows.
 #'
 #' @param data_list A list containing the following components:
 #'   - caal_obs: A matrix or data frame of composition observations.
@@ -966,7 +958,6 @@ check_composition_data <- function(data_list) {
 #'   - nsex: A vector of sex counts by species.
 #'   - nages: A vector of age counts by species.
 #'   - nlengths: A vector of length counts by species.
-#' throws An error if any rows of `caal_obs` sum to 0 or if the composition data does not span the range of ages
 #'
 #' @return The modified `data_list` with NA values in `caal_obs` converted to 0.
 #' cleaned_data_list <- check_caal_data(data_list)

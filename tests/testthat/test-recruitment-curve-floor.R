@@ -35,7 +35,7 @@ testthat::test_that("a non-positive curve is floored with a penalty, and the off
   testthat::expect_true(all(is.finite(m$obj$gr())))
   testthat::expect_gt(m$quantities$jnll_comp["Zero n-at-age penalty", 1], 0)
   testthat::expect_true(all(is.finite(m$quantities$DynamicSB0)))
-  # Known gap (inst/dev/TODO-srr-multispecies.md item 14): the recruitment behind
+  # Known gap (issue #234): the recruitment behind
   # dynamic B0 is not floored, so it goes negative here. This records the gap and
   # flips when it is closed.
   testthat::expect_true(any(m$quantities$DynamicSB0 < 0))

@@ -2,63 +2,15 @@
 % Please edit documentation in R/7-plot_diagnostics.R
 \name{plot_indexresidual}
 \alias{plot_indexresidual}
-\title{Survey index residuals}
+\title{Plot survey index residuals (deprecated name)}
 \usage{
-plot_indexresidual(
-  Rceattle,
-  file = NULL,
-  model_names = NULL,
-  species = NULL,
-  width = 7,
-  height = 6.5,
-  residual_type = c("pearson", "osa"),
-  line_col = NULL,
-  right_adj = 0,
-  top_adj = 0.05,
-  incl_proj = FALSE,
-  single.plots = FALSE
-)
+plot_indexresidual(...)
 }
 \arguments{
-\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
-
-\item{file}{Optional file stem; if given the figure is written to
-\verb{<file>_survey_indices.png}.}
-
-\item{model_names}{Legend labels for the models.}
-
-\item{species}{Species (indices) to include. Default all.}
-
-\item{width, height}{Saved figure size (inches).}
-
-\item{residual_type}{\code{"pearson"} (index residuals on the fleet's own scale)
-or \code{"osa"}.}
-
-\item{line_col, right_adj, top_adj, single.plots}{Deprecated base-graphics
-arguments, retained for back-compatibility and ignored.}
-
-\item{incl_proj}{Include projection years.}
-}
-\value{
-A \code{ggplot} object.
+\item{...}{passed unchanged to \code{\link{plot_index_residual}}.}
 }
 \description{
-Plots survey index residuals by year, faceted by survey fleet
-(\code{residual_type = "pearson"}, the default), or one-step-ahead (OSA) residual
-diagnostics for a single fit (\code{residual_type = "osa"}, via \code{\link[=osa_residuals]{osa_residuals()}} /
-\code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}).
-}
-\details{
-The residual is \strong{observed minus predicted}, taken on the scale the fleet is
-fitted on and read from its \code{Index_distribution}:
-\code{log(observed) - log(predicted)} for a log-scale (\code{"Lognormal"}) fleet, and
-\code{observed - predicted} for a natural-scale one (\code{"MVN"}, \code{"MVNORM"},
-\code{"Normal"}, \code{"TruncatedNormal"}), whose sd is absolute. A positive residual
-means the survey saw more than the model predicted. Panels hold different
-units where a model mixes the two families, which is why the y scale is free
-per fleet.
-
-Before 5.9.0 this plotted \code{predicted - observed}, the negative of what
-\code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns for the same fleet. Plots made with an earlier
-version are mirrored about zero relative to these.
+Deprecated alias for \code{\link{plot_index_residual}},
+which is the snake_case spelling the rest of the package uses. Please
+use \code{plot_index_residual()} instead.
 }

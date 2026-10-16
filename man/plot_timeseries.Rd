@@ -104,7 +104,7 @@ FALSE for the depletions, which are already on a relative scale.}
 
 \item{ref_lines}{Internal. \verb{function(models, sp_sel)} returning per-species
 reference-point layers, added before the figure is saved. Supplied by
-\code{\link[=plot_f]{plot_f()}} and \code{\link[=plot_depletionSSB]{plot_depletionSSB()}} through \code{.ts_wrapper()}; \code{sp_sel} is
+\code{\link[=plot_f]{plot_f()}} and \code{\link[=plot_ssb_depletion]{plot_ssb_depletion()}} through \code{.ts_wrapper()}; \code{sp_sel} is
 the species resolution the panels were built from.}
 
 \item{suffix}{Internal. Overrides the \verb{<file>_<suffix>.png} stem, which

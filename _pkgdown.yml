@@ -253,7 +253,7 @@ reference:
   - plot_ssb
   - plot_recruitment
   - plot_depletion
-  - plot_depletionSSB
+  - plot_ssb_depletion
   - plot_exploitable_biomass
 
 - title: "Plotting — fishing and natural mortality"
@@ -269,7 +269,7 @@ reference:
   desc: Visualize survey indices, fits, and residuals.
   contents:
   - plot_index
-  - plot_indexresidual
+  - plot_index_residual
   - plot_catchability
   - plot_comp
   - plot_profile
@@ -346,4 +346,5 @@ reference:
     emit a deprecation message; use the named replacement in new code.
   contents:
   - plot_logindex
-  - plot_ssb_depletion
+  - plot_depletionSSB
+  - plot_indexresidual

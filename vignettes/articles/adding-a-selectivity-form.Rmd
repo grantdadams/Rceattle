@@ -79,12 +79,12 @@ Stock Synthesis size pattern 24, so **the next form takes 16.**
 | `R/0-switches.R` | always | Add `"YourForm" = N` to `sel_map`. `validate_switches()` rejects any name not in the map, so this line is what makes the form selectable. |
 | `R/0-column_schema.R` | always | Extend the `Selectivity` row's description: the schema is the source of truth for the workbook. |
 | `R/data.R` | always | Add the code to the `\item{Selectivity}` entry; `test-schema-canonical.R` requires every `sel_map` name to be documented there. |
-| `src/TMB/selectivity.hpp` | always | Add the `case N:` to `switch (sel_type)` in `calculate_selectivity()`. Write into `sel_at_age` or `sel_at_length` by `is_length_based`; `normalize_and_project_selectivity()` then applies `Bin_first_selected`, the `Sel_norm_bin` normalization and the projection for every form except those it names. |
+| `src/TMB/selectivity.hpp` | always | Add the `case N:` to `switch (sel_case)` in `calculate_selectivity()`. The switch is on `sel_case`, not `sel_type`: `sel_case` is the `Selectivity` code unless form 13 is under a random walk, which rewrites it to `-13`. Write into `sel_at_age` or `sel_at_length` by `is_length_based`; `normalize_and_project_selectivity()` then applies `Bin_first_selected`, the `Sel_norm_bin` normalization and the projection for every form except those it names. |
 | `R/3-build_map.R` | always | Add an `if (sel_type == "YourForm")` block to `build_map_selectivity()`. Everything starts mapped out; the block frees the slots your form reads, per sex, and the deviates for each `Time_varying_sel` mode it supports. Mirrored fleets (shared `Selectivity_index`) are handled afterwards by `adjust_map_shared_params()`, which is form-agnostic. |
 | `src/TMB/ceattle.cpp` | if the form takes deviates | The deviate densities in `JNLL_SEL_DEV` are keyed on **hard-coded type lists**: four `if` lines in the block headed `Logistic selectivity penalties` name the codes `1`, `3`, `4` and `8` explicitly. A form whose map block frees deviates but whose code is not in those lists estimates free parameters with no density, and nothing reports it. Add the code to each list your form's deviates belong in. |
 | `R/1-data_check.R` | always | Add the form to the `sel_para` list, so the `Time_varying_sel` soft-deprecation nudge covers it, and restrict `Time_varying_sel` to the modes your `build_map()` block handles, next to the NonParametric, NonParametricPM, Hake and LogisticPM checks. A mode the block does not name is mapped out silently (see Troubleshooting). Add any required-column check here too. |
 | `R/0-parameter_index.R` | if the form re-uses a slot | `.PAR_SEL_SLOTS` names what each `sel_inf` and `log_sel_slp` slot means per form, **and** `.rce_sel_slot_labels()` dispatches to it through a hand-written `switch` on the code and the name. Both need the new form, or `parameter_index()` and the standard-error tables label the slot for the logistic family. |
-| `R/2-build_params.R` | if the defaults are wrong for the form | Starting values are shared across forms: `sel_inf` starts at the values 0 and 10 (slot 1 at the length midpoint on a length-based fleet), `log_sel_slp` at 0.5. LogisticPM is the one form with its own start. See the worked example for why DoubleNormal needs one too. |
+| `R/2-build_params.R` | if the defaults are wrong for the form | Starting values are shared across forms: `sel_inf` starts at the values 0 and 10 (slot 1 at the length midpoint on a length-based fleet), `log_sel_slp` at 0.5. Two forms override them because those defaults describe the wrong curve for their reading of the slots -- LogisticPM, whose slot 2 is an age-1 LOG-selectivity, and DoubleNormal, whose slots are a peak and a logit floor (5.56.0). Both blocks sit together in `build_params()`; copy their shape. Note the peak is on the **1-based bin ordinal**, because `selectivity.hpp` evaluates an age-based curve at `bin + 1` -- `(nages + 1) / 2`, not an absolute age. |
 | `R/0-build_selectivity.R`, `R/0-linkage_encode.R`, `src/TMB/linkage.hpp` | if the form takes linkages | `.SEL_LINKAGE_WIRED_FORMS` lists the forms a selectivity linkage may target and `.SEL_PARAM_TO_SLOT` maps parameter names to slots. A new parameter name needs an entry in `R/0-linkage_encode.R` and the matching slot in `linkage.hpp`; the two are in lockstep. |
 | `R/4-build_parameter_bounds.R`, `R/5-rearrange_data.R`, `R/6-phaser.R` | only for new parameters or columns, plus the two form checks named above | Bounds and phases are keyed on parameter name, not form. `rearrange_data()` passes each selectivity column through under its `tmb_target` name; a new column goes through `R/0-column_schema.R` first. Two exceptions there DO key on the form: `flt_sel_lead`, which groups by `Selectivity_index` and `Selectivity` together, and `.is_pm`, which sets `allow_all` for `Sel_norm_bin`. |
 | `vignettes/model-options-and-functionality.Rmd`, `vignettes/model-parameterizations.Rmd`, `build_map_selectivity()` roxygen | always | The forms table, the equations, and the code list in the map builder's help page. |
@@ -134,19 +134,27 @@ round(unname(b$quantities$sel_at_age[flt, 1, 1:10, 1]), 3)
 
 ```
 #> [1] 4 1 1 0 0 0 4 8
-#> [1]  0 10
+#> [1] 5.5 0.0
 #> [1] 0.5 0.5
-#>  [1] 1 1 1 1 1 1 1 1 1 1
+#>  [1] 0.024 0.105 0.317 0.661 0.955 0.978 0.831 0.658 0.553 0.512
 ```
 
 The fleet receives code 8 and the stored column reads `"DoubleNormal"`. The
-default starting values are the logistic family's, and for this form they
-describe a flat curve: a peak at age 0 and a floor of `plogis(10)`, so selectivity
-is 1 at every age. The ascending width then has no effect on the likelihood, so
-its gradient is zero and the optimizer has no direction to move it in. A phased
-fit from those starts stays on that ridge, with an objective of 3085.98 and
-selectivity 1.000 at every age. Give the form starting values that describe a
-dome:
+starting curve is already a dome, because `build_params()` carries a
+DoubleNormal block: the peak starts at the bin mid-range `(nages + 1) / 2` and
+the floor at logit 0.
+
+**This is what that block is for, and it is the clearest reason to write one.**
+Before 5.56.0 the form took the logistic family's shared defaults, which for its
+reading of the slots describe a peak below the first bin and a floor of
+`plogis(10) = 0.99996` -- selectivity 1 at every age. A flat curve leaves the
+ascending width with no effect on the likelihood, so its gradient is zero and
+the optimizer has no direction to move it in: a phased fit stayed on that ridge
+at an objective of **3085.98**, against **914.10** from the derived starts. The
+peak is what escapes it; a low floor alone does not.
+
+You can still supply your own, which is how the derived values were chosen --
+they reach the same optimum a hand-tuned set did:
 
 ```{r fit}
 inits <- b$initial_params
@@ -174,7 +182,12 @@ round(unname(fit$quantities$sel_at_age[flt, 1, 1:10, 1]), 3)
 
 The same data under the shipped `DoubleLogistic`, also static, reach an objective
 of 918.15 with the same 220 parameters (AIC 2276.31), so the double normal fits
-these age compositions a little better. Terminal female spawning-stock biomass
+these age compositions a little better -- on this stock. That does not
+generalise: on the Atka mackerel fishery the dataset's own `NonParametric` fits
+better still (755.6 against 989.9), and on the GOA cod trawl fishery the double
+normal collapses to a degenerate corner (`sigma_desc` to 0 and the floor to 1,
+i.e. a plain logistic) and returns convergence FAIL. The floor is also only
+weakly identified here -- see the standard error below. Terminal female spawning-stock biomass
 moves from 390,251 t to 344,169 t.
 
 `parameter_index()` shows the relabelled slots, and the standard-error table
@@ -209,13 +222,13 @@ same.
 Two static tests read the source and fail on a half-finished form. Both were run
 red for this article by adding `"Fake" = 12` to `sel_map` with no `case`.
 
-**`test-schema-cpp-dispatch.R`** parses every `case N:` inside `switch (sel_type)`
+**`test-schema-cpp-dispatch.R`** parses every `case N:` inside `switch (sel_case)`
 in `src/TMB/` and requires the set to equal the map's values, minus a pinned
 exemption in each direction (`Fixed = 0` is applied before the dispatch). A map
 entry with no `case` fails like this:
 
 ```
-── Failure ('test-schema-cpp-dispatch.R:161:5'): every C++ dispatch branch matches the R map that selects it ──
+── Failure ('test-schema-cpp-dispatch.R:157:5'): every C++ dispatch branch matches the R map that selects it ──
 Expected `setdiff(r, cpp)` to have the same values as `sort(unique(as.integer(s$map_only)))`.
 Actual: 0, 12
 Expected: 0
@@ -262,10 +275,14 @@ the gradient there is zero at the start, which is the flat-curve case above.
 
 **The deviates vanished.** `build_map_selectivity()` frees deviates only for the
 `Time_varying_sel` modes your block names. A mode it does not name is mapped out
-without a message unless `data_check()` refuses it. The shipped GOA pollock
-fishery uses `RandomWalkAscending`, which the DoubleNormal block does not handle:
-switching that fleet's form drops the fit from 316 to 220 parameters silently.
-Refuse unsupported modes in `data_check()` next to the existing per-form checks.
+without a message unless `data_check()` refuses it, so **every mode your block
+omits needs a refusal next to the existing per-form checks** -- that is the only
+thing standing between a user and a static curve where they asked for a walk.
+`RandomWalkAscending` is the worked example: only the `DoubleLogistic` block
+frees its deviates, so `data_check()` refuses it on every other form and points
+the user at a linkage on the ascending parameters, which fits the same model.
+The shipped GOA pollock fishery uses that mode, so switching its form used to
+drop the fit from 316 to 220 parameters silently (5.55.0).
 
 **The deviates are estimated but unpenalised.** The map freed them and the
 `ceattle.cpp` type lists do not name your code, so `JNLL_SEL_DEV` is zero for the

@@ -89,7 +89,7 @@ testthat::test_that("a series with no log_ counterpart recovers sd_log as sd/x",
   testthat::expect_null(.rce_series_sd(fit, "log_ssb_depletion",
                                        nyrs * nspp, n_tot))
 
-  p  <- Rceattle::plot_depletionSSB(fit, add_ci = TRUE)
+  p  <- Rceattle::plot_ssb_depletion(fit, add_ci = TRUE)
   sp <- fit$data_list$spnames[1]
   d  <- p$data[p$data$Species == sp, ]
   d  <- d[order(d$Year), ]

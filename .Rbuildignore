@@ -5,6 +5,7 @@
 ^\.claude$
 ^\.mcp\.json$
 ^CLAUDE\.md$
+^AGENTS\.md$
 ^CONTRIBUTING\.md$
 ^Doxyfile$
 ^doc$
@@ -22,7 +23,6 @@
 ^dev$
 ^tools/verify$
 ^data-raw$
-^src/TMB/Dev$
 ^src/TMB/Depricated$
 ^vignettes/.*[.]pptx$
 ^vignettes/articles$
@@ -36,7 +36,4 @@
 ^docs$
 ^covr$
 ^fims\.log$
-^inst/dev/SESSION_HANDOFF\.md$
-^inst/dev/PLAN-adoption-and-NOAA-transfer\.md$
-^inst/dev/TODO-pre-transfer\.md$
 ^figure$

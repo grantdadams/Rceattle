@@ -1,4 +1,4 @@
-# Provenance: inst/dev/CLEANUP_BACKLOG.md Tier 0, the ceattle.cpp marker
+# Provenance: the developer backlog, Tier 0 -- the ceattle.cpp marker
 # "will bomb if minage > 1".
 #
 # Recruits arriving at age minage in year yr were spawned in yr - minage, so for
@@ -215,6 +215,22 @@ test_that("no recruitment site indexes the spawning year without guarding it", {
   named <- "int\\s+\\w+\\s*=\\s*yr\\s*-\\s*minage\\(sp\\)"
   expect_true(all(grepl(named, uses)),
               info = paste("unguarded:", paste(setdiff(uses, grep(named, uses, value = TRUE)), collapse = " | ")))
+
+  # Pinned BY NAME, not floored at "more than zero". Measured 2026-10-12:
+  # rebinding one site through a differently-named local took the match set from
+  # 4 to 3 and the floor still passed, so the site that left the set stopped
+  # being checked at all. A rename now reports which name went and which
+  # arrived.
+  EXPECTED_LAG_LOCALS <- c("spawn_yr", "rp_yr", "proj_spawn_yr", "hat_spawn_yr")
+  locals <- vapply(regmatches(uses, regexec(
+    "int\\s+(\\w+)\\s*=\\s*yr\\s*-\\s*minage\\(sp\\)", uses)),
+    function(x) if (length(x) >= 2L) x[2] else NA_character_, character(1))
+  expect_setequal(locals, EXPECTED_LAG_LOCALS)
+
+  # NOT pinned, and deliberately: whether each local is then clamped or branched
+  # on before it indexes an array. Removing `spawn_yr`'s ternary reinstates the
+  # original negative-column read and this test stays green -- it is outside the
+  # line-scoped grep's reach, so a new site still needs reading.
 })
 
 

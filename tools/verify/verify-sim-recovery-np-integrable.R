@@ -4,7 +4,7 @@
 # the reported SD means the SD of the deviations. This harness fits Atka2022's
 # fishery as NonParametricIntegrable with the SD held at 0.35, draws iid deviates at a
 # known SD for the estimated coefficient bins (sim_mod() has no draw for the
-# Time_varying_sel deviates yet; see inst/dev/CLEANUP_BACKLOG.md), simulates the
+# Time_varying_sel deviates yet; see ../Rceattle-dev/CLEANUP_BACKLOG.md), simulates the
 # observations from that operating model, and refits with random_sel = TRUE
 # from an SD of 0.2. Reported: the estimated SD's mean, empirical SD and mean
 # reported SE across replicates.

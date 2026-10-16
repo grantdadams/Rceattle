@@ -10,8 +10,8 @@
 #' estimation phase.
 #'
 #' The motivation is that the historical Rceattle pattern of one wide
-#' parameter array per process (e.g. `beta_rec_pars[nspp, n_env]`,
-#' `M1_beta[nspp, nsex, n_env]`) does not generalize cleanly across
+#' parameter array per process (e.g. `M1_beta[nspp, nsex, n_env]`)
+#' does not generalize cleanly across
 #' processes that need different stratifications. A long-format table
 #' grows only with the linkages the user actually requests, regardless
 #' of the underlying species/sex/age dimensionality.
@@ -84,6 +84,8 @@ LINKAGE_COLS <- c(
   re_pos        = "integer"        # 0-based position within its own parameter vector
 )
 
+
+# Reserved sets and their checks ----
 
 #' Allowed values for fixed enum-like columns
 #' @keywords internal
@@ -166,6 +168,8 @@ LINKAGE_LINKS_IMPLEMENTED <- c("identity", "log", "exponential")
   invisible(link)
 }
 
+
+# Constructor and validator ----
 
 #' Construct an empty linkage table with the canonical schema
 #'
@@ -344,6 +348,8 @@ validate_linkage_table <- function(x) {
 }
 
 
+# linkage_row() ----
+
 #' Build a single linkage row
 #'
 #' Convenience constructor that returns a one-row linkage table with
@@ -467,6 +473,8 @@ linkage_row <- function(process, param, X_col,
 }
 
 
+# Row indices and slot scales ----
+
 #' Resolve a linkage row's stratum ids against per-species dimensions.
 #'
 #' A row's `species`, `sex`, and `age_bin` are integer ids or `NA` (which
@@ -522,6 +530,8 @@ linkage_row <- function(process, param, X_col,
 }
 
 
+# Shared and mirrored blocks ----
+
 #' Is this fleet a follower in a shared selectivity / catchability block?
 #'
 #' `Selectivity_index` / `Catchability_index` are group keys, not fleet codes:
@@ -560,6 +570,35 @@ linkage_row <- function(process, param, X_col,
 }
 
 
+#' Every member of the blocks the named fleets belong to
+#'
+#' An intercept value written to the donor's cell alone is diluted: a shared
+#' block starts at `TMB:::updateMap()`'s mean over the whole map level, so the
+#' other members' build defaults pull it off the request. Bounds take one entry
+#' per level by first occurrence, so they need the same expansion to land on
+#' whichever cell wins.
+#'
+#' A group may span species -- `adjust_map_shared_params()` keys on the index
+#' alone, and so does the mean -- so the expansion does not filter on species.
+#' The sex range a caller writes is the NAMED fleet's species', and sex 1 exists
+#' for every species, so the worst case for a member of a one-sex species in a
+#' two-sex caller's group is a write into a padding cell, which is mapped off
+#' and so is neither read nor part of the level.
+#'
+#' @keywords internal
+#' @noRd
+.shared_block_members <- function(data_list, flts, process) {
+  col <- switch(process, q = "Catchability_index", sel = "Selectivity_index", NULL)
+  idx <- if (is.null(col)) NULL else data_list$fleet_control[[col]]
+  if (is.null(idx) || !length(flts)) return(flts)
+  out <- as.integer(flts)
+  for (f in out[!is.na(out)]) {
+    if (!is.na(idx[f])) out <- c(out, which(!is.na(idx) & idx == idx[f]))
+  }
+  sort(unique(as.integer(out)))
+}
+
+
 #' Guards shared by the intercept init and bounds pushes
 #'
 #' @keywords internal
@@ -580,6 +619,151 @@ linkage_row <- function(process, param, X_col,
     call. = FALSE)
   invisible()
 }
+
+#' Refuse a selectivity / catchability linkage a mirrored block cannot honour
+#'
+#' A mirrored group shares one coefficient but each member gets its own offset
+#' tensor, so the group keeps its promise only where every member has a row,
+#' exactly one, and they agree. Refuses partial coverage, a random-effect
+#' linkage, a duplicate row, and specs disagreeing on `link`/`bounds`/`init`.
+#' Intercepts are exempt: they re-target the shared base and are pinned.
+#' Measured numbers in `inst/dev/TRAPS.md`, "Shared parameter blocks".
+#'
+#' @param process `"sel"` or `"q"`.
+#' @keywords internal
+#' @noRd
+.stop_if_mirrored_block_linkage <- function(linkage_table, fleet_control, process) {
+  col <- switch(process, q = "Catchability_index", sel = "Selectivity_index", NULL)
+  if (is.null(col) || is.null(linkage_table) || nrow(linkage_table) == 0L) {
+    return(invisible())
+  }
+  idx <- fleet_control[[col]]
+  if (is.null(idx)) return(invisible())
+  tbl <- linkage_table[linkage_table[["process"]] == process, , drop = FALSE]
+  if (nrow(tbl) == 0L) return(invisible())
+
+  what <- if (identical(process, "q")) "catchability" else "selectivity"
+  nm   <- fleet_control[["Fleet_name"]]
+  # Read through the map, as `.shared_block_lead()` does, so the two agree.
+  off  <- vapply(fleet_control[["Fleet_type"]],
+                 function(x) identical(.canon_switch(x, fleet_map), "Off"),
+                 logical(1))
+  # Coverage is owed only to a member whose block is estimated: one this process
+  # does not estimate cannot carry a row at all, and demanding it deadlocked a q
+  # linkage whose follower holds q fixed. Each arm reads the column as its own
+  # support check does -- the q one RAW, because `.canon_switch()` maps an absent
+  # switch to "<blank>", not NA, so `is.na()` there is never true.
+  linkable <- if (identical(process, "q")) {
+    qf <- as.character(fleet_control[["Catchability"]])
+    !is.na(qf) & !qf %in% c(.Q_LINKAGE_SELFBUILT_FORMS,
+                            .Q_LINKAGE_UNESTIMATED_FORMS)
+  } else {
+    .canon_switch(fleet_control[["Selectivity"]], sel_map) %in%
+      .SEL_LINKAGE_WIRED_FORMS
+  }
+
+  for (g in unique(idx[!is.na(idx)])) {
+    members <- which(!is.na(idx) & idx == g)
+    # The map ties a follower for ANY group of two or more, `Off` included, so
+    # the agreement rules run on that set; coverage keys on `covers`.
+    if (length(members) < 2L) next
+    covers <- members[!off[members] & linkable[members]]
+
+    grp <- tbl[!is.na(tbl[["fleet"]]) & tbl[["fleet"]] %in% members, , drop = FALSE]
+    if (nrow(grp) == 0L) next
+
+    # (a) Each named fleet would get its own deviation series and its own SD,
+    # and these cannot be tied: separate sigma groups would score the same
+    # deviations twice and fit two SDs to identical data.
+    re <- grp[!is.na(grp[["re_struct"]]), , drop = FALSE]
+    if (nrow(re) > 0L) {
+      stop(sprintf(paste0(
+        "random-effect %s linkage `%s` on fleet(s) %s, which share a %s and so ",
+        "estimate ONE parameter block: each named fleet would get its own ",
+        "deviation series and its own deviation SD, and the fleets would not ",
+        "mirror each other. Place the random effect on a parameter the group ",
+        "does not share, or give the fleets separate %s values."),
+        what, paste(unique(re[["param"]]), collapse = ", "),
+        paste(sprintf("'%s'", nm[unique(re[["fleet"]])]), collapse = ", "),
+        col, col), call. = FALSE)
+    }
+
+    # One offset per design column, so every rule below is per column.
+    key <- paste(grp[["param"]], grp[["X_col"]], grp[["design_col"]],
+                 grp[["species"]], grp[["sex"]], grp[["age_bin"]], sep = "\r")
+    for (k in unique(key)) {
+      rows <- grp[key == k, , drop = FALSE]
+      # An intercept re-targets the shared base and is pinned to NA, so it
+      # carries no per-fleet offset and cannot diverge; `.stop_if_shared_block()`
+      # already governs where its value may be set.
+      if (all(.is_pinned_intercept(rows))) next
+      covered <- unique(rows[["fleet"]])
+
+      # (b) The offset is added once per ROW, so a member with two rows moves
+      # twice as far as the rest on the same coefficient.
+      dup <- covered[vapply(covered, function(f)
+        sum(rows[["fleet"]] == f) > 1L, logical(1))]
+      if (length(dup) > 0L) {
+        stop(sprintf(paste0(
+          "%s linkage `%s` has %d rows for design column `%s` on fleet(s) %s, ",
+          "which share %s %d and so estimate ONE coefficient. The offset is ",
+          "added once per row, so that fleet would move twice as far as the ",
+          "rest of the group on the same coefficient. Give the column one row ",
+          "per fleet."),
+          what, rows[["param"]][1], max(table(rows[["fleet"]])),
+          rows[["design_col"]][1],
+          paste(sprintf("'%s'", nm[dup]), collapse = ", "), col, g),
+          call. = FALSE)
+      }
+
+      # (c) The named members get an offset the rest never get.
+      missed <- setdiff(covers, covered)
+      if (length(missed) > 0L && length(intersect(covered, covers)) > 0L) {
+        stop(sprintf(paste0(
+          "%s linkage `%s` names fleet(s) %s but not %s, which share %s %d and ",
+          "so estimate ONE parameter block. The linkage offset is applied per ",
+          "fleet, so the named fleet(s) would move and the rest would not. ",
+          "Name every fleet in the group, or pass `by = NULL` so the linkage ",
+          "is one row that reaches all of them."),
+          what, rows[["param"]][1],
+          paste(sprintf("'%s'", nm[intersect(covered, covers)]), collapse = ", "),
+          paste(sprintf("'%s'", nm[missed]), collapse = ", "),
+          col, g), call. = FALSE)
+      }
+
+      # (d) One coefficient, so a field giving it its meaning or constraint
+      # cannot differ: the surviving bound would be whichever row sits first in
+      # the table, and two `init`s would start at their mean. `est_phase` is
+      # exempt -- a held donor holding the group is the rule, and an SS3 bridge
+      # needs it. Report a bound as the PAIR the caller wrote, and flag a side
+      # that is only the table default.
+      dflt <- function(v, is_default) ifelse(is_default, paste(v, "(default)"), v)
+      shown <- list(
+        link   = as.character(rows[["link"]]),
+        bounds = dflt(sprintf("[%s, %s]", format(rows[["lower"]], trim = TRUE),
+                              format(rows[["upper"]], trim = TRUE)),
+                      !is.finite(rows[["lower"]]) & !is.finite(rows[["upper"]])),
+        init   = dflt(format(rows[["init"]], trim = TRUE),
+                      !rows[["init_supplied"]]))
+      for (f in names(shown)) {
+        v <- unique(shown[[f]])
+        if (length(v) > 1L) {
+          stop(sprintf(paste0(
+            "two %s linkage specs for `%s` on fleet(s) %s, which share %s %d ",
+            "and so estimate ONE coefficient, disagree on `%s`: %s. The group ",
+            "would take one of them by table position, so give both specs the ",
+            "same value."),
+            what, rows[["param"]][1],
+            paste(sprintf("'%s'", nm[covered]), collapse = ", "), col, g, f,
+            paste(v, collapse = " vs ")), call. = FALSE)
+        }
+      }
+    }
+  }
+  invisible()
+}
+
+# Argument validators ----
 
 .stop_unless_positive <- function(value, param, target) {
   if (!(value > 0)) {
@@ -605,6 +789,8 @@ linkage_row <- function(process, param, X_col,
   invisible()
 }
 
+
+# bind_linkage() and print ----
 
 #' Row-bind one or more linkage tables, preserving the schema
 #'

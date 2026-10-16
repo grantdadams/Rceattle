@@ -1,3 +1,5 @@
+# Linkage parameters and validation ----
+
 #' @keywords internal
 #' @noRd
 COMP_LINKAGE_PARAMS <- c("theta_comp", "theta_caal", "theta_diet")
@@ -9,6 +11,8 @@ COMP_LINKAGE_PARAMS <- c("theta_comp", "theta_caal", "theta_diet")
   .validate_process_linkages(linkages, COMP_LINKAGE_PARAMS, "comp")
 }
 
+
+# build_composition() ----
 
 #' Composition-weighting specification
 #'
@@ -53,6 +57,8 @@ build_composition <- function(linkages = NULL) {
   list(linkages = .validate_comp_linkages(linkages))
 }
 
+
+# Linkage support checks ----
 
 #' Reject composition-weighting (comp) linkages that cannot take effect
 #'

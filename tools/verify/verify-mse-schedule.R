@@ -135,7 +135,7 @@ results["skip_differs"] <- report(
 # different numbers of nlminb refits, and the residual here is optimizer noise,
 # not a difference in the draws. Measured at 3e-5 on this fixture -- if it ever
 # lands near 1e-2 again, something is schedule-dependent that should not be.
-# inst/dev/TODO-mse-horizon.md is the standing note on getting the saving back
+# ../Rceattle-dev/TODO-mse-horizon.md is the standing note on getting the saving back
 # without reintroducing that.
 i18 <- c_period$Year == 2018
 i19 <- c_period$Year == 2019

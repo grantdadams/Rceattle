@@ -159,3 +159,89 @@ test_that("rows come back ordered by series then year", {
   }
   expect_equal(rownames(out), as.character(seq_len(nrow(out))))
 })
+
+
+# `NByageFixed` is NOT one of these. Numbers-at-age for a species with
+# `estDynamics > 0` are an input, so the projection years cannot be supplied by
+# the MSE at all -- neither by holding the terminal year, which invents data and
+# pins the population flat, nor by leaving them empty, which makes
+# `rearrange_data()`'s array read 0 and the template multiply a zero population
+# into `N_at_age`. `.mse_require_fixed_natage()` warns instead, naming the
+# species and the uncovered years and saying what the consequence is, since the
+# MSE still runs.
+#
+# Provenance: run_mse() used to expand it, with its own inline copy of the
+# operation above, and that copy also dropped groups. It sliced one block of
+# projection rows per (Species, Sex) group, then subset by
+# `which(om_proj_yrs %!in% NByageFixed$Year)` -- positions within `om_proj_yrs`,
+# not row positions in the grouped frame -- so only the FIRST group's block
+# survived. Measured on `GOA2018SS` (4 groups, 32 projection years): 128 rows
+# built, 32 kept, leaving species 2 (both sexes) and species 3 at the array's
+# initialised zeros for every projection year. Both the dropping and the
+# expansion itself are gone.
+
+test_that("a fixed-numbers species whose input stops short is warned about", {
+  nb <- rbind(
+    data.frame(Species = 1L, Sex = 0L, Year = 2019:2020, Age1 = c(11, 12)),
+    data.frame(Species = 2L, Sex = 1L, Year = 2019:2020, Age1 = c(21, 22))
+  )
+  d <- list(estDynamics = c(1, 1), NByageFixed = nb)
+  # The MSE still runs, so the message has to state the CONSEQUENCE, not just
+  # the gap: those years get numbers-at-age of 0.
+  expect_warning(.mse_require_fixed_natage(d, 2021:2023),
+                 "does not cover every projection year")
+  expect_warning(.mse_require_fixed_natage(d, 2021:2023),
+                 "numbers-at-age.*of 0")
+  # And which species and years, so a multi-species MSE says where to look.
+  expect_warning(.mse_require_fixed_natage(d, 2021:2023), "species 1, 2")
+  expect_warning(.mse_require_fixed_natage(d, 2021:2023), "2021-2023")
+  # Returns the short species invisibly, so a caller can act on it.
+  expect_equal(suppressWarnings(.mse_require_fixed_natage(d, 2021:2023)),
+               c(1L, 2L))
+})
+
+
+test_that("only the uncovered years are counted, not the whole horizon", {
+  # A species covered for part of the projection is short by the remainder, and
+  # the message must say so rather than implying the whole horizon is missing.
+  # Covered for 2021-2022, short by 2023-2024.
+  nb <- data.frame(Species = 1L, Sex = 0L, Year = 2019:2022, Age1 = 1:4)
+  d <- list(estDynamics = 1, NByageFixed = nb)
+  expect_warning(.mse_require_fixed_natage(d, 2021:2024),
+                 "2 year\\(s\\) missing, 2023-2024")
+})
+
+
+test_that("an input that spans the horizon passes, and sex is not the key", {
+  # Coverage is per SPECIES: rearrange_data() writes a Sex == 0 row to every
+  # sex of a two-sex species, so requiring a row per sex would refuse a legal
+  # table.
+  nb <- rbind(
+    data.frame(Species = 1L, Sex = 0L, Year = 2019:2023, Age1 = 1:5),
+    data.frame(Species = 2L, Sex = 1L, Year = 2019:2023, Age1 = 6:10)
+  )
+  d <- list(estDynamics = c(1, 1), NByageFixed = nb)
+  expect_silent(.mse_require_fixed_natage(d, 2021:2023))
+  expect_null(.mse_require_fixed_natage(d, 2021:2023))
+})
+
+
+test_that("a species that estimates its own numbers is not asked for rows", {
+  # estDynamics == 0 is the default and the usual case: the check must be inert
+  # there, including when no NByageFixed table exists at all.
+  d0 <- list(estDynamics = c(0, 0), NByageFixed = data.frame())
+  expect_silent(.mse_require_fixed_natage(d0, 2021:2023))
+  expect_silent(.mse_require_fixed_natage(list(estDynamics = NULL), 2021:2023))
+
+  # And only the fixed-numbers species is required to cover the horizon.
+  nb <- data.frame(Species = 2L, Sex = 1L, Year = 2019:2023, Age1 = 1:5)
+  d <- list(estDynamics = c(0, 1), NByageFixed = nb)
+  expect_silent(.mse_require_fixed_natage(d, 2021:2023))
+})
+
+
+test_that("a fixed-numbers species with no table at all is warned about", {
+  # data_check() requires presence, but run_mse() can be handed a list directly.
+  d <- list(estDynamics = c(1, 0), NByageFixed = data.frame())
+  expect_warning(.mse_require_fixed_natage(d, 2021:2023), "species 1")
+})

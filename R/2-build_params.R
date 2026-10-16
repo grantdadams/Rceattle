@@ -27,9 +27,7 @@ build_params <- function(data_list) {
   nyrs_proj <- length(yrs_proj)
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 1. Population dynamics parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
   param_list$dummy = 0  # Variable to test derived quantities given input parameters; n = [1]
 
@@ -94,21 +92,32 @@ build_params <- function(data_list) {
   # ** Fixed effects ----
   m1 <- array(1, dim = c(data_list$nspp, max_sex, max_age),
               dimnames = list(data_list$spnames, sex_labels, paste0("Age", 1:max_age))) # Set up array
+  # Which (species, sex) an M1_base row actually covers
+  m1_written <- matrix(FALSE, data_list$nspp, max_sex)
 
-  # Initialize from inputs
+  # Write only the sexes and ages the species has. A workbook row is
+  # legitimately blank past its last age, so reading 1:max_age gives log(NA).
   for (i in 1:nrow(data_list$M1_base)) {
     sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
     sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
 
-
     # Handle sex == 0 case for 2-sex species
-    sex_values <- if (sex == 0) 1:data_list$nsex[sp] else sex
+    sex_values <- if (sex == 0) seq_len(data_list$nsex[sp]) else sex
+    ages <- seq_len(data_list$nages[sp])
 
     # Fill in M1 array from fixed values for each sex
-    for(j in 1:length(sex_values)){
-      m1[sp, sex_values[j], 1:max_age] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = TRUE)) + 2])
+    for (j in seq_along(sex_values)) {
+      m1[sp, sex_values[j], ages] <- as.numeric(data_list$M1_base[i, ages + 2])
+      m1_written[sp, sex_values[j]] <- TRUE
     }
   }
+  # A (species, sex) with no M1_base row would keep the 1 above: a residual M
+  # of 1.0 per year, inside the bounds, so nothing downstream would catch it.
+  .rce_stop_if_M1_row_missing(m1_written, data_list)
+  # A row shorter than the species' nages leaves real ages blank; carry the
+  # last supplied age forward, as the padding fill does, and say so.
+  m1 <- .rce_fill_M1_age_gaps(m1, data_list)
+
   param_list$log_M1 <- log(m1)
 
 
@@ -177,17 +186,52 @@ build_params <- function(data_list) {
   param_list$log_growth_pars[, , 1] <- log(0.3)
 
   if(nrow(data_list$caal_data) > 0){
+    # L1 and L-infinity start at the smallest and largest length with CAAL
+    # data. Taken per species as a min and a max: pivoting on the bin ORDINAL
+    # named its columns Bin1..Bin<n>, so species with different bin counts
+    # produced one column per distinct ordinal -- `Bin1, Bin3, Bin5` for a
+    # 3-bin and a 5-bin species -- which is both the wrong width for the
+    # two-column target and NA for whichever species lacks that ordinal.
     caal_lengths <- data_list$caal_data |>
-      dplyr::distinct(Species, Length) |>
-      dplyr::arrange(Species, Length) |>
       dplyr::group_by(Species) |>
-      dplyr::mutate(Bin = paste0("Bin", 1:n())) |>
-      dplyr::slice(c(1, n())) |>
-      dplyr::ungroup() |>
-      tidyr::pivot_wider(names_from = Bin, values_from = Length)
-    param_list$log_growth_pars[caal_lengths$Species, 1, 2:3] <- as.matrix(log(caal_lengths[,-1]))
+      dplyr::summarise(L1 = min(Length, na.rm = TRUE),
+                       Linf = max(Length, na.rm = TRUE), .groups = "drop")
+    # A species whose lengths are all NA gives Inf/-Inf here, and an NA or
+    # infinite start reaches MakeADFun() and returns NaN. Refuse it by name:
+    # taking the min of a blank column silently is how a starting length of
+    # NA would reach a fit.
+    bad <- !is.finite(caal_lengths$L1) | !is.finite(caal_lengths$Linf) |
+      caal_lengths$L1 <= 0
+    if (any(bad)) {
+      stop("caal_data gives no usable length range for species ",
+           paste(caal_lengths$Species[bad], collapse = ", "),
+           ". L1 and L-infinity start at the smallest and largest length with ",
+           "CAAL data, so each species needs at least one finite positive ",
+           "Length.", call. = FALSE)
+    }
+    # L1 == L-infinity gives a NaN objective, not a poorly-informed one.
+    # length_sd_at_age() interpolates the length SD as
+    # sd0 + (sd1 - sd0) / (linf - l1) * (len - l1), and both growth_log_sd
+    # start at 0, so that is 0/0 for every age above age_L1. The NaN reaches
+    # the age-length key and the likelihood. data_check() refuses one CAAL
+    # length unless nlengths is also 1, which is the one shape that gets here.
+    flat <- caal_lengths$L1 == caal_lengths$Linf
+    if (any(flat)) {
+      stop("Species ", paste(caal_lengths$Species[flat], collapse = ", "),
+           " has one distinct CAAL length, so L1 equals L-infinity. The ",
+           "length-at-age SD divides by (L-infinity - L1), giving a NaN ",
+           "objective. A single length bin cannot inform a growth curve: use ",
+           "build_growth(fun = \"empirical\") for that species, or give it ",
+           "more length bins.", call. = FALSE)
+    }
+    # Indexing an array with a factor uses its integer CODES, so a Species
+    # column read as a factor of c("2", "3") would write species 1 and 2.
+    # Coerced through character, as the M1_base loop above does.
+    caal_sp <- as.numeric(as.character(caal_lengths$Species))
+    endpoints <- as.matrix(log(caal_lengths[, c("L1", "Linf")]))
+    param_list$log_growth_pars[caal_sp, 1, 2:3] <- endpoints
     if(max_sex == 2){
-      param_list$log_growth_pars[caal_lengths$Species, 2, 2:3] <- as.matrix(log(caal_lengths[,-1]))
+      param_list$log_growth_pars[caal_sp, 2, 2:3] <- endpoints
     }
   }
 
@@ -206,7 +250,7 @@ build_params <- function(data_list) {
   # by `pool_linkages()` inside `fit_mod`). Initial values come from
   # the `init` column of the table; (Intercept) rows are forced to 0
   # because they're mapped out of estimation -- the base parameter
-  # carries the level instead (see 1.3c below). Absent table =>
+  # carries the level instead. Absent table =>
   # length-0 vector.
   if (!is.null(data_list$linkage_table) &&
       nrow(data_list$linkage_table) > 0L) {
@@ -278,9 +322,7 @@ build_params <- function(data_list) {
     param_list$log_obs_sd_linkage <- numeric(0)
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 2. Observation model parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
   # * 2.1. Catchability parameters ----
   # - Catchability on log scale
@@ -339,7 +381,9 @@ build_params <- function(data_list) {
   # inflection *length*, so the age-scale default of 0 starts below the
   # smallest length bin; from there the optimizer can wander to nonsensical
   # (even negative) lengths. Start it near the middle of the species' length
-  # range instead. Age-based selectivity is left at 0 (unchanged). The length
+  # range instead. Age-based logistic forms are left at 0, where 0 is an
+  # inflection below the first age and the curve still has a gradient;
+  # DoubleNormal reads this slot as a PEAK and is handled below. The length
   # scale used here mirrors data_list$lengths as built in rearrange_data():
   # physical bin centres from caal_data when present, else 1:nlengths indices.
   sel_dim <- data_list$fleet_control$Selectivity_dimension
@@ -368,6 +412,38 @@ build_params <- function(data_list) {
     logisticpm_flts <- which(sel_type %in% c(11, "11", "LogisticPM"))
     if (length(logisticpm_flts) > 0) {
       param_list$sel_inf[2, logisticpm_flts, ] <- 0
+    }
+  }
+
+  # DoubleNormal (type 8) reads the two shared slots as a PEAK and a right-tail
+  # floor, not as two inflections. The defaults put the peak at 0 -- below the
+  # first age -- and the floor at 10 on the logit scale, i.e. plogis(10) = 0.99996,
+  # so the starting curve is flat at ~1 for every age, the ascending width has no
+  # gradient, and the optimizer has no descent direction to leave that ridge.
+  # Measured on the GOApollock fishery, static selectivity, phased: objective
+  # 3085.98 with selectivity constant at 0.999996 across all ten ages, against
+  # 918.15 for the same fleet and the same defaults as a DoubleLogistic.
+  # So start the peak mid-range and the floor at 0 (a floor of 0.5), which is
+  # where LogisticPM starts the same slot.
+  if (!is.null(sel_type)) {
+    dn_flts <- which(sel_type %in% c(8, "8", "DoubleNormal"))
+    if (length(dn_flts) > 0) {
+      param_list$sel_inf[2, dn_flts, ] <- 0
+      # The peak is on the fleet's own bin scale. A length-based fleet already
+      # took the length midpoint above, so only the age-based ones are set here.
+      # An age-based curve is evaluated at `bin + 1` (selectivity.hpp), so its
+      # x-axis is the 1-BASED BIN ORDINAL 1..nages and the mid-range is
+      # (nages + 1) / 2 -- NOT an absolute age. The two coincide only at
+      # minage = 1; on a minage = 3 stock the age reading would start the peak
+      # at 7.5 of 10 bins and leave the descending limb barely informed, which
+      # is a milder version of the asymmetry this block exists to remove. The
+      # DoubleNormalSS3 block below uses the same expression for the same slot.
+      age_based <- if (is.null(sel_dim)) dn_flts else
+        dn_flts[is.na(sel_dim[dn_flts]) | tolower(sel_dim[dn_flts]) != "length"]
+      for (flt in age_based) {
+        sp <- data_list$fleet_control$Species[flt]
+        param_list$sel_inf[1, flt, ] <- (data_list$nages[sp] + 1) / 2
+      }
     }
   }
 
@@ -427,26 +503,14 @@ build_params <- function(data_list) {
   param_list$caal_weights = data_list$fleet_control$CAAL_weights
   names(param_list$caal_weights) <- data_list$fleet_control$Fleet_name
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 3. Predation model parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 
   # * 3.1. Diet composition weighting ----
   param_list$diet_comp_weights = data_list$Diet_comp_weights
   names(param_list$diet_comp_weights) <- paste0("Pred: ", data_list$spnames)
 
-  # # * 3.2. Kinzery predation function parameters ----
-  # param_list$logH_1 = matrix(-8.5, nrow = data_list$nspp, ncol = data_list$nspp + 1)  # Predation functional form
-  # param_list$logH_1a = rep(-3, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
-  # param_list$logH_1b = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
-  #
-  # param_list$logH_2 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]
-  # param_list$logH_3 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
-  # param_list$H_4 = matrix(1, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
-  #
-  #
-  # * 3.3. Suitability parameters ----
+  # * 3.2. Suitability parameters ----
   param_list$log_gam_a = rep(0.5, data_list$nspp)  # Log predator selectivity;
   names(param_list$log_gam_a) = paste0("Pred: ", data_list$spnames)
 
@@ -454,13 +518,21 @@ build_params <- function(data_list) {
   names(param_list$log_gam_b) = paste0("Pred: ", data_list$spnames)
 
 
-  # * 3.4. Preference parameters ----
+  # * 3.3. Preference parameters ----
   param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp,
                               dimnames = list(paste0("Pred: ", data_list$spnames), paste0("Prey: ", data_list$spnames)))
 
 
 
-  .push_linkage_intercept_inits(param_list, data_list)
+  param_list <- .push_linkage_intercept_inits(param_list, data_list)
+
+  # Both after the linkage pass, not at the data fill: an M1 linkage with an
+  # intercept `init` writes the level over every real age, so M1_base may
+  # legitimately be blank and the padding must mirror whatever ends up there.
+  param_list$log_M1 <- .rce_fill_M1_padding(param_list$log_M1, data_list)
+  .rce_stop_if_nonfinite_M1(param_list$log_M1, "build_params()")
+
+  param_list
 }
 
 
@@ -559,7 +631,10 @@ build_params <- function(data_list) {
           # index_log_q is log catchability, one entry per fleet.
           .stop_if_shared_block(data_list, row$fleet, "q", row$param)
           .stop_unless_positive(init_val, row$param, "index_log_q")
-          param_list$index_log_q[idx$fleet] <- log(init_val)
+          # Per BLOCK: a shared level starts at the mean over the level, so the
+          # donor's cell alone is diluted by the others' build defaults.
+          param_list$index_log_q[.shared_block_members(data_list, idx$fleet, "q")] <-
+            log(init_val)
         },
         comp = {
           # The Dirichlet-multinomial weight is exp(<weight parameter>), so an
@@ -582,10 +657,14 @@ build_params <- function(data_list) {
           slot <- .SEL_PARAM_TO_SLOT[[row$param]]
           if (is.null(slot)) next
           .stop_if_shared_block(data_list, row$fleet, "sel", row$param)
+          # Per BLOCK, for the same reason as q above. Only the WRITE expands --
+          # the form checks below stay on the fleet the caller named, so this
+          # adds no refusal for a group whose members use different forms.
+          blk <- .shared_block_members(data_list, idx$fleet, "sel")
           if (identical(slot$arr, "log_sel_slp")) {
             .stop_unless_positive(init_val, row$param, "log_sel_slp")
             for (s in idx$species) {
-              param_list$log_sel_slp[slot$slot, idx$fleet,
+              param_list$log_sel_slp[slot$slot, blk,
                                      idx$per_sp[[as.character(s)]]$sex] <- log(init_val)
             }
           } else if (identical(slot$arr, "sel_inf")) {
@@ -595,21 +674,21 @@ build_params <- function(data_list) {
               .stop_unless_natural_sel_inf(data_list, f, slot$slot, row$param)
             }
             for (s in idx$species) {
-              param_list$sel_inf[slot$slot, idx$fleet,
+              param_list$sel_inf[slot$slot, blk,
                                  idx$per_sp[[as.character(s)]]$sex] <- init_val
             }
           } else if (identical(slot$arr, "sel_dn6")) {
             # DoubleNormalSS3 holds each parameter on SS3's scale, so the init
             # is the value as an SS3 control file gives it.
             for (s in idx$species) {
-              param_list$sel_dn6[slot$slot, idx$fleet,
+              param_list$sel_dn6[slot$slot, blk,
                                  idx$per_sp[[as.character(s)]]$sex] <- init_val
             }
           } else if (identical(slot$arr, "log_sel_apical")) {
             # The init is the multiplier itself (1 = no offset), stored logged.
             .stop_unless_positive(init_val, row$param, "log_sel_apical")
             for (s in idx$species) {
-              param_list$log_sel_apical[idx$fleet,
+              param_list$log_sel_apical[blk,
                                         idx$per_sp[[as.character(s)]]$sex] <- log(init_val)
             }
           }
@@ -622,4 +701,146 @@ build_params <- function(data_list) {
   }
 
   return(param_list)
+}
+
+
+#' Refuse a non-finite starting value for log_M1
+#'
+#' @description
+#' `log_M1` is dimensioned to the widest species, so a species with fewer sexes
+#' or ages leaves padding cells that no `nages(sp)`-bounded loop in the template
+#' reads. `NA` or `-Inf` there is never an intended natural mortality: a loop
+#' bound that widened to the padding would read `exp(-Inf)` as an M1 of 0, and
+#' under `M1_model >= 1` the padding sex cells are estimated rather than
+#' constant.
+#'
+#' @param log_M1 The filled `log_M1` array.
+#' @param where Name of the calling path, for the message.
+#' @noRd
+.rce_stop_if_nonfinite_M1 <- function(log_M1, where) {
+  bad <- which(!is.finite(log_M1), arr.ind = TRUE)
+  if (!nrow(bad)) return(invisible(TRUE))
+  stop(where, ": log_M1 holds ", nrow(bad),
+       " non-finite starting value(s), at (species, sex, age index) ",
+       paste(apply(utils::head(bad, 5), 1, paste, collapse = ","),
+             collapse = "; "),
+       if (nrow(bad) > 5) ", ..." else "",
+       ". M1_base must give a finite value for every age of every sex the ",
+       "species has.", call. = FALSE)
+}
+
+
+#' Refuse an `M1_base` that does not cover every sex of every species
+#'
+#' @description
+#' A `(species, sex)` the model has but `M1_base` does not name keeps the
+#' array's initial 1, i.e. a residual M of 1.0 per year. That sits inside
+#' `build_bounds()`'s `[log(0.001), log(2)]`, so nothing downstream catches it
+#' and the fit simply runs with it.
+#'
+#' @param written `[nspp, max_sex]` logical: which cells an `M1_base` row set.
+#' @param data_list The `data_list`, for `nsex` and `spnames`.
+#' @noRd
+.rce_stop_if_M1_row_missing <- function(written, data_list) {
+  gaps <- character()
+  for (sp in seq_len(data_list$nspp)) {
+    for (sx in seq_len(data_list$nsex[sp])) {
+      if (!written[sp, sx]) {
+        gaps <- c(gaps, paste0(data_list$spnames[sp], " (species ", sp,
+                               ", sex ", sx, ")"))
+      }
+    }
+  }
+  if (!length(gaps)) return(invisible(TRUE))
+  stop("M1_base has no row for ", paste(gaps, collapse = "; "),
+       ". Every sex of every species needs one, or its residual M starts at ",
+       "1.0 per year, which is inside the parameter bounds and so is fit ",
+       "rather than refused.", call. = FALSE)
+}
+
+
+#' Carry the last supplied M1 forward over a species' blank real ages
+#'
+#' @description
+#' An `M1_base` row that stops short of its species' `nages` leaves real ages
+#' blank, which is not padding: under `M1_model = 3` those ages are estimated,
+#' and under any setting `log(NA)` reaches `MakeADFun()`. Carrying the last
+#' supplied age forward is what the padding fill already does and is the only
+#' value the workbook implies; refusing instead would stop a model that fits
+#' today — `Rceattle-models/AI cod - Dev/Data/2024_AI_cod.xlsx` gives
+#' `nages = 13` and M1 for ten ages. Warns rather than filling silently,
+#' because a short row is a workbook to correct. A `(species, sex)` with no
+#' finite age at all is left alone for `.rce_stop_if_nonfinite_M1()`.
+#'
+#' @param m1 `[nspp, max_sex, max_age]` natural mortality, real cells written.
+#' @param data_list The `data_list`, for `nsex`, `nages` and `spnames`.
+#' @noRd
+.rce_fill_M1_age_gaps <- function(m1, data_list) {
+  gaps <- character()
+  # `ages` indexes the array; ages themselves run minage .. minage + nages - 1
+  # (rule 11), so convert before naming them in the warning.
+  minage <- suppressWarnings(as.integer(as.character(data_list[["minage"]])))
+  if (length(minage) == 1L) minage <- rep(minage, data_list$nspp)
+  if (length(minage) != data_list$nspp) minage <- rep(1L, data_list$nspp)
+  for (sp in seq_len(data_list$nspp)) {
+    for (sx in seq_len(data_list$nsex[sp])) {
+      ages <- seq_len(data_list$nages[sp])
+      ok <- is.finite(m1[sp, sx, ages])
+      if (all(ok) || !any(ok)) next
+      last <- max(which(ok))
+      bins <- ages[!ok]
+      m1[sp, sx, bins] <- m1[sp, sx, last]
+      # M1_base's Age columns are 1-based bin ordinals, so at minage != 1 the
+      # age and the column it sits in differ; name both or the reader hunts.
+      lbl <- paste(bins - 1L + minage[sp], collapse = ", ")
+      if (minage[sp] != 1L) {
+        lbl <- paste0(lbl, " (columns ",
+                      paste0("Age", bins, collapse = ", "), ")")
+      }
+      gaps <- c(gaps, paste0(data_list$spnames[sp], " (species ", sp, ", sex ",
+                             sx, ") ages ", lbl))
+    }
+  }
+  if (length(gaps)) {
+    warning("M1_base stops short of nages for ", paste(gaps, collapse = "; "),
+            ". Those ages start at the last age the row supplies. Under ",
+            "M1_model = 3 they are estimated from that start, so give them ",
+            "their own values if the intent is age-specific M.",
+            call. = FALSE)
+  }
+  m1
+}
+
+
+#' Give each padding cell its own species' M1
+#'
+#' @description
+#' `log_M1` is dimensioned to the widest species, so a species with fewer sexes
+#' or ages owns cells for neither. No template loop reads them, but a parameter
+#' sharing a map level with one starts at the mean over that level, since
+#' `TMB:::updateMap()` is `tapply(..., mean)`. A padding cell left at the
+#' array's initial 1 -- an M of 1.0 per year -- therefore pulls an estimated M1
+#' toward 1.0; mirroring the species' own value keeps that mean exact.
+#'
+#' @param m1 `[nspp, max_sex, max_age]` natural mortality with every real cell
+#'   filled. Only copies cells, so either scale works.
+#' @param data_list The `data_list`, for `nspp`, `nsex` and `nages`.
+#' @return `m1` with its padding cells set from their own species.
+#' @noRd
+.rce_fill_M1_padding <- function(m1, data_list) {
+  max_sex <- dim(m1)[2]
+  max_age <- dim(m1)[3]
+  for (sp in seq_len(data_list$nspp)) {
+    real_sex <- seq_len(data_list$nsex[sp])
+    last_age <- data_list$nages[sp]
+    # Ages past this species' last age take its oldest real age.
+    if (last_age < max_age) {
+      m1[sp, real_sex, (last_age + 1):max_age] <- m1[sp, real_sex, last_age]
+    }
+    # Sexes this species does not have take its first sex.
+    for (sx in setdiff(seq_len(max_sex), real_sex)) {
+      m1[sp, sx, ] <- m1[sp, real_sex[1], ]
+    }
+  }
+  m1
 }

@@ -271,7 +271,11 @@ The `retrospective` function measures retrospective bias, returning a list of re
 ```{r, message = FALSE, warning = FALSE}
 model_1_retro <- retrospective(model_1, peels = 7)
 
-plot_biomass(model_1_retro$Rceattle_list, model_names = paste("Pollock; mohns =", round(model_1_retro$mohns[1,2], 3)))
+# `mohns` is long: columns Object, `Forecast year` (0 = terminal peel), N, then one
+# column per species. Read the rho by name -- column 2 is the peel year, not a rho.
+rho <- subset(model_1_retro$mohns, Object == "biomass" & `Forecast year` == 0)
+plot_biomass(model_1_retro$Rceattle_list,
+             model_names = paste("Pollock; mohns =", round(rho[["Pollock"]], 3)))
 ```
 
 ## 6. Model plots and diagnostics
@@ -299,7 +303,7 @@ plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci 
 
 # SSB depletion (female spawning biomass / SB0), the quantity a Tier 3 HCR
 # compares against B40%
-plot_depletionSSB(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
+plot_ssb_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
 
 ```
 
