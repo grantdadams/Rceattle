@@ -1075,8 +1075,9 @@ dome with sex-specific shape it is the pointwise multiplier, and the peak ratio
 is read from `fit$quantities$sel_at_age`. Only the contrast between the sexes
 is identified, so the fit is refused when both sexes or no sex hold it, when no
 fleet is named, on a one-sex species, on a `Fixed`, AR1 or `Off` fleet, on a
-fleet that takes another's block through a shared `Selectivity_index` (put the
-offset on the lead fleet), with `link = "identity"`, and where
+fleet that takes another's block through a shared `Selectivity_index` (name
+every fleet in the group, or pass `by = NULL`), with `link = "identity"`, and
+where
 `Sel_norm_scope = "WithinSex"` normalization would divide the offset out (use
 `"AcrossSexes"`, under which the more-selected sex peaks at 1, or turn
 `Sel_norm_bin` off). The contrast is informed only by joint compositions

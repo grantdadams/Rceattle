@@ -176,6 +176,18 @@ version throughout.
   environment, so `~ temp * fleet` with a `fleet` object in scope is accepted
   and yields `fleetB` aligned positionally to model years rather than erroring.
 
+* **The apical-offset refusal's remedy was stated backwards in the vignette.**
+  `vignette("environmental-linkages-and-priors")` told a reader refused on a
+  fleet that shares a `Selectivity_index` to "put the offset on the lead
+  fleet". The offset is applied per fleet (`apical_offset(flt, sex, yr)`), so
+  the group does not inherit one placed on the lead -- which the refusal in
+  `build_selectivity()` says, and which the same vignette says 44 lines
+  earlier. Following it gave an offset that moved the lead's curve alone while
+  the group reported one coefficient. It now gives the refusal's own remedy:
+  name every fleet in the group, or pass `by = NULL`. Introduced by a
+  documentation-condensing commit in this release range, so no released
+  version carried it.
+
 ## Internal
 
 * `test-predation-suitability-floor.R`'s `skip_on_cran()` moved from file level
