@@ -31,6 +31,33 @@ verdict -- it already failed on `main` for an unrelated reason and dev additiona
 ageing-error validation. The sweep needs no compiled DLL, since both functions are pure R, so a
 `main` worktree with any `.so` dropped in will do.
 
+**Re-run for the 5.64.0 release** (2026-10-15), **`main` 5.49.1 against the 5.64.0 tree**, over
+all five repositories this file registers -- `Climate_MSE` included, which a four-repo sweep
+misses. 380 `.xlsx` globbed, **187 with a `fleet_control` sheet**, 0 unreadable, driven live
+through `read_data()` -> `switch_check()` -> `build_params()` -> `data_check()` on the release
+tree: **122 ok / 65 refused, identical to the 122 recorded at 5.48.0**.
+
+Not one workbook is at risk from any refusal this release adds, and each has two independent
+necessary conditions failing rather than one: **0 of 187** sheets lack a `Time_varying_q` column
+AND **0** set `Catchability` to `Environmental`/`AR1`; all **88** fleets setting
+`RandomWalkAscending` pair it with `DoubleLogistic`, the one exempt parametric form; **0** sheets
+are missing an `M1_base` row or carry a non-finite `log_M1` start; the 3 workbooks with
+`caal_data` all have 21 distinct lengths. `M1_re` is unreachable through `fit_mod()` for any
+consumer by three separate arguments, one of which is that **0 of 187** workbooks carry an
+`M1_re` or `M1_model` control row while `fit_mod()` overwrites both from `M1Fun` unconditionally.
+The detector was shown to fire on a real positive first: forcing `RandomWalkAscending` onto a
+`Logistic` fleet of `GOA_25_pollock_single_species_1970-2024.xlsx` raises the exact refusal, and
+leaving it on fleet 8 as shipped is accepted.
+
+Script sweep, same five repositories: **1 line errors**
+(`Rceattle-models/Pacific hake/Dev/ATF_SBF_hake_test.R:42`, `plot_diet_comp2()` on a
+`msmMode = 1, suitMode = 0` fit -- its own comment reads the all-zero figure as a result, so the
+refusal catches a real misreading); **37 lines warn** (18 `plot_depletionSSB`, 17 of them live;
+19 `plot_indexresidual`, 18 of them calls), both forwarders verified formal-for-formal identical
+so every named and positional call still works; and **1 script's numbers move silently**
+(`Pacific hake/04-mse.R`, the 5.59.0 `NByageFixed` change). `jitter()`: 6 live call sites, **0**
+passing an argument the model path refuses. Nothing else in any consumer repo errors.
+
 **Re-run for the release review** (2026-10-03), **`main` 5.45.3 against `dev` 5.49.1** -- the
 comparison that actually matters before a release -- over every `.xlsx` under the four consumer
 repos: **0 newly broken, 0 newly passing, and not one workbook's verdict TEXT changed** on 375

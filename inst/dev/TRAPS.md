@@ -1026,6 +1026,23 @@ turned out to be 3.4e-09 to 4.3e-08 nats on the four multispecies fits.
 `tools/verify/verify-safebounds.R` already does delete-then-assert; copy it rather than trusting
 `pkgbuild::compile_dll()` to notice.
 
+**And on Windows the harness handed the flag to its rebuild by a route that does not exist
+there.** `system2(..., env = "RCEATTLE_SAFEBOUNDS=true")` serves only a command that takes
+assignments on its command line -- `R` or `make`, not `Rscript` (`?system2`, Details) -- so the
+`windows-latest` arm's first nightly run, 2026-10-16, compiled nothing in 0.1 s, captured an empty
+build log, and the positive control refused the result. The guard working as intended: it reported
+no measurement rather than a green run of none. The flag reaches the child through the
+`Sys.setenv()` above the call instead, which both platforms inherit. The two routes are
+indistinguishable on a Unix-alike, which is why review on Linux could not see it -- measured on
+macOS with `env =` dropped, the flag off gives 81 lines of compile output and no
+`-DTMB_SAFEBOUNDS`, the flag on gives 82 and the define.
+
+**The first real `windows-latest` result, 2026-10-16: all 8 configurations clean.** The rebuild
+took 2m39s where the broken call took 0.1s, and `test-selectivity-catchability.R` -- the file the
+0xC0000005 died in -- ran 14.9s with no violation. Evidence, not clearance: `safebounds` range-
+tests Eigen array access, so a clean run does not rule out the other ways that fault arises, and
+the crash was intermittent to begin with.
+
 **The golden regression ran in NO automated job.** `test-golden-regression.R` carries both
 `skip_on_cran()` and `skip_on_covr()`. `R-CMD-check` sets `NOT_CRAN=false` deliberately (to keep
 the multi-OS matrix fast), so the first fires; `test-coverage` runs under covr, so the second
