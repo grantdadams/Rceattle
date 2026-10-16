@@ -190,13 +190,14 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 6) Time-varying selectivity type.
   data_list$flt_varying_sel <- .pull_int(data_list$fleet_control, "Time_varying_sel")
 
-  # - 7) First age selected
+  # - 7) First selected bin, converted to 0-based for the template
   data_list$bin_first_selected <- data_list$fleet_control %>%
     dplyr::mutate(Bin_first_selected = .data$Bin_first_selected - 1, # R to C++ indexing
                   Bin_first_selected = ifelse(is.na(.data$Bin_first_selected), 0, .data$Bin_first_selected)) %>%
     dplyr::pull(.data$Bin_first_selected) %>% as.integer()
 
-  # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
+  # - 8) Normalization bin, 0-based; NA becomes -999 (no normalization) and a
+  #      negative value -99 (normalize by the maximum)
   # First bin each fleet may normalize at, on the column's own scale: below it
   # the curve is zeroed, so a value there means "normalize by the maximum".
   .norm_bounds <- lapply(seq_len(nrow(data_list$fleet_control)), function(i) {

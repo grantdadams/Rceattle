@@ -167,10 +167,10 @@ Type objective_function<Type>::operator() () {
   // 1.5. HARVEST CONTROL RULE (HCR) SETTINGS
   DATA_INTEGER(HCR);                      // Function to be used for harvest control rule
   DATA_INTEGER(DynamicHCR);               // TRUE/FALSE. Whether to use static or dynamic reference points (default = FALSE)
-  DATA_VECTOR(Ptarget);                   // Target SSB as a percentage of static or dynamic SSB at F = 0
-  DATA_VECTOR(Plimit);                    // Limit SSB as a percentage of static or dynamic SSB at F = 0
-  DATA_VECTOR(Ftarget_percent);           // Percentage of SSB-per-recruit or SB0 at F = 0 that sets the target F
-  DATA_VECTOR(Flimit_percent);            // Percentage of SSB-per-recruit or SB0 at F = 0 that sets the limit F
+  DATA_VECTOR(Ptarget);                   // Target SSB as a PROPORTION of static or dynamic SSB at F = 0 (B40% is 0.40)
+  DATA_VECTOR(Plimit);                    // Limit SSB as a PROPORTION of static or dynamic SSB at F = 0 (B10% is 0.10)
+  DATA_VECTOR(Ftarget_percent);           // Proportion of SSB-per-recruit or SB0 at F = 0 that sets the target F (F40% is 0.40)
+  DATA_VECTOR(Flimit_percent);            // Proportion of SSB-per-recruit or SB0 at F = 0 that sets the limit F (F35% is 0.35)
   DATA_VECTOR(Alpha);                     // Parameter used in NPFMC Tier 3 HCR
   DATA_VECTOR(Fmult);                     // Multiplier for target fishing mortality (Fmult * Ftarget). For example 0.75 * F40%.
   DATA_VECTOR(QnormHCR);                  // Add to Flimit to set Ftarget based on the Pstar approach: Flimit + qnorm(Pstar, 0, Sigma)
@@ -302,9 +302,9 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_sel_cap_bin);          // NonParametricPM (type 9): first bin (0-based, age or length per flt_sel_dim) at/after which realized selectivity is held flat (RTMB cap_old_age). < 0 = no cap.
   DATA_IVECTOR(flt_varying_sel);          // Whether time-varying selectivity is estimated
   DATA_IVECTOR(flt_spp);                  // Fleet species
-  DATA_IVECTOR(bin_first_selected);       // First selected age (selectivity below it = 0)
-  DATA_IVECTOR(sel_norm_bin1);            // Age of max selectivity for normalization (NA = unused). LogisticPM (type 11): lower age of the selectivity-penalty range.
-  DATA_IVECTOR(sel_norm_bin2);            // Upper age of max selectivity for normalization (NA = unused). LogisticPM (type 11): upper age of the selectivity-penalty range.
+  DATA_IVECTOR(bin_first_selected);       // First selected age/length BIN, 0-based (selectivity below it = 0)
+  DATA_IVECTOR(sel_norm_bin1);            // Normalization BIN, 0-based, or a control flag when negative (-999 = do not normalize, -99 = normalize by the maximum); rearrange_data() converts, so NA never arrives. LogisticPM (type 11): lower bin of the selectivity-penalty range.
+  DATA_IVECTOR(sel_norm_bin2);            // Upper normalization BIN, same encoding as sel_norm_bin1. LogisticPM (type 11): upper bin of the selectivity-penalty range.
   DATA_IVECTOR(sel_norm_scope);           // Whether normalization pools its reference across sexes: 0 = WithinSex (each sex divided by its own reference; both reach 1), 1 = AcrossSexes (one pooled reference; the lower sex stays below 1). Orthogonal to sel_norm_bin1/2, which say WHERE the reference is taken.
   DATA_IVECTOR(flt_sel_start_yr);         // Per-fleet selectivity start year (0-based from styr); selectivity penalties start the year after this. Default 0 (= styr).
   DATA_IVECTOR(flt_sel_pen_first_bin);    // Per-fleet first bin (0-based, age or length per flt_sel_dim) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower range than the (possibly non-zero) first selected bin (e.g. ATS mina_ats > first selected age).

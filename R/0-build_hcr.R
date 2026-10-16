@@ -21,9 +21,10 @@
 #'   depletion-based, or the input F for projections. For SPR F40%, enter 0.40.
 #' @param Flimit Limit fishing mortality rate (yr^-1), SPR- or depletion-based.
 #'   For SPR F35%, enter 0.35.
-#' @param Ptarget Target spawning-stock biomass as a percentage of static or
-#'   dynamic spawning-stock biomass at F = 0, which accounts for recruitment.
-#' @param Plimit Limit spawning-stock biomass on the same basis.
+#' @param Ptarget Target spawning-stock biomass as a proportion of static or
+#'   dynamic spawning-stock biomass at F = 0. For B40%, enter 0.40.
+#' @param Plimit Limit spawning-stock biomass on the same basis. For B10%,
+#'   enter 0.10.
 #' @param Alpha Parameter used in the NPFMC Tier 3 rule.
 #' @param Pstar Quantile for the uncertainty buffer, given \code{Flimit} and
 #'   \code{Sigma}.

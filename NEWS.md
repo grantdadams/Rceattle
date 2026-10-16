@@ -190,6 +190,28 @@ version throughout.
   environment, so `~ temp * fleet` with a `fleet` object in scope is accepted
   and yields `fleetB` aligned positionally to model years rather than erroring.
 
+* **Two template inputs were documented as ages; they are 0-based bins.**
+  `ceattle.cpp` called `bin_first_selected` a "first selected age" and
+  `sel_norm_bin1`/`2` an "age of max selectivity ... (NA = unused)".
+  `rearrange_data()` subtracts 1 and maps `NA` to `-999` and a negative request
+  to `-99` before the template sees either, and on a length-based fleet the
+  offset is 1 rather than `minage`, so these are bins and `NA` never arrives.
+  `selectivity.hpp` already said so; the two files disagreed. Converting one
+  back to an age with `- minage` gives a wrong selectivity curve, hence a wrong
+  q and index fit, with no error (rules 10, 11). The two sibling comments in
+  `rearrange_data()` itself are corrected with them.
+
+* **`Ptarget` and `Plimit` were called a percentage; they are proportions.**
+  `?build_hcr`'s own `@details` says the 40-10 shape needs `Ptarget = 0.40`,
+  the defaults are 0.4 and 0.0, and the template computes
+  `ref_SB0 * Ptarget(sp)` -- but the `@param` entries and four `DATA_VECTOR`
+  comments said "percentage", where `@param Ftarget` two lines above already
+  had the right pattern ("For SPR F40%, enter 0.40"). Nothing validates the
+  range, so a user reading it literally and passing `40` gets a threshold of
+  `40 x SB0`: SSB is always below it, the ramp always engages, and every
+  `Ptarget == 0.4` branch in `mse_summary()` silently falls through. Wording
+  only; no default or computation changes.
+
 * **The apical-offset refusal's remedy was stated backwards in the vignette.**
   `vignette("environmental-linkages-and-priors")` told a reader refused on a
   fleet that shares a `Selectivity_index` to "put the offset on the lead
@@ -203,6 +225,19 @@ version throughout.
   version carried it.
 
 ## Internal
+
+* Two guards that could not catch what they were written for.
+  `test-docs-anchors.R` allowed `switch (sel_type)` unconditionally, because the
+  developer guide quotes it as the name that is NOT the switch -- so a line
+  naming it as the dispatch escaped while the correct mention survived
+  elsewhere, which is the partial case that shipped for three releases. The
+  allowance is now conditional on every quoting line also carrying the
+  correction; verified by injecting that line and watching the guard fail.
+  `test-plot-save-paths.R` had a file-level `skip_on_cran()` over two blocks
+  that read only its own literals and `getNamespaceExports()`, so the whole
+  file reported zero result rows in both blocking jobs; the skip moved into the
+  one block that builds a fit, and 11 assertions now run under
+  `NOT_CRAN=false`.
 
 * `test-predation-suitability-floor.R`'s `skip_on_cran()` moved from file level
   into the five blocks that fit a model, so the four pure-R fixture blocks now

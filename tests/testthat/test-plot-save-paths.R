@@ -31,7 +31,12 @@
 # a failure here is fatal -- run this by hand in the PR that changes a save
 # path rather than trusting CI to catch it.
 
-testthat::skip_on_cran()
+# skip_on_cran() sits in the one block that builds a fit, not at file level:
+# the two registry blocks below read only this file's own literals and
+# getNamespaceExports(), so they need no DLL and no optimization. At file
+# level they were dark in both blocking jobs -- the whole file reported zero
+# result rows under R CMD check, which is the condition source-guards.R
+# exists to catch elsewhere.
 
 saved_files <- function(fit, fn, ...) {
   # tempfile() for uniqueness rather than runif(): this file would otherwise
@@ -129,6 +134,7 @@ saved_files <- function(fit, fn, ...) {
 
 
 testthat::test_that("every plotter writes the file names it writes today", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
   ss <- .save_fixture()
 
