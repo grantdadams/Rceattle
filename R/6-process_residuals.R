@@ -85,7 +85,7 @@ process_residuals <- function(object = NULL,
   # process precision instead of dividing by a scalar SD (.process_residual_dsem).
   # "initial" and "catchability" take the ordinary path -- init_dev is still
   # estimated, and a DSEM does not touch the catchability deviates.
-  dsem_rec <- .has_dsem(object)
+  dsem_rec <- .dsem_drives(object, "recruitment")
 
   specs <- list(recruitment  = "rec_dev",
                 initial      = "init_dev",

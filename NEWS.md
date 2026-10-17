@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.64.0.9002`, the released line this branch now
+number: `DESCRIPTION` reads `5.64.0.9003`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -31,6 +31,77 @@ code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
 suffix stays until the DSEM work is given a release number of its own. The
 5.23.0 section below records the same divergence from when this branch was
 numbered on the 5.23.0 line.
+
+## Behavior changes
+
+* **"A SEM is attached" and "that SEM owns the recruitment deviations" are now
+  two separate switches.** `dsem_on` meant both at once, which is the same
+  question only while recruitment is the one process a SEM can drive.
+  Groundwork, not a fix to a reachable defect: a SEM that names no `recdevs`
+  latent is refused today, in `build_dsem_objects()` and again in the template,
+  so the conflation cannot currently produce a wrong number. What it would do is
+  make that refusal unsafe to relax -- and relaxing it is exactly what driving
+  growth or M requires. Taken on its own, a SEM reaching the old code without
+  owning recruitment would have mapped out `rec_dev` and `R_log_sd`, dropped
+  `rec_dev` from `random`, skipped the `JNLL_REC_DEV` density, gated off its
+  simulate draw, and still overwritten `rec_dev` from the latent states -- so
+  the sequence has to be split before the refusal goes, not after.
+
+  The template gains `dsem_drives_rec`. Three gates read it: the
+  recruitment-deviation density, that deviation's simulate draw, and the
+  recruitment takeover itself in section 5.5b, where `R_sd` is overridden from
+  the SEM's variance path and `rec_dev` overwritten from the latent states.
+  Three stay on `dsem_on`, each with a comment saying why -- the GMRF density,
+  its conditioning, and the routing of that density into `jnll_comp` belong to
+  the latent field, which a SEM has whatever process it drives. Gating the
+  routing on the wrong one of the two would drop `jnll_dsem` from the objective
+  entirely, and that scalar carries the covariate measurement density as well as
+  the GMRF, so the field would be declared random with nothing scoring it.
+  In R, `.dsem_drives(x, process)` joins `.has_dsem()`, and eight of the ten
+  call sites move to it. The two that stay are `run_mse()`'s refusal (its
+  parameter-trimming table cannot express the `estimate_projection` conditional
+  for a latent field whatever that field drives) and `sim_mod()`'s covariate
+  redraw (a covariate is observed with error regardless).
+
+  **No fit moves, and no saved fit refits differently.** Every SEM that builds
+  today names one `recdevs` latent per species, so `dsem_drives_rec` is 1
+  wherever `dsem_on` is 1 and every gate lands where it did before -- that
+  equivalence is structural, from the refusal above, and is established by
+  reading the code rather than by the measurement that follows. A `dsem` object
+  built before the flag existed reads as 1 in both `.dsem_tmb_inputs()` and
+  `.dsem_drives()`, since such a SEM could only have driven recruitment -- the
+  two take the same default deliberately, because disagreeing would make a saved
+  fit refit as a different model than it reports.
+
+  Measured both ways across a full recompile at `estimateMode = 3`, each
+  against the same fit built from the commit before this one:
+
+  * **With a recruitment DSEM** (`BS2017SS` plus an `env_data` column, the
+    default IID sem): the objective, the fixed-effect gradient, the joint
+    gradient over all 313 fixed and random parameters, `jnll_comp` and `R_sd`
+    are all bit-identical. This is the comparison that exercises the change --
+    `dsem_drives_rec` is 1 here, so every re-gated branch is evaluated.
+  * **With no SEM** (`BS2017SS` and `BS2017MS` as bundled): the objective, the
+    310-element gradient and `jnll_comp` are bit-identical. Neither bundled
+    model carries a SEM, so on its own this shows only that the new
+    `DATA_INTEGER` and the re-gated branches leave the ordinary objective and
+    its tape untouched.
+
+  `test-dsem-process-awareness.R` covers the third state, a SEM with the flag
+  off, by refitting one fit's own built objects with only that field flipped:
+  the recruitment density comes back non-zero, `rec_dev` is free in the map and
+  back in `random`, the GMRF density matches the unflipped fit's to the last
+  bit, and -- the assertion that discriminates -- `rec_dev` and `R_log_sd`
+  carry non-zero joint gradients. An earlier version of this change left the
+  recruitment takeover in section 5.5b gated on `dsem_on`, which drove both of
+  those gradients to exactly zero while every other assertion still passed.
+
+  Two guards refuse an incoherent pair outright: any value but 0 or 1, and
+  `dsem_drives_rec = 1` with `dsem_on = 0`. The second left `rec_dev` free,
+  integrated out, and scored by nothing -- an improper flat prior that still
+  converges -- and read the zero-length `rec_sd_use_prior` out of bounds. The
+  builders only ever emit the coherent pairs; a caller assembling a data list by
+  hand is what reaches them.
 
 ## Bug fixes
 

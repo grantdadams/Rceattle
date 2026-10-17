@@ -229,6 +229,9 @@ dsem_family_object <- function( fam ){
   list(
     data = list(
       dsem_on           = 0L,
+      # 0, so the recruitment-deviation density in section 13 is reached on the
+      # branch a model with no DSEM has always taken.
+      dsem_drives_rec   = 0L,
       nyrs_dsem         = 0L,
       dsem_options      = integer(4),
       dsem_RAM          = matrix(0L, 0, 6),
@@ -320,6 +323,11 @@ dsem_family_object <- function( fam ){
   list(
     data = list(
       dsem_on           = 1L,
+      # Defaults to 1 for a `dsem` object built before the flag existed: such a
+      # SEM could only have driven recruitment, and every saved $dsem in the
+      # assessment repos refits through here. .dsem_drives() takes the same
+      # default, or a saved fit would refit as a different model than it reports.
+      dsem_drives_rec   = as.integer(d$drives_rec %||% 1L),
       nyrs_dsem         = as.integer(d$nyrs_dsem),
       dsem_options      = as.integer(d$options),
       dsem_RAM          = matrix(as.integer(as.matrix(d$RAM)), ncol = 6),
@@ -712,6 +720,17 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
          ") for every species in the DSEM data")
   }
   fit_dsem$tmb_inputs$data$rec_dev_col <- as.integer(rec_dev_col)
+
+  # Whether this SEM owns the recruitment deviations, which the template reads
+  # as dsem_drives_rec. Read off the columns the sem actually names, not off
+  # rec_dev_col: match() returns NA rather than a shorter vector, so
+  # length(rec_dev_col) is nspp whatever the sem says and would always test
+  # TRUE. The refusal above requires every species' column, so this is 1 for
+  # every SEM that builds today; it is written as a test rather than a literal
+  # so that relaxing that refusal is the only change a SEM driving some other
+  # process needs here.
+  fit_dsem$tmb_inputs$data$drives_rec <-
+    as.integer(any(rec_cols %in% colnames(dsem_data)))
 
   # estimate_projection (DSEM latent projection states) overlaps with
   # proj_mean_rec (SRR projection method): under mean-recruitment projection

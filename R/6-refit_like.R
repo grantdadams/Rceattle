@@ -247,6 +247,44 @@
     !is.null(x$data_list$model_config$dsem)
 }
 
+# True when a DSEM is attached AND it drives `process`. `.has_dsem()` answers
+# "is there a SEM"; this answers "does that SEM own this process's deviations",
+# and the two stop being the same question as soon as a SEM can drive something
+# other than recruitment. Read it off the built objects, which is where the
+# template's own flag comes from, so R and C++ cannot disagree about which
+# processes a fit's SEM drives.
+#
+# A fit built before the flag existed could only have been a recruitment DSEM,
+# so its absence reads as recruitment -- the same default .dsem_tmb_inputs()
+# applies, and the two have to match or a saved fit would refit as a different
+# model.
+#
+# Accepts a fit, anything carrying a `data_list`, or the built dsem object
+# itself: fit_mod() holds `mod_objects$dsem` while the diagnostics hold a
+# fitted model, and both ask this question.
+#' @noRd
+.dsem_drives <- function(x, process = "recruitment") {
+  known <- names(.DSEM_LATENT_PREFIXES)
+  if (length(process) != 1L || !process %in% known) {
+    stop("`process` must be one of: ", paste(known, collapse = ", "), ".",
+         call. = FALSE)
+  }
+  # Built objects carry $tmb_inputs; a fit carries them under $dsem.
+  obj <- if (!is.null(x$tmb_inputs)) x else x$dsem
+  if (is.null(obj)) {
+    # A specification with no built objects beside it. That is not only a
+    # pre-fit state -- profile() handles a fitted model in exactly this shape
+    # and says so -- so the answer comes from what a specification can express:
+    # every sem that builds today names a recdevs latent per species, because
+    # build_dsem_objects() refuses one that does not. Any process other than
+    # recruitment is therefore FALSE until that refusal is relaxed.
+    return(.has_dsem(x) && identical(process, "recruitment"))
+  }
+  switch(process,
+         recruitment = isTRUE(as.integer(obj$tmb_inputs$data$drives_rec %||% 1L) == 1L),
+         FALSE)
+}
+
 # There is deliberately no shared "does not support a DSEM" refusal. Only three
 # places refuse at all -- run_mse(), sample_rec() on a hindcast-only field, and
 # profile() on `rec_dev` -- and each says something specific about why, which one

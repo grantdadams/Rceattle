@@ -925,7 +925,8 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
   # for that reason and this must refuse the SEM draw for it as well.
   # .sim_warn_rec_srr_penalty() below says so; it reads the model's own
   # reported gate, so the two cannot disagree about what happened.
-  .draw_dsem_process <- .sim_state_codes(process)[1L] == 1L && .has_dsem(object) &&
+  .draw_dsem_process <- .sim_state_codes(process)[1L] == 1L &&
+    .dsem_drives(object, "recruitment") &&
     .rec_srr_single_density(object)
 
   dat_sim <- object$data_list
@@ -1151,7 +1152,9 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 
   # Covariate observations, for a DSEM whose covariate carries a measurement
   # density. Not gated on `process`: an observation is redrawn whenever the
-  # observations are, the same as an index or a composition.
+  # observations are, the same as an index or a composition. And `.has_dsem()`
+  # rather than `.dsem_drives()`: a covariate is observed with error whatever
+  # process the SEM drives with it.
   if (simulate && .has_dsem(object)) {
     dat_sim <- .sim_write_env_data(dat_sim, sim_rep, object)
   }
@@ -1332,7 +1335,9 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
   sample_rec <- isTRUE(as.logical(sample_rec))
 
   .mean_rec <- isTRUE(as.logical(object$data_list$proj_mean_rec))
-  if (.has_dsem(object)) {
+  # Only where the SEM supplies recruitment: otherwise projected recruitment is
+  # drawn the ordinary way and the field is none of sample_rec()'s business.
+  if (.dsem_drives(object, "recruitment")) {
     if (!isTRUE(object$dsem$covers_projection)) {
       stop("sample_rec() needs the DSEM's latent states to span the ",
            "projection, so that projected recruitment can be drawn from the ",
@@ -1399,7 +1404,11 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
   # whole drawn field is written back -- keeping only the recruitment columns
   # would leave the object's recdevs correlated with a future environment it no
   # longer stores.
-  if (.has_dsem(object)) {
+  #
+  # Guarded on the SEM driving recruitment, so a SEM driving some other process
+  # is left alone: redrawing the whole field would make that process stochastic
+  # in the projection, which no non-DSEM model is.
+  if (.dsem_drives(object, "recruitment")) {
     object$estimated_params$dsem_x_tj <-
       .dsem_draw_projection(object, sample = sample_rec)
   }
@@ -1448,7 +1457,7 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
     #   the next objective evaluation and silently do nothing. rec_dev is then
     #   set to what the model will derive, so anything reading the object
     #   before the rebuild sees the same deviations.
-    if (.has_dsem(object)) {
+    if (.dsem_drives(object, "recruitment")) {
       .col  <- object$dsem$tmb_inputs$data$rec_dev_col[sp] + 1L
       .X    <- object$estimated_params$dsem_x_tj
       .rows <- (nrow(.X) - proj_nyrs + 1):nrow(.X)

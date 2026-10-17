@@ -439,6 +439,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   #
   # Neither of the assessments driving this work uses run_mse() with a DSEM, so
   # this is deferred rather than guessed at.
+  #
+  # `.has_dsem()` rather than `.dsem_drives()`: the second obstacle above is the
+  # parameter-trimming table, which cannot express the `estimate_projection`
+  # conditional for a latent field whatever process that field drives. Narrowing
+  # this to recruitment would let an MSE run with a SEM it still cannot trim.
   if (.has_dsem(om) || .has_dsem(em)) {
     stop("run_mse() does not yet support a DSEM. Fit the operating and ",
          "estimation models without one.", call. = FALSE)

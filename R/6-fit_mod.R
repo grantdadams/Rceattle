@@ -955,13 +955,19 @@ fit_mod <-
       for (nm in names(.dsem_map$mapList))   map$mapList[[nm]]   <- .dsem_map$mapList[[nm]]
       for (nm in names(.dsem_map$mapFactor)) map$mapFactor[[nm]] <- .dsem_map$mapFactor[[nm]]
 
-      # Under a DSEM the model OVERWRITES rec_dev from the latent states and
-      # R_sd from beta_z, so both blocks have exactly zero gradient. Left
-      # estimated they would be free parameters that cannot move the objective:
-      # flat directions, a singular Hessian, and no standard errors. Map them
-      # out. (They stay declared as parameters either way -- that is what keeps
-      # the non-DSEM path textually unchanged.)
-      if (!is.null(mod_objects$dsem)) {
+      # Where the SEM drives recruitment the model OVERWRITES rec_dev from the
+      # latent states and R_sd from beta_z, so both blocks have exactly zero
+      # gradient. Left estimated they would be free parameters that cannot move
+      # the objective: flat directions, a singular Hessian, and no standard
+      # errors. Map them out. (They stay declared as parameters either way --
+      # that is what keeps the non-DSEM path textually unchanged.)
+      #
+      # Keyed on whether the SEM drives RECRUITMENT, not on whether one is
+      # attached. A SEM driving some other process leaves rec_dev an ordinary
+      # estimated deviation, and mapping it out would delete the recruitment
+      # process: the fit would converge, report an ABC, and carry recruitment
+      # deviations pinned at their starting values.
+      if (.dsem_drives(mod_objects$dsem, "recruitment")) {
         for (nm in c("rec_dev", "R_log_sd")) {
           map$mapList[[nm]][]   <- NA
           map$mapFactor[[nm]]   <- factor(rep(NA, length(map$mapList[[nm]])))
@@ -1083,7 +1089,12 @@ fit_mod <-
     }
 
     if (random_rec) {
-      if (is.null(mod_objects$dsem)) random_vars <- c(random_vars, "rec_dev")
+      # rec_dev is integrated out unless the SEM derives it, in which case the
+      # latent field is the random block instead and rec_dev is mapped out
+      # above. A SEM driving some other process keeps rec_dev random, exactly
+      # as a model with no SEM does.
+      if (!.dsem_drives(mod_objects$dsem, "recruitment"))
+        random_vars <- c(random_vars, "rec_dev")
       # init_dev is integrated out only where it carries a density: the penalty
       # dnorm(init_dev, -sigma^2/2, R_sd) applies at initMode > 1 and != 5
       # (ceattle.cpp, JNLL_INIT_DEV), so keep this in lockstep with that gate.

@@ -199,7 +199,7 @@ profile.Rceattle <- function(fitted = NULL,
   # Cholesky factor not being identified), so the alias's implied log transform
   # does not apply here. `slots` still indexes by species; the species -> beta_z
   # translation happens here.
-  if (.has_dsem(fitted) && identical(param, "R_log_sd")) {
+  if (.dsem_drives(fitted, "recruitment") && identical(param, "R_log_sd")) {
     idx <- fitted$dsem$tmb_inputs$data$rec_sd_idx
     if (is.null(idx)) {
       stop("This fit carries a DSEM specification but not the built objects, ",
@@ -238,7 +238,7 @@ profile.Rceattle <- function(fitted = NULL,
   # rec_dev has no such home: under a DSEM it is DERIVED from the latent states
   # on every evaluation, so it carries no gradient at all and there is no single
   # parameter that stands for it.
-  if (.has_dsem(fitted) && identical(param, "rec_dev")) {
+  if (.dsem_drives(fitted, "recruitment") && identical(param, "rec_dev")) {
     stop("profile() cannot profile 'rec_dev' on a DSEM fit: the deviations are ",
          "derived from the latent states on every evaluation, so the block is ",
          "mapped out and the profile would be flat rather than informative. ",

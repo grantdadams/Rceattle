@@ -700,7 +700,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     # said nothing supplies the forecast, and the "forecast" would be a
     # deterministic zero deviation inherited from inits.
     .states_supply <- .use_model_rec && !.mean_rec &&
-      (.has_dsem(newmod) || !pin_block("rec_dev"))
+      (.dsem_drives(newmod, "recruitment") || !pin_block("rec_dev"))
     # The caller was told once, before dispatch, if `.mean_rec` makes
     # `forecast_rec = "model"` inert; see "Once-per-call warnings" above.
     # Penalty years to average R/R_hat over. A peel that ends before them uses its

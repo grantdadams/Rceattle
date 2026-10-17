@@ -302,7 +302,14 @@ Type objective_function<Type>::operator() () {
   // single block in section 5 that reads them is guarded on the switch, so a
   // model without a DSEM follows exactly the same path it did before.
   // Assembled R-side from dsem::dsem(run_model = FALSE); see R/0-build_DSEM.R.
-  DATA_INTEGER(dsem_on);               // 1 if a DSEM structures the recruitment deviations
+  DATA_INTEGER(dsem_on);               // 1 if a DSEM is attached at all
+  // 1 if that DSEM owns the recruitment deviations. Separate from dsem_on
+  // because a SEM can drive one process without driving another: the GMRF
+  // density and its conditioning are gated on dsem_on, while whether rec_dev
+  // is a derived state or an estimated deviation is gated on this. Supplied as
+  // 0 when there is no DSEM, so the recruitment density below is reached on the
+  // same branch a non-DSEM model has always taken.
+  DATA_INTEGER(dsem_drives_rec);
   DATA_INTEGER(nyrs_dsem);             // DSEM time steps; may be < nyrs (hindcast only)
   DATA_IVECTOR(dsem_options);          // dsem parameterization switches; see dsem.hpp
   DATA_IMATRIX(dsem_RAM);              // path structure [n_path, 6]
@@ -1189,8 +1196,23 @@ Type objective_function<Type>::operator() () {
   // observation SD (0.2% at SD = 0.05) and up to 8% on recruitment at SD = 1.
   // Treating it as unknown instead would be the joint prior variance, which is
   // wrong by more and in the same direction as the defect above.
+  // The two switches have to be a coherent pair, and an incoherent one is
+  // silent rather than loud: dsem_drives_rec = 1 with no SEM leaves rec_dev
+  // free, in `random`, and scored by nothing -- a flat improper prior that
+  // still converges -- and reads rec_sd_use_prior, which is zero-length
+  // without a SEM, out of bounds. Anything other than 0/1 lands in the same
+  // state, because the R side tests == 1 while the template tests == 0. The
+  // builders only ever emit (0,0) or (1,1); a caller assembling a data list by
+  // hand, which the regression test does deliberately, is what reaches this.
+  if(dsem_drives_rec != 0 && dsem_drives_rec != 1)
+    Rf_error("dsem_drives_rec is %d; it must be 0 or 1", (int)dsem_drives_rec);
+  if(dsem_drives_rec == 1 && dsem_on == 0)
+    Rf_error("dsem_drives_rec = 1 with dsem_on = 0: no SEM is attached, so nothing can drive the recruitment deviations");
+
   vector<int> dsem_cond_k(dsem_y_tj.rows() * dsem_y_tj.cols());
   dsem_cond_k.setZero();
+  // dsem_on, NOT dsem_drives_rec: the conditioning count describes the latent
+  // field's observed cells, which exist whatever process the SEM drives.
   if(dsem_on == 1){
     int n_t_dsem = dsem_y_tj.rows();
     for(int j2 = 0; j2 < dsem_y_tj.cols(); j2++){
@@ -1207,6 +1229,8 @@ Type objective_function<Type>::operator() () {
         dsem_cond_k(dsem_unobs_idx(u)) = 0;
     }
   }
+  // dsem_on, NOT dsem_drives_rec: this builds the latent field and its
+  // density, which every SEM needs whatever process it drives.
   if(dsem_on == 1){
     calculate_dsem(jnll_dsem, dsem_options, dsem_RAM, dsem_RAMstart,
                    dsem_familycode_j, dsem_linkcode_j, dsem_sigmastart_j,
@@ -1218,12 +1242,20 @@ Type objective_function<Type>::operator() () {
 
     // Dimension contract for THIS call site. calculate_dsem() checks its own
     // inputs against each other; nyrs_dsem and rec_dev_col are ours.
-    if(nyrs_dsem > rec_dev.cols())
-      Rf_error("DSEM spans %d years but rec_dev has %d columns -- the DSEM was built for a different model",
-               (int)nyrs_dsem, (int)rec_dev.cols());
     if(nyrs_dsem > dsem_z_tj.rows())
       Rf_error("DSEM spans %d years but the latent states have %d rows",
                (int)nyrs_dsem, (int)dsem_z_tj.rows());
+
+    // The recruitment takeover: R_sd from the SEM's variance path and rec_dev
+    // from the latent states. Gated on dsem_drives_rec, not on dsem_on -- a SEM
+    // driving some other process must leave both alone, or rec_dev would be
+    // scored by JNLL_REC_DEV and then overwritten from the field (a density
+    // evaluated away from its own parameter) while R_log_sd sat estimated with
+    // zero gradient, a flat direction and a singular Hessian.
+    if(dsem_drives_rec == 1){
+    if(nyrs_dsem > rec_dev.cols())
+      Rf_error("DSEM spans %d years but rec_dev has %d columns -- the DSEM was built for a different model",
+               (int)nyrs_dsem, (int)rec_dev.cols());
     if(rec_dev_col.size() != nspp)
       Rf_error("rec_dev_col has %d entries, expected %d (one per species)",
                (int)rec_dev_col.size(), nspp);
@@ -1265,6 +1297,7 @@ Type objective_function<Type>::operator() () {
                           - bias_adjust_proc * dsem_margvar_tj(yr, rec_dev_col(sp)) / 2.0;
       }
     }
+    } // end dsem_drives_rec == 1
 
     // 5.5c. SIMULATE THE COVARIATE OBSERVATIONS
     // Under family = "fixed" a covariate column IS the environmental series:
@@ -1757,8 +1790,11 @@ Type objective_function<Type>::operator() () {
       // sim_mod() draws the field from the reported precision and writes it into
       // dsem_x_tj, so section 5.5b derives rec_dev from the drawn states and
       // applies the bias correction once, where it always is.
+      // dsem_drives_rec, not dsem_on: where the SEM drives some other process,
+      // rec_dev is an ordinary estimated deviation and this is the density that
+      // scores it, so it is redrawn exactly as in a model with no SEM.
       if(simulate_state(0) == 1 && simulate_period(0) == 1 && rec_srr_single_density &&
-         dsem_on == 0){
+         dsem_drives_rec == 0){
         for(yr = 0; yr < nyrs_hind; yr++){
           rec_dev(sp, yr) = rnorm(-bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp));
           rec_dev_drawn_sim(sp, yr) = 1;
@@ -4908,9 +4944,13 @@ Type objective_function<Type>::operator() () {
 
     // Slot 10 -- Tau -- Annual recruitment deviation
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[R] = R0 (mean-unbiased).
-    // Skipped under a DSEM: the GMRF in section 5.5b is already the density for
-    // these deviations, and applying both would count them twice.
-    if(dsem_on == 0){
+    // Skipped where the SEM drives recruitment: the GMRF in section 5.5b is
+    // already the density for these deviations, and applying both would count
+    // them twice. Gated on dsem_drives_rec rather than dsem_on, so a SEM that
+    // drives only some other process leaves this density in place -- without
+    // that, attaching such a SEM would delete the recruitment process while
+    // the fit still converged and still reported an ABC.
+    if(dsem_drives_rec == 0){
       for(yr = 0; yr < nyrs_hind; yr++) {
         jnll_comp(JNLL_REC_DEV, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
       }
@@ -5747,6 +5787,13 @@ Type objective_function<Type>::operator() () {
   // jnll_comp rather than added straight to jnll so it appears in the reported
   // breakdown like every other component; JNLL_DSEM stays exactly 0 without one.
   // Column 0 because the density is joint over all species, not separable.
+  //
+  // dsem_on, NOT dsem_drives_rec: jnll_dsem is the SEM's whole negative log
+  // likelihood -- the GMRF over the latent field AND the measurement density on
+  // any observed covariate cell -- which a SEM has whatever process it drives.
+  // Gating it on dsem_drives_rec would drop both from the objective for a SEM
+  // that drives something else, leaving the field declared random with nothing
+  // scoring it.
   if (dsem_on == 1) {
     jnll_comp(JNLL_DSEM, 0) += jnll_dsem;
     // The unweighted copy is built from rows < 19 only, so mirror this one too:
