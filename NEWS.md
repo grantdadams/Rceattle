@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.57.0.9001`, the released line this branch now
+number: `DESCRIPTION` reads `5.57.0.9002`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -33,6 +33,24 @@ suffix stays until the DSEM work is given a release number of its own. The
 numbered on the 5.23.0 line.
 
 ## Behavior changes
+
+* **`retrospective(rescale = )` now takes a character vector of `env_data`
+  column names**, as well as `TRUE` / `FALSE`. `TRUE` is unchanged -- every
+  non-`Year` column -- so no existing call moves.
+
+  Name them wherever `env_data` carries DESIGN columns as well as covariates.
+  An SS3 bridge writes its selectivity blocks and year deviates there as 0/1
+  dummies, and a peel warm-starts `beta_linkage` from the parent fit, so
+  standardizing one of those scores a fitted coefficient against a column it
+  was not fitted on. On the GOA cod bridge that puts the 1990, 2005, 2007 and
+  2017 blocks at `{-0.35, 2.80}` instead of `{0, 1}`, takes a peel's starting
+  objective from 2050 to 67109 -- 87,812 nats of it in the catch likelihood --
+  and `nlminb` then stops with a non-finite evaluation. Naming only the real
+  covariates leaves the design alone.
+
+  An unknown name is an error, raised before any peel is fitted.
+  Pinned by `test-retrospective-rescale-columns.R`.
+
 
 * **A recruitment linkage may now be used alongside a DSEM.** `fit_mod()`
   refused the pair on the process NAME, but a recruitment linkage targets `R0`,
