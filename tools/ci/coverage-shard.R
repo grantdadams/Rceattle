@@ -179,22 +179,28 @@ message(sprintf("\nPer-file timings -> %s", timing_log))
 # source tree, and `package =` makes the test environment's parent the Rceattle
 # namespace so the internal helpers the suite calls resolve (see CLAUDE.md).
 #
-# stop_on_failure = FALSE: a failing test must not throw away the shard's
-# coverage before it is written. R-CMD-check is the correctness gate for this
-# suite -- test-coverage is deliberately non-blocking -- and the progress
-# reporter prints any failure into this log.
+# stop_on_failure = FALSE so a failing test does not throw away the shard's
+# coverage. Instead the subprocess writes the failing and erroring tests to
+# `failures_log`, and this script stops after the coverage report is written.
+# R-CMD-check skips every skip_on_cran() test, so this is the only per-PR job
+# where a failing fit_mod() test can turn red.
 #
 # MultiReporter leaves the progress reporter's console output exactly as it was
 # and writes the timing rows alongside it.
+failures_log <- tempfile(sprintf("coverage-failures-shard-%d-", shard), fileext = ".txt")
 code <- sprintf(
   'source(%s)
-   testthat::test_dir(%s, package = "Rceattle", load_package = "installed",
-                      filter = %s, stop_on_failure = FALSE,
-                      reporter = testthat::MultiReporter$new(reporters = list(
-                        testthat::ProgressReporter$new(),
-                        CoverageTimingReporter$new(%s))))',
+   results <- as.data.frame(testthat::test_dir(
+     %s, package = "Rceattle", load_package = "installed",
+     filter = %s, stop_on_failure = FALSE,
+     reporter = testthat::MultiReporter$new(reporters = list(
+       testthat::ProgressReporter$new(),
+       CoverageTimingReporter$new(%s)))))
+   failed <- results[results$failed > 0 | results$error, c("file", "test")]
+   writeLines(c(as.character(sum(results$nb)),
+                sprintf("%%s: %%s", failed$file, failed$test)), %s)',
   deparse1(timing_src), deparse1(test_dir), deparse1(filter),
-  deparse1(timing_log)
+  deparse1(timing_log), deparse1(failures_log)
 )
 
 install_path <- Sys.getenv("RUNNER_TEMP", unset = "")
@@ -215,3 +221,15 @@ cov <- covr::package_coverage(
 
 covr::to_cobertura(cov)
 message(sprintf("\nShard %d coverage: %s", shard, format(covr::percent_coverage(cov))))
+
+# A missing file means the test subprocess died before writing it, which is a
+# failure too, so readLines() is left to error.
+shard_results <- readLines(failures_log)
+if (as.integer(shard_results[1]) == 0) {
+  stop("Shard ", shard, " ran no assertions")
+}
+failed_tests <- shard_results[-1]
+if (length(failed_tests) > 0) {
+  stop("Shard ", shard, " has ", length(failed_tests), " failing or erroring tests:\n",
+       paste0("  ", failed_tests, collapse = "\n"))
+}
