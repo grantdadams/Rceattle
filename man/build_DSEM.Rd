@@ -14,11 +14,15 @@ build_DSEM(
 )
 }
 \arguments{
-\item{sem}{Specification for time-series structural equation model structure including lagged or simultaneous effects. See Details section in \code{dsem::make_dsem_ram} for more description. All variables must be included in and named following variables in \code{env_data}. The default is assumes IID recruitment deviates. NOTE: must include \code{recdevs[spp]} for each species \code{1:nspp} (recdevs1 and recdevs2 for a 2 species model)! If no start value is provided, those model terms are not estimated.}
+\item{sem}{Specification for the time-series structural equation model,
+including lagged and simultaneous effects; see \code{dsem::make_dsem_ram}.
+Every variable is either a column of \code{env_data} or one of the LATENT
+process columns below, which the SEM supplies and the population model then
+reads. The default is IID recruitment deviations.}
 
 \item{family}{Distribution for the measurement error of each \code{env_data}
-variable used in the \code{sem}. The latent \code{recdevs<sp>} columns are
-never observed and are always treated as \code{fixed} (measured exactly), so
+variable used in the \code{sem}. The latent process columns are never
+observed and are always treated as \code{fixed} (measured exactly), so
 \code{family} describes only the env-data variables retained in the
 \code{sem}. Supply a single string (recycled across all env variables) or a
 character vector with one element per env variable, each one of: \code{fixed}
@@ -99,4 +103,39 @@ where it is rather than flipped.}
 }
 \description{
 The code links dynamic structural equation models to recruitment within Rceattle. The internals of \code{dsem} were copy and pasted into Rceattle. See \code{??dsem} for more description.
+}
+\details{
+Latent process columns, one per species \code{<sp>} in \code{1:nspp}, with
+\code{f}/\code{m} appended for a two-sex species and no token for a one-sex
+species:
+
+\describe{
+\item{\code{recdevs<sp>}}{recruitment deviations (log scale)}
+\item{\code{l1devs<sp>}}{mean length at the growth anchor age, \code{L1} (cm)}
+\item{\code{linfdevs<sp>}}{asymptotic mean length, \code{Linf} (cm)}
+\item{\code{richdevs<sp>}}{the Richards shape parameter \code{m}}
+}
+
+The growth latents are log-scale multipliers on the parameter, applied through
+\code{growth_linkage_offset}, so they compose with a fixed environmental
+growth linkage rather than replacing it. They are bias-corrected, which makes
+the MEAN parameter -- and hence mean weight-at-age, the weight in SSB and
+B40\\% -- unbiased rather than the median.
+
+Name a recruitment column for every species to have the SEM drive
+recruitment, or none of them to leave recruitment on its own density; naming
+only some is an error. A sem that names no latent column at all is refused,
+since it would contribute a density to the objective while driving nothing.
+
+Growth \code{K} is NOT drivable. The Jan-1 recursion reads the previous
+year's K, so a terminal-year K latent reaches a hindcast observation only
+through the within-year advance, whose factor is zero at a Jan-1 fleet and
+spawning month -- measured there, perturbing it leaves the objective
+bit-identical. A growth latent is also refused where the species' growth model
+never reads that parameter: any of them under empirical weight-at-age, and
+\code{richdevs} under von Bertalanffy.
+
+One consequence of the latent naming: a name matching the latent pattern is
+treated as a latent even where the process never generates one, so an
+\code{env_data} column called e.g. \code{recdevs1f} would be shadowed.
 }

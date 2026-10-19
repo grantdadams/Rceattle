@@ -33,8 +33,8 @@ This vignette covers:
 
 `build_DSEM()` produces the list of DSEM settings consumed by `fit_mod()`. Its main arguments:
 
-- `sem` — text specification of the SEM. One row per link with the form `from -> to, lag, param_name, start_value` (or `<->` for a variance/covariance term). All variables must appear as columns in `data_list$env_data`, and recruitment deviations must be named `recdevs1`, `recdevs2`, … one per species. If no start value is given, that term is **not** estimated. The default (when `sem = NULL`) is IID recruitment deviates.
-- `family` — measurement-error family for each **env-data variable** in the SEM: `"fixed"` (default; measured exactly), `"normal"`, `"gamma"`, `"bernoulli"`, `"poisson"`, `"lognormal"`, or `"tweedie"`. A single string is recycled across the env variables. The latent `recdevs<sp>` columns are never observed, so they are always `fixed` regardless of this setting. Note that under `dsem` 3.0.0 a non-`"fixed"` family **estimates** that variable's observation-error SD; use `"fixed"` to treat a covariate as measured exactly.
+- `sem` — text specification of the SEM. One row per link with the form `from -> to, lag, param_name, start_value` (or `<->` for a variance/covariance term). Every variable is either a column of `data_list$env_data` or one of the **latent process columns** the SEM supplies to the population model (see *Which processes a SEM can drive* below). If no start value is given, that term is **not** estimated. The default (when `sem = NULL`) is IID recruitment deviates.
+- `family` — measurement-error family for each **env-data variable** in the SEM: `"fixed"` (default; measured exactly), `"normal"`, `"gamma"`, `"bernoulli"`, `"poisson"`, `"lognormal"`, or `"tweedie"`. A single string is recycled across the env variables. The latent process columns are never observed, so they are always `fixed` regardless of this setting. Note that under `dsem` 3.0.0 a non-`"fixed"` family **estimates** that variable's observation-error SD; use `"fixed"` to treat a covariate as measured exactly.
 - `sigmaR_prior_sd` — log-scale SD of an optional lognormal prior on each species' estimated recruitment SD, centred on the assessment's own `data_list$sigma_rec`. Default `NA` is no prior. In practice this is the argument that decides whether a real model converges: when environmental covariates over-explain the deviations, the recruitment SD collapses toward zero, and a value of 0.5–1 regularizes it while still estimating it. All four of the production DSEM scripts set it.
 - `estimate_projection` — if `FALSE` (default), latent states for the projection period are turned off, simplifying estimation.
 - `bound_sd` — whether the sem's standard-deviation paths (`x <-> x`) get a lower bound of 0. `TRUE` by default. Their sign is not identified, so the surface is symmetric about 0: harmless for an MLE, fatal for MCMC. See "Sampling a DSEM" below. Set `FALSE` only to reproduce a fit made before the bound existed, or to demonstrate the symmetry.
@@ -153,6 +153,48 @@ knitr::kable(s$recruitment_sd)
 Two cautions when quoting the table. A two-headed (`<->`) row is a variance parameter whose sign is not identified — the model uses its absolute value — so a negative `Estimate` there is not meaningful; compare magnitudes. And its `z_value` / `p_value` test against a boundary of the parameter space, so the usual Wald reading does not apply and they are typically extreme regardless of evidence.
 
 The underlying `dsem` object is on the model as `model2$dsem`, and the specification as `model2$data_list$dsem_settings$sem`.
+
+## Which processes a SEM can drive
+
+A latent column name says which process it drives and for which species — and,
+for a two-sex species, which sex. A one-sex species carries no sex token, which
+is the convention the rest of the package follows.
+
+| latent column | drives | units |
+|---|---|---|
+| `recdevs<sp>` | recruitment deviations | log scale |
+| `l1devs<sp>` | `L1`, mean length at the growth anchor age | cm |
+| `linfdevs<sp>` | `Linf`, asymptotic mean length | cm |
+| `richdevs<sp>` | the Richards shape parameter `m` | — |
+
+So `l1devs1` is species 1's `L1` in a one-sex model, and `l1devs2f` /
+`l1devs2m` are the female and male `L1` of species 2 in a two-sex model.
+
+The growth latents are log-scale multipliers applied through
+`growth_linkage_offset`, the same tensor a fixed environmental growth linkage
+writes to, so the two **compose**: the covariate carries the explained part and
+the latent the residual. They are bias-corrected on the GMRF's marginal
+variance, which makes the mean parameter unbiased rather than the median —
+mean weight-at-age is the weight in SSB and B40%.
+
+Name a recruitment column for **every** species to have the SEM drive
+recruitment, or **none** of them to leave recruitment on its own density. Naming
+only some species is an error, and so is a sem that names no latent column at
+all: it would contribute a density to the objective while driving nothing.
+
+Growth `K` is **not** drivable. The Jan-1 growth recursion reads the previous
+year's K, so a terminal-year K latent reaches a hindcast observation only
+through the within-year advance, whose factor is exactly zero at a Jan-1 fleet
+and spawning month — perturbing it there leaves the objective bit-identical.
+`L1` and `Linf` carry terminal-year information at any timing, so a field on
+them has no unidentified final year. A year-varying K is still available as a
+fixed or random-effect **growth linkage**
+(`build_growth(linkages = list(K = linkage_spec(~ (1 | Year))))`), which is a
+separate univariate density rather than part of the SEM's joint field.
+
+A growth latent is refused where the species' growth model never reads that
+parameter: any of them under empirical weight-at-age, and `richdevs` under von
+Bertalanffy, whose `m` is mapped out.
 
 ## Multi-species: EBS three-species model
 

@@ -242,7 +242,10 @@
 #                                   pre-built objects
 #   fit$data_list$model_config$dsem -- carried by a stored run configuration
 .has_dsem <- function(x) {
-  !is.null(x$dsem) ||
+  # `[[`, not `$`: `x$dsem` PARTIAL-MATCHES `dsem_settings`, so an object
+  # carrying only a specification reported built objects and every caller below
+  # took the wrong branch (measured). The schema's partial-match trap, live.
+  !is.null(x[["dsem"]]) ||
     !is.null(x$data_list$dsem_settings) ||
     !is.null(x$data_list$model_config$dsem)
 }
@@ -269,20 +272,47 @@
     stop("`process` must be one of: ", paste(known, collapse = ", "), ".",
          call. = FALSE)
   }
-  # Built objects carry $tmb_inputs; a fit carries them under $dsem.
-  obj <- if (!is.null(x$tmb_inputs)) x else x$dsem
+  # Built objects carry $tmb_inputs; a fit carries them under $dsem. `[[` for
+  # the same partial-match reason as .has_dsem().
+  obj <- if (!is.null(x[["tmb_inputs"]])) x else x[["dsem"]]
   if (is.null(obj)) {
     # A specification with no built objects beside it. That is not only a
     # pre-fit state -- profile() handles a fitted model in exactly this shape
-    # and says so -- so the answer comes from what a specification can express:
-    # every sem that builds today names a recdevs latent per species, because
-    # build_dsem_objects() refuses one that does not. Any process other than
-    # recruitment is therefore FALSE until that refusal is relaxed.
-    return(.has_dsem(x) && identical(process, "recruitment"))
+    # and says so. A growth-only sem is legal, so a spec alone no longer
+    # implies recruitment is driven; the honest answer is read off the sem text,
+    # which is the only thing available here.
+    if (!.has_dsem(x)) return(FALSE)
+    # The two spec locations .has_dsem() accepts that are not the built object.
+    # There is no top-level `dsem_settings` on a model: fit_mod() stores it at
+    # data_list$dsem_settings, and the built object carries $tmb_inputs and so
+    # takes the branch above.
+    spec <- x$data_list$dsem_settings %||% x$data_list$model_config$dsem
+    sem_txt <- paste(as.character(spec$sem %||% ""), collapse = "\n")
+    if (!nzchar(sem_txt)) {
+      # build_DSEM(sem = NULL) synthesises recruitment self-loops only.
+      return(identical(process, "recruitment"))
+    }
+    stem <- if (identical(process, "recruitment")) {
+      .DSEM_LATENT_PREFIXES[["recruitment"]]
+    } else {
+      .DSEM_LATENT_PREFIXES[[process]]
+    }
+    return(grepl(paste0("\\b", stem, "[0-9]+[fm]?\\b"), sem_txt))
   }
-  switch(process,
-         recruitment = isTRUE(as.integer(obj$tmb_inputs$data$drives_rec %||% 1L) == 1L),
-         FALSE)
+  # Named per target rather than defaulted: the accepted set comes from
+  # .DSEM_LATENT_PREFIXES, so a process added there (natural mortality is next,
+  # and the registry reserves `mdevs` for it) would otherwise fall into the
+  # growth branch and die in LINKAGE_PARAM_CODES$growth[[...]] with "subscript
+  # out of bounds". Growing the accept-list without growing the switch is the
+  # defect this function was just fixed for.
+  if (!process %in% names(.DSEM_GROWTH_TARGETS)) {
+    return(isTRUE(as.integer(obj$tmb_inputs$data$drives_rec %||% 1L) == 1L))
+  }
+  # Growth: the index map carries one entry per named growth latent, so the
+  # question is whether any entry claims this parameter's slot. An object built
+  # before growth was drivable has no map and answers FALSE.
+  par <- unname(LINKAGE_PARAM_CODES$growth[[sub("^growth_", "", process)]])
+  isTRUE(par %in% (obj$tmb_inputs$data$growth_dev_par %||% integer(0)))
 }
 
 # There is deliberately no shared "does not support a DSEM" refusal. Only three

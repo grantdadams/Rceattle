@@ -34,6 +34,58 @@ numbered on the 5.23.0 line.
 
 ## Behavior changes
 
+* **A DSEM can now drive mean growth.** A sem may name latent columns
+  `l1devs<sp>` (mean length at the growth anchor age, cm), `linfdevs<sp>`
+  (asymptotic mean length, cm) or `richdevs<sp>` (the Richards shape `m`), with
+  `f`/`m` appended for a two-sex species and no token for a one-sex species.
+  They are log-scale multipliers applied through `growth_linkage_offset`, so a
+  growth latent COMPOSES with a fixed environmental growth linkage on the same
+  parameter rather than replacing it, and they are bias-corrected on the GMRF's
+  marginal variance -- which makes mean weight-at-age unbiased, that being the
+  weight in SSB and B40%, rather than the median. Recruitment-only sems are
+  unaffected: the latent columns are declared for every model but dropped unless
+  the sem names them, so an existing `$dsem` object refits on the same code path
+  and its growth offset stays zero.
+
+* **Growth `K` is deliberately not drivable.** The Jan-1 growth recursion reads
+  the PREVIOUS year's K, so a terminal-year K latent reaches a hindcast
+  observation only through the within-year advance, whose factor is exactly zero
+  at a Jan-1 fleet and spawning month; measured there, perturbing the terminal K
+  latent leaves the objective bit-identical, against a 71-nat response one year
+  earlier. `L1` and `Linf` carry terminal-year information at any timing -- `L1`
+  through the length ramp and `Linf` through the plus group and the
+  length-at-age SD -- so a field on them has no unidentified final year. A
+  year-varying K remains available as a fixed or random-effect growth linkage
+  (`build_growth(linkages = list(K = linkage_spec(...)))`), which is a different
+  density and not part of the SEM's joint field.
+
+* **A sem that drives nothing is now refused.** Previously the
+  every-species recruitment requirement caught this; with growth drivable, a sem
+  over covariates alone would have fitted a GMRF and added `jnll_dsem` to the
+  objective while no part of the population model read it, so it converged and
+  reported an ABC whose objective was not comparable to the same model without a
+  SEM. Naming a recruitment column for only SOME species remains an error;
+  naming none of them is now legal and means the SEM does not drive recruitment.
+
+* **A growth latent is refused where the species' growth model never reads that
+  parameter**: any growth latent under empirical weight-at-age
+  (`growth_model = 0`, which estimates no growth parameters), and `richdevs`
+  under von Bertalanffy, whose `log_m` is mapped out. Such a latent was fitted
+  with its own density and drove nothing.
+
+* **`retrospective()` no longer writes a recruitment deviation into a growth
+  latent.** It gated on a DSEM being attached rather than on the SEM driving
+  recruitment, so under a growth-only sem it wrote the peel's recruitment
+  deviation into the first latent column -- a growth field -- and pinned it.
+  Reachable only with the growth latents above, so no released fit is affected.
+  The not-driven `rec_dev_col` sentinel is now `-1` rather than `0`, so any
+  ungated read fails instead of aliasing column 0.
+
+* **`.dsem_drives()` answers per growth parameter.** It previously accepted only
+  `"recruitment"`; it now takes the growth target names and reads the answer off
+  the latent index map, and its specification-only branch reads the sem text
+  rather than assuming recruitment is driven.
+
 * **"A SEM is attached" and "that SEM owns the recruitment deviations" are now
   two separate switches.** `dsem_on` meant both at once, which is the same
   question only while recruitment is the one process a SEM can drive.

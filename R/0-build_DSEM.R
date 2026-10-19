@@ -1,10 +1,56 @@
 
 #' Function to fit a dynamic structural equation model related to recruitment
 #'
-#' @param sem Specification for time-series structural equation model structure including lagged or simultaneous effects. See Details section in \code{dsem::make_dsem_ram} for more description. All variables must be included in and named following variables in \code{env_data}. The default is assumes IID recruitment deviates. NOTE: must include \code{recdevs[spp]} for each species \code{1:nspp} (recdevs1 and recdevs2 for a 2 species model)! If no start value is provided, those model terms are not estimated.
+#' @param sem Specification for the time-series structural equation model,
+#'   including lagged and simultaneous effects; see \code{dsem::make_dsem_ram}.
+#'   Every variable is either a column of \code{env_data} or one of the LATENT
+#'   process columns below, which the SEM supplies and the population model then
+#'   reads. The default is IID recruitment deviations.
+#' @details
+#' Latent process columns, one per species \code{<sp>} in \code{1:nspp}, with
+#' \code{f}/\code{m} appended for a two-sex species and no token for a one-sex
+#' species:
+#'
+#' \describe{
+#'   \item{\code{recdevs<sp>}}{recruitment deviations}
+#'   \item{\code{l1devs<sp>}}{\code{L1}, mean length at the growth anchor age}
+#'   \item{\code{linfdevs<sp>}}{\code{Linf}, asymptotic mean length}
+#'   \item{\code{richdevs<sp>}}{\code{m}, the Richards shape parameter}
+#' }
+#'
+#' Every latent is on the LOG scale -- a multiplier on its target, not an
+#' additive offset in the target's units. A growth latent of 0.2 multiplies the
+#' parameter by \code{exp(0.2)} = 1.22; it does not add 0.2 cm.
+#'
+#' The growth latents are log-scale multipliers on the parameter, applied through
+#' \code{growth_linkage_offset}, so they compose with a fixed environmental
+#' growth linkage rather than replacing it. They are bias-corrected, which makes
+#' \code{E[exp(latent)] = 1} and so leaves the PARAMETER's mean unbiased rather
+#' than its median. Note what that does and does not buy: weight-at-age is a
+#' convex power of length (\code{beta} near 3), so an unbiased mean parameter
+#' still leaves mean weight-at-age -- the weight in SSB and B40\% -- biased
+#' upward by Jensen's inequality. The correction removes the drift in the
+#' parameter, not in the weight.
+#'
+#' Name a recruitment column for every species to have the SEM drive
+#' recruitment, or none of them to leave recruitment on its own density; naming
+#' only some is an error. A sem that names no latent column at all is refused,
+#' since it would contribute a density to the objective while driving nothing.
+#'
+#' Growth \code{K} is NOT drivable. The Jan-1 recursion reads the previous
+#' year's K, so a terminal-year K latent reaches a hindcast observation only
+#' through the within-year advance, whose factor is zero at a Jan-1 fleet and
+#' spawning month -- measured there, perturbing it leaves the objective
+#' bit-identical. A growth latent is also refused where the species' growth model
+#' never reads that parameter: any of them under empirical weight-at-age, and
+#' \code{richdevs} under von Bertalanffy.
+#'
+#' One consequence of the latent naming: a name matching the latent pattern is
+#' treated as a latent even where the process never generates one, so an
+#' \code{env_data} column called e.g. \code{recdevs1f} would be shadowed.
 #' @param family Distribution for the measurement error of each \code{env_data}
-#'   variable used in the \code{sem}. The latent \code{recdevs<sp>} columns are
-#'   never observed and are always treated as \code{fixed} (measured exactly), so
+#'   variable used in the \code{sem}. The latent process columns are never
+#'   observed and are always treated as \code{fixed} (measured exactly), so
 #'   \code{family} describes only the env-data variables retained in the
 #'   \code{sem}. Supply a single string (recycled across all env variables) or a
 #'   character vector with one element per env variable, each one of: \code{fixed}
@@ -199,24 +245,98 @@ dsem_family_object <- function( fam ){
 #' Each entry carries the sem variable-name `prefix` users write (e.g.
 #' `recdevs` in `recdevs1 <-> recdevs1, 0, sigmaR1, 1`), the number of latent
 #' series `n` that process contributes, and the resulting `columns` in model
-#' order.
+#' order, plus the `species`, `sex` and growth-parameter `param` each column
+#' drives. The template reads all four through `DATA_IVECTOR(growth_dev_*)` and
+#' writes the latents into `growth_linkage_offset` in section 5.5b-growth.
 #'
-#' Only recruitment is wired today. Growth and M become additional entries when
-#' they land -- but note the recruitment-SD and prior machinery further down is
-#' still recruitment-specific and needs its own generalization at that point;
-#' this registry settles naming, not the per-process statistics.
+#' One entry per drivable TARGET, not per process: a sem names one latent column
+#' per target, and growth has three (`L1`, `Linf`, Richards `m`). Growth
+#' parameters are sex-specific, so a two-sex species carries one column per sex
+#' with the `f`/`m` token [linkage_spec()] already accepts on input, while a
+#' one-sex species carries no token -- the convention the package follows
+#' everywhere (`parameter_index()` reports NA, `data_check()` uses ""). `param` is the 0-based slot in `growth_linkage_offset`'s
+#' last dimension, taken from [LINKAGE_PARAM_CODES] so the two cannot drift.
 #'
-#' @param data_list a data_list; only `nspp` is used.
+#' Growth `K` is deliberately absent, on a measured identification argument
+#' rather than a structural one. In the Jan-1 cohort recursion year *t*'s length
+#' reads the PREVIOUS year's K (`growth.hpp` `lagkappa`), so the terminal year's
+#' K reaches a hindcast observation only through the within-year advance, whose
+#' factor is `exp(-kappa * fracyr) - 1` -- exactly zero at `fracyr = 0`.
+#' Measured there, perturbing the terminal K latent leaves the objective
+#' *bit-identical*, against a 71-nat response one year earlier.
+#'
+#' That measurement holds under three conditions, and not otherwise: a Jan-1
+#' fleet and spawning month; an INTEGER `growth_age_L1 - minage` (a fractional
+#' anchor puts one age slot on the `last_linear` branch, which reads the current
+#' year's kappa every year); and `plus_group_length` other than `"decay"`, whose
+#' plus-group loop also reads the current year's kappa. At a mid-year month, a
+#' fractional anchor, or `"decay"`, the terminal K is informed -- weakly.
+#'
+#' `L1` and `Linf` are drivable because each has a current-year channel that K
+#' lacks, and they are different channels: `L1` enters the linear ramp, `Linf`
+#' the plus group and the length-at-age SD denominator. Neither is universal
+#' either -- `Linf`'s terminal information vanishes under
+#' `plus_group_length = "none"` with equal SD endpoints.
+#' A `kdevs<sp>` column is therefore not a latent name; it is currently dropped
+#' as an unreferenced variable rather than refused, which is owed.
+#' Natural mortality keeps `mdevs` for when it lands; Richards `m` is
+#' `richdevs` so the two cannot collide, and so that a trailing `m` is
+#' unambiguously the sex token.
+#'
+#' Declaring a target costs nothing: a latent column the sem does not name is
+#' dropped before the model is built, so a recruitment-only sem is unaffected.
+#'
+#' This registry settles NAMING, not the per-process statistics, and the
+#' recruitment-SD machinery below is still recruitment-specific: a growth
+#' latent's `<->` variance takes its start value from the sem alone, gets no
+#' `sigmaR_prior_sd` analogue, and has no `random_rec` map handling. Generalising
+#' that is owed.
+#'
+#' @param data_list a data_list; only `nspp` and `nsex` are used. Declaration is
+#'   unconditional: a `richdevs` column is declared even where the species has no
+#'   Richards `m` to drive, and is dropped unless the sem names it.
 #' @noRd
 .dsem_latent_registry <- function(data_list) {
-  list(
+  nspp <- data_list[["nspp"]]
+  spp  <- seq_len(nspp)
+  reg <- list(
     recruitment = list(
       prefix  = .DSEM_LATENT_PREFIXES[["recruitment"]],
-      n       = data_list$nspp,
-      columns = paste0(.DSEM_LATENT_PREFIXES[["recruitment"]],
-                       seq_len(data_list$nspp))
+      n       = nspp,
+      columns = paste0(.DSEM_LATENT_PREFIXES[["recruitment"]], spp),
+      species = spp,
+      sex     = rep(0L, nspp),          # recruitment is not sex-specific
+      param   = rep(NA_integer_, nspp)
     )
   )
+
+  # nsex may be absent on a partially built data_list; one sex is the safe
+  # reading, and data_check() is what enforces its presence.
+  nsex <- data_list[["nsex"]]
+  if (is.null(nsex)) nsex <- rep(1L, nspp)
+  nsex <- rep_len(as.integer(nsex), nspp)
+
+  for (nm in names(.DSEM_GROWTH_TARGETS)) {
+    prefix <- .DSEM_GROWTH_TARGETS[[nm]]
+    cols <- character(0); sp_i <- integer(0); sx_i <- integer(0)
+    for (sp in spp) {
+      # The one-sex rule: no sex token where the species has one sex.
+      toks <- if (nsex[sp] > 1L) c("f", "m") else ""
+      cols <- c(cols, paste0(prefix, sp, toks))
+      sp_i <- c(sp_i, rep(sp, length(toks)))
+      sx_i <- c(sx_i, seq_along(toks))
+    }
+    reg[[nm]] <- list(
+      prefix  = prefix,
+      n       = length(cols),
+      columns = cols,
+      species = sp_i,
+      sex     = sx_i,
+      param   = rep(unname(LINKAGE_PARAM_CODES$growth[[sub("^growth_", "", nm)]]),
+                    length(cols))
+    )
+  }
+  reg
 }
 
 # TMB requires every DATA_ and PARAMETER_ macro in the template to be supplied,
@@ -244,6 +364,14 @@ dsem_family_object <- function( fam ){
       dsem_obs_idx      = integer(0),
       dsem_unobs_idx    = integer(0),
       rec_dev_col       = integer(0),
+      # Growth latent index map, empty for a model with no growth latent.
+      # Supplied here because TMB requires every DATA_ macro in the template,
+      # and section 5.5b-growth declares these; the null and real input field
+      # sets have to stay identical or the two paths hand TMB different lists.
+      growth_dev_col    = integer(0),
+      growth_dev_sp     = integer(0),
+      growth_dev_sex    = integer(0),
+      growth_dev_par    = integer(0),
       rec_sd_idx        = integer(0),
       rec_sd_fixed      = numeric(0),
       rec_sd_prior      = numeric(0),
@@ -340,6 +468,14 @@ dsem_family_object <- function( fam ){
       dsem_obs_idx      = if (is.null(d$obs_idx))   integer(0) else as.integer(d$obs_idx),
       dsem_unobs_idx    = if (is.null(d$unobs_idx)) integer(0) else as.integer(d$unobs_idx),
       rec_dev_col       = as.integer(d$rec_dev_col),
+      # Empty for a `dsem` object built before growth was drivable: such a SEM
+      # drove recruitment only, so it has no growth latents. Every saved $dsem
+      # in the assessment repos refits through here, so the default has to be
+      # the no-growth case rather than an error.
+      growth_dev_col    = as.integer(d$growth_dev_col %||% integer(0)),
+      growth_dev_sp     = as.integer(d$growth_dev_sp  %||% integer(0)),
+      growth_dev_sex    = as.integer(d$growth_dev_sex %||% integer(0)),
+      growth_dev_par    = as.integer(d$growth_dev_par %||% integer(0)),
       rec_sd_idx        = as.integer(d$rec_sd_idx),
       rec_sd_fixed      = as.numeric(d$rec_sd_fixed),
       rec_sd_prior      = as.numeric(d$rec_sd_prior),
@@ -370,7 +506,57 @@ dsem_family_object <- function( fam ){
 # particular model, so the pattern below can be built without a data_list.
 # Folding them together made check_dsem_spec() -- which needs only the stems --
 # start requiring data_list$nspp, and error on inputs it used to accept.
-.DSEM_LATENT_PREFIXES <- c(recruitment = "recdevs")
+.DSEM_LATENT_PREFIXES <- c(recruitment = "recdevs",
+                           growth_L1   = "l1devs",
+                           growth_Linf = "linfdevs",
+                           growth_m    = "richdevs")
+
+# The growth subset, keyed by registry entry name. Richards `m` takes the stem
+# `richdevs`, not `mdevs`: `mdevs` belongs to natural mortality, and a trailing
+# `m` has to stay readable as the sex token.
+.DSEM_GROWTH_TARGETS <- .DSEM_LATENT_PREFIXES[c("growth_L1", "growth_Linf",
+                                                "growth_m")]
+
+
+# Refuse a growth latent the species' growth model never reads. Empirical
+# weight-at-age (`growth_model` 0) has no growth parameters at all, and von
+# Bertalanffy (1) has no Richards `m` -- `R/3-build_map.R` maps `log_m` out at
+# npar = 3. Such a latent is a free field carrying its own GMRF density and
+# driving nothing: the model converges and reports an ABC for a process the user
+# believes is time-varying and is not. Refused rather than warned because the
+# user named the column explicitly.
+#
+# `growth_model` is set by fit_mod() from `growthFun` before build_dsem_objects()
+# runs, so the fitted path always has it; a direct caller may not, and there is
+# nothing to check against then.
+#' @param growth_model Per-species growth switch, or NULL.
+#' @param cols,sp,par The named growth latents, their 1-based species, and their
+#'   `LINKAGE_PARAM_CODES$growth` slot.
+#' @noRd
+.check_dsem_growth_model <- function(growth_model, cols, sp, par) {
+  if (is.null(growth_model) || !length(cols)) return(invisible(NULL))
+  gm <- rep_len(as.integer(growth_model), max(sp))
+  m_slot <- unname(LINKAGE_PARAM_CODES$growth[["m"]])
+  bad_empirical <- gm[sp] == 0L
+  bad_richards  <- gm[sp] == 1L & par == m_slot
+  if (any(bad_empirical)) {
+    stop("The sem drives growth (", paste(cols[bad_empirical], collapse = ", "),
+         ") for species with empirical weight-at-age (growth_model = 0), which ",
+         "estimates no growth parameters. Those latents would be fitted and ",
+         "drive nothing. Set a parametric growth model for those species ",
+         "(build_growth(fun = \"vonBertalanffy\")), or drop the columns from ",
+         "the sem.", call. = FALSE)
+  }
+  if (any(bad_richards)) {
+    stop("The sem drives the Richards shape parameter (",
+         paste(cols[bad_richards], collapse = ", "),
+         ") for species whose growth model is von Bertalanffy, which has no ",
+         "`m` -- it is mapped out. That latent would be fitted and drive ",
+         "nothing. Use build_growth(fun = \"Richards\") for those species, or ",
+         "drop the columns from the sem.", call. = FALSE)
+  }
+  invisible(NULL)
+}
 
 # Latent column names across the whole registry, in model order.
 #' @noRd
@@ -384,7 +570,14 @@ dsem_family_object <- function( fam ){
 # Takes no arguments by design -- see the note on .DSEM_LATENT_PREFIXES.
 #' @noRd
 .dsem_latent_pattern <- function() {
-  paste0("^(", paste(unique(.DSEM_LATENT_PREFIXES), collapse = "|"), ")[0-9]+$")
+  # Optional trailing f/m is the sex token a two-sex species carries. No prefix
+  # is a prefix of another, so the alternation is unambiguous; the suffix class
+  # stays narrow enough to keep rejecting near-misses like `recdevs_anom`,
+  # `recdevs1_lag` or `xrecdevs1`. One accepted consequence: `recdevs1f` is now
+  # RECOGNISED as a latent name though recruitment never generates one, so an
+  # env column by that name would be shadowed.
+  paste0("^(", paste(unique(.DSEM_LATENT_PREFIXES), collapse = "|"),
+         ")[0-9]+[fm]?$")
 }
 
 
@@ -448,6 +641,19 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   # ORDER is load-bearing -- rec_dev_col indexes x_tj by position -- so each
   # latent column goes to the front, and iterating in reverse leaves them in
   # model order.
+  # An env_data column sharing a latent's name is OVERWRITTEN with NA here, not
+  # merely shadowed in the family regex -- the user's series is deleted and the
+  # column becomes a free latent state. Warn before doing it: growth added three
+  # more name families (l1devs/linfdevs/richdevs) plus the f/m sex forms, so the
+  # chance of a collision with a real covariate went up. No sibling script is
+  # affected today (swept), which is why this warns rather than refuses.
+  .clobbered <- intersect(latent_cols, names(dsem_data))
+  if (length(.clobbered)) {
+    warning("env_data column(s) ", paste(.clobbered, collapse = ", "),
+            " share a name with a DSEM latent process column, so the supplied ",
+            "series are replaced by latent states and the data in them is not ",
+            "used. Rename those env_data columns.", call. = FALSE)
+  }
   for(nm in rev(latent_cols)){
     dsem_data[[nm]] <- NA_real_
     dsem_data <- dsem_data[, c(nm, setdiff(names(dsem_data), nm)), drop = FALSE]
@@ -713,22 +919,71 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   }
 
   # x_tj column of each species' recdevs (0-based for the cpp).
+  # Growth latents the sem actually names, decoded against the registry so the
+  # names and the index map cannot drift. One row per named column: its x_tj
+  # column (0-based), the species and sex it drives, and the 0-based slot in
+  # growth_linkage_offset's last dimension. Empty for a recruitment-only sem,
+  # which is what keeps those fits on the existing code path.
+  g_reg <- .dsem_latent_registry(data_list)[names(.DSEM_GROWTH_TARGETS)]
+  g_col <- unlist(lapply(g_reg, `[[`, "columns"), use.names = FALSE)
+  g_hit <- match(g_col, colnames(dsem_data))
+  keep  <- !is.na(g_hit)
+  fit_dsem$tmb_inputs$data$growth_dev_col <- as.integer(g_hit[keep] - 1L)
+  fit_dsem$tmb_inputs$data$growth_dev_sp  <-
+    as.integer(unlist(lapply(g_reg, `[[`, "species"), use.names = FALSE)[keep] - 1L)
+  fit_dsem$tmb_inputs$data$growth_dev_sex <-
+    as.integer(unlist(lapply(g_reg, `[[`, "sex"), use.names = FALSE)[keep] - 1L)
+  fit_dsem$tmb_inputs$data$growth_dev_par <-
+    as.integer(unlist(lapply(g_reg, `[[`, "param"), use.names = FALSE)[keep])
+  .check_dsem_growth_model(
+    data_list[["growth_model"]], g_col[keep],
+    fit_dsem$tmb_inputs$data$growth_dev_sp + 1L,
+    fit_dsem$tmb_inputs$data$growth_dev_par)
+
   rec_dev_col <- match(rec_cols, colnames(dsem_data)) - 1L
-  if(any(is.na(rec_dev_col))){
-    stop("Could not locate a latent column (",
-         paste(rec_cols, collapse = ", "),
-         ") for every species in the DSEM data")
+  n_rec_named <- sum(!is.na(rec_dev_col))
+  # A sem may drive growth and leave recruitment alone, so naming NO recruitment
+  # column is allowed. Naming SOME but not all stays an error: that is a typo in
+  # a species index, not a design, and it would silently delete the recruitment
+  # process for the species whose column is missing while keeping it for the
+  # others.
+  if (n_rec_named > 0L && n_rec_named < length(rec_cols)) {
+    stop("The sem names a recruitment latent column for ", n_rec_named, " of ",
+         length(rec_cols), " species. Name one for every species (",
+         paste(rec_cols, collapse = ", "), ") so the SEM drives recruitment, ",
+         "or none of them so it does not. Driving a subset would leave the ",
+         "remaining species with no recruitment deviations at all.",
+         call. = FALSE)
   }
+  # ... but a sem that drives NOTHING is a different thing, and before growth
+  # became drivable the refusal above caught it. Such a model still fits a GMRF
+  # to its covariates and still adds jnll_dsem to the objective, while no part
+  # of the population model reads any of it -- so it converges, reports an ABC,
+  # and its objective is not comparable to the same model without the SEM.
+  if (n_rec_named == 0L && !any(keep)) {
+    stop("The sem names no latent process column, so it drives nothing in the ",
+         "model. Name a recruitment column for every species (",
+         paste(rec_cols, collapse = ", "), ") and/or one of this model's growth ",
+         "columns (", paste(g_col, collapse = ", "),
+         "). A sem over covariates alone still contributes its density to the ",
+         "objective without driving any process.", call. = FALSE)
+  }
+  # -1, not 0: unread when drives_rec = 0, but several R consumers index x_tj as
+  # rec_dev_col[sp] + 1L, and 0 would alias the FIRST latent column -- a growth
+  # latent. -1 does NOT make such a read error: measured, index 0 silently
+  # no-ops an assignment, returns a 0-column matrix, and inverts a mask built by
+  # negative subscripting. What makes it loud is the `.col >= 1L` assertion at
+  # each consumer; the sentinel's job is only to be a value no column can have,
+  # so a missed assertion cannot quietly hit a real column. NA is not an option:
+  # it reaches a DATA_IVECTOR as INT_MIN.
+  if (n_rec_named == 0L) rec_dev_col <- rep(-1L, length(rec_cols))
   fit_dsem$tmb_inputs$data$rec_dev_col <- as.integer(rec_dev_col)
 
   # Whether this SEM owns the recruitment deviations, which the template reads
   # as dsem_drives_rec. Read off the columns the sem actually names, not off
   # rec_dev_col: match() returns NA rather than a shorter vector, so
   # length(rec_dev_col) is nspp whatever the sem says and would always test
-  # TRUE. The refusal above requires every species' column, so this is 1 for
-  # every SEM that builds today; it is written as a test rather than a literal
-  # so that relaxing that refusal is the only change a SEM driving some other
-  # process needs here.
+  # TRUE.
   fit_dsem$tmb_inputs$data$drives_rec <-
     as.integer(any(rec_cols %in% colnames(dsem_data)))
 

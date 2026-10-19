@@ -754,10 +754,15 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
       # and the one future state where the filter WOULD bite -- a DSEM rebuilt
       # per peel over styr:endyr_peel -- is exactly where silently writing
       # nothing would be the bug this block exists to fix.
-      if (!is.null(newmod$dsem) && !is.null(peeled_pars$dsem_x_tj)) {
+      # Gate on the SEM DRIVING RECRUITMENT, not on one being attached: a
+      # growth-only SEM has no recruitment column, and rec_dev_col is then a
+      # sentinel. Writing here would put a recruitment deviation into whichever
+      # latent column came first -- a growth field -- and pin it.
+      if (.dsem_drives(newmod, "recruitment") &&
+          !is.null(peeled_pars$dsem_x_tj)) {
         .col <- newmod$dsem$tmb_inputs$data$rec_dev_col[sp] + 1L
         .rows <- peel_prj_yrs - styr + 1L
-        stopifnot(length(.col) == 1L, !is.na(.col),
+        stopifnot(length(.col) == 1L, !is.na(.col), .col >= 1L,
                   max(.rows) <= nrow(peeled_pars$dsem_x_tj))
         # ADD BACK the lognormal bias correction. The template derives
         #   rec_dev = x_tj - bias_adjust_proc * margvar / 2

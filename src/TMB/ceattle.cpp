@@ -321,7 +321,15 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY(dsem_y_tj);               // observations; latent columns are NA
   DATA_IVECTOR(dsem_obs_idx);          // stacked-space partition, projecting parameterizations
   DATA_IVECTOR(dsem_unobs_idx);
-  DATA_IVECTOR(rec_dev_col);           // 0-based x_tj column carrying each species' recdevs
+  DATA_IVECTOR(rec_dev_col);           // 0-based x_tj column carrying each species' recdevs, -1 where the SEM does not drive recruitment
+  // Growth latents the SEM drives, one entry per named column: its 0-based x_tj
+  // column, the 0-based species and sex it drives, and the 0-based slot in
+  // growth_linkage_offset's last dimension (K 0, L1 1, Linf 2, Richards m 3).
+  // All four are zero-length unless a sem names a growth latent.
+  DATA_IVECTOR(growth_dev_col);
+  DATA_IVECTOR(growth_dev_sp);
+  DATA_IVECTOR(growth_dev_sex);
+  DATA_IVECTOR(growth_dev_par);
   DATA_IVECTOR(rec_sd_idx);            // 1-based beta_z index of each species' recruitment SD (0 if fixed)
   DATA_VECTOR(rec_sd_fixed);           // fixed recruitment SD, used where rec_sd_idx == 0
   DATA_VECTOR(rec_sd_prior);           // prior centre for the recruitment SD
@@ -1246,6 +1254,16 @@ Type objective_function<Type>::operator() () {
       Rf_error("DSEM spans %d years but the latent states have %d rows",
                (int)nyrs_dsem, (int)dsem_z_tj.rows());
 
+    // Against the MODEL's year span, not just the DSEM's own. Every tensor a
+    // latent is written into is dimensioned nyrs, and the rec_dev.cols() check
+    // below is inside dsem_drives_rec == 1 -- so a growth-only SEM reached the
+    // growth writer with no year bound at all. A dsem built for a longer model
+    // and handed to fit_mod() through `dsem = <built objects>` is the reached
+    // case.
+    if(nyrs_dsem > nyrs)
+      Rf_error("DSEM spans %d years but the model spans %d -- the DSEM was built for a different model",
+               (int)nyrs_dsem, (int)nyrs);
+
     // The recruitment takeover: R_sd from the SEM's variance path and rec_dev
     // from the latent states. Gated on dsem_drives_rec, not on dsem_on -- a SEM
     // driving some other process must leave both alone, or rec_dev would be
@@ -1259,6 +1277,14 @@ Type objective_function<Type>::operator() () {
     if(rec_dev_col.size() != nspp)
       Rf_error("rec_dev_col has %d entries, expected %d (one per species)",
                (int)rec_dev_col.size(), nspp);
+    // The value, not only the count. Where the SEM does not drive recruitment
+    // the R side sets -1, a deliberate non-column; reading dsem_z_tj at it would
+    // be out of bounds. Reached by hand-setting dsem_drives_rec = 1 on a SEM
+    // that does not name a recruitment column, which the test suite does.
+    for(sp = 0; sp < nspp; sp++)
+      if(rec_dev_col(sp) < 0 || rec_dev_col(sp) >= dsem_z_tj.cols())
+        Rf_error("dsem_drives_rec = 1 but rec_dev_col[%d] is %d; this SEM does not name a recruitment latent column",
+                 (int)sp, (int)rec_dev_col(sp));
 
     for(sp = 0; sp < nspp; sp++){
       // R_sd FIRST -- the bias correction below uses it. The recruitment SD is
@@ -1298,6 +1324,54 @@ Type objective_function<Type>::operator() () {
       }
     }
     } // end dsem_drives_rec == 1
+
+    // 5.5b-growth. GROWTH LATENTS INTO THE GROWTH OFFSET
+    // A SEM may drive mean growth per species and sex: L1 (cm at the anchor
+    // age), Linf (cm) or the Richards shape m. The latent is a log-scale
+    // multiplier on the parameter, which is what growth_linkage_offset already
+    // is, so it lands in the same tensor section 5.7 reads at
+    // exp(log_growth_pars + growth_linkage_offset).
+    //
+    // `+=`, not `=`: a fixed environmental linkage may already have written this
+    // cell, and the two compose -- the covariate gives the explained part and
+    // the latent the residual. Overwriting would silently delete the linkage.
+    //
+    // Bias-corrected on the same terms as the recruitment deviations above and
+    // for the same reason: the offset is exponentiated, so without
+    // -margvar/2 the mean parameter drifts up with the latent's variance and
+    // mean weight-at-age -- the weight in SSB, B40% and the ABC -- goes with it.
+    // The correction uses the GMRF's MARGINAL variance per state, not the
+    // innovation SD.
+    //
+    // nyrs_dsem, not nyrs: with estimate_projection = FALSE the latent matrix is
+    // shorter than the model's year span, and the projection years keep whatever
+    // the linkage fill left them (zero unless a covariate linkage wrote there).
+    for(int g = 0; g < growth_dev_col.size(); g++){
+      // Dimension contract for this call site, as for rec_dev_col above: the R
+      // side builds these from the latent registry, but a hand-built or
+      // hand-edited $dsem list reaches here too, and an out-of-range index
+      // would write into a neighbouring species' growth.
+      if(growth_dev_col(g) < 0 || growth_dev_col(g) >= dsem_z_tj.cols())
+        Rf_error("growth_dev_col[%d] is %d; it must index a column of dsem_x_tj (0-%d)",
+                 g, (int)growth_dev_col(g), (int)dsem_z_tj.cols() - 1);
+      if(growth_dev_sp(g) < 0 || growth_dev_sp(g) >= nspp)
+        Rf_error("growth_dev_sp[%d] is %d; it must be a 0-based species (0-%d)",
+                 g, (int)growth_dev_sp(g), (int)nspp - 1);
+      if(growth_dev_sex(g) < 0 || growth_dev_sex(g) >= nsex(growth_dev_sp(g)))
+        Rf_error("growth_dev_sex[%d] is %d, but species %d has %d sex(es)",
+                 g, (int)growth_dev_sex(g), (int)growth_dev_sp(g) + 1,
+                 (int)nsex(growth_dev_sp(g)));
+      if(growth_dev_par(g) < 0 || growth_dev_par(g) >= RCEATTLE_N_GROWTH_PARAMS)
+        Rf_error("growth_dev_par[%d] is %d; it must be a mean-growth slot (0-%d)",
+                 g, (int)growth_dev_par(g), RCEATTLE_N_GROWTH_PARAMS - 1);
+
+      for(yr = 0; yr < nyrs_dsem; yr++){
+        growth_linkage_offset(growth_dev_sp(g), growth_dev_sex(g), yr,
+                              growth_dev_par(g)) +=
+          dsem_z_tj(yr, growth_dev_col(g))
+          - bias_adjust_proc * dsem_margvar_tj(yr, growth_dev_col(g)) / 2.0;
+      }
+    }
 
     // 5.5c. SIMULATE THE COVARIATE OBSERVATIONS
     // Under family = "fixed" a covariate column IS the environmental series:
@@ -1360,10 +1434,11 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-  // Position matters: REPORT() copies the tensor at the call site, and these
-  // offsets are the seam section 5.5b writes a DSEM's growth and M latent
-  // states into. Reported above 5.5b they would be a pre-DSEM snapshot,
-  // contradicting growth_parameters and the M the dynamics read.
+  // Position matters: REPORT() copies the tensor at the call site, and section
+  // 5.5b-growth adds a DSEM's growth latent states to growth_linkage_offset
+  // above. Reported before that, the growth offset would be a pre-DSEM snapshot
+  // contradicting growth_parameters. M_linkage_offset has no DSEM writer yet and
+  // is reported here for the same reason it will need to be.
   REPORT(M_linkage_offset);
   REPORT(M_linkage_offset_nat);
   REPORT(growth_linkage_offset);
