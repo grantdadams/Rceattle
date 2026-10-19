@@ -180,10 +180,10 @@ message(sprintf("\nPer-file timings -> %s", timing_log))
 # namespace so the internal helpers the suite calls resolve (see CLAUDE.md).
 #
 # stop_on_failure = FALSE so a failing test does not throw away the shard's
-# coverage. Instead the subprocess writes the failing and erroring tests to
-# `failures_log`, and this script stops after the coverage report is written.
-# R-CMD-check skips every skip_on_cran() test, so this is the only per-PR job
-# where a failing fit_mod() test can turn red.
+# coverage. Instead the subprocess writes the passing-expectation count and the
+# failing and erroring tests to `failures_log`, and this script stops after the
+# coverage report is written. This is the only per-PR job that runs the
+# skip_on_cran() suite, since R-CMD-check sets NOT_CRAN=false.
 #
 # MultiReporter leaves the progress reporter's console output exactly as it was
 # and writes the timing rows alongside it.
@@ -197,7 +197,7 @@ code <- sprintf(
        testthat::ProgressReporter$new(),
        CoverageTimingReporter$new(%s)))))
    failed <- results[results$failed > 0 | results$error, c("file", "test")]
-   writeLines(c(as.character(sum(results$nb)),
+   writeLines(c(as.character(sum(results$passed)),
                 sprintf("%%s: %%s", failed$file, failed$test)), %s)',
   deparse1(timing_src), deparse1(test_dir), deparse1(filter),
   deparse1(timing_log), deparse1(failures_log)
@@ -222,14 +222,15 @@ cov <- covr::package_coverage(
 covr::to_cobertura(cov)
 message(sprintf("\nShard %d coverage: %s", shard, format(covr::percent_coverage(cov))))
 
-# A missing file means the test subprocess died before writing it, which is a
-# failure too, so readLines() is left to error.
+# covr keeps the test output in Rceattle-commands.Rout, uploaded below as the
+# coverage-test-failures-shard-N artifact, so name the failing tests here.
 shard_results <- readLines(failures_log)
-if (as.integer(shard_results[1]) == 0) {
-  stop("Shard ", shard, " ran no assertions")
-}
 failed_tests <- shard_results[-1]
 if (length(failed_tests) > 0) {
-  stop("Shard ", shard, " has ", length(failed_tests), " failing or erroring tests:\n",
+  stop("Shard ", shard, " has ", length(failed_tests), " failing or erroring tests ",
+       "(full output in the coverage-test-failures-shard-", shard, " artifact):\n",
        paste0("  ", failed_tests, collapse = "\n"))
+}
+if (as.integer(shard_results[1]) == 0) {
+  stop("Shard ", shard, " passed no expectations, so its tests were skipped")
 }

@@ -21,11 +21,9 @@
 #    sets NOT_CRAN=false, so it skips all of them. Note 94 of those carry the
 #    call at FILE level, outside any test_that(): such a file produces a
 #    zero-row result, so it reports neither a pass nor a skip and disappears
-#    from the counts rather than showing up as skipped. test-coverage does run
-#    them, but tools/ci/coverage-shard.R passes stop_on_failure = FALSE and no
-#    later step reads the result, so a failure prints into a shard log and the
-#    job stays green. Between the two, a broken regression test failed nothing.
-#    This job is where those tests can go red.
+#    from the counts rather than showing up as skipped. test-coverage runs them
+#    on every PR, split across shards, and a shard fails when one of its tests
+#    does. This job runs the whole suite uninstrumented, serially, every night.
 #
 # All three are slow: golden is four phased fits with newtonsteps, a
 # bounds-checked build range-tests every array access, and the full NOT_CRAN
