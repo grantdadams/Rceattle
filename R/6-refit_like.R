@@ -315,6 +315,16 @@
   isTRUE(par %in% (obj$tmb_inputs$data$growth_dev_par %||% integer(0)))
 }
 
+# TRUE when the SEM drives ANY growth parameter. The gate in sim_mod() asks the
+# question that way because the GMRF draw is joint: it does not matter which
+# growth parameter is driven, only whether the field has growth states in it.
+#' @noRd
+.dsem_drives_growth <- function(x) {
+  any(vapply(names(.DSEM_GROWTH_TARGETS),
+             function(p) isTRUE(.dsem_drives(x, p)), logical(1)))
+}
+
+
 # There is deliberately no shared "does not support a DSEM" refusal. Only three
 # places refuse at all -- run_mse(), sample_rec() on a hindcast-only field, and
 # profile() on `rec_dev` -- and each says something specific about why, which one

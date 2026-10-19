@@ -413,3 +413,109 @@ testthat::test_that("an env_data column named like a latent warns before being r
       dsem_settings = build_DSEM(sem = "recdevs1 <-> recdevs1, 0, sigmaR1, 1\n"),
       data_list = d2))
 })
+
+testthat::test_that("driving one SEX of a two-sex species' growth is allowed", {
+  testthat::skip_if_not_installed("dsem")
+
+  # Deliberately NOT symmetric with the all-or-none species rule for
+  # recruitment, and pinned so the asymmetry is a recorded decision rather than
+  # an oversight. A species with no recruitment column has no recruitment
+  # deviations at all -- the process is deleted -- whereas a sex with no growth
+  # column has time-invariant growth, which is what every model without a growth
+  # latent has. The sexes' mean-growth parameters are separate map blocks
+  # (R/3-build_map.R), so only the sex named is driven and the other is
+  # unaffected.
+  d <- list(styr = 1990, endyr = 2000, projyr = 2000, nspp = 1L, spnames = "a",
+            nsex = 2L, growth_model = 1L, sigma_rec_prior = 1,
+            random_rec = TRUE, proj_mean_rec = TRUE,
+            env_data = data.frame(Year = 1990:2000, BT = 0))
+
+  obj <- build_dsem_objects(
+    dsem_settings = build_DSEM(sem = paste0(
+      "recdevs1 <-> recdevs1, 0, sigmaR1, 1\n",
+      "l1devs1f <-> l1devs1f, 0, sigL1f, 0.3\n")),
+    data_list = d)
+
+  dt <- obj$tmb_inputs$data
+  testthat::expect_length(dt$growth_dev_col, 1L)
+  testthat::expect_equal(dt$growth_dev_sex, 0L)          # female, 0-based
+  testthat::expect_equal(dt$growth_dev_par,
+                         LINKAGE_PARAM_CODES$growth[["L1"]])
+  # The male column is declared by the registry but unnamed, so it is dropped.
+  testthat::expect_false("l1devs1m" %in% colnames(dt$y_tj))
+})
+
+# ---- check_dsem_spec(): per-process records, per-equation conditioning -------
+# Nothing pinned these four record names, so the "recruitment records are
+# unchanged" claim was unprotected against the next edit.
+
+testthat::test_that("spec records are named for the process whose paths they describe", {
+  set.seed(1)
+  ed <- data.frame(Year = 1990:2030, BT = stats::rnorm(41))
+  ed$SPARSE <- ifelse(seq_len(41) %% 4 == 0, stats::rnorm(41), NA)
+  dl <- list(styr = 1990, endyr = 2030, env_data = ed)
+  pth <- function(from, to) data.frame(
+    path = paste(from, "->", to), lag = 0, name = paste0("b", from, to),
+    start = 0.1, parameter = 1L, first = from, second = to, direction = 1,
+    stringsAsFactors = FALSE)
+
+  rec <- check_dsem_spec(dl, list(sem_full = pth("SPARSE", "recdevs1")))$checks
+  testthat::expect_true("rec_predictor_observability" %in% names(rec))
+  testthat::expect_false(any(grepl("^growth_", names(rec))))
+
+  gro <- check_dsem_spec(dl, list(sem_full = pth("SPARSE", "l1devs1")))$checks
+  testthat::expect_true("growth_predictor_observability" %in% names(gro))
+  testthat::expect_false(any(grepl("^rec_", names(gro))))
+
+  # The recruitment message is byte-identical to before the split (it names
+  # sigmaR), which is what a script matching on it depends on.
+  testthat::expect_match(rec$rec_predictor_observability$message,
+                         "drive sigmaR to 0\\.$")
+})
+
+
+testthat::test_that("design conditioning is per latent equation, not per process", {
+  # One covariate driving two latents has NO collinearity, but pooling the
+  # targets made it two identical columns: max |r| = 1.00 and a condition number
+  # of ~6e16. That shape is the canonical growth sem (L1 and Linf from one
+  # covariate) and the canonical multispecies recruitment sem.
+  set.seed(1)
+  ed <- data.frame(Year = 1990:2030, BT = stats::rnorm(41))
+  ed$CHL <- ed$BT * 0.95 + stats::rnorm(41, 0, 0.1)   # genuinely collinear
+  ed$IND <- stats::rnorm(41)
+  dl <- list(styr = 1990, endyr = 2030, env_data = ed)
+  pth <- function(from, to) data.frame(
+    path = paste(from, "->", to), lag = 0, name = paste0("b", from, to),
+    start = 0.1, parameter = 1L, first = from, second = to, direction = 1,
+    stringsAsFactors = FALSE)
+  cond <- function(sf) {
+    nm <- names(check_dsem_spec(dl, list(sem_full = sf))$checks)
+    nm[grepl("conditioning", nm)]
+  }
+  # One predictor per equation: nothing to report, for either process.
+  testthat::expect_length(cond(rbind(pth("BT","l1devs1"), pth("BT","linfdevs1"))), 0L)
+  testthat::expect_length(cond(rbind(pth("BT","recdevs1"), pth("BT","recdevs2"))), 0L)
+  testthat::expect_length(cond(rbind(pth("BT","l1devs1f"), pth("BT","l1devs1m"))), 0L)
+  # Genuine within-equation collinearity still fires, and names the equation.
+  r <- check_dsem_spec(dl, list(sem_full =
+    rbind(pth("BT","l1devs1"), pth("CHL","l1devs1"))))$checks
+  testthat::expect_equal(r$growth_design_conditioning$severity, "WARN")
+  testthat::expect_match(r$growth_design_conditioning$message, "for l1devs1")
+  testthat::expect_lt(r$growth_design_conditioning$data$condition_number, 1e4)
+  # Independent predictors in one equation: silent.
+  testthat::expect_length(cond(rbind(pth("BT","l1devs1"), pth("IND","l1devs1"))), 0L)
+})
+
+
+testthat::test_that("an all-NA direction column does not crash check_dsem_spec()", {
+  # Regression: `any(grepl(...) & as.numeric(direction) == 1)` is NA when every
+  # direction is NA, and `if (!NA)` throws. check_dsem_spec() is exported and
+  # takes a user-supplied list, so a hand-built sem_full reaches this.
+  ed <- data.frame(Year = 1990:2000, BT = 0)
+  dl <- list(styr = 1990, endyr = 2000, env_data = ed)
+  sf <- data.frame(path = "BT -> recdevs1", lag = 0, name = "b", start = 0.1,
+                   parameter = 1L, first = "BT", second = "recdevs1",
+                   direction = NA, stringsAsFactors = FALSE)
+  testthat::expect_s3_class(check_dsem_spec(dl, list(sem_full = sf)),
+                            "Rceattle_convergence")
+})

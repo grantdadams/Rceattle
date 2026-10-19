@@ -31,8 +31,15 @@ variance -> sigmaR collapse).
 \item \code{rec_design_conditioning} -- condition number / max pairwise
 correlation of the lag-aligned recruitment design matrix (collinear
 predictors).
-\item \code{covariate_scale} -- recruitment covariates spanning orders of
-magnitude in SD (ill-conditioning; consider standardizing).
+\item \code{growth_predictor_observability},
+\code{growth_design_conditioning} -- the same two checks for paths into a
+growth latent (\code{l1devs}, \code{linfdevs}, \code{richdevs}), reported
+separately so a growth predictor's coverage or collinearity is not
+attributed to recruitment.
+\item \code{covariate_scale} -- covariates of ANY driven process spanning
+orders of magnitude in SD (ill-conditioning; consider standardizing).
+Pooled across processes deliberately: they share one latent field and one
+precision, so scale heterogeneity is a property of the joint field.
 \item \code{covariate_variance} -- an observed recruitment predictor with
 no exogenous variance of its own (no two-headed path, or one fixed at
 zero). Such a variable is deterministic: the model computes it rather

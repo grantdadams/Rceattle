@@ -188,3 +188,77 @@ testthat::test_that("the growth latent is bias-corrected on the marginal varianc
   testthat::expect_gt(ba, 0)
   testthat::expect_gt(max(abs(mv)), 0)
 })
+
+
+# ---- process error: the DSEM field is drawn, selectively -------------------
+# A DSEM's latent field is one joint GMRF, so sim_mod() draws it here rather
+# than in the template. These pin that growth participates, that a caller can
+# ask for one process without redrawing another (a cell left out is CONDITIONED
+# on, not ignored), and that the drawn field comes back as the truth.
+
+testthat::test_that("sim_mod() draws the growth field, and only what was asked for", {
+  testthat::skip_if_not_installed("dsem")
+  fit <- .grow_fit(SEM3)
+  if (is.null(fit$obj$env$last.par.best))
+    fit$obj$env$last.par.best <- fit$obj$env$par
+  cols <- colnames(fit$dsem$tmb_inputs$data$y_tj)
+  X0 <- as.matrix(fit$estimated_params$dsem_x_tj)
+  moved <- function(st) {
+    set.seed(3)
+    d <- Rceattle:::.dsem_draw_process(fit, Rceattle:::.sim_state_codes(st))
+    vapply(seq_along(cols), function(j) !isTRUE(all.equal(X0[, j], d[, j])),
+           logical(1))
+  }
+  jR <- which(cols == "recdevs1"); jL <- which(cols == "l1devs1")
+
+  all_ <- moved(TRUE)
+  testthat::expect_true(all_[jR]); testthat::expect_true(all_[jL])
+  # Asking for recruitment must NOT redraw growth -- before this it did, which
+  # would corrupt a self-test's attribution without saying so.
+  rec_ <- moved("recruitment")
+  testthat::expect_true(rec_[jR]); testthat::expect_false(rec_[jL])
+  # And asking for growth must not redraw recruitment.
+  gro_ <- moved("growth")
+  testthat::expect_false(gro_[jR]); testthat::expect_true(gro_[jL])
+})
+
+
+testthat::test_that("a growth-only sem can draw its process, and reports the truth", {
+  testthat::skip_if_not_installed("dsem")
+  # The gate used to require the SEM to drive RECRUITMENT, so a growth-only sem
+  # could not draw its process at all; and the drawn field was attached to
+  # attr(, "process_sim") only alongside rec_dev, so a growth-only draw lost its
+  # truth silently and compare_sim() would have measured against the wrong one.
+  fit <- .grow_fit("l1devs1 <-> l1devs1, 0, sigL1, 0.25\n")
+  if (is.null(fit$obj$env$last.par.best))
+    fit$obj$env$last.par.best <- fit$obj$env$par
+  testthat::expect_false(Rceattle:::.dsem_drives(fit, "recruitment"))
+  testthat::expect_true(Rceattle:::.dsem_drives_growth(fit))
+
+  set.seed(8)
+  ds <- suppressWarnings(Rceattle::sim_mod(fit, simulate = TRUE, process = TRUE))
+  truth <- attr(ds, "process_sim")
+  testthat::expect_false(is.null(truth$dsem_x_tj))
+  # The field was actually drawn, not handed back at its fitted (zero) values.
+  testthat::expect_gt(stats::sd(as.matrix(truth$dsem_x_tj)[, 1]), 0.05)
+  testthat::expect_true(all(truth$dsem_x_tj_drawn))
+})
+
+
+testthat::test_that("a DSEM growth latent is not reported as having no distribution", {
+  testthat::skip_if_not_installed("dsem")
+  # .sim_warn_process_absent() tested only for a LINKAGE-GRAMMAR growth random
+  # effect, so on a DSEM growth latent it said "no random linkage on a growth
+  # parameter ... Nothing was redrawn and the fitted values stand" while the
+  # field was in fact being drawn. That false alarm cost two wrong diagnoses.
+  fit <- .grow_fit(SEM3)
+  obj <- Rceattle:::.sim_obj(fit)
+  w <- character(0)
+  withCallingHandlers(
+    Rceattle:::.sim_warn_process_absent(obj, Rceattle:::.sim_state_codes(TRUE)),
+    warning = function(x) { w <<- c(w, conditionMessage(x))
+                            invokeRestart("muffleWarning") })
+  testthat::expect_false(any(grepl("growth", w)))
+  # The M arm must still fire -- M1_re = 0 here, so M really cannot be drawn.
+  testthat::expect_true(any(grepl("M1_re = 0", w)))
+})

@@ -110,22 +110,39 @@ Latent process columns, one per species \code{<sp>} in \code{1:nspp}, with
 species:
 
 \describe{
-\item{\code{recdevs<sp>}}{recruitment deviations (log scale)}
-\item{\code{l1devs<sp>}}{mean length at the growth anchor age, \code{L1} (cm)}
-\item{\code{linfdevs<sp>}}{asymptotic mean length, \code{Linf} (cm)}
-\item{\code{richdevs<sp>}}{the Richards shape parameter \code{m}}
+\item{\code{recdevs<sp>}}{recruitment deviations}
+\item{\code{l1devs<sp>}}{\code{L1}, mean length at the growth anchor age}
+\item{\code{linfdevs<sp>}}{\code{Linf}, asymptotic mean length}
+\item{\code{richdevs<sp>}}{\code{m}, the Richards shape parameter}
 }
+
+Every latent is on the LOG scale -- a multiplier on its target, not an
+additive offset in the target's units. A growth latent of 0.2 multiplies the
+parameter by \code{exp(0.2)} = 1.22; it does not add 0.2 cm.
 
 The growth latents are log-scale multipliers on the parameter, applied through
 \code{growth_linkage_offset}, so they compose with a fixed environmental
 growth linkage rather than replacing it. They are bias-corrected, which makes
-the MEAN parameter -- and hence mean weight-at-age, the weight in SSB and
-B40\\% -- unbiased rather than the median.
+\code{E[exp(latent)] = 1} and so leaves the PARAMETER's mean unbiased rather
+than its median. Note what that does and does not buy: weight-at-age is a
+convex power of length (\code{beta} near 3), so an unbiased mean parameter
+still leaves mean weight-at-age -- the weight in SSB and B40\\% -- biased
+upward by Jensen's inequality. The correction removes the drift in the
+parameter, not in the weight.
 
 Name a recruitment column for every species to have the SEM drive
 recruitment, or none of them to leave recruitment on its own density; naming
 only some is an error. A sem that names no latent column at all is refused,
 since it would contribute a density to the objective while driving nothing.
+
+Naming one SEX of a two-sex species' growth and not the other is allowed, and
+the asymmetry with the species rule above is deliberate. A species with no
+recruitment column has no recruitment deviations at all -- the process is
+gone -- whereas a sex with no growth column simply has time-invariant growth,
+which is what every model without a growth latent has. The sexes' mean-growth
+parameters are separate blocks (only the length-at-age SD is shared), so
+driving the better-sampled sex alone is a coherent model rather than a
+half-specified one.
 
 Growth \code{K} is NOT drivable. The Jan-1 recursion reads the previous
 year's K, so a terminal-year K latent reaches a hindcast observation only

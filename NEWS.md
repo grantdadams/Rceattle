@@ -34,6 +34,74 @@ numbered on the 5.23.0 line.
 
 ## Behavior changes
 
+* **`check_dsem_spec()`'s design-conditioning check now runs per latent
+  EQUATION, which removes a false positive on the most common sems.**
+  Collinearity is a property of one target's design matrix -- each path
+  coefficient is identified by its own target latent's residual -- so pooling
+  targets made one covariate driving two latents appear as two identical
+  columns, scored at `max |r| = 1.00` and a condition number of ~6e16 for a
+  design with no collinearity at all. That hit `BT -> recdevs1` +
+  `BT -> recdevs2` (the canonical multispecies climate sem) and would have hit
+  `BT -> l1devs1` + `BT -> linfdevs1` (the canonical growth sem). Genuine
+  within-equation collinearity still fires, now naming the equation: a pair of
+  predictors correlated at 0.95 into `l1devs1` reports a condition number of
+  326. **`rec_design_conditioning` will therefore stop firing on some models
+  where it used to**, and may now report a different (correct) condition number
+  where several equations are involved.
+
+* **The specification checks report growth paths separately from recruitment
+  ones.** Growth latents match the latent-name pattern, so a growth-only sem
+  previously received records named `rec_predictive_observability` and
+  `rec_design_conditioning`, and a mixed sem had both processes' predictors
+  pooled. There are now `growth_predictor_observability` and
+  `growth_design_conditioning`; the recruitment records keep their names and
+  their message text byte-for-byte. A path into a latent that no check covers is
+  now an error rather than silently unchecked -- relevant when natural mortality
+  joins the registry.
+
+* `covariate_scale`'s message says "DSEM covariates" rather than "Recruitment
+  covariates", for every sem. The record id, severity, thresholds and data
+  payload are unchanged; only the noun moved, because the check pools the
+  predictors of every driven process and the old wording is false for a sem that
+  does not drive recruitment.
+
+* `check_dsem_spec()` no longer errors on a hand-built `sem_full` whose
+  `direction` column is all `NA`; it returns no records, as it did before the
+  growth latents were added.
+
+* **`sim_mod()` draws a DSEM's growth process error, and draws only the
+  processes asked for.** The latent field is one joint GMRF, so it is drawn in R
+  rather than in the template; the gate previously required the SEM to drive
+  RECRUITMENT, so a growth-only sem could not redraw its process at all, and
+  `process = "recruitment"` on a sem driving both silently redrew the growth
+  field as well. A column left out of the request is now held at its fitted
+  value and *conditioned on* rather than ignored, which is what lets
+  `process = "growth"` leave recruitment alone. Verified: on a sem driving both,
+  `process = "growth"` draws the growth column (sd 0.277) and holds recruitment
+  at sd 0.000.
+
+* **The drawn latent field is reported as the truth whenever one was drawn.** It
+  was attached to `attr(, "process_sim")` only alongside `rec_dev`, so a
+  growth-only draw -- or `process = "growth"` -- lost its truth silently, and
+  `compare_sim()` would then measure bias against an operating model that is no
+  longer the one that generated the data.
+
+* **A DSEM growth latent is no longer reported as having no distribution to draw
+  from.** `sim_mod(process = TRUE)` warned "growth (no random linkage on a
+  growth parameter) ... Nothing was redrawn and the fitted values stand" while
+  the field was in fact being drawn, because the check tested only for a
+  linkage-grammar growth random effect. The M arm of that warning is unchanged
+  and still fires at `M1_re = 0`.
+
+* Two reads of `rec_dev_col` now drop the not-driven sentinel explicitly. Both
+  were LATENT rather than live: the only caller was behind
+  `.dsem_drives(object, "recruitment")`, which is false exactly when the
+  sentinel is set. They differ in what they would have done once a growth-only
+  sem could reach them -- `.dsem_draw_process()` built a negative subscript and
+  would have inverted a mask (42 of 82 cells at nt = 41), while
+  `.dsem_rec_truth()` indexed zero columns and would have yielded an empty
+  mask.
+
 * **A DSEM can now drive mean growth.** A sem may name latent columns
   `l1devs<sp>` (mean length at the growth anchor age, cm), `linfdevs<sp>`
   (asymptotic mean length, cm) or `richdevs<sp>` (the Richards shape `m`), with

@@ -37,6 +37,15 @@
 #' only some is an error. A sem that names no latent column at all is refused,
 #' since it would contribute a density to the objective while driving nothing.
 #'
+#' Naming one SEX of a two-sex species' growth and not the other is allowed, and
+#' the asymmetry with the species rule above is deliberate. A species with no
+#' recruitment column has no recruitment deviations at all -- the process is
+#' gone -- whereas a sex with no growth column simply has time-invariant growth,
+#' which is what every model without a growth latent has. The sexes' mean-growth
+#' parameters are separate blocks (only the length-at-age SD is shared), so
+#' driving the better-sampled sex alone is a coherent model rather than a
+#' half-specified one.
+#'
 #' Growth \code{K} is NOT drivable. The Jan-1 recursion reads the previous
 #' year's K, so a terminal-year K latent reaches a hindcast observation only
 #' through the within-year advance, whose factor is zero at a Jan-1 fleet and
@@ -1111,8 +1120,15 @@ merge_dsem_map <- function(map, dsem) {
 #'   \item \code{rec_design_conditioning} -- condition number / max pairwise
 #'     correlation of the lag-aligned recruitment design matrix (collinear
 #'     predictors).
-#'   \item \code{covariate_scale} -- recruitment covariates spanning orders of
-#'     magnitude in SD (ill-conditioning; consider standardizing).
+#'   \item \code{growth_predictor_observability},
+#'     \code{growth_design_conditioning} -- the same two checks for paths into a
+#'     growth latent (\code{l1devs}, \code{linfdevs}, \code{richdevs}), reported
+#'     separately so a growth predictor's coverage or collinearity is not
+#'     attributed to recruitment.
+#'   \item \code{covariate_scale} -- covariates of ANY driven process spanning
+#'     orders of magnitude in SD (ill-conditioning; consider standardizing).
+#'     Pooled across processes deliberately: they share one latent field and one
+#'     precision, so scale heterogeneity is a property of the joint field.
 #'   \item \code{covariate_variance} -- an observed recruitment predictor with
 #'     no exogenous variance of its own (no two-headed path, or one fixed at
 #'     zero). Such a variable is deterministic: the model computes it rather
@@ -1189,67 +1205,132 @@ check_dsem_spec <- function(data_list, dsem) {
   # Everything below reads env_data.
   if (is.null(ed) || is.null(ed$Year)) return(finish(out))
 
-  # Recruitment paths: one-headed (direction 1) arrows into a latent node.
-  is_rec <- grepl(.dsem_latent_pattern(), as.character(sf$second)) &
-            as.numeric(sf$direction) == 1
-  rec <- sf[is_rec, , drop = FALSE]
-  if (nrow(rec) == 0) return(finish(out))
+  # Paths into a latent node, one-headed (direction 1), SPLIT BY THE PROCESS the
+  # target drives. Before this they were pooled and reported under the rec_*
+  # names, so a growth-only sem got records called rec_design_conditioning and a
+  # mixed sem had its recruitment and growth predictors crammed into one design
+  # matrix whose condition number was attributed to recruitment. The prefix is
+  # enough to classify -- no data_list needed, which keeps this function's
+  # contract.
+  tgt <- as.character(sf$second)
+  # NA-safe: `direction` is user-supplied on a hand-built sem_full, and
+  # `any(NA)` would make the guard below throw where it used to return OK.
+  # Every neighbouring read of this column is equally defensive.
+  dir1 <- suppressWarnings(as.numeric(sf$direction))
+  dir1 <- !is.na(dir1) & dir1 == 1
+  into_latent <- grepl(.dsem_latent_pattern(), tgt) & dir1
+  # The suffix is already validated by the pattern above, so the stem alone
+  # classifies. startsWith() rather than a fourth copy of `[0-9]+[fm]?$`.
+  is_rec <- into_latent & startsWith(tgt, .DSEM_LATENT_PREFIXES[["recruitment"]])
+  is_gro <- into_latent &
+    Reduce(`|`, lapply(.DSEM_GROWTH_TARGETS, function(st) startsWith(tgt, st)))
+  # `into_latent` is the UNION of every registered prefix while the two groups
+  # enumerate two of them, so a process added to the registry (natural mortality
+  # is next) would otherwise be checked by neither and say nothing. Loud instead.
+  if (any(into_latent & !(is_rec | is_gro))) {
+    stop("No specification check covers paths into ",
+         paste(unique(tgt[into_latent & !(is_rec | is_gro)]), collapse = ", "),
+         ". Add the process to check_dsem_spec()'s classification.", call. = FALSE)
+  }
 
-  preds <- intersect(unique(as.character(rec$first)), colnames(ed))
-  if (length(preds) == 0) return(finish(out))
+  if (!any(into_latent)) return(finish(out))
 
   styr <- data_list$styr; endyr <- data_list$endyr
   yrs  <- styr:endyr
   nyr  <- length(yrs)
   edh  <- ed[ed$Year %in% yrs, , drop = FALSE]
 
-  # T1.1 -- latent observability of recruitment predictors
-  cov_frac <- vapply(preds, function(p) sum(!is.na(edh[[p]])) / nyr, numeric(1))
-  low <- preds[cov_frac < 0.5]
-  if (length(low) > 0) {
-    sev <- if (any(cov_frac[low] < 0.25)) "WARN" else "NOTE"
-    out$rec_predictor_observability <- .conv_record(
-      "rec_predictor_observability", "spec", sev,
-      sprintf(paste0(
-        "Recruitment predictor(s) observed in <50%% of hindcast years: %s. ",
-        "Sparse latents can absorb recruitment variance and drive sigmaR to 0."),
-        paste(sprintf("%s (%.0f%%)", low, 100 * cov_frac[low]),
-              collapse = ", ")),
-      data.frame(predictor = preds, coverage = round(cov_frac, 3),
-                 row.names = NULL))
-  }
+  # Predictors of ANY driven process, for the scale check below, which is about
+  # the covariates rather than about one process.
+  preds <- intersect(unique(as.character(sf$first[into_latent])), colnames(ed))
+  if (length(preds) == 0) return(finish(out))
 
-  # T1.2 -- lag-aligned recruitment design conditioning
-  cols <- lapply(seq_len(nrow(rec)), function(i) {
-    p   <- as.character(rec$first[i]); lag <- as.numeric(rec$lag[i])
-    if (!p %in% colnames(ed)) return(NULL)
-    ed[[p]][match(yrs - lag, ed$Year)]   # predictor at the lag the SEM uses
-  })
-  names(cols) <- make.unique(paste0(rec$first, "_lag", rec$lag))
-  cols <- cols[!vapply(cols, is.null, logical(1))]
-  if (length(cols) >= 2) {
-    X  <- do.call(cbind, cols)
-    Xc <- X[stats::complete.cases(X), , drop = FALSE]
-    if (nrow(Xc) > ncol(Xc)) {
+  # T1.1 / T1.2 per process. Two callers, so this earns its place as a helper;
+  # the recruitment wording and record names are unchanged from before the
+  # split, because a script may read them.
+  design_checks <- function(paths, noun, sd_name, obs_name, cond_name) {
+    res <- list()
+    pr <- intersect(unique(as.character(paths$first)), colnames(ed))
+    if (!nrow(paths) || !length(pr)) return(res)
+
+    # T1.1 -- latent observability of this process's predictors
+    cov_frac <- vapply(pr, function(p) sum(!is.na(edh[[p]])) / nyr, numeric(1))
+    low <- pr[cov_frac < 0.5]
+    if (length(low) > 0) {
+      sev <- if (any(cov_frac[low] < 0.25)) "WARN" else "NOTE"
+      res[[obs_name]] <- .conv_record(
+        obs_name, "spec", sev,
+        sprintf(paste0(
+          "%s predictor(s) observed in <50%% of hindcast years: %s. ",
+          "Sparse latents can absorb %s variance and drive %s to 0."),
+          noun, paste(sprintf("%s (%.0f%%)", low, 100 * cov_frac[low]),
+                      collapse = ", "), tolower(noun), sd_name),
+        data.frame(predictor = pr, coverage = round(cov_frac, 3),
+                   row.names = NULL))
+    }
+
+    # T1.2 -- lag-aligned design conditioning, PER LATENT EQUATION.
+    # Collinearity is a property of one target's design matrix: each path
+    # coefficient is identified by its own target latent's residual, so
+    # correlation ACROSS equations says nothing about either. Pooling targets
+    # makes this fire by construction -- one predictor driving two latents
+    # appears as two identical columns, which make.unique() renames and cor()
+    # scores at 1.00, reporting a condition number of ~6e16 for a design with no
+    # collinearity at all. That is the canonical growth sem (one covariate, L1
+    # and Linf) and the canonical multispecies recruitment sem (one covariate,
+    # recdevs1 and recdevs2), so the pooled form was wrong far more often than
+    # it was right. Worst severity across equations wins, and the record names
+    # the equation.
+    worst <- NULL
+    for (tg in unique(as.character(paths$second))) {
+      pe <- paths[as.character(paths$second) == tg, , drop = FALSE]
+      cols <- lapply(seq_len(nrow(pe)), function(i) {
+        p <- as.character(pe$first[i]); lag <- suppressWarnings(as.numeric(pe$lag[i]))
+        if (!p %in% colnames(ed) || is.na(lag)) return(NULL)
+        ed[[p]][match(yrs - lag, ed$Year)]   # predictor at the lag the SEM uses
+      })
+      names(cols) <- make.unique(paste0(pe$first, "_lag", pe$lag))
+      cols <- cols[!vapply(cols, is.null, logical(1))]
+      if (length(cols) < 2) next
+      X  <- do.call(cbind, cols)
+      Xc <- X[stats::complete.cases(X), , drop = FALSE]
+      if (nrow(Xc) <= ncol(Xc)) next
       keep <- apply(Xc, 2, function(z) stats::sd(z) > 0)
       Xc   <- Xc[, keep, drop = FALSE]
-      if (ncol(Xc) >= 2) {
-        R     <- stats::cor(Xc)
-        kap   <- tryCatch(kappa(R, exact = TRUE), error = function(e) NA_real_)
-        maxr  <- max(abs(R[upper.tri(R)]))
-        sev   <- if ((is.finite(kap) && kap > 100) || maxr > 0.9) "WARN"
-                 else if (maxr > 0.8) "NOTE" else "OK"
-        if (sev != "OK") {
-          out$rec_design_conditioning <- .conv_record(
-            "rec_design_conditioning", "spec", sev,
-            sprintf(paste0("Collinear lag-aligned recruitment design ",
-              "(condition number = %.3g, max |r| = %.2f over %d years)."),
-              kap, maxr, nrow(Xc)),
-            list(condition_number = kap, max_abs_cor = maxr, R = R))
-        }
-      }
+      if (ncol(Xc) < 2) next
+      R    <- stats::cor(Xc)
+      kap  <- tryCatch(kappa(R, exact = TRUE), error = function(e) NA_real_)
+      maxr <- max(abs(R[upper.tri(R)]))
+      sev  <- if ((is.finite(kap) && kap > 100) || maxr > 0.9) "WARN"
+              else if (maxr > 0.8) "NOTE" else "OK"
+      if (sev == "OK") next
+      rank <- c(NOTE = 1L, WARN = 2L)
+      if (is.null(worst) || rank[[sev]] > rank[[worst$sev]])
+        worst <- list(sev = sev, tg = tg, kap = kap, maxr = maxr, n = nrow(Xc),
+                      R = R)
     }
+    if (!is.null(worst)) {
+      res[[cond_name]] <- .conv_record(
+        cond_name, "spec", worst$sev,
+        sprintf(paste0("Collinear lag-aligned %s design for %s ",
+          "(condition number = %.3g, max |r| = %.2f over %d years)."),
+          tolower(noun), worst$tg, worst$kap, worst$maxr, worst$n),
+        list(target = worst$tg, condition_number = worst$kap,
+             max_abs_cor = worst$maxr, R = worst$R))
+    }
+    res
   }
+
+  # "sigmaR" is the recruitment wording from before the split, kept byte-for-byte
+  # so a script matching on the message still matches.
+  out <- c(out, design_checks(sf[is_rec, , drop = FALSE], "Recruitment",
+                              "sigmaR",
+                              "rec_predictor_observability",
+                              "rec_design_conditioning"))
+  out <- c(out, design_checks(sf[is_gro, , drop = FALSE], "Growth",
+                              "the growth latent's SD",
+                              "growth_predictor_observability",
+                              "growth_design_conditioning"))
 
   # T1.5 -- covariate scale heterogeneity
   sds <- vapply(preds, function(p) stats::sd(ed[[p]], na.rm = TRUE), numeric(1))
@@ -1259,7 +1340,7 @@ check_dsem_spec <- function(data_list, dsem) {
     if (ratio > 20) {
       out$covariate_scale <- .conv_record(
         "covariate_scale", "spec", "NOTE",
-        sprintf(paste0("Recruitment covariates span %.0fx in SD (%s: %.3g; ",
+        sprintf(paste0("DSEM covariates span %.0fx in SD (%s: %.3g; ",
           "%s: %.3g); consider standardizing env_data."),
           ratio, names(which.max(sds)), max(sds),
           names(which.min(sds)), min(sds)),
@@ -1466,7 +1547,10 @@ check_dsem_spec <- function(data_list, dsem) {
 #' cross-species path couples the stocks -- so the whole field is drawn at once
 #' from the same precision the density uses, exactly as `dsem::simulate()` does.
 #'
-#' Every ESTIMATED cell is redrawn, conditional on the cells the map pins. The
+#' Every estimated cell OF A REQUESTED PROCESS is redrawn, conditional both on
+#' the cells the map pins and on the estimated cells of processes not requested
+#' -- those are held at their fitted values, which is what lets a caller redraw
+#' growth without redrawing recruitment. See `state`. The
 #' map is where the model says which is which. Under `family = "fixed"` a
 #' covariate column *is* the `env_data` series and is pinned, so it is held --
 #' redrawing it would simulate a different environment rather than a different
@@ -1487,16 +1571,20 @@ check_dsem_spec <- function(data_list, dsem) {
 #' the two agree.
 #'
 #' @param fit a fitted `Rceattle` model carrying a DSEM.
+#' @param state `.sim_state_codes()`'s five-slot request vector. Slot 1 selects
+#'   the recruitment latent columns and slot 3 the growth ones; a column left
+#'   out is held at its fitted value and CONDITIONED on, not ignored, so asking
+#'   for one process does not redraw another.
 #' @return A matrix the shape of `dsem_x_tj`, carrying a logical matrix of the
 #'   same shape in `attr(, "drawn")` marking the cells this call redrew. The
 #'   mask is written by the draw itself so a caller cannot re-derive it wrongly;
 #'   `sim_mod()` maps it onto `rec_dev` for `attr(x, "process_sim")`.
 #' @noRd
-.dsem_draw_process <- function(fit) {
+.dsem_draw_process <- function(fit, state = rep(1L, 5L)) {
   q  <- fit$quantities
   Q  <- q$dsem_Q
   if (is.null(Q) || !length(Q)) {
-    stop("This model reports no DSEM precision, so its recruitment process ",
+    stop("This model reports no DSEM precision, so its latent process ",
          "cannot be redrawn from the density that scored it. Refit with the ",
          "current version.", call. = FALSE)
   }
@@ -1513,27 +1601,56 @@ check_dsem_spec <- function(data_list, dsem) {
          "check_dsem_spec() names the variable.", call. = FALSE)
   }
 
-  rc <- fit$dsem$tmb_inputs$data$rec_dev_col + 1L   # 0-based in the C++
-  if (is.null(rc) || !length(rc)) {
-    stop("This fit does not record which latent columns carry the recruitment ",
-         "deviations, so the process cannot be redrawn. Refit before ",
-         "simulating.", call. = FALSE)
+  dsd <- fit$dsem$tmb_inputs$data
+  # Columns by role, 1-based. A SEM that does not drive recruitment carries the
+  # -1 sentinel, which must map to NO column: `(0 - 1) * nrow + seq_len(nrow)`
+  # is a NEGATIVE subscript, and assigning TRUE through it inverts the mask
+  # rather than erroring.
+  rc <- dsd$rec_dev_col + 1L                       # 0-based in the C++
+  rc <- rc[!is.na(rc) & rc >= 1L]
+  gc_ <- unique(dsd$growth_dev_col + 1L)
+  gc_ <- gc_[!is.na(gc_) & gc_ >= 1L]
+  if (!length(rc) && !length(gc_)) {
+    stop("This fit records no latent process columns, so there is nothing to ",
+         "redraw. Refit before simulating.", call. = FALSE)
   }
-  # Every ESTIMATED cell is redrawn, conditional on the ones the map pins. The
-  # map is the model's own statement of what is data and what is latent: under
-  # family = "fixed" a covariate column IS the env_data series and is pinned
-  # there, so it is held; under any other family it is a latent state observed
-  # with error, so it is part of the process and is drawn. Selecting the
-  # recruitment columns instead would hold a latent covariate at a FITTED value
-  # -- not data, and not a draw either.
+
+  cells <- function(j) if (!length(j)) integer(0) else
+    unlist(lapply(j, function(k) (k - 1L) * nrow(X) + seq_len(nrow(X))))
+
+  # Which cells this call MAY draw. Drawing is joint over the GMRF, so a cell
+  # left out is not ignored -- it is CONDITIONED on, held at its fitted value,
+  # which is what lets a caller ask for one process without redrawing another.
+  # Latent covariate columns belong to no process slot and are always drawn:
+  # under family = "fixed" a covariate IS the env_data series and the map pins
+  # it (so `est` excludes it), while under any other family it is a latent state
+  # observed with error, so holding it at a FITTED value would be neither data
+  # nor a draw.
+  want <- rep(FALSE, n_k)
+  if (isTRUE(state[1] == 1L)) want[cells(rc)]  <- TRUE
+  if (isTRUE(state[3] == 1L)) want[cells(gc_)] <- TRUE
+  want[setdiff(seq_len(n_k), cells(c(rc, gc_)))] <- TRUE
+
   mp  <- fit$map$mapList$dsem_x_tj
   est <- if (is.null(mp)) rep(TRUE, n_k) else !is.na(as.numeric(mp))
-  E <- which(est); F_ <- setdiff(seq_len(n_k), E)
-  in_rec <- rep(FALSE, n_k)
-  in_rec[unlist(lapply(rc, function(j) (j - 1L) * nrow(X) + seq_len(nrow(X))))] <- TRUE
-  if (!any(est & in_rec)) {
-    stop("Every recruitment-deviation state is fixed in this model, so there ",
-         "is no recruitment process to redraw.", call. = FALSE)
+  E <- which(est & want); F_ <- setdiff(seq_len(n_k), E)
+  # The guard has to test the REQUESTED PROCESS's cells, not E. E always
+  # includes the latent covariate columns, so `!length(E)` cannot fire while any
+  # covariate is free -- the draw would then "succeed" having redrawn no process
+  # state, hand back a non-empty drawn mask, and sim_mod() would attach a
+  # process_sim truth for a process that was never redrawn. compare_sim() then
+  # refuses to compare against the operating model, pointing at a truth the draw
+  # did not produce.
+  proc_want <- rep(FALSE, n_k)
+  if (isTRUE(state[1] == 1L)) proc_want[cells(rc)]  <- TRUE
+  if (isTRUE(state[3] == 1L)) proc_want[cells(gc_)] <- TRUE
+  if (any(proc_want) && !any(est & proc_want)) {
+    stop("Every latent state of the process(es) asked for is fixed in this ",
+         "model, so there is nothing to redraw.", call. = FALSE)
+  }
+  if (!length(E)) {
+    stop("Every latent state this draw covers is fixed in this model, so there ",
+         "is no process to redraw.", call. = FALSE)
   }
 
   # A latent node with no exogenous variance is deterministic given the others,
@@ -1591,10 +1708,12 @@ check_dsem_spec <- function(data_list, dsem) {
 .dsem_rec_truth <- function(fit, drawn, rec_dim = NULL) {
   mask <- attr(drawn, "drawn")
   if (is.null(mask)) return(NULL)
+  # Drop the -1 sentinel a SEM that does not drive recruitment carries: rc = 0
+  # would index zero columns and yield an empty `rec` mask rather than saying so.
   rc <- fit$dsem$tmb_inputs$data$rec_dev_col + 1L      # 0-based in the C++
-  if (is.null(rc) || !length(rc)) return(NULL)
-  rec <- t(mask[, rc, drop = FALSE])                   # species x field year
-  if (!is.null(rec_dim)) {
+  rc <- rc[!is.na(rc) & rc >= 1L]
+  rec <- if (!length(rc)) NULL else t(mask[, rc, drop = FALSE])  # species x yr
+  if (!is.null(rec) && !is.null(rec_dim)) {
     full <- array(FALSE, dim = rec_dim)
     nyr <- min(ncol(rec), rec_dim[2])
     full[seq_len(nrow(rec)), seq_len(nyr)] <- rec[, seq_len(nyr), drop = FALSE]

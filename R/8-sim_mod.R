@@ -126,8 +126,12 @@
       !.sim_linkage_drawn(obj, c(0L, 1L, 0L, 0L, 0L))) {
     hit <- c(hit, "M (M1_re = 0 and no random linkage on M)")
   }
-  if (state[3] == 1L && !.sim_linkage_drawn(obj, c(0L, 0L, 1L, 0L, 0L))) {
-    hit <- c(hit, "growth (no random linkage on a growth parameter)")
+  # A DSEM growth latent is a growth process WITH a distribution -- it is drawn
+  # from the GMRF in .dsem_draw_process(). Reporting it as absent here sent a
+  # user (and a maintainer) looking for a missing draw that was happening.
+  if (state[3] == 1L && !.sim_linkage_drawn(obj, c(0L, 0L, 1L, 0L, 0L)) &&
+      !length(obj$env$data$growth_dev_par %||% integer(0))) {
+    hit <- c(hit, "growth (no random linkage on a growth parameter, and no DSEM growth latent)")
   }
 
   if (length(hit)) {
@@ -846,12 +850,13 @@
 #'   cells**; over the full array it reports perfect recovery on the cells that
 #'   were never redrawn.
 #'
-#' @section Redrawing recruitment under a DSEM:
+#' @section Redrawing a DSEM's latent processes:
 #' The deviations are the latent states of a GMRF rather than independent
 #' draws, so the whole field is drawn at once from the same precision the
 #' density scored the fit with, and substituted into \code{dsem_x_tj}; the
 #' template then derives \code{rec_dev} from it and applies the lognormal bias
-#' correction where it always does. Every ESTIMATED cell is redrawn, conditional
+#' Every estimated cell of a REQUESTED process is redrawn, conditional on the
+#' cells the map pins and on the processes not requested, which are held.
 #' on the cells the map pins -- the map being where the model says which is
 #' which. Under \code{family = "fixed"} a covariate column \emph{is} the
 #' \code{env_data} series and is pinned, so it is held: redrawing it would
@@ -925,9 +930,15 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
   # for that reason and this must refuse the SEM draw for it as well.
   # .sim_warn_rec_srr_penalty() below says so; it reads the model's own
   # reported gate, so the two cannot disagree about what happened.
-  .draw_dsem_process <- .sim_state_codes(process)[1L] == 1L &&
-    .dsem_drives(object, "recruitment") &&
-    .rec_srr_single_density(object)
+  # A DSEM's latent field is one joint GMRF, so it is drawn here rather than in
+  # the template whenever the SEM owns a process whose error was asked for.
+  # Recruitment carries the extra condition that it be scored by a single
+  # density; growth has no such competing penalty.
+  .dsem_state <- .sim_state_codes(process)
+  .draw_dsem_process <-
+    (.dsem_state[1L] == 1L && .dsem_drives(object, "recruitment") &&
+       .rec_srr_single_density(object)) ||
+    (.dsem_state[3L] == 1L && .dsem_drives_growth(object))
 
   dat_sim <- object$data_list
   quantities <- object$quantities
@@ -954,7 +965,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     if (.draw_dsem_process) {
       sim_par <- sim_obj$env$last.par.best
       .xi <- which(names(sim_par) == "dsem_x_tj")
-      .drawn <- .dsem_draw_process(object)
+      .drawn <- .dsem_draw_process(object, .dsem_state)
       .mp <- object$map$mapList$dsem_x_tj
       .est <- if (is.null(.mp)) seq_along(.drawn) else which(!is.na(as.numeric(.mp)))
       if (length(.xi) != length(.est)) {
@@ -1233,11 +1244,18 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     # it is the process the SEM actually specifies, and the states, not the
     # deviations, are what says whether the SEM structure is identified.
     add("rec_dev", mask = if (!is.null(dsem)) dsem$rec)
-    if (!is.null(dsem) && !is.null(out$rec_dev)) {
-      out$dsem_x_tj       <- dsem$x
-      out$dsem_x_tj_drawn <- dsem$x_drawn
-    }
     add("init_dev")
+  }
+  # The latent field itself, whenever one was drawn -- NOT only alongside
+  # rec_dev. A growth-only draw, or process = "growth" on a SEM that also drives
+  # recruitment, produces a field that generated these data and no rec_dev; tying
+  # the field to the recruitment block dropped it silently, and compare_sim()
+  # would then measure bias against an operating model that is no longer the
+  # truth. The states, not the deviations, are what say whether the SEM
+  # structure is identified.
+  if (!is.null(dsem)) {
+    out$dsem_x_tj       <- dsem$x
+    out$dsem_x_tj_drawn <- dsem$x_drawn
   }
   m1_re <- suppressWarnings(as.integer(obj$env$data$M1_re))
   if (state[2] == 1L && any(m1_re > 0, na.rm = TRUE)) {
