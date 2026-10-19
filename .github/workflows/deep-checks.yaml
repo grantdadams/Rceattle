@@ -31,9 +31,11 @@
 # bounds-checked build range-tests every array access, and the full NOT_CRAN
 # suite is ~160 minutes of fits. Hence nightly plus manual, not per-PR.
 #
-# ALL jobs fail the run. None gates anything: this workflow runs nightly and
-# on dispatch, never on a PR, so a red run blocks no merge -- it is a signal to
-# read, and it has to be visible to be read. The bounds job was
+# ALL jobs fail the run. The golden job also runs on a pull request that touches
+# the model (src/, R/) or the golden files, so a PR that moves the likelihood is
+# red before it merges. The suite and the bounds-checked build run nightly and on
+# dispatch only, so a red run there is a signal to read, and it has to be
+# visible to be read. The bounds job was
 # `continue-on-error` while it could not run, which is exactly why its failure
 # went unnoticed from before 5.20.0 to 2026-08-27: the run reported success
 # throughout. A case that cannot run is now reported apart from a violation, so
@@ -41,6 +43,15 @@
 on:
   schedule:
     - cron: "0 5 * * *"   # nightly, 05:00 UTC
+  # Golden only (see the `if:` on suite; safebounds needs schedule or its input).
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "src/**"
+      - "R/**"
+      - "tests/testthat/test-golden-regression.R"
+      - "tests/testthat/fixtures/golden-reference.rds"
+      - ".github/workflows/deep-checks.yaml"
   workflow_dispatch:
     inputs:
       run_safebounds:
@@ -120,6 +131,7 @@ jobs:
         shell: bash
 
   suite:
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     # ~160 min measured under covr (tools/ci/coverage-costs.tsv, summed);
     # uninstrumented and serial is less, but leave room for a slow runner.
