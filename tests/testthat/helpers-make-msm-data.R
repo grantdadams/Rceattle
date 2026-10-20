@@ -96,6 +96,7 @@ make_msm_test_data <- function(
   # Population metrics
   SSB <- matrix(0, nspp, nyrs)
   Total_Biom <- matrix(0, nspp, nyrs)
+  Srv_Biom <- matrix(0, nspp, nyrs)
   Catch <- matrix(0, nspp, nyrs)
 
   # Generate M deviations
@@ -227,6 +228,9 @@ make_msm_test_data <- function(
 
         # Calculate annual metrics
         Total_Biom[sp, y] <- sum(NAA[sp, ,y] * WAA[sp, ])
+        # Survey-selected biomass at the start of the year (index Month = 0) at
+        # population WAA. With estimated growth Rceattle uses selected-fish weight.
+        Srv_Biom[sp, y] <- sum(NAA[sp, ,y] * srv_sel[sp, ] * WAA[sp, ])
         SSB[sp, y] <- sum(NAA[sp, ,y] * WAA[sp, ] * MatAA[sp, ]) * 0.5
         Catch[sp, y] <- sum(CAA[sp, ,y] * WAA[sp, ])
       }
@@ -283,8 +287,10 @@ make_msm_test_data <- function(
   }
 
   # Observation model
-  ObsCatch <- Catch * rlnorm(nyrs * nspp, 0, sigma_catch)
-  SrvIdx <- srv_q * Total_Biom * rlnorm(nyrs * nspp, 0, sigma_srv)
+  # Lognormal errors are mean-unbiased (log-mean -sigma^2/2), as Rceattle's
+  # likelihood assumes under its default bias_adjust_obs = TRUE.
+  ObsCatch <- Catch * rlnorm(nyrs * nspp, -sigma_catch^2 / 2, sigma_catch)
+  SrvIdx <- srv_q * Srv_Biom * rlnorm(nyrs * nspp, -sigma_srv^2 / 2, sigma_srv)
 
   # Age composition data (simplified multinomial)
   ObsFishAges <- array(0, dim=c(nspp, nages, nyrs))
@@ -633,6 +639,7 @@ make_msm_test_data <- function(
       MAA = MAA,
       SSB = SSB,
       Total_Biom = Total_Biom,
+      Srv_Biom = Srv_Biom,
       B_eaten_as_prey = B_eaten_as_prey,
       Catch = Catch,
       ObsCatch = ObsCatch,

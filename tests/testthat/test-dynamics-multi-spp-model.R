@@ -108,6 +108,17 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
   # Q
   testthat::expect_equal(as.numeric(sim$model_quantities$srv_q), as.numeric(ms_run1$quantities$index_q[c(1,3),1]))
 
+  # Survey index (q times survey-selected biomass) and catch biomass at the true
+  # parameters. catch_data also carries projection rows, which are skipped.
+  index_rows <- ms_run1$data_list$index_data
+  true_index <- sim$model_quantities$srv_q * sim$model_quantities$Srv_Biom
+  testthat::expect_equal(as.numeric(ms_run1$quantities$index_hat),
+                         true_index[cbind(index_rows$Species, index_rows$Year)])
+  catch_rows <- ms_run1$data_list$catch_data
+  hindcast <- catch_rows$Year <= nyrs
+  testthat::expect_equal(as.numeric(ms_run1$quantities$catch_hat)[hindcast],
+                         sim$model_quantities$Catch[cbind(catch_rows$Species, catch_rows$Year)[hindcast, ]])
+
   # Expected and observed diet
   testthat::expect_equal(as.numeric(ms_run1$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run1$quantities$diet_hat[,2]))
 })
