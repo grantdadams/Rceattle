@@ -720,10 +720,9 @@
 #' fleet's observations outside its fitted window, keep their observed values. A
 #' composition, CAAL or diet row whose sample size times its weight rounds below
 #' one observation also comes back empty, with \code{Sample_size} dropped to zero
-#' so a refit does not score a row with no data behind it. A hindcast survey
-#' year with no observation (\code{NA}) stays \code{NA}, since the likelihood
-#' never scored it, while the independent survey families still draw their
-#' projection rows (negative \code{Year}).
+#' so a refit does not score a row with no data. A survey
+#' year with no observation (\code{NA}) stays \code{NA}, while surveys with
+#' (negative \code{Year}) sample theirs.
 #'
 #' One deliberate exception to draw-equals-density: compositions are drawn from
 #' the predicted proportions *before* \code{comp_offset} (the constant added to
