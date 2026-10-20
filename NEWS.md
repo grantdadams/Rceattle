@@ -12,6 +12,25 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.64.1
+
+## Bug fixes
+
+* **`sim_mod(simulate = TRUE)` no longer fills a missing hindcast survey
+  year.** The index likelihood skips a hindcast row whose `Observation` is
+  `NA`, but the lognormal, `Normal` and `TruncatedNormal` draws filled every
+  row, so a `self_test()` refit fitted survey years the real data never had
+  and recovery looked better than it was. On a 12-year test model with year 5
+  set to `NA`, that row came back as 102.95 (predicted 100.11); it now stays
+  `NA`, and `sim_mod()` does not warn about it, nor about a missing hindcast
+  year on a fleet that is switched off, which was never drawn. Projection rows (negative
+  `Year`) of those families are still drawn, since `run_mse()` reveals them as
+  each assessment's new data. Fits do not move. Simulations move only for a
+  model with an `NA` hindcast index row: such a row no longer consumes random
+  numbers, so the later draws for a given seed change too. Neither the 11
+  bundled data lists with an `index_data` nor the Pacific hake MSE workbook has
+  such a row, so their draws are unchanged.
+
 # Rceattle 5.64.0
 
 ## Breaking changes

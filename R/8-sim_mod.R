@@ -720,7 +720,10 @@
 #' fleet's observations outside its fitted window, keep their observed values. A
 #' composition, CAAL or diet row whose sample size times its weight rounds below
 #' one observation also comes back empty, with \code{Sample_size} dropped to zero
-#' so a refit does not score a row with no data behind it.
+#' so a refit does not score a row with no data behind it. A hindcast survey
+#' year with no observation (\code{NA}) stays \code{NA}, since the likelihood
+#' never scored it, while the independent survey families still draw their
+#' projection rows (negative \code{Year}).
 #'
 #' One deliberate exception to draw-equals-density: compositions are drawn from
 #' the predicted proportions *before* \code{comp_offset} (the constant added to
@@ -805,6 +808,10 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     .sim_warn_rec_srr_penalty(sim_rep, sim_state)
     index_sim <- .sim_report_obs(sim_rep, "index_obs_sim")
     .sim_check_rows(nrow(index_sim), nrow(dat_sim$index_data), "index")
+    # A missing survey year in the hindcast is not drawn and comes back NA, which
+    # data_check() accepts. Projection rows are drawn, so they stay checked.
+    index_missing <- is.na(dat_sim$index_data$Observation) &
+      dat_sim$index_data$Year > 0 & dat_sim$index_data$Year <= dat_sim$endyr
     dat_sim$index_data$Observation <- as.numeric(index_sim[, 1])
     .sim_warn_index_unsimulated(dat_sim)
     # Runs first, and reports which rows it covered: a non-positive draw on a
@@ -813,7 +820,9 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     reported <- .sim_warn_index_truncated(sim_rep, dat_sim)
     .sim_warn_unusable(dat_sim$index_data$Observation,
                        dat_sim$index_data$Fleet_code, "survey index",
-                       strictly_positive = TRUE, skip = reported)
+                       strictly_positive = TRUE,
+                       skip = reported | (index_missing &
+                                            is.na(dat_sim$index_data$Observation)))
   } else {
     # Expected value
     dat_sim$index_data$Observation <- index_hat
