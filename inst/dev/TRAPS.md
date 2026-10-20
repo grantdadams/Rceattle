@@ -1555,3 +1555,51 @@ section above.
   into an explicit `lib`, reads the version out of that directory's `DESCRIPTION` rather than
   from a loaded namespace, asserts `getNamespaceInfo()$path` is under it, and drops `quiet`.
   Use `ref = "X.Y.Z"` rather than `"repo@X.Y.Z"` so a branch name containing a `/` survives.
+
+## The DSEM process bias correction imposes a trend on a lagged latent
+
+Verified 2026-10-19 on `GOA2018SS`, species 2 female, `estimateMode = 3`,
+`msmMode = 0`, with the latent field **identically zero** — so every number
+below is the correction alone, not the latent.
+
+The correction subtracts `bias_adjust_proc * margvar_t / 2` (`ceattle.cpp`
+sections 5.5b, 5.5b-growth, 5.5b-M), which makes `E[exp(latent_t)] = 1` for each
+year t. That is correct for its own target. But under the default
+`constant_variance = "conditional"` a `<->` term is the DISTURBANCE variance, so
+a lagged self-path makes the MARGINAL variance grow along the series — and the
+subtraction grows with it, becoming a monotone ramp in the driven parameter.
+
+| sem on `mdevs2f` | margvar (min..max) | ratio | SPR0 | × vs no latent (1.23002) |
+|---|---|---|---|---|
+| IID, sigma 0.2        | 0.0400..0.0400 |  1.00 | 1.29730 | 1.055 |
+| `-> ., 1` rho 0.3     | 0.0400..0.0440 |  1.10 | 1.30412 | 1.060 |
+| rho 0.6               | 0.0400..0.0625 |  1.56 | 1.33648 | 1.087 |
+| rho 0.9               | 0.0400..0.2105 |  5.26 | 1.61969 | 1.317 |
+| rho 0.99              | 0.0400..1.1460 | 28.65 | 4.79555 | 3.899 |
+| random walk, rho 1    | 0.0400..1.6800 | 42.00 | 8.16548 | **6.638** |
+
+`SPR0` is the per-recruit basis of every Amendment-56 proxy, so F35%/F40% and
+B40% move with it. Terminal-year M1 goes 0.20000 → 0.08634 over the same range.
+
+**Not specific to natural mortality.** The same line serves recruitment (since
+the DSEM arrived) and growth (since it became drivable). Recruitment is the
+worst case because its sem default SD is 1.0, not 0.2: over 30 years the
+marginal variance runs 1.0 → 30.0 and the terminal multiplier is `exp(-14.5)`.
+
+**Why no warning ships for it.** The effect is smooth in rho with no cliff. A
+gate on "the latent is the target of a lagged path" fires identically at 1.06
+and at 6.64, and it would fire on `recdevs1 -> recdevs1, 1, rho_R, 0.3` — the
+canonical AR1 sem in six existing test files. A gate at `|rho| >= 1` misses rho
+0.99 at 3.899. The honest quantity is the measured margvar ratio, which needs a
+fitted model and a threshold nobody has set. `fit_control(bias_adjust_proc = 0)`
+turns the correction off.
+
+**And the documented escape hatch is unreachable:**
+`build_DSEM(constant_variance = "marginal")` — which rescales Gamma and
+`(I - Rho)` to hold the marginal variance constant, exactly what would remove
+the trend — **aborts R inside `TMB::MakeADFun`** ("An irrecoverable exception
+occurred") for any sem with a lagged path. In `src/TMB/dsem.hpp`'s
+`options(1) == 1` rescaling branch. Reproduced on a recruitment-only random
+walk, so it is not M-specific. `test-dsem-constant-variance.R` compares the
+three settings only on a sem with NO lags, which is where they agree and where
+nothing crashes, so the suite is green over it.

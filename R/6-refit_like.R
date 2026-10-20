@@ -299,20 +299,31 @@
     }
     return(grepl(paste0("\\b", stem, "[0-9]+[fm]?\\b"), sem_txt))
   }
-  # Named per target rather than defaulted: the accepted set comes from
-  # .DSEM_LATENT_PREFIXES, so a process added there (natural mortality is next,
-  # and the registry reserves `mdevs` for it) would otherwise fall into the
-  # growth branch and die in LINKAGE_PARAM_CODES$growth[[...]] with "subscript
-  # out of bounds". Growing the accept-list without growing the switch is the
-  # defect this function was just fixed for.
-  if (!process %in% names(.DSEM_GROWTH_TARGETS)) {
+  # ONE NAMED BRANCH PER PROCESS, and a loud default. The accepted set comes from
+  # .DSEM_LATENT_PREFIXES, so deriving the non-growth case as "not a growth
+  # target" hands back the RECRUITMENT answer for any process added to that
+  # table later -- silently wrong. The stop() below is what makes growing the
+  # table fail loudly instead; it fired when natural mortality was added, which
+  # is why the branch below it exists.
+  if (identical(process, "recruitment")) {
     return(isTRUE(as.integer(obj$tmb_inputs$data$drives_rec %||% 1L) == 1L))
   }
-  # Growth: the index map carries one entry per named growth latent, so the
-  # question is whether any entry claims this parameter's slot. An object built
-  # before growth was drivable has no map and answers FALSE.
-  par <- unname(LINKAGE_PARAM_CODES$growth[[sub("^growth_", "", process)]])
-  isTRUE(par %in% (obj$tmb_inputs$data$growth_dev_par %||% integer(0)))
+  if (process %in% names(.DSEM_GROWTH_TARGETS)) {
+    # The index map carries one entry per named growth latent, so the question is
+    # whether any entry claims this parameter's slot. An object built before
+    # growth was drivable has no map and answers FALSE.
+    par <- unname(LINKAGE_PARAM_CODES$growth[[sub("^growth_", "", process)]])
+    return(isTRUE(par %in% (obj$tmb_inputs$data$growth_dev_par %||% integer(0))))
+  }
+  if (identical(process, "natural_mortality")) {
+    # M's map has no parameter slot to test -- the age dimension takes it -- so
+    # a non-empty column map is the whole answer. An object built before M was
+    # drivable has no map and answers FALSE.
+    return(length(obj$tmb_inputs$data$mdev_col %||% integer(0)) > 0L)
+  }
+  stop("`.dsem_drives()` has no branch for process '", process,
+       "'. It is registered in `.DSEM_LATENT_PREFIXES` but nothing here answers ",
+       "for it; add a branch rather than letting it fall through.", call. = FALSE)
 }
 
 # TRUE when the SEM drives ANY growth parameter. The gate in sim_mod() asks the

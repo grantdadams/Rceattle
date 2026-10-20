@@ -16,6 +16,7 @@
 #'   \item{\code{l1devs<sp>}}{\code{L1}, mean length at the growth anchor age}
 #'   \item{\code{linfdevs<sp>}}{\code{Linf}, asymptotic mean length}
 #'   \item{\code{richdevs<sp>}}{\code{m}, the Richards shape parameter}
+#'   \item{\code{mdevs<sp>}}{\code{M1}, residual natural mortality}
 #' }
 #'
 #' Every latent is on the LOG scale -- a multiplier on its target, not an
@@ -31,6 +32,18 @@
 #' still leaves mean weight-at-age -- the weight in SSB and B40\% -- biased
 #' upward by Jensen's inequality. The correction removes the drift in the
 #' parameter, not in the weight.
+#'
+#' The natural-mortality latent is the same kind of log-scale multiplier,
+#' applied through \code{M_linkage_offset} and bias-corrected the same way, so
+#' mean \code{M1} is unbiased rather than its median. The same Jensen caveat as
+#' growth applies: survivorship is \code{exp(-M)}, convex in M, so an unbiased
+#' mean M still leaves mean survivorship -- and so SB0 and B40\% -- biased. It
+#' is FLAT over ages: one value per species, sex and year. With an
+#' identity-link M linkage the latent multiplies the exponentiated part only,
+#' since that linkage adds its offset outside the \code{exp()}. No code writes it into
+#' predation mortality \code{M2}, but under \code{msmMode > 0} M2 moves with it
+#' anyway, because M1 sets survivorship, survivorship sets the average numbers
+#' predators eat from, and M2 is predator demand over available prey.
 #'
 #' Name a recruitment column for every species to have the SEM drive
 #' recruitment, or none of them to leave recruitment on its own density; naming
@@ -52,7 +65,10 @@
 #' spawning month -- measured there, perturbing it leaves the objective
 #' bit-identical. A growth latent is also refused where the species' growth model
 #' never reads that parameter: any of them under empirical weight-at-age, and
-#' \code{richdevs} under von Bertalanffy.
+#' \code{richdevs} under von Bertalanffy. An \code{mdevs} column is refused for
+#' a species whose \code{M1_re} is on: both are deviations on the same
+#' \code{M1}, so a flat annual multiplier beside an \code{M1_re} field asks the
+#' model to split one quantity two ways.
 #'
 #' One consequence of the latent naming: a name matching the latent pattern is
 #' treated as a latent even where the process never generates one, so an
@@ -255,8 +271,10 @@ dsem_family_object <- function( fam ){
 #' `recdevs` in `recdevs1 <-> recdevs1, 0, sigmaR1, 1`), the number of latent
 #' series `n` that process contributes, and the resulting `columns` in model
 #' order, plus the `species`, `sex` and growth-parameter `param` each column
-#' drives. The template reads all four through `DATA_IVECTOR(growth_dev_*)` and
-#' writes the latents into `growth_linkage_offset` in section 5.5b-growth.
+#' drives. The template reads the growth maps through
+#' `DATA_IVECTOR(growth_dev_*)` into `growth_linkage_offset` in section
+#' 5.5b-growth, and the M map through `DATA_IVECTOR(mdev_*)` into
+#' `M_linkage_offset` in section 5.5b-M.
 #'
 #' One entry per drivable TARGET, not per process: a sem names one latent column
 #' per target, and growth has three (`L1`, `Linf`, Richards `m`). Growth
@@ -288,9 +306,11 @@ dsem_family_object <- function( fam ){
 #' `plus_group_length = "none"` with equal SD endpoints.
 #' A `kdevs<sp>` column is therefore not a latent name; it is currently dropped
 #' as an unreferenced variable rather than refused, which is owed.
-#' Natural mortality keeps `mdevs` for when it lands; Richards `m` is
-#' `richdevs` so the two cannot collide, and so that a trailing `m` is
-#' unambiguously the sex token.
+#' Natural mortality is `mdevs`; Richards `m` is `richdevs` so the two cannot
+#' collide, and so that a trailing `m` is unambiguously the sex token. M's
+#' `param` slot is `NA`: `M_linkage_offset` is dimensioned by AGE rather than by
+#' growth parameter, so there is no slot to claim, and the latent is broadcast
+#' flat over that age dimension.
 #'
 #' Declaring a target costs nothing: a latent column the sem does not name is
 #' dropped before the model is built, so a recruitment-only sem is unaffected.
@@ -325,26 +345,42 @@ dsem_family_object <- function( fam ){
   if (is.null(nsex)) nsex <- rep(1L, nspp)
   nsex <- rep_len(as.integer(nsex), nspp)
 
-  for (nm in names(.DSEM_GROWTH_TARGETS)) {
-    prefix <- .DSEM_GROWTH_TARGETS[[nm]]
+  # One latent per (species, sex), with the one-sex rule: no sex token where the
+  # species has one sex. Growth and natural mortality share this shape, which is
+  # what earns it a helper rather than a second copy.
+  by_sex <- function(prefix, param) {
     cols <- character(0); sp_i <- integer(0); sx_i <- integer(0)
     for (sp in spp) {
-      # The one-sex rule: no sex token where the species has one sex.
       toks <- if (nsex[sp] > 1L) c("f", "m") else ""
       cols <- c(cols, paste0(prefix, sp, toks))
       sp_i <- c(sp_i, rep(sp, length(toks)))
       sx_i <- c(sx_i, seq_along(toks))
     }
-    reg[[nm]] <- list(
-      prefix  = prefix,
-      n       = length(cols),
-      columns = cols,
-      species = sp_i,
-      sex     = sx_i,
-      param   = rep(unname(LINKAGE_PARAM_CODES$growth[[sub("^growth_", "", nm)]]),
-                    length(cols))
-    )
+    list(prefix = prefix, n = length(cols), columns = cols,
+         species = sp_i, sex = sx_i, param = rep(param, length(cols)))
   }
+
+  for (nm in names(.DSEM_GROWTH_TARGETS)) {
+    reg[[nm]] <- by_sex(
+      .DSEM_GROWTH_TARGETS[[nm]],
+      unname(LINKAGE_PARAM_CODES$growth[[sub("^growth_", "", nm)]]))
+  }
+
+  # Natural mortality. `param` is NA, not LINKAGE_PARAM_CODES$M's 0: M's offset
+  # tensor is `M_linkage_offset(nspp, max_sex, max_age, nyrs)` -- there is no
+  # parameter dimension to index, because M1 is the only drivable M parameter and
+  # the AGE dimension takes that slot's place. An M latent is one series per
+  # (species, sex) BROADCAST over ages, so the C++ needs species and sex and
+  # nothing else.
+  #
+  # The sex rule follows growth's rather than `M1_re`'s: M random effects run per
+  # sex only at `M1_model == 2` (ceattle.cpp 13.1, jnll slot 15), but that switch governs
+  # whether the BASELINE M1 is estimated per sex, not whether an offset can be.
+  # `log_M1` and `M_linkage_offset` are both sex-dimensioned regardless, so a
+  # shared baseline with sex-specific time variation is a coherent model, and one
+  # naming rule across processes is what a user actually needs.
+  reg[["natural_mortality"]] <-
+    by_sex(.DSEM_LATENT_PREFIXES[["natural_mortality"]], NA_integer_)
   reg
 }
 
@@ -381,6 +417,9 @@ dsem_family_object <- function( fam ){
       growth_dev_sp     = integer(0),
       growth_dev_sex    = integer(0),
       growth_dev_par    = integer(0),
+      mdev_col          = integer(0),
+      mdev_sp           = integer(0),
+      mdev_sex          = integer(0),
       rec_sd_idx        = integer(0),
       rec_sd_fixed      = numeric(0),
       rec_sd_prior      = numeric(0),
@@ -485,6 +524,10 @@ dsem_family_object <- function( fam ){
       growth_dev_sp     = as.integer(d$growth_dev_sp  %||% integer(0)),
       growth_dev_sex    = as.integer(d$growth_dev_sex %||% integer(0)),
       growth_dev_par    = as.integer(d$growth_dev_par %||% integer(0)),
+      # Empty for any `dsem` saved before M was drivable.
+      mdev_col          = as.integer(d$mdev_col %||% integer(0)),
+      mdev_sp           = as.integer(d$mdev_sp  %||% integer(0)),
+      mdev_sex          = as.integer(d$mdev_sex %||% integer(0)),
       rec_sd_idx        = as.integer(d$rec_sd_idx),
       rec_sd_fixed      = as.numeric(d$rec_sd_fixed),
       rec_sd_prior      = as.numeric(d$rec_sd_prior),
@@ -515,10 +558,11 @@ dsem_family_object <- function( fam ){
 # particular model, so the pattern below can be built without a data_list.
 # Folding them together made check_dsem_spec() -- which needs only the stems --
 # start requiring data_list$nspp, and error on inputs it used to accept.
-.DSEM_LATENT_PREFIXES <- c(recruitment = "recdevs",
-                           growth_L1   = "l1devs",
-                           growth_Linf = "linfdevs",
-                           growth_m    = "richdevs")
+.DSEM_LATENT_PREFIXES <- c(recruitment       = "recdevs",
+                           growth_L1         = "l1devs",
+                           growth_Linf       = "linfdevs",
+                           growth_m          = "richdevs",
+                           natural_mortality = "mdevs")
 
 # The growth subset, keyed by registry entry name. Richards `m` takes the stem
 # `richdevs`, not `mdevs`: `mdevs` belongs to natural mortality, and a trailing
@@ -566,6 +610,97 @@ dsem_family_object <- function( fam ){
   }
   invisible(NULL)
 }
+
+# Refuse a SEM M latent where M1_re already makes M time-varying. Both write the
+# SAME exp(): `M1_at_age = exp(log_M1 + log_M1_dev + ... + M_linkage_offset)`
+# (`ceattle.cpp:2017-2022`), where M1_re fills `log_M1_dev` and the SEM fills
+# `M_linkage_offset`. Two time-varying M processes, each scored by its own
+# density, competing for the same signal.
+#
+# Modes 2 and 5 (by year, constant over ages) are the DSEM latent's shape
+# exactly; modes 3 and 6 vary by age AND year, so they contain that shape. Both
+# must stay refused. Modes 1 and 4 (by age, constant over years) are orthogonal
+# in time -- `M1(a) x M_year(t)` is separable and arguably legitimate -- so they
+# are refused for caution rather than for a conflict, and the message says which
+# is which so relaxing it later is a documented step.
+# There is deliberately NO estDynamics refusal here, where
+# .check_dsem_growth_model() has one for growth. The two cases look alike and are
+# not: a growth latent under growth_model = 0 drives nothing because no growth
+# parameter exists, whereas a fixed-numbers species still has mortality. Measured
+# at estDynamics = 1, msmMode = 0, a +0.5 latent spike moves Z_at_age by 0.127
+# and catch_hat by 1.112 while leaving N_at_age, biomass and index_hat at exactly
+# 0 -- numbers-at-age are input, but the Baranov catch equation reads Z, so the
+# catch likelihood informs the latent. Weaker than for an estimated-N species,
+# not inert.
+#' @param data_list carries `M1_re` and `M1_linkages`; absent means no M random
+#'   effects.
+#' @param cols,sp the named M latents and their 1-based species.
+#' @noRd
+.check_dsem_m_support <- function(data_list, cols, sp) {
+  if (!length(cols)) return(invisible(NULL))
+  .check_dsem_m_linkage(data_list, cols, sp)
+  m1_re <- data_list[["M1_re"]]
+  if (is.null(m1_re)) return(invisible(NULL))
+  # build_M1() accepts the string form ("iid_year"), and data_check() tests for
+  # it, so a data_list in the wild carries it. as.integer() would give NA and the
+  # `any(bad)` below would then error on a missing value with no useful message.
+  m1_re <- rep_len(.coerce_M1_arg(m1_re, .M1_RES, "M1_re"), max(sp))
+  bad <- m1_re[sp] > 0L
+  if (!any(bad)) return(invisible(NULL))
+  yr_modes <- m1_re[sp] %in% c(2L, 3L, 5L, 6L)
+  stop("The sem drives natural mortality (", paste(cols[bad], collapse = ", "),
+       ") for species whose `M1_re` is already non-zero (",
+       paste(m1_re[sp][bad], collapse = ", "), "). Both write the same ",
+       "exponent -- M1_re through log_M1_dev and the SEM through ",
+       "M_linkage_offset -- so M would be driven twice, each part scored by its ",
+       "own density. ",
+       if (any(yr_modes & bad))
+         paste0("M1_re 2/5 vary M by year alone, which is this latent's shape ",
+                "exactly, and 3/6 vary M by age and year, which contains it. ") else
+         paste0("M1_re 1/4 vary M by age only, so they are separable from a ",
+                "year latent in principle; they are refused here for caution, ",
+                "not for a measured conflict. "),
+       "Set M1_re = 0 to drive M through the SEM.", call. = FALSE)
+}
+
+
+# Refuse a SEM M latent beside a RANDOM M1 linkage. This is closer than the
+# M1_re conflict above, not further: a random M1 linkage and the latent write the
+# SAME tensor, `M_linkage_offset`, each scored by its own density, so M carries
+# two year-varying log-scale fields and nothing distinguishes them. It matters
+# because `data_check()` soft-deprecates M1_re 1-5 in favour of exactly this
+# grammar, so a user following that advice would land here.
+#
+# A FIXED M1 linkage is fine and is the intended combination: the covariate
+# carries the explained part and the latent the residual, which is what `+=` in
+# section 5.5b-M composes. Only a random term competes.
+#' @param data_list carries `M1_linkages`.
+#' @param cols,sp the named M latents and their 1-based species.
+#' @noRd
+.check_dsem_m_linkage <- function(data_list, cols, sp) {
+  lk <- data_list[["M1_linkages"]]
+  if (is.null(lk) || !length(lk)) return(invisible(NULL))
+  # `M1_linkages` holds specs or lists of specs, so flatten to specs first.
+  specs <- unlist(lapply(lk, function(x)
+    if (inherits(x, "Rceattle_linkage_spec")) list(x) else x), recursive = FALSE)
+  for (spec in specs) {
+    if (!inherits(spec, "Rceattle_linkage_spec")) next
+    if (!length(.parse_linkage_formula(spec[["formula"]])$re_terms)) next
+    # A spec with no `species` applies to every species.
+    cover <- spec[["species"]]
+    hit <- if (is.null(cover)) rep(TRUE, length(sp)) else sp %in% as.integer(cover)
+    if (!any(hit)) next
+    stop("The sem drives natural mortality (", paste(cols[hit], collapse = ", "),
+         ") for species that also carry a RANDOM M1 linkage (",
+         deparse(spec[["formula"]]), "). Both write the same tensor, ",
+         "M_linkage_offset, each scored by its own density, so M would carry ",
+         "two year-varying fields with nothing to tell them apart. Use the sem ",
+         "or the linkage, not both. A FIXED M1 linkage does compose with the ",
+         "latent and is not refused.", call. = FALSE)
+  }
+  invisible(NULL)
+}
+
 
 # Latent column names across the whole registry, in model order.
 #' @noRd
@@ -949,6 +1084,18 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
     fit_dsem$tmb_inputs$data$growth_dev_sp + 1L,
     fit_dsem$tmb_inputs$data$growth_dev_par)
 
+  # Natural mortality latents the sem names. No param slot: M_linkage_offset is
+  # (nspp, max_sex, max_age, nyrs), so the template needs species and sex and
+  # broadcasts over ages.
+  m_reg <- .dsem_latent_registry(data_list)[["natural_mortality"]]
+  m_hit <- match(m_reg$columns, colnames(dsem_data))
+  m_keep <- !is.na(m_hit)
+  fit_dsem$tmb_inputs$data$mdev_col <- as.integer(m_hit[m_keep] - 1L)
+  fit_dsem$tmb_inputs$data$mdev_sp  <- as.integer(m_reg$species[m_keep] - 1L)
+  fit_dsem$tmb_inputs$data$mdev_sex <- as.integer(m_reg$sex[m_keep] - 1L)
+  .check_dsem_m_support(data_list, m_reg$columns[m_keep],
+                        m_reg$species[m_keep])
+
   rec_dev_col <- match(rec_cols, colnames(dsem_data)) - 1L
   n_rec_named <- sum(!is.na(rec_dev_col))
   # A sem may drive growth and leave recruitment alone, so naming NO recruitment
@@ -969,11 +1116,14 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   # to its covariates and still adds jnll_dsem to the objective, while no part
   # of the population model reads any of it -- so it converges, reports an ABC,
   # and its objective is not comparable to the same model without the SEM.
-  if (n_rec_named == 0L && !any(keep)) {
+  # Every drivable process has to be counted here. Enumerating two of the three
+  # is how an M-only sem got refused as driving nothing.
+  if (n_rec_named == 0L && !any(keep) && !any(m_keep)) {
     stop("The sem names no latent process column, so it drives nothing in the ",
          "model. Name a recruitment column for every species (",
-         paste(rec_cols, collapse = ", "), ") and/or one of this model's growth ",
-         "columns (", paste(g_col, collapse = ", "),
+         paste(rec_cols, collapse = ", "), "), a growth column (",
+         paste(g_col, collapse = ", "), ") and/or a natural-mortality column (",
+         paste(m_reg$columns, collapse = ", "),
          "). A sem over covariates alone still contributes its density to the ",
          "objective without driving any process.", call. = FALSE)
   }
@@ -1125,6 +1275,9 @@ merge_dsem_map <- function(map, dsem) {
 #'     growth latent (\code{l1devs}, \code{linfdevs}, \code{richdevs}), reported
 #'     separately so a growth predictor's coverage or collinearity is not
 #'     attributed to recruitment.
+#'   \item \code{mdev_predictor_observability},
+#'     \code{mdev_design_conditioning} -- the same two for paths into a natural
+#'     mortality latent (\code{mdevs}).
 #'   \item \code{covariate_scale} -- covariates of ANY driven process spanning
 #'     orders of magnitude in SD (ill-conditioning; consider standardizing).
 #'     Pooled across processes deliberately: they share one latent field and one
@@ -1224,12 +1377,15 @@ check_dsem_spec <- function(data_list, dsem) {
   is_rec <- into_latent & startsWith(tgt, .DSEM_LATENT_PREFIXES[["recruitment"]])
   is_gro <- into_latent &
     Reduce(`|`, lapply(.DSEM_GROWTH_TARGETS, function(st) startsWith(tgt, st)))
-  # `into_latent` is the UNION of every registered prefix while the two groups
-  # enumerate two of them, so a process added to the registry (natural mortality
-  # is next) would otherwise be checked by neither and say nothing. Loud instead.
-  if (any(into_latent & !(is_rec | is_gro))) {
+  is_m <- into_latent &
+    startsWith(tgt, .DSEM_LATENT_PREFIXES[["natural_mortality"]])
+  # `into_latent` is the UNION of every registered prefix while the three groups
+  # above enumerate them one at a time, so a process added to the registry would
+  # otherwise be checked by none of them and say nothing. Loud instead: this
+  # fired when natural mortality was added, before `is_m` existed.
+  if (any(into_latent & !(is_rec | is_gro | is_m))) {
     stop("No specification check covers paths into ",
-         paste(unique(tgt[into_latent & !(is_rec | is_gro)]), collapse = ", "),
+         paste(unique(tgt[into_latent & !(is_rec | is_gro | is_m)]), collapse = ", "),
          ". Add the process to check_dsem_spec()'s classification.", call. = FALSE)
   }
 
@@ -1331,6 +1487,10 @@ check_dsem_spec <- function(data_list, dsem) {
                               "the growth latent's SD",
                               "growth_predictor_observability",
                               "growth_design_conditioning"))
+  out <- c(out, design_checks(sf[is_m, , drop = FALSE], "Natural mortality",
+                              "the M latent's SD",
+                              "mdev_predictor_observability",
+                              "mdev_design_conditioning"))
 
   # T1.5 -- covariate scale heterogeneity
   sds <- vapply(preds, function(p) stats::sd(ed[[p]], na.rm = TRUE), numeric(1))
@@ -1572,9 +1732,10 @@ check_dsem_spec <- function(data_list, dsem) {
 #'
 #' @param fit a fitted `Rceattle` model carrying a DSEM.
 #' @param state `.sim_state_codes()`'s five-slot request vector. Slot 1 selects
-#'   the recruitment latent columns and slot 3 the growth ones; a column left
-#'   out is held at its fitted value and CONDITIONED on, not ignored, so asking
-#'   for one process does not redraw another.
+#'   the recruitment latent columns, slot 2 the natural-mortality ones and slot 3
+#'   the growth ones; a column left out is held at its fitted value and
+#'   CONDITIONED on, not ignored, so asking for one process does not redraw
+#'   another.
 #' @return A matrix the shape of `dsem_x_tj`, carrying a logical matrix of the
 #'   same shape in `attr(, "drawn")` marking the cells this call redrew. The
 #'   mask is written by the draw itself so a caller cannot re-derive it wrongly;
@@ -1610,7 +1771,12 @@ check_dsem_spec <- function(data_list, dsem) {
   rc <- rc[!is.na(rc) & rc >= 1L]
   gc_ <- unique(dsd$growth_dev_col + 1L)
   gc_ <- gc_[!is.na(gc_) & gc_ >= 1L]
-  if (!length(rc) && !length(gc_)) {
+  mc <- unique(dsd$mdev_col + 1L)
+  mc <- mc[!is.na(mc) & mc >= 1L]
+  # Every drivable process has to be counted here. With M missing, an M-only
+  # fit was told it records no latent process columns, and an M column fell
+  # through to the latent-covariate branch below, which draws unconditionally.
+  if (!length(rc) && !length(gc_) && !length(mc)) {
     stop("This fit records no latent process columns, so there is nothing to ",
          "redraw. Refit before simulating.", call. = FALSE)
   }
@@ -1628,8 +1794,9 @@ check_dsem_spec <- function(data_list, dsem) {
   # nor a draw.
   want <- rep(FALSE, n_k)
   if (isTRUE(state[1] == 1L)) want[cells(rc)]  <- TRUE
+  if (isTRUE(state[2] == 1L)) want[cells(mc)]  <- TRUE
   if (isTRUE(state[3] == 1L)) want[cells(gc_)] <- TRUE
-  want[setdiff(seq_len(n_k), cells(c(rc, gc_)))] <- TRUE
+  want[setdiff(seq_len(n_k), cells(c(rc, gc_, mc)))] <- TRUE
 
   mp  <- fit$map$mapList$dsem_x_tj
   est <- if (is.null(mp)) rep(TRUE, n_k) else !is.na(as.numeric(mp))
@@ -1643,6 +1810,7 @@ check_dsem_spec <- function(data_list, dsem) {
   # did not produce.
   proc_want <- rep(FALSE, n_k)
   if (isTRUE(state[1] == 1L)) proc_want[cells(rc)]  <- TRUE
+  if (isTRUE(state[2] == 1L)) proc_want[cells(mc)]  <- TRUE
   if (isTRUE(state[3] == 1L)) proc_want[cells(gc_)] <- TRUE
   if (any(proc_want) && !any(est & proc_want)) {
     stop("Every latent state of the process(es) asked for is fixed in this ",

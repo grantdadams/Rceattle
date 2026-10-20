@@ -330,6 +330,14 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(growth_dev_sp);
   DATA_IVECTOR(growth_dev_sex);
   DATA_IVECTOR(growth_dev_par);
+  // Natural-mortality latents the SEM drives, one entry per named column: its
+  // 0-based x_tj column and the 0-based species and sex it drives. There is no
+  // parameter slot -- M_linkage_offset is dimensioned by AGE instead, and one
+  // latent applies to every age of that species and sex. Zero-length unless a
+  // sem names an M latent.
+  DATA_IVECTOR(mdev_col);
+  DATA_IVECTOR(mdev_sp);
+  DATA_IVECTOR(mdev_sex);
   DATA_IVECTOR(rec_sd_idx);            // 1-based beta_z index of each species' recruitment SD (0 if fixed)
   DATA_VECTOR(rec_sd_fixed);           // fixed recruitment SD, used where rec_sd_idx == 0
   DATA_VECTOR(rec_sd_prior);           // prior centre for the recruitment SD
@@ -1343,16 +1351,31 @@ Type objective_function<Type>::operator() () {
     // The correction uses the GMRF's MARGINAL variance per state, not the
     // innovation SD.
     //
-    // nyrs_dsem, not nyrs: with estimate_projection = FALSE the latent matrix is
-    // shorter than the model's year span, and the projection years keep whatever
-    // the linkage fill left them (zero unless a covariate linkage wrote there).
+    // nyrs_dsem, not nyrs: with estimate_projection = FALSE -- the DEFAULT --
+    // the latent matrix is shorter than the model's year span, and the
+    // projection years keep whatever the linkage fill left them (zero unless a
+    // covariate linkage wrote there). This applies to section 5.5b-M below too.
+    // The four maps are PARALLEL -- entry g of each describes one latent -- but
+    // the R side supplies them as four independent fields, so a hand-built or
+    // hand-edited $dsem list can carry them at different lengths. Checked
+    // before the loop because the value guards inside it cannot see this: a
+    // SHORT sp/sex/par vector is read out of bounds (measured: a segfault, or
+    // two latents silently landing on one species, halving one species' offset
+    // and doubling another's), and a LONG col vector writes phantom entries.
+    if(growth_dev_sp.size() != growth_dev_col.size() ||
+       growth_dev_sex.size() != growth_dev_col.size() ||
+       growth_dev_par.size() != growth_dev_col.size())
+      Rf_error("growth_dev_col/sp/sex/par have %d/%d/%d/%d entries; they are parallel and must agree",
+               (int)growth_dev_col.size(), (int)growth_dev_sp.size(),
+               (int)growth_dev_sex.size(), (int)growth_dev_par.size());
+
     for(int g = 0; g < growth_dev_col.size(); g++){
       // Dimension contract for this call site, as for rec_dev_col above: the R
       // side builds these from the latent registry, but a hand-built or
       // hand-edited $dsem list reaches here too, and an out-of-range index
       // would write into a neighbouring species' growth.
       if(growth_dev_col(g) < 0 || growth_dev_col(g) >= dsem_z_tj.cols())
-        Rf_error("growth_dev_col[%d] is %d; it must index a column of dsem_x_tj (0-%d)",
+        Rf_error("growth_dev_col[%d] is %d; it must index a column of dsem_z_tj (0-%d)",
                  g, (int)growth_dev_col(g), (int)dsem_z_tj.cols() - 1);
       if(growth_dev_sp(g) < 0 || growth_dev_sp(g) >= nspp)
         Rf_error("growth_dev_sp[%d] is %d; it must be a 0-based species (0-%d)",
@@ -1370,6 +1393,52 @@ Type objective_function<Type>::operator() () {
                               growth_dev_par(g)) +=
           dsem_z_tj(yr, growth_dev_col(g))
           - bias_adjust_proc * dsem_margvar_tj(yr, growth_dev_col(g)) / 2.0;
+      }
+    }
+
+    // 5.5b-M. WRITE THE NATURAL-MORTALITY LATENTS INTO M_linkage_offset
+    // The latent is a log-scale multiplier on residual natural mortality M1,
+    // which is what M_linkage_offset already is: section 6.1 reads
+    // exp(log_M1 + log_M1_dev + M1_mult.sum() + M_linkage_offset). One latent
+    // per species and sex, broadcast FLAT over ages -- a year in which
+    // mortality was high was high for the whole stock. `M1_re` writes the same
+    // exponent through log_M1_dev, and its modes 2/5 have exactly this shape,
+    // so a sem naming an M latent for a species whose M1_re is on is refused on
+    // the R side.
+    //
+    // `+=` and the -margvar/2 bias correction for the same reasons as growth
+    // above: a fixed environmental linkage may have written this cell and the
+    // two compose, and the offset is exponentiated, so without the correction
+    // mean M1 drifts up with the latent's variance. The correction leaves mean
+    // M1 unbiased, not mean survivorship: exp(-M) is convex, so SB0 and B40%
+    // keep a Jensen bias, as mean weight-at-age does under growth.
+    // Parallel maps, same contract and same hazard as growth above.
+    if(mdev_sp.size() != mdev_col.size() ||
+       mdev_sex.size() != mdev_col.size())
+      Rf_error("mdev_col/sp/sex have %d/%d/%d entries; they are parallel and must agree",
+               (int)mdev_col.size(), (int)mdev_sp.size(), (int)mdev_sex.size());
+
+    for(int m = 0; m < mdev_col.size(); m++){
+      if(mdev_col(m) < 0 || mdev_col(m) >= dsem_z_tj.cols())
+        Rf_error("mdev_col[%d] is %d; it must index a column of dsem_z_tj (0-%d)",
+                 m, (int)mdev_col(m), (int)dsem_z_tj.cols() - 1);
+      if(mdev_sp(m) < 0 || mdev_sp(m) >= nspp)
+        Rf_error("mdev_sp[%d] is %d; it must be a 0-based species (0-%d)",
+                 m, (int)mdev_sp(m), (int)nspp - 1);
+      if(mdev_sex(m) < 0 || mdev_sex(m) >= nsex(mdev_sp(m)))
+        Rf_error("mdev_sex[%d] is %d, but species %d has %d sex(es)",
+                 m, (int)mdev_sex(m), (int)mdev_sp(m) + 1,
+                 (int)nsex(mdev_sp(m)));
+
+      for(yr = 0; yr < nyrs_dsem; yr++){
+        Type mdev_yr = dsem_z_tj(yr, mdev_col(m))
+          - bias_adjust_proc * dsem_margvar_tj(yr, mdev_col(m)) / 2.0;
+        // Ages 0 .. nages(sp)-1, the span section 6.1 reads. The tensor is
+        // sized to the longest-lived species, so a shorter-lived one's trailing
+        // cells are its own padding and stay zero.
+        for(age = 0; age < nages(mdev_sp(m)); age++){
+          M_linkage_offset(mdev_sp(m), mdev_sex(m), age, yr) += mdev_yr;
+        }
       }
     }
 
@@ -1434,11 +1503,11 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-  // Position matters: REPORT() copies the tensor at the call site, and section
-  // 5.5b-growth adds a DSEM's growth latent states to growth_linkage_offset
-  // above. Reported before that, the growth offset would be a pre-DSEM snapshot
-  // contradicting growth_parameters. M_linkage_offset has no DSEM writer yet and
-  // is reported here for the same reason it will need to be.
+  // Position matters: REPORT() copies the tensor at the call site, and sections
+  // 5.5b-growth and 5.5b-M add a DSEM's latent states to growth_linkage_offset
+  // and M_linkage_offset above. Reported before that, either offset would be a
+  // pre-DSEM snapshot contradicting the growth parameters and M-at-age that
+  // sections 5.7 and 6.1 actually used.
   REPORT(M_linkage_offset);
   REPORT(M_linkage_offset_nat);
   REPORT(growth_linkage_offset);

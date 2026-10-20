@@ -115,16 +115,21 @@
 
 
 # A process the model gives no distribution to cannot be redrawn: M with
-# M1_re = 0, or growth with no random linkage on a growth parameter. Nothing is
-# drawn and nothing is wrong, but silence is indistinguishable from a draw that
-# worked, so say which process was left alone.
+# M1_re = 0 and no M latent, or growth with no random linkage on a growth
+# parameter. Nothing is drawn and nothing is wrong, but silence is
+# indistinguishable from a draw that worked, so say which process was left
+# alone.
 .sim_warn_process_absent <- function(obj, state) {
   hit <- character(0)
 
+  # A DSEM M latent is an M process WITH a distribution, drawn from the GMRF in
+  # .dsem_draw_process() -- and .check_dsem_m_support() REQUIRES M1_re = 0 for
+  # it, so without this term the warning fired on every M-driving DSEM.
   m1_re <- suppressWarnings(as.integer(obj$env$data$M1_re))
   if (state[2] == 1L && !any(m1_re > 0, na.rm = TRUE) &&
-      !.sim_linkage_drawn(obj, c(0L, 1L, 0L, 0L, 0L))) {
-    hit <- c(hit, "M (M1_re = 0 and no random linkage on M)")
+      !.sim_linkage_drawn(obj, c(0L, 1L, 0L, 0L, 0L)) &&
+      !length(obj$env$data$mdev_col %||% integer(0))) {
+    hit <- c(hit, "M (M1_re = 0, no random linkage on M, and no DSEM M latent)")
   }
   # A DSEM growth latent is a growth process WITH a distribution -- it is drawn
   # from the GMRF in .dsem_draw_process(). Reporting it as absent here sent a
@@ -855,10 +860,14 @@
 #' draws, so the whole field is drawn at once from the same precision the
 #' density scored the fit with, and substituted into \code{dsem_x_tj}; the
 #' template then derives \code{rec_dev} from it and applies the lognormal bias
+#' correction once, where it always is.
+#'
 #' Every estimated cell of a REQUESTED process is redrawn, conditional on the
-#' cells the map pins and on the processes not requested, which are held.
-#' on the cells the map pins -- the map being where the model says which is
-#' which. Under \code{family = "fixed"} a covariate column \emph{is} the
+#' cells the map pins and on the processes not requested, which are held at
+#' their fitted values. So \code{process = "recruitment"} on a sem driving
+#' recruitment, growth and M redraws the recruitment columns only, and the
+#' growth and M columns are conditioned on rather than ignored.
+#' Under \code{family = "fixed"} a covariate column \emph{is} the
 #' \code{env_data} series and is pinned, so it is held: redrawing it would
 #' simulate a different environment rather than a different process. Under any
 #' other family the covariate is a latent state observed with error, so its
@@ -933,11 +942,12 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
   # A DSEM's latent field is one joint GMRF, so it is drawn here rather than in
   # the template whenever the SEM owns a process whose error was asked for.
   # Recruitment carries the extra condition that it be scored by a single
-  # density; growth has no such competing penalty.
+  # density; growth and natural mortality have no such competing penalty.
   .dsem_state <- .sim_state_codes(process)
   .draw_dsem_process <-
     (.dsem_state[1L] == 1L && .dsem_drives(object, "recruitment") &&
        .rec_srr_single_density(object)) ||
+    (.dsem_state[2L] == 1L && .dsem_drives(object, "natural_mortality")) ||
     (.dsem_state[3L] == 1L && .dsem_drives_growth(object))
 
   dat_sim <- object$data_list

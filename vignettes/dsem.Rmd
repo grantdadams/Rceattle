@@ -166,6 +166,7 @@ is the convention the rest of the package follows.
 | `l1devs<sp>` | `L1`, mean length at the growth anchor age | cm |
 | `linfdevs<sp>` | `Linf`, asymptotic mean length | cm |
 | `richdevs<sp>` | the Richards shape parameter `m` | — |
+| `mdevs<sp>` | `M1`, residual natural mortality | log scale |
 
 So `l1devs1` is species 1's `L1` in a one-sex model, and `l1devs2f` /
 `l1devs2m` are the female and male `L1` of species 2 in a two-sex model.
@@ -195,6 +196,36 @@ separate univariate density rather than part of the SEM's joint field.
 A growth latent is refused where the species' growth model never reads that
 parameter: any of them under empirical weight-at-age, and `richdevs` under von
 Bertalanffy, whose `m` is mapped out.
+
+### Natural mortality
+
+`mdevs<sp>` is a log-scale multiplier on residual natural mortality `M1`,
+applied through `M_linkage_offset` and composing with a fixed environmental M
+linkage in the same way the growth latents do. It is **flat over ages**: one
+value per species, sex and year, saying that mortality was high or low for the
+whole stock that year. Nothing writes it into predation mortality `M2`, but
+under `msmMode > 0` M2 moves with it anyway: M1 sets survivorship, survivorship
+sets the average numbers predators eat from, and M2 is predator demand over
+available prey. On `BS2017MS` a +0.5 spike on one species' latent moved that
+species' own M2 by 1.5% and the other two species' by 3.1% and 4.3%.
+
+The correction that makes mean `M1` unbiased does not make mean survivorship
+unbiased — `exp(-M)` is convex, so SB0 and B40% keep a Jensen bias, and because
+the latent is flat over ages a per-recruit quantity is exposed to it roughly
+`nages`-fold. And **a lagged path into an `mdevs` column warns**: the correction
+is per year, a lagged path makes the marginal variance grow along the series, and
+the subtraction then imposes a deterministic trend on M even with every latent
+state at zero. On `GOA2018SS` a random-walk M latent moved terminal-year M1 from
+0.200 to 0.086 and SPR0 from 1.23 to 8.17. Use an unlagged latent, or
+`fit_control(bias_adjust_proc = 0)`.
+
+That flatness is the dividing line with `M1_re`, which estimates an
+age-structured mortality deviation on its own univariate density. The two
+describe the same parameter, so a sem that names an M latent for a species whose
+`M1_re` is on is refused — pick one. `M1_re` modes 2, 3, 5 and 6 are
+year-varying and would be in direct conflict; modes 1 and 4 are age-only, and
+are refused as well because a flat annual multiplier beside an age-only
+deviation is a configuration nobody has shown identified.
 
 ## Multi-species: EBS three-species model
 

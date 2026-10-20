@@ -12,15 +12,15 @@
 # `exp(-kappa * fracyr) - 1` is exactly zero at a Jan-1 fleet/spawning month.
 # Measured there: bit-identical objective under perturbation. Not structural --
 # at a mid-year month it is informed, though weakly.
-# Natural mortality keeps `mdevs` for when it lands, which is why Richards `m`
-# is `richdevs`; and a trailing `m` has to stay readable as the sex token.
+# Natural mortality is `mdevs`, which is why Richards `m` is `richdevs`; and a
+# trailing `m` has to stay readable as the sex token.
 
 testthat::test_that("the registry names one latent series per target, in model order", {
   d <- list(nspp = 3L)
 
   reg <- .dsem_latent_registry(d)
   testthat::expect_named(reg, c("recruitment", "growth_L1", "growth_Linf",
-                                "growth_m"))
+                                "growth_m", "natural_mortality"))
   testthat::expect_equal(reg$recruitment$prefix, "recdevs")
   testthat::expect_equal(reg$recruitment$n, 3L)
   testthat::expect_equal(reg$recruitment$columns,
@@ -31,10 +31,13 @@ testthat::test_that("the registry names one latent series per target, in model o
                          c("linfdevs1", "linfdevs2", "linfdevs3"))
   testthat::expect_equal(reg$growth_m$columns,
                          c("richdevs1", "richdevs2", "richdevs3"))
-  # Every declared column, recruitment first then growth, in registry order.
+  testthat::expect_equal(reg$natural_mortality$columns,
+                         c("mdevs1", "mdevs2", "mdevs3"))
+  # Every declared column, in registry order.
   testthat::expect_equal(.dsem_latent_columns(d),
                          c(reg$recruitment$columns, reg$growth_L1$columns,
-                           reg$growth_Linf$columns, reg$growth_m$columns))
+                           reg$growth_Linf$columns, reg$growth_m$columns,
+                           reg$natural_mortality$columns))
 
   # Order is positional -- rec_dev_col indexes x_tj by it -- so a double-digit
   # species count must not sort lexically.
@@ -50,8 +53,10 @@ testthat::test_that("growth targets carry the growth_linkage_offset slot, from o
   testthat::expect_equal(reg$growth_L1$param,   LINKAGE_PARAM_CODES$growth[["L1"]])
   testthat::expect_equal(reg$growth_Linf$param, LINKAGE_PARAM_CODES$growth[["Linf"]])
   testthat::expect_equal(reg$growth_m$param,    LINKAGE_PARAM_CODES$growth[["m"]])
-  # Recruitment drives no growth slot.
+  # Neither recruitment nor natural mortality drives a growth slot. M's offset
+  # tensor is age-dimensioned with no parameter axis, so its `param` is NA too.
   testthat::expect_true(all(is.na(reg$recruitment$param)))
+  testthat::expect_true(all(is.na(reg$natural_mortality$param)))
   # K is not drivable, so no entry may claim its slot.
   testthat::expect_false(LINKAGE_PARAM_CODES$growth[["K"]] %in%
                            unlist(lapply(reg, `[[`, "param")))
@@ -68,6 +73,11 @@ testthat::test_that("growth latents are per sex, and a one-sex species carries n
                          c("l1devs1", "l1devs2f", "l1devs2m"))
   testthat::expect_equal(reg$growth_L1$species, c(1L, 2L, 2L))
   testthat::expect_equal(reg$growth_L1$sex,     c(1L, 1L, 2L))
+  # Natural mortality follows the same rule: M1 is estimated per sex, so a
+  # two-sex species carries one M latent per sex.
+  testthat::expect_equal(reg$natural_mortality$columns,
+                         c("mdevs1", "mdevs2f", "mdevs2m"))
+  testthat::expect_equal(reg$natural_mortality$sex, c(1L, 1L, 2L))
   # Recruitment is not sex-specific whatever nsex says.
   testthat::expect_equal(reg$recruitment$columns, c("recdevs1", "recdevs2"))
 
@@ -82,15 +92,15 @@ testthat::test_that("the latent pattern matches exactly the latent column names"
 
   testthat::expect_true(all(grepl(p, c("recdevs1", "recdevs10", "recdevs001",
                                        "l1devs1", "linfdevs2", "richdevs1",
-                                       "l1devs2f", "l1devs2m", "linfdevs10m"))))
+                                       "l1devs2f", "l1devs2m", "linfdevs10m",
+                                       "mdevs1", "mdevs2f"))))
   # Near-misses must NOT match: these are ordinary env-data variables.
   testthat::expect_false(any(grepl(p, c("recdevs", "recdevsA", "recdevs_anom",
                                         "recdevs1_lag", "xrecdevs1", "BT",
                                         "l1devs1x", "l1devs1fm", "l1devsf"))))
-  # `mdevs` belongs to natural mortality and `kdevs` to a parameter that is not
-  # drivable; neither may be recognised as a latent today, or an env column by
-  # that name would be silently shadowed.
-  testthat::expect_false(any(grepl(p, c("mdevs1", "mdevs2f", "kdevs1"))))
+  # `kdevs` names growth K, which is not drivable, so it must not be recognised
+  # as a latent -- an env column by that name would otherwise be shadowed.
+  testthat::expect_false(any(grepl(p, c("kdevs1", "kdevs2f", "mdevs"))))
 })
 
 testthat::test_that("the pattern needs no data_list, so check_dsem_spec keeps its contract", {
@@ -297,6 +307,7 @@ testthat::test_that(".dsem_drives() answers per growth parameter, not just recru
   testthat::expect_true(.dsem_drives(g, "growth_L1"))
   testthat::expect_false(.dsem_drives(g, "growth_Linf"))
   testthat::expect_false(.dsem_drives(g, "growth_m"))
+  testthat::expect_false(.dsem_drives(g, "natural_mortality"))
 
   r <- build_dsem_objects(dsem_settings = build_DSEM(), data_list = d)
   testthat::expect_true(.dsem_drives(r, "recruitment"))

@@ -114,6 +114,7 @@ species:
 \item{\code{l1devs<sp>}}{\code{L1}, mean length at the growth anchor age}
 \item{\code{linfdevs<sp>}}{\code{Linf}, asymptotic mean length}
 \item{\code{richdevs<sp>}}{\code{m}, the Richards shape parameter}
+\item{\code{mdevs<sp>}}{\code{M1}, residual natural mortality}
 }
 
 Every latent is on the LOG scale -- a multiplier on its target, not an
@@ -129,6 +130,18 @@ convex power of length (\code{beta} near 3), so an unbiased mean parameter
 still leaves mean weight-at-age -- the weight in SSB and B40\\% -- biased
 upward by Jensen's inequality. The correction removes the drift in the
 parameter, not in the weight.
+
+The natural-mortality latent is the same kind of log-scale multiplier,
+applied through \code{M_linkage_offset} and bias-corrected the same way, so
+mean \code{M1} is unbiased rather than its median. The same Jensen caveat as
+growth applies: survivorship is \code{exp(-M)}, convex in M, so an unbiased
+mean M still leaves mean survivorship -- and so SB0 and B40\\% -- biased. It
+is FLAT over ages: one value per species, sex and year. With an
+identity-link M linkage the latent multiplies the exponentiated part only,
+since that linkage adds its offset outside the \code{exp()}. No code writes it into
+predation mortality \code{M2}, but under \code{msmMode > 0} M2 moves with it
+anyway, because M1 sets survivorship, survivorship sets the average numbers
+predators eat from, and M2 is predator demand over available prey.
 
 Name a recruitment column for every species to have the SEM drive
 recruitment, or none of them to leave recruitment on its own density; naming
@@ -150,7 +163,10 @@ through the within-year advance, whose factor is zero at a Jan-1 fleet and
 spawning month -- measured there, perturbing it leaves the objective
 bit-identical. A growth latent is also refused where the species' growth model
 never reads that parameter: any of them under empirical weight-at-age, and
-\code{richdevs} under von Bertalanffy.
+\code{richdevs} under von Bertalanffy. An \code{mdevs} column is refused for
+a species whose \code{M1_re} is on: both are deviations on the same
+\code{M1}, so a flat annual multiplier beside an \code{M1_re} field asks the
+model to split one quantity two ways.
 
 One consequence of the latent naming: a name matching the latent pattern is
 treated as a latent even where the process never generates one, so an

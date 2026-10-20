@@ -88,10 +88,14 @@ The deviations are the latent states of a GMRF rather than independent
 draws, so the whole field is drawn at once from the same precision the
 density scored the fit with, and substituted into \code{dsem_x_tj}; the
 template then derives \code{rec_dev} from it and applies the lognormal bias
+correction once, where it always is.
+
 Every estimated cell of a REQUESTED process is redrawn, conditional on the
-cells the map pins and on the processes not requested, which are held.
-on the cells the map pins -- the map being where the model says which is
-which. Under \code{family = "fixed"} a covariate column \emph{is} the
+cells the map pins and on the processes not requested, which are held at
+their fitted values. So \code{process = "recruitment"} on a sem driving
+recruitment, growth and M redraws the recruitment columns only, and the
+growth and M columns are conditioned on rather than ignored.
+Under \code{family = "fixed"} a covariate column \emph{is} the
 \code{env_data} series and is pinned, so it is held: redrawing it would
 simulate a different environment rather than a different process. Under any
 other family the covariate is a latent state observed with error, so its

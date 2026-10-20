@@ -36,6 +36,9 @@ predictors).
 growth latent (\code{l1devs}, \code{linfdevs}, \code{richdevs}), reported
 separately so a growth predictor's coverage or collinearity is not
 attributed to recruitment.
+\item \code{mdev_predictor_observability},
+\code{mdev_design_conditioning} -- the same two for paths into a natural
+mortality latent (\code{mdevs}).
 \item \code{covariate_scale} -- covariates of ANY driven process spanning
 orders of magnitude in SD (ill-conditioning; consider standardizing).
 Pooled across processes deliberately: they share one latent field and one

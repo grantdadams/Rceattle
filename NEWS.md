@@ -102,6 +102,115 @@ numbered on the 5.23.0 line.
   `.dsem_rec_truth()` indexed zero columns and would have yielded an empty
   mask.
 
+* **A DSEM can now drive natural mortality.** A sem may name latent columns
+  `mdevs<sp>`, with `f`/`m` appended for a two-sex species, as log-scale
+  multipliers on residual natural mortality `M1`. They go through
+  `M_linkage_offset` -- the tensor a fixed environmental M linkage already
+  writes to, so the two COMPOSE -- and are bias-corrected on the GMRF's
+  marginal variance, so mean `M1` is unbiased rather than its median. That is
+  all it buys: survivorship is `exp(-M)`, convex in M, so mean survivorship --
+  and so SB0 and B40% -- keeps a Jensen bias, as mean weight-at-age does under
+  growth. Because the latent is flat over ages and a per-recruit quantity reads
+  one year across all ages, the exposure is amplified roughly `nages`-fold:
+  measured by quadrature on a 10-age M = 0.2 fixture, `E[SPR0]` is 4.6% above
+  its value at a zero latent at sigma 0.2 and 28% above it at sigma 0.5.
+  One latent applies FLAT over every age of that species and sex: a year in
+  which mortality was high was high for the whole stock. No code writes the
+  latent into predation mortality `M2`, but under `msmMode > 0` M2 moves with it
+  anyway -- M1 sets survivorship, survivorship sets the average numbers
+  predators eat from, and M2 is predator demand over available prey. Measured on
+  `BS2017MS` with `niter = 3`, a +0.5 spike on species 1's latent moved species
+  1's own M2 by 1.5% and species 2's and 3's by 3.1% and 4.3%. Existing sems are
+  unaffected -- the column is declared for every model but dropped unless the
+  sem names it, so the offset stays zero and the fit takes the same code path.
+
+* **An M latent is refused for a species whose `M1_re` is on.** Both describe a
+  deviation on the same `M1`, so estimating them together asks the model to
+  split one quantity two ways with nothing distinguishing them. Modes 2, 3, 5
+  and 6 are year-varying and conflict directly; modes 1 and 4 are age-only, and
+  are refused as well rather than assumed identified beside a flat annual
+  multiplier. The message names the species and the column.
+
+* **The specification checks report natural-mortality paths separately**, as
+  `mdev_predictor_observability` and `mdev_design_conditioning`, alongside the
+  recruitment and growth records. The "a path into an uncovered latent is an
+  error" guard added for growth is what caught this during development: adding
+  `mdevs` to the registry before extending the classification made it fire,
+  rather than leaving M paths silently unchecked.
+
+* **Known, unchanged, and now measured: the process bias correction imposes a
+  trend on a lagged latent.** The correction subtracts `margvar_t / 2`, which
+  makes `E[exp(latent_t)] = 1` per year as intended; but under the default
+  `constant_variance = "conditional"` a lagged self-path makes the MARGINAL
+  variance grow along the series, so the subtraction grows with it and moves the
+  driven parameter even when every latent state is zero. Measured on
+  `GOA2018SS`, species 2, `estimateMode = 3`, field identically zero, as a
+  multiplier on `SPR0` relative to no latent: IID 1.055, rho 0.3 1.060, rho 0.6
+  1.087, rho 0.9 1.317, rho 0.99 3.899, random walk 6.638. `SPR0` is the
+  per-recruit basis of every Amendment-56 proxy. The effect is smooth in rho
+  with no cliff, so no warning ships: a gate on "has a lagged path" would fire
+  identically at 1.06 and 6.64, and one at `|rho| >= 1` would miss rho 0.99.
+  This is not new and is not specific to natural mortality -- recruitment has
+  carried the same correction since the DSEM arrived, growth since it became
+  drivable. `fit_control(bias_adjust_proc = 0)` turns the correction off.
+  Recorded with the full table in `inst/dev/TRAPS.md`.
+
+* **`constant_variance = "marginal"` aborts R for any sem with a lagged path.**
+  It is the documented setting that would hold the marginal variance constant
+  and so remove the trend above, and it dies inside `TMB::MakeADFun` with an
+  irrecoverable exception. Pre-existing, in `src/TMB/dsem.hpp`'s rescaling
+  branch, and reproduced on a recruitment-only random walk, so it is not
+  specific to M. `test-dsem-constant-variance.R` only ever compared the three
+  settings on a sem with NO lags, which is where they agree and where nothing
+  crashes.
+
+* **`sim_mod()` draws a DSEM's M process error, and draws only the processes
+  asked for.** The draw partitioned the latent field into recruitment columns,
+  growth columns and "latent covariate" columns, the last of which are drawn
+  unconditionally -- so an M column fell through to that branch and
+  `process = "recruitment"` silently redrew M as well. Every replicate was then
+  generated under M process error the caller did not ask for, so a
+  recruitment-recovery statistic measured bias under M variability instead. An
+  M-only sem separately reached the "this fit records no latent process columns"
+  refusal, which counted recruitment and growth only.
+
+* **A DSEM M latent is no longer reported as having no distribution to draw
+  from.** `sim_mod(process = "M")` warned "M (M1_re = 0 and no random linkage on
+  M) ... Nothing was redrawn and the fitted values stand" for every M-driving
+  DSEM -- necessarily, since allowing the latent REQUIRES `M1_re = 0` -- while
+  the GMRF draw was in fact happening. The same false alarm the growth arm had.
+
+* **An M latent is refused beside a RANDOM `M1` linkage.** That is a closer
+  conflict than the `M1_re` one, not a looser one: a random M1 linkage and the
+  latent write the same `M_linkage_offset` tensor, each scored by its own
+  density. It matters because `data_check()` soft-deprecates `M1_re` 1-5 in
+  favour of exactly that grammar, so a user following the advice would have
+  landed in the configuration the refusal exists to prevent. A FIXED M1 linkage
+  still composes with the latent and is not refused.
+
+* **The growth and M index maps are checked for agreeing lengths.** Each is
+  several parallel vectors -- one entry per latent -- supplied as independent
+  fields, so a hand-built or hand-edited `$dsem` could carry them at different
+  lengths. A short species/sex vector was read out of bounds: measured on
+  `GOA2018SS`, a one-entry `mdev_sp` against a two-entry `mdev_col` ran to
+  completion with both latents landing on species 1, halving one species' M
+  offset and doubling the other's (`sum|offset|` 16.80 against a correct 26.04);
+  shorter still segfaulted. Reachable because `fit_mod()` accepts a prebuilt
+  `dsem` object, and because the fields' back-compat defaults are independent,
+  so an object carrying only `mdev_col` degraded to a crash rather than to the
+  no-M case. `growth_dev_*` had the same hole and is covered by the same guard.
+
+* `.dsem_drives()` has one named branch per process and a loud default. The
+  fall-through previously handed back the RECRUITMENT answer for any process
+  that was not a growth target, so a question about a newly registered process
+  would have been answered about the wrong one. The default fired when
+  natural mortality was added, which is what it is for. A sem that drives
+  nothing is also now counted over all three processes rather than recruitment
+  and growth only; an M-only sem was refused as driving nothing.
+
+* The `sim_mod()` documentation of the per-process DSEM draw is repaired: a
+  sentence broke off mid-clause and a duplicate fragment followed it.
+
 * **A DSEM can now drive mean growth.** A sem may name latent columns
   `l1devs<sp>` (mean length at the growth anchor age, cm), `linfdevs<sp>`
   (asymptotic mean length, cm) or `richdevs<sp>` (the Richards shape `m`), with
