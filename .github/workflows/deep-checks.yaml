@@ -29,7 +29,8 @@
 #
 # All three are slow: golden is four phased fits with newtonsteps, a
 # bounds-checked build range-tests every array access, and the full NOT_CRAN
-# suite is ~160 minutes of fits. Hence nightly plus manual, not per-PR.
+# suite is ~160 minutes of fits. Hence golden runs only on PRs that touch the
+# model, and the other two run nightly plus manual.
 #
 # ALL jobs fail the run. The golden job also runs on a pull request that touches
 # the model (src/, R/) or the golden files, so a PR that moves the likelihood is
@@ -49,6 +50,7 @@ on:
     paths:
       - "src/**"
       - "R/**"
+      - "data/**"
       - "tests/testthat/test-golden-regression.R"
       - "tests/testthat/fixtures/golden-reference.rds"
       - ".github/workflows/deep-checks.yaml"
@@ -70,7 +72,8 @@ concurrency:
 jobs:
   golden:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # The last 20 runs took 45 to 89 min, and a timeout reports as cancelled.
+    timeout-minutes: 120
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       # The whole point of this job. R-CMD-check sets this false; covr skips the
