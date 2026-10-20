@@ -136,7 +136,7 @@ testthat::test_that("all four SPRs match an independent recomputation", {
   testthat::expect_true(all(got[-1] < got[["SPR0"]]))
 })
 
-testthat::test_that("SPR carries spawn timing, maturity and the weight year", {
+testthat::test_that("SPR and SB0 carry spawn timing, maturity and the weight year", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
 
@@ -158,6 +158,8 @@ testthat::test_that("SPR carries spawn timing, maturity and the weight year", {
                       fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))))
 
   M <- 0.2
+  nh <- g$endyr - g$styr + 1
+  ny <- ncol(fit$quantities$SB0)
   for (sp in seq_len(g$nspp)) {
     na <- fit$obj$env$data$nages[sp]
     n <- numeric(na)
@@ -166,6 +168,14 @@ testthat::test_that("SPR carries spawn timing, maturity and the weight year", {
     n[na] <- n[na - 1] * exp(-M) / (1 - exp(-M))
     want <- sum(n * 1 * mat[seq_len(na)] * 0.5 * exp(-M * 4 / 12))
     testthat::expect_equal(as.numeric(fit$quantities$SPR0)[sp], want,
+                           tolerance = 1e-6, info = paste("species", sp))
+    # SB0 and SBF are SPR0 and SPRtarget times mean hindcast recruitment once
+    # their runs reach equilibrium, which they have by the last projection year.
+    rbar <- mean(fit$quantities$R[sp, 1:nh])
+    testthat::expect_equal(unname(fit$quantities$SB0[sp, ny]), want * rbar,
+                           tolerance = 1e-6, info = paste("species", sp))
+    testthat::expect_equal(unname(fit$quantities$SBF[sp, ny]),
+                           as.numeric(fit$quantities$SPRtarget)[sp] * rbar,
                            tolerance = 1e-6, info = paste("species", sp))
   }
 })

@@ -230,6 +230,29 @@ testthat::test_that("Test SPR0 calculation", {
 })
 
 
+testthat::test_that("hindcast SSB is taken at the spawn month in every year", {
+  testthat::skip_if_not_installed("TMB")
+  # GOA pollock spawns in mid-March (spawn_month 2.52), so each year's female SSB
+  # discounts N-at-age by that year's Z to the spawn month. Built, not optimized.
+  g <- Rceattle::GOA2018SS
+  fit <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = g, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))))
+  q <- fit$quantities
+  nh <- g$endyr - g$styr + 1
+  na <- g$nages[1]
+  sm <- g$spawn_month[1]
+  testthat::expect_gt(sm, 0)
+  mat <- as.numeric(g$maturity[g$maturity[["Species"]] == 1, -1])[1:na]
+  sr  <- as.numeric(g$sex_ratio[g$sex_ratio[["Species"]] == 1, -1])[1:na]
+  # weight_hat row 2 is pollock's spawning weight (wt_idx_ssb), the input table here.
+  want <- vapply(seq_len(nh), function(y) sum(
+    q$N_at_age[1, 1, 1:na, y] * exp(-q$Z_at_age[1, 1, 1:na, y] * sm / 12) *
+      q$weight_hat[2, 1, 1:na, y] * mat * sr), numeric(1))
+  testthat::expect_equal(unname(q$ssb[1, 1:nh]), want, tolerance = 1e-10)
+})
+
+
 testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
   data("BS2017SS") # ?BS2017SS for more information on the data
   BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
