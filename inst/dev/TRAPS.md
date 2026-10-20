@@ -1192,9 +1192,17 @@ across the boundary.
   the corner where SSB is pure derived output, so `maturity` never enters the objective there:
   every maturity perturbation gives `dObj = +0.0000e+00` on both `goa_ss` and `goa_ms` (positive
   controls on the same probe: an index observation x1.5 moves it +3.7664, a fitted catch row x1.5
-  moves it +32.674). Golden therefore cannot see the cod maturity defect above, and correcting the
-  data would leave both objectives bit-unchanged. Maturity reaches the objective only where
-  `srr_pred_fun > 0` or `srr_fun > 1`, through `R_hat` into `jnll_comp(JNLL_SRR_PENALTY)`.
+  moves it +32.674). Correcting the cod maturity defect above would leave both objectives
+  bit-unchanged. Maturity reaches the objective only where `srr_pred_fun > 0` or `srr_fun > 1`,
+  through `R_hat` into `jnll_comp(JNLL_SRR_PENALTY)`. The gate therefore also pins `ssb`,
+  `biomass`, `R`, single-species `SB0` and `B0`, `DynamicSB0`, `DynamicB0` and `M2_at_age` at the reference
+  parameters (relative 1e-8), so a change to maturity, spawn timing or dynamic-B0 predation fails
+  through those while the objective stays put.
+- **Harvest control rules.** All four references run `HCR = NoFishing`, so `proj_F` is 0,
+  `Ftarget`/`Flimit` are the placeholder 1, and every fleet's `Proj_F_proportion` is 0, so `SBF`
+  equals `SB0`. None of them is pinned. `test-dynamics-brps.R`, `test-switches-hcr-*.R`,
+  `test-functions-fixed-n-hcr-outputs.R`, `test-functions-mse.R` and
+  `test-mse-cap-and-hcr2-threshold.R` exercise the rules, against no golden value.
 - **Linkage rows.** The four golden models carry none. The constructive linkage tests
   (`test-dynamics-recruitment-linkage.R`, `test-linkage-random-effects.R`) are the net.
 - **Selectivity normalization.** No bundled dataset enters the normalization block in

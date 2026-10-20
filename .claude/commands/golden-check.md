@@ -13,8 +13,10 @@ re-optimizing, so the gate answers "is this the same likelihood" and not "which 
 `goa_ss`'s two minima did this machine reach". It also asserts the reference is still a
 stationary point, and carries `skip_on_cran()` / `skip_on_covr()`, plus a second, larger
 "golden reference by configuration" block that does still fit. Run it with `NOT_CRAN=true`.
-The four objectives are literals in the test file; the fixture holds only the parameters they
-were measured at, so a re-pin is visible as changed text in a diff.
+The four objectives are literals in the test file, so a re-pin is visible as changed text in a
+diff. The fixture holds the parameters they were measured at, plus the SSB, biomass,
+recruitment, SB0, B0, dynamic B0 and M2 arrays the test also pins at them (relative 1e-8 per
+element; SB0 and B0 for the single-species pair only).
 
 **Cold starts moved to `tools/verify/verify-golden-cold-start.R`.** The gate no longer covers a
 change confined to the optimization path -- a phase order, a starting value, a bound inactive at

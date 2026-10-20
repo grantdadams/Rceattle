@@ -3,7 +3,8 @@
 # The golden check asks one question -- is the likelihood still the one the
 # reference was fit to -- by evaluating it AT the reference parameters rather
 # than by re-optimizing. That needs the parameters themselves on disk, which is
-# what this script writes.
+# what this script writes, with the SSB, biomass, recruitment, unfished and
+# dynamic B0, and predation mortality the test also pins at them.
 #
 # Run it only when a model change is INTENDED, and say in the commit which
 # reference moved and by how much. Re-running it after an unintended change
@@ -86,6 +87,28 @@ fits <- list(ss = ss, ms = ms, goa_ss = goa_ss, goa_ms = goa_ms)
 polished <- function(f) f$obj$env$parList(x = f$opt$par,
                                           par = f$obj$env$last.par.best)
 
+# The quantities that set catch advice, evaluated at the polished parameters by
+# the same call test-golden-regression.R makes. SSB, biomass, SB0, B0 and dynamic
+# B0 never enter the objective under mean recruitment, so its pin cannot see them.
+# Names and dimnames are dropped so a relabelled output does not read as a move.
+pinned_derived <- c("ssb", "biomass", "R", "SB0", "B0", "DynamicSB0",
+                    "DynamicB0", "M2_at_age")
+eval_spec <- list(
+  ss     = list(data = Rceattle::BS2017SS,  msmMode = 0, niter = 3),
+  ms     = list(data = Rceattle::BS2017MS,  msmMode = 1, niter = 5),
+  goa_ss = list(data = Rceattle::GOA2018SS, msmMode = 0, niter = 3),
+  goa_ms = list(data = Rceattle::GOA2018SS, msmMode = 1, niter = 3))
+derived_at <- function(m, params) {
+  s <- eval_spec[[m]]
+  q <- Rceattle::fit_mod(
+    data_list = s$data, inits = params, file = NULL,
+    estimateMode = 3, niter = s$niter, random_rec = FALSE,
+    msmMode = s$msmMode, suitMode = 0,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))$quantities
+  stopifnot(all(pinned_derived %in% names(q)))
+  lapply(q[pinned_derived], unname)
+}
+
 # Refuse to write a reference that is not a stationary point: the whole check
 # rests on the gradient AT THESE PARAMETERS being ~0, so a fit that stopped early
 # would pin a number the next run cannot reproduce for the right reason.
@@ -129,15 +152,36 @@ if (!is.null(prev)) {
   }
 }
 
+# The derived references, and how far each moved from the committed one.
+ref <- lapply(setNames(nm = names(fits)), function(m) {
+  p <- polished(fits[[m]])
+  list(params = p, derived = derived_at(m, p))
+})
+for (m in names(ref)) {
+  was <- prev[[m]][["derived"]]
+  if (is.null(was)) {
+    message(sprintf("%-7s derived quantities are new", m))
+    next
+  }
+  d <- vapply(pinned_derived, function(k) {
+    now <- ref[[m]]$derived[[k]]
+    if (!identical(dim(now), dim(was[[k]]))) return(Inf)
+    nz <- was[[k]] != 0
+    max(0, abs(now[nz] / was[[k]][nz] - 1), abs(now[!nz]))
+  }, numeric(1))
+  message(sprintf("%-7s derived max|relative change| %.3e in %s", m, max(d),
+                  names(which.max(d))))
+}
+
 if (file.exists(out) && !identical(Sys.getenv("RCEATTLE_GOLDEN_REPIN"), "true"))
   stop(out, " exists. Re-pinning is not a routine step: set ",
        "RCEATTLE_GOLDEN_REPIN=true only when the model change above is intended, ",
        "and update the literals in tests/testthat/test-golden-regression.R to the ",
        "objectives printed here, in the same commit.", call. = FALSE)
 
-# Parameters only. The objectives stay as literals in the test file, where a
-# reviewer sees a re-pin as changed text rather than as a changed binary.
-ref <- lapply(fits, function(f) list(params = polished(f)))
+# Parameters and derived quantities. The objectives stay as literals in the test
+# file, where a reviewer sees a re-pin as changed text rather than as a changed
+# binary.
 attr(ref, "provenance") <- list(
   rceattle = as.character(utils::packageVersion("Rceattle")),
   commit   = tryCatch(system("git rev-parse --short HEAD", intern = TRUE),
