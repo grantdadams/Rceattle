@@ -1603,3 +1603,23 @@ occurred") for any sem with a lagged path. In `src/TMB/dsem.hpp`'s
 walk, so it is not M-specific. `test-dsem-constant-variance.R` compares the
 three settings only on a sem with NO lags, which is where they agree and where
 nothing crashes, so the suite is green over it.
+
+### An M latent on a fixed-numbers species is weak, not inert
+
+Measured 2026-10-19, `estDynamics = 1`, `msmMode = 0`, a +0.5 spike on `mdevs1`:
+
+| quantity | delta |
+|---|---|
+| `Z_at_age`, `M1_at_age`, `M_at_age` | 0.127 |
+| `avgN_at_age` | 256.7 |
+| `catch_hat` | 1.112 |
+| `N_at_age`, `biomass`, `index_hat` | **exactly 0** |
+
+Numbers-at-age are input, so the latent reaches no population quantity — but the
+Baranov catch equation reads Z, so the catch likelihood informs it. An
+independent probe measured the same from the objective side: −83.3 nats, with
+`jnll_comp` rows 2 (catch), 3 (comps) and 23 (DSEM) moving.
+
+This is why `.check_dsem_m_support()` has **no** `estDynamics` refusal where
+`.check_dsem_growth_model()` has one: a growth latent under `growth_model = 0`
+drives nothing because no growth parameter exists, which is not the same case.

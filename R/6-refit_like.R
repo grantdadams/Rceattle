@@ -303,8 +303,7 @@
   # .DSEM_LATENT_PREFIXES, so deriving the non-growth case as "not a growth
   # target" hands back the RECRUITMENT answer for any process added to that
   # table later -- silently wrong. The stop() below is what makes growing the
-  # table fail loudly instead; it fired when natural mortality was added, which
-  # is why the branch below it exists.
+  # table fail loudly instead of answering about the wrong process.
   if (identical(process, "recruitment")) {
     return(isTRUE(as.integer(obj$tmb_inputs$data$drives_rec %||% 1L) == 1L))
   }
@@ -319,7 +318,7 @@
     # M's map has no parameter slot to test -- the age dimension takes it -- so
     # a non-empty column map is the whole answer. An object built before M was
     # drivable has no map and answers FALSE.
-    return(length(obj$tmb_inputs$data$mdev_col %||% integer(0)) > 0L)
+    return(length(obj[["tmb_inputs"]][["data"]][["mdev_col"]] %||% integer(0)) > 0L)
   }
   stop("`.dsem_drives()` has no branch for process '", process,
        "'. It is registered in `.DSEM_LATENT_PREFIXES` but nothing here answers ",

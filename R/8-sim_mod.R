@@ -122,13 +122,13 @@
 .sim_warn_process_absent <- function(obj, state) {
   hit <- character(0)
 
-  # A DSEM M latent is an M process WITH a distribution, drawn from the GMRF in
-  # .dsem_draw_process() -- and .check_dsem_m_support() REQUIRES M1_re = 0 for
-  # it, so without this term the warning fired on every M-driving DSEM.
+  # A DSEM M latent IS an M process with a distribution, drawn from the GMRF in
+  # .dsem_draw_process(); and allowing it REQUIRES M1_re = 0, so the M1_re test
+  # above cannot stand alone.
   m1_re <- suppressWarnings(as.integer(obj$env$data$M1_re))
   if (state[2] == 1L && !any(m1_re > 0, na.rm = TRUE) &&
       !.sim_linkage_drawn(obj, c(0L, 1L, 0L, 0L, 0L)) &&
-      !length(obj$env$data$mdev_col %||% integer(0))) {
+      !length(obj$env$data[["mdev_col"]] %||% integer(0))) {
     hit <- c(hit, "M (M1_re = 0, no random linkage on M, and no DSEM M latent)")
   }
   # A DSEM growth latent is a growth process WITH a distribution -- it is drawn
@@ -859,8 +859,8 @@
 #' The deviations are the latent states of a GMRF rather than independent
 #' draws, so the whole field is drawn at once from the same precision the
 #' density scored the fit with, and substituted into \code{dsem_x_tj}; the
-#' template then derives \code{rec_dev} from it and applies the lognormal bias
-#' correction once, where it always is.
+#' template then derives \code{rec_dev} from it, applying the lognormal bias
+#' correction in the template exactly as a non-simulated fit does.
 #'
 #' Every estimated cell of a REQUESTED process is redrawn, conditional on the
 #' cells the map pins and on the processes not requested, which are held at

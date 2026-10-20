@@ -309,6 +309,12 @@ testthat::test_that(".dsem_drives() answers per growth parameter, not just recru
   testthat::expect_false(.dsem_drives(g, "growth_m"))
   testthat::expect_false(.dsem_drives(g, "natural_mortality"))
 
+  m <- build_dsem_objects(
+    dsem_settings = build_DSEM(sem = "mdevs1 <-> mdevs1, 0, sigM1, 0.2"),
+    data_list = d)
+  testthat::expect_true(.dsem_drives(m, "natural_mortality"))
+  testthat::expect_false(.dsem_drives(m, "growth_L1"))
+
   r <- build_dsem_objects(dsem_settings = build_DSEM(), data_list = d)
   testthat::expect_true(.dsem_drives(r, "recruitment"))
   testthat::expect_false(.dsem_drives(r, "growth_L1"))

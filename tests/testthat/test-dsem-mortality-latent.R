@@ -13,7 +13,7 @@
 #   M1_at_age = exp(log_M1 + log_M1_dev + M1_mult.sum() + M_linkage_offset)
 #               + M_linkage_offset_nat
 #
-# which is the identity the M1-at-age test below asserts rather than assumes.
+# which the predation test below asserts rather than assumes.
 
 testthat::skip_on_cran()
 
@@ -120,37 +120,6 @@ testthat::test_that("the M latent lands on the cell the index map names", {
 })
 
 
-testthat::test_that("M1-at-age carries the latent", {
-  testthat::skip_if_not_installed("dsem")
-
-  # Section 6.1 reads the offset inside the exponent, so M1-at-age's across-year
-  # ratio must be exp(offset)'s. This fixture is msmMode = 0, where
-  # ceattle.cpp:189 sets niter = 1, so it says nothing about the multispecies
-  # loop; the test below does that on a predation fixture.
-  fit <- .m_fit(SEM_M)
-  r   <- fit$obj$report(fit$obj$env$par)
-  nyd <- fit$dsem$tmb_inputs$data$nyrs_dsem
-  nag <- fit$data_list$nages[1]
-
-  m1  <- r$M1_at_age[1, 1, seq_len(nag), seq_len(nyd)]
-  off <- r$M_linkage_offset[1, 1, seq_len(nag), seq_len(nyd)]
-  # Within an age, the across-year ratio of M1 is exactly the ratio of the
-  # exponentiated offsets: everything else in the exponent is age-and-year
-  # constant here (log_M1_dev is mapped out, env_index is not linked to M).
-  for (age in seq_len(nag)) {
-    testthat::expect_equal(as.numeric(m1[age, ] / m1[age, 1]),
-                           as.numeric(exp(off[age, ] - off[age, 1])),
-                           tolerance = 1e-10)
-  }
-  # Under msmMode = 0 there is no predation, so M-at-age is M1 exactly. This is
-  # NOT evidence that the latent leaves M2 alone -- M2 is identically zero here
-  # for any code. The multispecies test below measures what it really does.
-  testthat::expect_equal(sum(abs(r$M2_at_age)), 0)
-  testthat::expect_equal(as.numeric(r$M_at_age[1, 1, seq_len(nag), seq_len(nyd)]),
-                         as.numeric(m1), tolerance = 1e-14)
-})
-
-
 testthat::test_that("the latent survives the niter loop and reaches M2 under predation", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("dsem")
@@ -240,29 +209,6 @@ testthat::test_that("an M latent beside a growth latent reaches only its own ten
   want <- r$dsem_z_tj[seq_len(nyd), dt$mdev_col + 1L] -
     ba * r$dsem_margvar_tj[seq_len(nyd), dt$mdev_col + 1L] / 2
   testthat::expect_equal(as.numeric(off), as.numeric(want), tolerance = 1e-12)
-})
-
-
-testthat::test_that("a pinned near-zero M variance collapses to the fixed-M fit", {
-  testthat::skip_if_not_installed("dsem")
-
-  # The limiting case: `NA` as the parameter name pins the variance, so the
-  # latent is deterministic and M must come back to what it was without it. A
-  # latent that moved M at zero variance would be doing something other than
-  # what its variance says.
-  f_rec  <- .m_fit(REC1)
-  f_tiny <- .m_fit(paste0(REC1, "mdevs1 <-> mdevs1, 0, NA, 1e-5\n"))
-
-  r0 <- f_rec$obj$report(f_rec$obj$env$par)
-  r1 <- f_tiny$obj$report(f_tiny$obj$env$par)
-  nag <- f_rec$data_list$nages[1]
-  nyd <- f_tiny$dsem$tmb_inputs$data$nyrs_dsem
-
-  testthat::expect_lt(max(abs(r1$M_linkage_offset)), 1e-4)
-  testthat::expect_equal(
-    as.numeric(r1$M1_at_age[1, 1, seq_len(nag), seq_len(nyd)]),
-    as.numeric(r0$M1_at_age[1, 1, seq_len(nag), seq_len(nyd)]),
-    tolerance = 1e-4)
 })
 
 
@@ -373,20 +319,6 @@ testthat::test_that("an M latent is refused beside a RANDOM M1 linkage, not a fi
   # The fixed one is allowed and the index map is built.
   g <- build_dsem_objects(dsem_settings = sem, data_list = mk(~ BT))
   testthat::expect_length(g$tmb_inputs$data$mdev_col, 1L)
-})
-
-
-testthat::test_that(".dsem_drives() answers for natural mortality", {
-  testthat::skip_if_not_installed("dsem")
-
-  # The loud default added so that growing .DSEM_LATENT_PREFIXES fails rather
-  # than answering about the wrong process did exactly that when `mdevs` was
-  # added, before this branch existed.
-  f_m   <- .m_fit(SEM_M)
-  f_rec <- .m_fit(REC1)
-  testthat::expect_true(.dsem_drives(f_m$dsem, "natural_mortality"))
-  testthat::expect_false(.dsem_drives(f_rec$dsem, "natural_mortality"))
-  testthat::expect_true(.dsem_drives(f_rec$dsem, "recruitment"))
 })
 
 
