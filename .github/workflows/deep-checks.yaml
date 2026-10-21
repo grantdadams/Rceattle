@@ -3,10 +3,11 @@
 # 1. GOLDEN REFERENCE. tests/testthat/test-golden-regression.R is the committed
 #    backstop for "a numeric change needs golden equivalence" -- and it is
 #    guarded by BOTH skip_on_cran() and skip_on_covr(), so it fires in neither
-#    existing job: R-CMD-check sets NOT_CRAN=false deliberately (to keep the
-#    multi-OS matrix fast), and test-coverage runs under covr. The result is
-#    that the repo's own rule has no automated enforcement; it only runs when
-#    someone types /golden-check locally. This job is where it runs.
+#    other job: R-CMD-check sets NOT_CRAN=false deliberately (to keep the
+#    multi-OS matrix fast), and test-coverage runs under covr. Without this job
+#    the repo's own rule would run only when someone typed /golden-check
+#    locally. This job is where it runs: nightly, and since 5.64.0 on every PR
+#    that touches the model or the golden files (see the paths filter below).
 #
 # 2. ARRAY BOUNDS. The model is built with safebounds = FALSE, so an
 #    out-of-range access is a silent write into adjacent memory. 5.15.0 fixed
@@ -16,14 +17,16 @@
 #    rebuilds with bounds checking on so that class of fault is attributable
 #    rather than a mystery segfault.
 #
-# 3. THE skip_on_cran SUITE. 181 of the 255 test files carry skip_on_cran(),
+# 3. THE skip_on_cran SUITE. 195 of the 271 test files carry skip_on_cran(),
 #    which is every test that runs a real fit_mod() optimization. R-CMD-check
-#    sets NOT_CRAN=false, so it skips all of them. Note 94 of those carry the
+#    sets NOT_CRAN=false, so it skips all of them. Note 95 of those carry the
 #    call at FILE level, outside any test_that(): such a file produces a
 #    zero-row result, so it reports neither a pass nor a skip and disappears
 #    from the counts rather than showing up as skipped. test-coverage runs them
 #    on every PR, split across shards, and a shard fails when one of its tests
 #    does. This job runs the whole suite uninstrumented, serially, every night.
+#    NOTE: it is `schedule`d on main only and has been hitting its 300-minute
+#    timeout, so on dev it is the per-PR shards that actually report.
 #
 # All three are slow: golden is four phased fits with newtonsteps, a
 # bounds-checked build range-tests every array access, and the full NOT_CRAN

@@ -22,9 +22,9 @@
 #
 #   * `test-coverage` DOES run them against the real source. `coverage-shard.R`
 #     resolves `tests/testthat` to an absolute path in the source checkout, so
-#     `../../R/data.R` exists. But it passes `stop_on_failure = FALSE` and no
-#     later step reads the result, so a failure prints into a shard log and the
-#     job stays green.
+#     `../../R/data.R` exists. Since 5.64.1 it also fails the shard on a failing
+#     test, so a failure there is no longer silent -- but the shard contexts are
+#     not required for a merge, so that red advises rather than blocks.
 #
 #   * `deep-checks.yaml` runs them properly -- `load_all()` on a source
 #     checkout, NOT_CRAN=true, failures fatal -- but nightly, gating no merge.

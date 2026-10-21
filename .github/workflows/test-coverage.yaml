@@ -17,7 +17,9 @@
 #   - workflow_dispatch   -- on demand.
 # Feature-branch pushes are covered by their PR run (plus cancel-in-progress), so they
 # do not trigger it. A shard fails when any of its tests fails or errors, after its
-# coverage report is written, and the Codecov upload still runs.
+# coverage report is written, and the Codecov upload still runs. These shard
+# contexts are NOT among the six the "Require the guards before merging" ruleset
+# requires, so a red shard advises rather than blocks -- add them there to gate.
 on:
   push:
     branches: [main, dev]
