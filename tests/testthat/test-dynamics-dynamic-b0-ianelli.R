@@ -73,8 +73,15 @@ test_that("the same holds under predation, with the fitted suitability", {
 
 test_that("under predation and fishing, dynamic B0 is the biomass of a run with no fishing", {
   testthat::skip_on_cran()
-  # Only a fished run shows dynamic B0 using unfished predators. Lognormal suitability
-  # (suitMode 4), as empirical suitability is recomputed from the fished abundance.
+  # Only a fished run shows dynamic B0 using unfished predators. Lognormal
+  # suitability (suitMode 4), because empirical suitability (suitMode 0) is
+  # recomputed from the FISHED abundance, so this invariant does not hold there:
+  # measured on this fixture, dynamic B0 from an F = 0.3 run comes back 0.691 to
+  # 1.000 times the biomass of a true F = 0 run, up to 30.9% low, against 0.0%
+  # at suitMode 4. suitMode 0 is the `model_config()` default and what the
+  # bundled Bering Sea data and the GOA multispecies assessment run, so this
+  # test does NOT cover the common configuration -- see the dynamic-B0 row in
+  # ../Rceattle-dev/CLEANUP_BACKLOG.md.
   set.seed(1)
   d  <- make_msm_test_data()$data_list
   nh <- d$endyr - d$styr + 1
