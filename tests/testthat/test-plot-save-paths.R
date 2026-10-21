@@ -24,7 +24,7 @@
 # `R-CMD-check.yaml`'s `NOT_CRAN: "false"`, because the `skip_on_cran()` sits in
 # the one block that builds a fit rather than at file level (see below). That
 # fit block runs in `test-coverage`, which sets `NOT_CRAN=true` and, since
-# 5.64.1, fails its shard on a failure here -- though that shard is not one of
+# PR #261, fails its shard on a failure here -- though that shard is not one of
 # the six contexts the ruleset requires, so the red advises rather than blocks.
 # `deep-checks.yaml` is where a failure here is fatal, nightly.
 

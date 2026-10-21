@@ -220,9 +220,9 @@ code <- sprintf(
    failed <- results[results[["failed"]] > 0 | results[["error"]],
                      c("file", "test")]
    writeLines(c(as.character(sum(results[["passed"]])),
-                sprintf("FAIL %%s: %%s", failed$file,
-                        ifelse(is.na(failed$test), "(outside test_that)",
-                               failed$test)),
+                sprintf("FAIL %%s: %%s", failed[["file"]],
+                        ifelse(is.na(failed[["test"]]), "(outside test_that)",
+                               failed[["test"]])),
                 sprintf("NORESULT %%s",
                         setdiff(%s, unique(results[["file"]]))),
                 "--shard-complete--"), %s)',
@@ -253,10 +253,13 @@ message(sprintf("\nShard %d coverage: %s", shard, format(covr::percent_coverage(
 # test-coverage.yaml uploads as the coverage-test-failures-shard-N artifact, so
 # name the failing tests here.
 #
-# The sentinel is written last. Without it, a subprocess killed part-way through
-# writeLines() leaves the count line and no failure lines, which reads exactly
-# like a clean shard -- the one way this check could still pass over a real
-# failure.
+# The sentinel is written last, so a half-written file cannot read as a clean
+# shard. Be honest about its reach: a subprocess that DIES is already caught
+# upstream, because covr's run_commands() stops on a non-zero exit before this
+# line is reached. What is left is a child that exits 0 having written only
+# part of the file, which has not been observed. The sentinel is kept because
+# it turns that case, and a missing or empty file, into a named error instead
+# of a bare readLines() failure.
 shard_results <- readLines(failures_log)
 if (length(shard_results) == 0L ||
     shard_results[length(shard_results)] != "--shard-complete--") {

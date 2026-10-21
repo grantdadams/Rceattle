@@ -25,8 +25,11 @@
 #    from the counts rather than showing up as skipped. test-coverage runs them
 #    on every PR, split across shards, and a shard fails when one of its tests
 #    does. This job runs the whole suite uninstrumented, serially, every night.
-#    NOTE: it is `schedule`d on main only and has been hitting its 300-minute
-#    timeout, so on dev it is the per-PR shards that actually report.
+#    NOTE: `schedule` fires on the DEFAULT branch, so this job never runs on
+#    dev -- there the per-PR coverage shards are the only thing that runs these
+#    tests. And it mostly stops at the 300-minute timeout (which reports as
+#    `cancelled`): of the eight scheduled runs to 2026-10-21, six did not
+#    complete, the last success being 10-14.
 #
 # All three are slow: golden is four phased fits with newtonsteps, a
 # bounds-checked build range-tests every array access, and the full NOT_CRAN
