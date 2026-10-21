@@ -182,7 +182,7 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `R CMD check` stays fast. Leave fast unit tests unguarded.
 - **CI:** `.github/workflows/R-CMD-check.yaml` (multi-OS) + `pkgdown.yaml` + `test-coverage.yaml`
   + `source-guards.yaml` (the registry/doc guards, per PR) + `vignettes.yaml` (weekly,
-  non-blocking) + `deep-checks.yaml` (nightly: golden, safebounds, the full `NOT_CRAN` suite).
+  non-blocking) + `deep-checks.yaml` (golden on PRs that touch `src/`, `R/` or `data/`; nightly: golden, safebounds, the full `NOT_CRAN` suite).
   No lint config, no coverage gate. **`pkgdown.yaml` triggers on `main` only**, so a PR to `dev`
   gets no pkgdown CI — run `/pkgdown-check` yourself. **Adding or removing a test that reads
   `R/*.R` or `src/TMB/*` means updating `EXPECTED` in `tools/ci/source-guards.R`**, which pins
