@@ -1180,7 +1180,10 @@ across the boundary.
 
 ## Coverage gaps in the golden check
 
-`/golden-check` fits four models and diffs the result. It does not reach:
+The committed gate (`test-golden-regression.R`) EVALUATES four reference models at stored
+parameters rather than refitting them — it has not refitted since 5.45.1 — and pins the
+objective, the gradient and the derived quantities below. The `/golden-check` recipe is a looser
+local read at a 1e-6 absolute tolerance, so the two are not the same gate. Neither reaches:
 
 - **The refit paths.** Eight entry points re-invoke `fit_mod()` through `.refit_like()`. Use
   `tools/verify/verify-refit-like.R`, which covers six of them —
@@ -1198,6 +1201,14 @@ across the boundary.
   `biomass`, `R`, single-species `SB0` and `B0`, `DynamicSB0`, `DynamicB0` and `M2_at_age` at the reference
   parameters (relative 1e-8), so a change to maturity, spawn timing or dynamic-B0 predation fails
   through those while the objective stays put.
+  **Read the element count honestly**: 24,280 of the 32,976 asserted elements (73.6%) are exact
+  zeros, leaving 8,696 informative numbers. `M2_at_age` is identically zero on BOTH
+  single-species references, where it asserts "predation has not leaked into `msmMode = 0`"
+  rather than pinning a predation mortality — the real M2 pin is the multispecies pair. A zero
+  element is not a free pass, though: its relative band is exactly 0, so 0 to 1e-300 fails the
+  element check (`expect_equal` alone would pass it).
+  `SB0`/`B0` ARE stored for the multispecies pair but are not asserted — they are the 999
+  MSSB0/MSB0 inputs there — so 876 stored elements go unchecked by design.
 - **Harvest control rules.** All four references run `HCR = NoFishing`, so `proj_F` is 0,
   `Ftarget`/`Flimit` are the placeholder 1, and every fleet's `Proj_F_proportion` is 0, so `SBF`
   equals `SB0`. None of them is pinned. `test-dynamics-brps.R`, `test-switches-hcr-*.R`,

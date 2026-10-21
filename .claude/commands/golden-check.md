@@ -93,9 +93,13 @@ Wrap everything in one `export PATH=/usr/bin:$PATH && NOT_CRAN=true Rscript -e '
 6. If `dev/golden-ref.rds` does **not** exist: save these as the reference and report
    "pinned new golden reference" — only do this on a known-good commit.
    If it **does** exist: load it and report the MAX absolute deviation per field per model.
-   **PASS** if every field is within `1e-6` -- the same tolerance the committed
-   `test-golden-regression.R` uses, so the two gates cannot disagree; otherwise **FAIL** and show the largest-deviating
-   fields so I can investigate. NOTE: `goa_ms` (fixed-M GOA multispecies) has a flat
+   **PASS** if every field is within `1e-6`; otherwise **FAIL** and show the
+   largest-deviating fields so I can investigate. This is a DIFFERENT and looser
+   gate than the committed `test-golden-regression.R`, which pins the objective
+   at 1e-10 relative, the gradient at 1e-8 absolute, and the derived quantities
+   element by element at 1e-8 relative -- on an SSB of 8.8e6 mt a 1e-6 absolute
+   tolerance is 1.1e-13 relative, so the two can disagree in either direction.
+   The committed test is the gate; this recipe is the quick local read. NOTE: `goa_ms` (fixed-M GOA multispecies) has a flat
    likelihood ridge — its `par`/`ssb` are ridge-sensitive across *different* code, though
    deterministic on same-code re-runs; judge it primarily on `obj` (and `jnll`). The
    reference values (this branch): ss=10241.0304272585, ms=10267.2478324443,

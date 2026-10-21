@@ -142,10 +142,36 @@ if (!is.null(prev)) {
     gained <- setdiff(names(now), names(was))
     shared <- intersect(names(now), names(was))
     shared <- shared[lengths(now[shared]) == lengths(was[shared])]
-    d <- vapply(shared, function(k) max(abs(unlist(now[[k]]) - unlist(was[[k]]))),
-                numeric(1))
-    message(sprintf("%-7s max|dparam| %.3e in %s%s", m, max(d),
+    # Compare only the cells that are FINITE on both sides, and report every
+    # other kind of move separately. 7 of the 49 blocks hold a non-finite value
+    # in both fixtures: log_M1 past a species' nages or in the male slot of a
+    # one-sex species is NA, index_log_sd and catch_log_sd are NA throughout,
+    # and sel_dev_log_sd is -Inf in 7 of 7 cells on `ss`. A bare max() therefore
+    # returned NA for ALL FOUR models -- NA from a missing cell, and NaN from
+    # Inf minus Inf, which an na.rm would not have caught either -- so this
+    # report, whose whole job is to make a parameter move visible BEFORE a
+    # re-pin, measured nothing. That is how a 1.2730 move in goa_ss log_M1 went
+    # unreported: the cells are inert, outside (nsex, nages), but the guard
+    # could not say so.
+    d <- vapply(shared, function(k) {
+      a <- unlist(now[[k]]); b <- unlist(was[[k]])
+      ok <- is.finite(a) & is.finite(b)
+      if (!any(ok)) 0 else max(abs(a[ok] - b[ok]))
+    }, numeric(1))
+    # A cell moving between finite, NA and +/-Inf is a change no difference can
+    # express, so count those rather than letting them vanish.
+    kind <- function(x) ifelse(is.na(x), "NA",
+                               ifelse(is.finite(x), "finite",
+                                      paste0("Inf", sign(x))))
+    moved <- vapply(shared, function(k)
+      sum(kind(unlist(now[[k]])) != kind(unlist(was[[k]]))), integer(1))
+    message(sprintf("%-7s max|dparam| %.3e in %s%s%s", m, max(d),
                     names(which.max(d)),
+                    if (any(moved > 0))
+                      sprintf("   finite/NA/Inf pattern moved in %s (%d cell(s))",
+                              paste(names(moved)[moved > 0], collapse = ", "),
+                              sum(moved))
+                    else "",
                     if (length(gained))
                       paste0("   new block(s): ", paste(gained, collapse = ", "))
                     else ""))
