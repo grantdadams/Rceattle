@@ -3457,11 +3457,11 @@ Type objective_function<Type>::operator() () {
     // what its own density assumes; the correlated families are drawn per fleet
     // below, where their covariance lives.
     //
-    // Outside the hindcast gate, deliberately: run_mse() splices the
-    // negative-Year rows in sign-flipped as the next assessment's data, so a
-    // gated draw would leave the projection carrying unsimulated observations.
+    // Projection rows are drawn, as run_mse() reveals them as new data. A hindcast row
+    // is drawn only where the likelihood scores it, so a missing survey year stays NA.
     SIMULATE {
-      if((flt_type(index) > 0) && (index_ll_type(index) == 0)){
+      bool sim_row = (flt_yr <= 0) || (flt_yr > endyr) || (index_obs(index_ind, 0) > 0);
+      if(sim_row && (flt_type(index) > 0) && (index_ll_type(index) == 0)){
         index_obs(index_ind, 0) = exp(rnorm(log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev));
         // The density reads obsvec for this family; keep the two in step.
         int sim_pos = index_obsvec_idx(index_ind);
@@ -3469,7 +3469,7 @@ Type objective_function<Type>::operator() () {
           obsvec(sim_pos) = log(index_obs(index_ind, 0));
         }
       }
-      if((flt_type(index) > 0) && (index_ll_type(index) == 3)){
+      if(sim_row && (flt_type(index) > 0) && (index_ll_type(index) == 3)){
         // "Normal": the density is untruncated, so the exact draw is a plain
         // normal, which can come back non-positive for data_check() to reject.
         // Redraw, and count the rejections: a redrawn row follows the normal
@@ -3488,7 +3488,7 @@ Type objective_function<Type>::operator() () {
         index_trunc_budget_sim(index_ind) = index_trunc_max_tries;
         index_obs(index_ind, 0) = sim_draw;
       }
-      if((flt_type(index) > 0) && (index_ll_type(index) == 4)){
+      if(sim_row && (flt_type(index) > 0) && (index_ll_type(index) == 4)){
         // "TruncatedNormal": left-truncated at zero by inverse CDF, matching the
         // density above. With a = Phi(-mu/sd), drawing u uniformly on (a, 1) and
         // returning mu + sd*Phi^-1(u) is exact for the normal restricted to
