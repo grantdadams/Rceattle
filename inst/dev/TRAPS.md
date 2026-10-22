@@ -9,9 +9,14 @@ Verified against source, 2026-08.
 ## Build and test
 
 **A header-only edit under `src/TMB/` can leave `pkgload::load_all(".")` loading the OLD binary,
-with nothing printed amiss.** Observed twice: a one-line `selectivity.hpp` fix left the defect it
-fixed still reproducing until `ceattle.cpp` was touched, and `growth.hpp` edited at 21:18:18 ran
-against a `ceattle.o` of 21:02:45. **It silently voids a before/after comparison** — a
+with nothing printed amiss.** Observed three times: a one-line `selectivity.hpp` fix left the
+defect it fixed still reproducing until `ceattle.cpp` was touched; `growth.hpp` edited at
+21:18:18 ran against a `ceattle.o` of 21:02:45; and reviewing PR #263 (2026-10-21) the stable
+descending-limb fix read as FAILING its own new test, 4 of 4, across two reload attempts — the
+second after deleting `src/TMB/ceattle.so` and `src/TMB/ceattle.o`, which is not enough because
+the loaded library is `src/ceattle.so`. It passed 4 of 4, matching the closed form to 4.8e-25 at
+age 15, once a reload rebuilt the `.o`. **The failure direction is not fixed**: that reading
+accused a correct fix, where the first observation above excused a broken one. **It silently voids a before/after comparison** — a
 revert-and-retest ran the same binary twice and showed "no difference", which reads as a test that
 does not discriminate when the test was never given the reverted code. Anything measured after a
 header-only edit is suspect until the rebuild is confirmed.
@@ -146,6 +151,31 @@ tied a follower only where the donor's map entry was non-NA, which left the grou
 SS3 fixes a block replacement (`est_phase = 0`), so 2 of those 18 rows stayed divergent. The
 collapse also means a refit of a saved fit starts the shared coefficient at the MEAN of the old
 per-fleet values, as the entry above describes.
+
+**That fit's OBJECTIVE is not pinnable across platforms, though its coefficient is.** The
+mirrored-pair regression fit (`GOA2018SS` fleets 9 and 10, `phase = FALSE`) is a cold start that
+runs 1,660 `nlminb` iterations and stops at a max gradient of only ~1e-3 — nowhere near a
+stationary point. **Measured: 12879.997040 on macOS (arm64) against 13807.6 on the ubuntu CI
+runner, a gap of 927.603 nats**, while a phased fit on the same macOS machine reaches
+12862.2895, so the pinned value was not the local optimum either. Three jittered starts (on the
+linkage coefficient, the inflections and the slopes) all returned to **12879.997040 to six
+decimals**, so the macOS result is a stable attractor and not run-to-run noise.
+
+*What separates the two platforms was not established.* The flat gradient makes an
+arithmetic-order explanation plausible, but the jitter result argues against "stops wherever the
+tolerance bites": that would be sensitive to the start, and this is not. Treat the two-platform
+gap as the measurement and the cause as open.
+
+The linkage coefficient is -0.240042 to -0.240044 across all five local runs, and on Linux it is
+bounded only at the 1e-4 the test asserts — that assertion passed there, which is all the CI
+artifact shows. It is still the quantity worth pinning, and the objective literal was removed
+from `test-linkage-shared-block.R` because it reported a false failure on every Linux run. A
+ceiling (`expect_lt(objective, 13000)`) replaces it, so a 927-nat departure is still caught
+without pinning a basin. **Do not pin an objective literal from an unphased fit that stops this
+flat** — and note that this one failed on Linux from the day the pin landed (5.57.0, merged to
+dev 2026-10-10 UTC) until 2026-10-20 without anyone seeing it, because
+`tools/ci/coverage-shard.R` discarded the result (see "The guards are not themselves guarded").
+It surfaced on the first run that read it.
 
 **One coefficient is not one curve: the linkage OFFSET is per fleet.** The base parameter is
 shared, but the offset the coefficient scales accumulates into `inf_offset(param, flt, sex, yr)`
@@ -1180,7 +1210,10 @@ across the boundary.
 
 ## Coverage gaps in the golden check
 
-`/golden-check` fits four models and diffs the result. It does not reach:
+The committed gate (`test-golden-regression.R`) EVALUATES four reference models at stored
+parameters rather than refitting them — it has not refitted since 5.45.1 — and pins the
+objective, the gradient and the derived quantities below. The `/golden-check` recipe is a looser
+local read at a 1e-6 absolute tolerance, so the two are not the same gate. Neither reaches:
 
 - **The refit paths.** Eight entry points re-invoke `fit_mod()` through `.refit_like()`. Use
   `tools/verify/verify-refit-like.R`, which covers six of them —
@@ -1192,9 +1225,25 @@ across the boundary.
   the corner where SSB is pure derived output, so `maturity` never enters the objective there:
   every maturity perturbation gives `dObj = +0.0000e+00` on both `goa_ss` and `goa_ms` (positive
   controls on the same probe: an index observation x1.5 moves it +3.7664, a fitted catch row x1.5
-  moves it +32.674). Golden therefore cannot see the cod maturity defect above, and correcting the
-  data would leave both objectives bit-unchanged. Maturity reaches the objective only where
-  `srr_pred_fun > 0` or `srr_fun > 1`, through `R_hat` into `jnll_comp(JNLL_SRR_PENALTY)`.
+  moves it +32.674). Correcting the cod maturity defect above would leave both objectives
+  bit-unchanged. Maturity reaches the objective only where `srr_pred_fun > 0` or `srr_fun > 1`,
+  through `R_hat` into `jnll_comp(JNLL_SRR_PENALTY)`. The gate therefore also pins `ssb`,
+  `biomass`, `R`, single-species `SB0` and `B0`, `DynamicSB0`, `DynamicB0` and `M2_at_age` at the reference
+  parameters (relative 1e-8), so a change to maturity, spawn timing or dynamic-B0 predation fails
+  through those while the objective stays put.
+  **Read the element count honestly**: 24,280 of the 32,976 asserted elements (73.6%) are exact
+  zeros, leaving 8,696 informative numbers. `M2_at_age` is identically zero on BOTH
+  single-species references, where it asserts "predation has not leaked into `msmMode = 0`"
+  rather than pinning a predation mortality — the real M2 pin is the multispecies pair. A zero
+  element is not a free pass, though: its relative band is exactly 0, so 0 to 1e-300 fails the
+  element check (`expect_equal` alone would pass it).
+  `SB0`/`B0` ARE stored for the multispecies pair but are not asserted — they are the 999
+  MSSB0/MSB0 inputs there — so 876 stored elements go unchecked by design.
+- **Harvest control rules.** All four references run `HCR = NoFishing`, so `proj_F` is 0,
+  `Ftarget`/`Flimit` are the placeholder 1, and every fleet's `Proj_F_proportion` is 0, so `SBF`
+  equals `SB0`. None of them is pinned. `test-dynamics-brps.R`, `test-switches-hcr-*.R`,
+  `test-functions-fixed-n-hcr-outputs.R`, `test-functions-mse.R` and
+  `test-mse-cap-and-hcr2-threshold.R` exercise the rules, against no golden value.
 - **Linkage rows.** The four golden models carry none. The constructive linkage tests
   (`test-dynamics-recruitment-linkage.R`, `test-linkage-random-effects.R`) are the net.
 - **Selectivity normalization.** No bundled dataset enters the normalization block in
