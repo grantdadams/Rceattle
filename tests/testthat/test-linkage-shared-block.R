@@ -11,8 +11,10 @@
 # Fixture: `GOA2018SS` fleets 9 and 10, the same gear observed two ways, both
 # `Logistic`, sharing both indices. Fitted with a `~ cut(Year, 2)` block column
 # on `inf_asc`, the tie takes 2 coefficients to 1 and selectivity from 0.123
-# apart to identical, at a cost of 0.1222 nats -- the only direction one fewer
-# free parameter can go.
+# apart to identical. One fewer free parameter can only cost objective, and the
+# measured gap was 0.1222 nats (12879.8748 free against 12879.9970 tied) -- but
+# read that as the distance between two cold-start STOPPING POINTS, not between
+# two optima: neither is one, as the bullet on the objective below explains.
 #
 # Three things this fixture cannot show, stated so they are not assumed:
 #
@@ -26,6 +28,21 @@
 #     NA, so neither is estimated. Hence the time-block column.
 #   * No bundled pair has an estimated `q`, so the catchability half's refusals
 #     are pinned but its fitted equality is not.
+#   * The fitted OBJECTIVE cannot be pinned to a literal. This cold, unphased
+#     fit runs 1,660 nlminb iterations and stops at a max gradient of only
+#     ~1e-3, and where it stops is platform-specific: 12879.997040 on macOS
+#     arm64 against 13807.6 on the ubuntu CI runner, while a PHASED fit on the
+#     same macOS machine reaches 12862.2895 -- 17.7 nats better, so the pinned
+#     value was not the optimum either. Three jittered starts all returned to
+#     12879.997040, so the macOS basin is a stable attractor and not run-to-run
+#     noise; what separates the platforms was not established, and the flat
+#     gradient makes it plausible rather than proven that the two stop in
+#     different places for arithmetic reasons.
+#     The linkage coefficient is what this file is about, and it IS stable:
+#     -0.240042 to -0.240044 across five local runs, and it passed on Linux at
+#     the 1e-4 this file asserts (which is all the CI artifact establishes --
+#     the agreement is bounded at 1e-4, not at 2e-6). So it carries the "which
+#     row leads" check on its own, and a CEILING below replaces the literal.
 #
 # `by` defaults to `~ fleet`, so this was the DEFAULT path; the shared-block
 # spelling is an explicit `by = NULL`.
@@ -111,8 +128,16 @@ testthat::test_that("the mirrored pair's fitted selectivity is identical", {
   b <- m$opt$par[names(m$opt$par) == "beta_linkage"]
   testthat::expect_length(b, 1L)
   # The value, so a change in which row leads is visible rather than silent.
+  # The objective is deliberately not pinned to a literal -- see the header.
   testthat::expect_equal(unname(b), -0.240043, tolerance = 1e-4)
-  testthat::expect_equal(m$opt$objective, 12879.9970, tolerance = 1e-6)
+  # A CEILING instead: this fit must reach a solution at least this good. That
+  # is a statement about fit quality rather than about which basin, so it holds
+  # on both platforms -- 12879.997040 on macOS and 12862.2895 phased clear it by
+  # 120 and 138 nats -- while still catching the 13807.6 the ubuntu runner
+  # returned, which is what the removed literal detected. Without it, a fit
+  # landing 927 nats away passes every assertion in this block, since the
+  # selectivity-identity check is a map property that holds at any parameters.
+  testthat::expect_lt(m$opt$objective, 13000)
 
   s <- m$quantities$sel_at_age
   # Shape before value: an out-of-range slice is empty, and all.equal() on two

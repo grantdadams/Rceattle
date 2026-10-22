@@ -147,6 +147,31 @@ SS3 fixes a block replacement (`est_phase = 0`), so 2 of those 18 rows stayed di
 collapse also means a refit of a saved fit starts the shared coefficient at the MEAN of the old
 per-fleet values, as the entry above describes.
 
+**That fit's OBJECTIVE is not pinnable across platforms, though its coefficient is.** The
+mirrored-pair regression fit (`GOA2018SS` fleets 9 and 10, `phase = FALSE`) is a cold start that
+runs 1,660 `nlminb` iterations and stops at a max gradient of only ~1e-3 — nowhere near a
+stationary point. **Measured: 12879.997040 on macOS (arm64) against 13807.6 on the ubuntu CI
+runner, a gap of 927.603 nats**, while a phased fit on the same macOS machine reaches
+12862.2895, so the pinned value was not the local optimum either. Three jittered starts (on the
+linkage coefficient, the inflections and the slopes) all returned to **12879.997040 to six
+decimals**, so the macOS result is a stable attractor and not run-to-run noise.
+
+*What separates the two platforms was not established.* The flat gradient makes an
+arithmetic-order explanation plausible, but the jitter result argues against "stops wherever the
+tolerance bites": that would be sensitive to the start, and this is not. Treat the two-platform
+gap as the measurement and the cause as open.
+
+The linkage coefficient is -0.240042 to -0.240044 across all five local runs, and on Linux it is
+bounded only at the 1e-4 the test asserts — that assertion passed there, which is all the CI
+artifact shows. It is still the quantity worth pinning, and the objective literal was removed
+from `test-linkage-shared-block.R` because it reported a false failure on every Linux run. A
+ceiling (`expect_lt(objective, 13000)`) replaces it, so a 927-nat departure is still caught
+without pinning a basin. **Do not pin an objective literal from an unphased fit that stops this
+flat** — and note that this one failed on Linux from the day the pin landed (5.57.0, merged to
+dev 2026-10-10 UTC) until 2026-10-20 without anyone seeing it, because
+`tools/ci/coverage-shard.R` discarded the result (see "The guards are not themselves guarded").
+It surfaced on the first run that read it.
+
 **One coefficient is not one curve: the linkage OFFSET is per fleet.** The base parameter is
 shared, but the offset the coefficient scales accumulates into `inf_offset(param, flt, sex, yr)`
 (`linkage.hpp`), indexed by fleet — so a row naming one member of a mirrored block moves that
