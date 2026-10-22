@@ -111,10 +111,11 @@ testthat::test_that("dsem must be a build_DSEM() specification", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
 
-  # Regression: the type check used inherits(dsem, "Rceattle_dsem"), a class no
-  # constructor ever assigns, so it was always FALSE -- any object was accepted
-  # and a bare list with a $sem element had its family / estimate_projection
-  # silently defaulted.
+  # Regression: the type check used inherits(dsem, "Rceattle_dsem"), a class
+  # nothing assigned at the time, so it was always FALSE -- any object was
+  # accepted and a bare list with a $sem element had its family /
+  # estimate_projection silently defaulted. The check is structural now, and
+  # build_dsem_objects() does assign that class.
   testthat::expect_error(
     suppressWarnings(suppressMessages(Rceattle::fit_mod(
       data_list = Rceattle::BS2017SS, inits = NULL, file = NULL,

@@ -1174,7 +1174,23 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   # diagnostic guards look for -- so a fit handed pre-built objects would
   # otherwise look DSEM-free to both.
   fit_dsem$dsem_settings <- dsem_settings
-  return(fit_dsem = fit_dsem)
+  return(fit_dsem = .as_rceattle_dsem(fit_dsem))
+}
+
+
+#' Subclass a dsem object so Rceattle's methods take precedence
+#'
+#' Prepending keeps `inherits(x, "dsem")` TRUE for anything that tests it.
+#' `oldClass()`, not `class()`: an unclassed list would otherwise gain a literal
+#' `"list"` class, which `NextMethod()` then falls through to.
+#'
+#' @param x An object from [build_dsem_objects()].
+#' @return `x` with `"Rceattle_dsem"` prepended to its class.
+#' @noRd
+.as_rceattle_dsem <- function(x) {
+  if (inherits(x, "Rceattle_dsem")) return(x)
+  class(x) <- c("Rceattle_dsem", oldClass(x))
+  x
 }
 
 

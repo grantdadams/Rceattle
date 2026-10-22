@@ -287,3 +287,52 @@ testthat::test_that("retrospective warns that forecast_rec is inert, whatever pe
     })
   testthat::expect_false(any(grepl("inert on this fit", warned)))
 })
+
+
+# A peel is refit with the hindcast pinned, so its OWN sdreport gives every
+# hindcast quantity a standard error of zero; retrospective() replaces it with
+# a report taken from the same parameters with the hindcast free. That swap
+# happens after fit_mod() has returned, so the DSEM path table fit_mod()
+# recorded has to be re-recorded against it -- otherwise summary(peel$dsem)
+# keeps the zeros while summary(peel)$dsem_coefficients shows the real bands.
+testthat::test_that("a peel's DSEM table carries the standard errors it reports", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("dsem")
+
+  d  <- dsem_retro_data()
+  fc <- Rceattle::fit_control(phase = FALSE, getsd = TRUE, verbose = 0)
+
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = TRUE, msmMode = 0,
+    dsem = Rceattle::build_DSEM(sem = DSEM_RETRO_SEM, family = "fixed"),
+    fit_control = fc)))
+
+  retro <- suppressWarnings(suppressMessages(
+    Rceattle::retrospective(fit, peels = 1, cores = 1, getsd = TRUE)))
+  pk <- retro$Rceattle_list[[1]]
+
+  tab <- summary(pk$dsem)
+  # Every path, not the empty table the forecast refit's all-NA DSEM map used
+  # to produce -- which plot() drew as a figure with no arrows.
+  testthat::expect_equal(nrow(tab), nrow(summary(fit$dsem)))
+
+  # The band is the one the peel's own sdreport carries, path by path, not the
+  # NAs fit_mod() recorded against the forecast refit's report. Split in two:
+  # all-NA and all-zero are different failures, and `all(logical(0))` is TRUE,
+  # so a single `all(... == 0)` cannot tell either from an empty table.
+  testthat::expect_false(is.null(pk$sdrep))
+  se_hat <- as.list(pk$sdrep, report = FALSE, what = "Std. Error")$dsem_beta_z
+  idx <- as.numeric(tab$parameter)
+  testthat::expect_equal(tab$Std_Error,
+                         ifelse(idx == 0, NA_real_, se_hat[pmax(idx, 1)]))
+  se <- tab$Std_Error
+  testthat::expect_true(any(is.finite(se)))
+  testthat::expect_true(all(se[is.finite(se)] > 0))
+
+  # The two readings of the same quantity, which must not drift apart. Not
+  # vacuous here: retrospective() swaps pk$sdrep after fit_mod() recorded the
+  # cached table, so these agree only because of the re-record that follows.
+  testthat::expect_equal(tab, summary(pk)$dsem_coefficients)
+})

@@ -176,6 +176,18 @@ summary.Rceattle <- function(object, ...) {
   dsem_coefs <- .rceattle_dsem_coefs(object)
   rec_sd <- if (is.null(dsem_coefs)) NULL else .rceattle_rec_sd(object)
 
+  # summary(fit$dsem) reads a table recorded when the fit was built, and this
+  # is the one place both readings are in hand. Anything that replaces a fit's
+  # estimates or sdreport afterwards without re-recording shows up here rather
+  # than as a quietly stale path table.
+  .cached <- object[["dsem"]][["path_coefficients"]]
+  if (!is.null(.cached) && !isTRUE(all.equal(.cached, dsem_coefs))) {
+    warning("fit$dsem$path_coefficients disagrees with this fit's own ",
+            "estimates, so summary(fit$dsem) and plot(fit$dsem) are reporting ",
+            "a stale path table. Use summary(fit)$dsem_coefficients.",
+            call. = FALSE)
+  }
+
   structure(
     list(spec = object,
          # On a DSEM fit $coefficients is the path table; the analysis scripts
@@ -263,25 +275,15 @@ summary.Rceattle <- function(object, ...) {
   coefs$z_value <- coefs$Estimate / coefs$Std_Error
   coefs$p_value <- stats::pnorm(-abs(coefs$z_value)) * 2
 
-  # Drop paths whose beta_z entry is mapped off. The map is indexed by beta_z
-  # entry and coefs by sem row, so the two are bridged by par_idx rather than by
-  # position: sem rows outnumber beta_z entries whenever a path is fixed at its
-  # start value (parameter == 0) or several paths share one parameter, both of
-  # which are ordinary. A fixed path owns no beta_z entry and is always kept --
-  # it cannot be mapped off.
-  bmap <- object$map$mapList$dsem_beta_z
-  if (!is.null(bmap)) {
-    if (length(bmap) >= max(par_idx, 0, na.rm = TRUE)) {
-      estimated_path <- !is.na(par_idx) & par_idx >= 1
-      keep <- rep(TRUE, nrow(coefs))
-      keep[estimated_path] <- !is.na(bmap[par_idx[estimated_path]])
-      coefs <- coefs[keep, , drop = FALSE]
-    } else {
-      warning("The DSEM map has ", length(bmap), " dsem_beta_z entries but the ",
-              "SEM references parameter index ", max(par_idx, na.rm = TRUE),
-              "; reporting all paths unfiltered.", call. = FALSE)
-    }
-  }
+  # Every path in the sem is reported, including one whose beta_z entry is
+  # mapped off: `Estimate` is then the value the model held it at and
+  # `Std_Error` is NA, exactly as a path fixed at its start value
+  # (`parameter == 0`) has always been reported. Nothing in the pipeline maps a
+  # path off to say it is absent from the model -- the three sites that do are
+  # `random_rec = FALSE` pinning the recruitment SD, `estimateMode` 2 and 4
+  # blanking the whole map, and a retrospective peel's forecast refit holding
+  # the hindcast -- so dropping those rows reported a sem the user did not
+  # write, and on a peel emptied the table entirely.
   coefs
 }
 
@@ -335,6 +337,195 @@ summary.Rceattle <- function(object, ...) {
   se[!estimated] <- NA_real_
   data.frame(Species = spnames, R_sd = rsd, Estimated = estimated,
              Std_Error = se, stringsAsFactors = FALSE)
+}
+
+
+# Rceattle_dsem methods ----
+
+# Record the estimated path table on a fit's DSEM slot. Call this wherever a
+# fit's estimates, map or sdreport are replaced after fit_mod() returned, or
+# summary(fit$dsem) keeps reporting the ones they replaced. It reads
+# $dsem$sem_full, $estimated_params$dsem_beta_z, $sdrep and
+# $map$mapList$dsem_beta_z -- a mutation outside those four cannot stale it.
+.rce_record_dsem_coefs <- function(object) {
+  if (is.null(object[["dsem"]])) return(object)
+  # A failure here must not cost the caller a converged fit, but it must not be
+  # silent either: .rceattle_dsem_coefs() refuses when sem_full and
+  # dsem_beta_z disagree on length, and swallowing that would send
+  # summary(fit$dsem) back to reporting the SEM's starting values.
+  object[["dsem"]][["path_coefficients"]] <- tryCatch(
+    .rceattle_dsem_coefs(object),
+    error = function(e) {
+      warning("Could not record the DSEM path coefficients on this fit, so ",
+              "summary(fit$dsem) will report starting values: ",
+              conditionMessage(e), call. = FALSE)
+      NULL
+    })
+  object
+}
+
+
+# dsem is a suggested package, and a fit saved on one machine is read on
+# another: without it these methods have nothing to fall through to.
+.rce_dsem_need_pkg <- function(generic) {
+  if (requireNamespace("dsem", quietly = TRUE)) return(invisible(TRUE))
+  stop(generic, "() on a DSEM falls through to the 'dsem' package, which is ",
+       "not installed:\n",
+       "  remotes::install_version(\"dsem\", version = \"3.0.0\")",
+       call. = FALSE)
+}
+
+
+# The dsem package's methods read a standalone dsem fit's $obj and $opt. In
+# Rceattle the SEM is compiled into the CEATTLE template, so the slot holds
+# build inputs and these would describe a model that was never fitted.
+.rce_dsem_no_method <- function(generic, instead) {
+  stop(generic, "() is not defined for the DSEM attached to an Rceattle fit: ",
+       "the SEM is one term in a joint CEATTLE objective, not a model fitted ",
+       "on its own. Use ", instead, ".", call. = FALSE)
+}
+
+
+#' Methods for the DSEM attached to an Rceattle fit
+#'
+#' `fit$dsem` is the object [build_dsem_objects()] assembled from
+#' [build_DSEM()], carried on the fit so the SEM structure travels with it. It
+#' is classed `c("Rceattle_dsem", "dsem")`, so `summary()` and `plot()` give the
+#' path table and the path diagram at the estimated coefficients.
+#'
+#' @param object,x A `"Rceattle_dsem"` object, i.e. `fit$dsem`.
+#' @param y Unused; present to match the [base::plot()] generic.
+#' @param ... Passed to `dsem`'s `plot()` method; unused elsewhere.
+#'
+#' @return `summary()` returns the SEM path table: one row per path with columns
+#'   `path`, `lag`, `name`, `start`, `parameter`, `first`, `second`,
+#'   `direction`, `Estimate`, `Std_Error`, `z_value` and `p_value`. `print()`
+#'   returns `x` invisibly; `plot()` returns the `igraph` object invisibly.
+#'
+#' @details
+#' The subclass exists because `dsem::dsem(run_model = FALSE)` already classes
+#' its return `"dsem"`. Left at that, `summary()` and `plot()` dispatch to the
+#' dsem package, which reads the path coefficients out of `$obj` — the
+#' standalone TMB object built before fitting, which still holds the starting
+#' values. A converged path then reports as its starting value.
+#'
+#' `plot()` falls through to dsem's own method, which calls `summary()` and so
+#' draws whatever that returns; it needs the suggested dsem package installed,
+#' and `edge_label = "value"` or `"value_and_stars"` to label the arrows.
+#' Every path in the sem is drawn. One the model held fixed — a start-valued
+#' path, the recruitment SD under `random_rec = FALSE`, every path under
+#' `estimateMode` 2 and 4 — carries its held value and no standard error, so
+#' without an `sdreport` the stars read `NA`.
+#'
+#' A two-headed (`<->`) row is a variance: its sign is not identified, so
+#' `plot()` may label it negative where the model used the magnitude, and its
+#' stars test a boundary of the parameter space rather than evidence. See the
+#' "Reading the variance rows" section of [summary.Rceattle()].
+#'
+#' @section Which numbers you get:
+#' On a fit, `summary()` returns the table [fit_mod()] recorded at the end of
+#' the optimization — the same numbers as `summary(fit)$dsem_coefficients`,
+#' which recomputes them from `fit$estimated_params` on every call. On the
+#' object [build_dsem_objects()] returns, which has no estimates, `summary()`
+#' says so and falls through to dsem's method, giving the starting values that
+#' describe the specification you are about to fit.
+#'
+#' `logLik()`, `vcov()`, `residuals()`, `predict()` and `simulate()` are
+#' refused, each naming the Rceattle equivalent: the SEM is one term in a joint
+#' CEATTLE objective and has no likelihood, covariance or simulation of its own,
+#' and dsem's versions would report the unfitted standalone object.
+#'
+#' @seealso [summary.Rceattle()], which returns the same table as
+#'   `$dsem_coefficients` alongside the fixed effects and `$recruitment_sd`.
+#' @name Rceattle_dsem
+NULL
+
+
+#' @rdname Rceattle_dsem
+#' @export
+summary.Rceattle_dsem <- function(object, ...) {
+  co <- object[["path_coefficients"]]
+  if (!is.null(co)) return(co)
+
+  # No estimates: the specification build_dsem_objects() returns, or a fit
+  # whose estimates were dropped (model_average()). dsem's own method reads the
+  # starting values, which describe that specification correctly -- but say so,
+  # because on a fitted model they would be the wrong numbers.
+  .rce_dsem_need_pkg("summary")
+  message("This DSEM carries no estimates, so the values below are the ",
+          "SEM's starting values. On a fitted model use summary(fit$dsem).")
+  NextMethod()
+}
+
+
+#' @rdname Rceattle_dsem
+#' @export
+print.Rceattle_dsem <- function(x, ...) {
+  nm <- colnames(x[["internal"]][["tsdata"]])
+  cat("<DSEM on ", length(nm), " variables: ", paste(nm, collapse = ", "), ">\n",
+      sep = "")
+  co <- x[["path_coefficients"]]
+  if (is.null(co)) {
+    cat("  model inputs only; fit it with fit_mod(dsem = ) for the estimates\n")
+  } else {
+    print(co, row.names = FALSE)
+  }
+  invisible(x)
+}
+
+
+#' @rdname Rceattle_dsem
+#' @export
+plot.Rceattle_dsem <- function(x, y, ...) {
+  .rce_dsem_need_pkg("plot")
+  # dsem's plot.dsem(), which labels the arrows from summary(x) -- the method
+  # above, so the diagram carries the Rceattle estimates.
+  NextMethod()
+}
+
+
+#' @rdname Rceattle_dsem
+#' @export
+logLik.Rceattle_dsem <- function(object, ...) {
+  .rce_dsem_no_method(
+    "logLik",
+    paste0("logLik(fit), or fit$quantities$jnll_dsem for the SEM's own term"))
+}
+
+
+#' @rdname Rceattle_dsem
+#' @export
+vcov.Rceattle_dsem <- function(object, ...) {
+  .rce_dsem_no_method(
+    "vcov",
+    paste0("vcov(fit), whose fixed effects include dsem_beta_z, or the ",
+           "Std_Error column of summary(fit$dsem)"))
+}
+
+
+#' @rdname Rceattle_dsem
+#' @export
+residuals.Rceattle_dsem <- function(object, ...) {
+  .rce_dsem_no_method(
+    "residuals",
+    paste0("process_residuals(fit, 'recruitment') or osa_residuals(fit)"))
+}
+
+
+#' @rdname Rceattle_dsem
+#' @export
+predict.Rceattle_dsem <- function(object, ...) {
+  .rce_dsem_no_method("predict",
+                      "fit$quantities$dsem_z_tj, the fitted latent states")
+}
+
+
+#' @rdname Rceattle_dsem
+#' @param nsim,seed Unused; present to match the [stats::simulate()] generic.
+#' @export
+simulate.Rceattle_dsem <- function(object, nsim = 1, seed = NULL, ...) {
+  .rce_dsem_no_method("simulate",
+                      "sim_mod(fit, simulate = TRUE, process = TRUE)")
 }
 
 

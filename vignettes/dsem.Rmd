@@ -142,7 +142,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 The fitted model carries the underlying `dsem` object, which can be queried for SEM structure and parameter estimates.
 
-`summary()` on the fitted model prints the SEM path coefficients with standard errors, z-values and Wald p-values, and the per-species recruitment SD. Paths that are mapped off are dropped, so what you see is what was estimated.
+`summary()` on the fitted model prints the SEM path coefficients with standard errors, z-values and Wald p-values, and the per-species recruitment SD. Every path in the sem appears; one the model held fixed — a start-valued path, or the recruitment SD under `random_rec = FALSE` — carries its held value and no standard error.
 
 ```{r}
 s <- summary(model2)
@@ -153,6 +153,15 @@ knitr::kable(s$recruitment_sd)
 Two cautions when quoting the table. A two-headed (`<->`) row is a variance parameter whose sign is not identified — the model uses its absolute value — so a negative `Estimate` there is not meaningful; compare magnitudes. And its `z_value` / `p_value` test against a boundary of the parameter space, so the usual Wald reading does not apply and they are typically extreme regardless of evidence.
 
 The underlying `dsem` object is on the model as `model2$dsem`, and the specification as `model2$data_list$dsem_settings$sem`.
+
+That object is classed `c("Rceattle_dsem", "dsem")`, so `summary()` on it returns the path table `fit_mod()` recorded — the same numbers as `summary(model2)$dsem_coefficients` — and `plot()` draws the dsem package's path diagram at the estimated coefficients. Use `edge_label = "value"` to label the arrows with them, or `"value_and_stars"` to add significance stars; both need the suggested `dsem` package installed. The two cautions above apply to the figure as well, and are easier to miss there: a `<->` variance whose estimate landed on the negative branch is drawn with a minus sign the model did not use, and its stars test a boundary rather than evidence.
+
+```{r, eval = FALSE}
+summary(model2$dsem)
+plot(model2$dsem, edge_label = "value")
+```
+
+The subclass matters: `dsem::dsem()` classes its own return `"dsem"`, and the object Rceattle carries was built *before* fitting, so the dsem package's own methods would read the starting values and report a converged path as `0`. For the same reason `logLik()`, `vcov()`, `residuals()`, `predict()` and `simulate()` on `model2$dsem` refuse rather than answer — the SEM is one term in a joint CEATTLE objective, not a model fitted on its own, and each refusal names what to use instead (`vcov(model2)`, `process_residuals()`, `sim_mod()`, and so on).
 
 ## Which processes a SEM can drive
 

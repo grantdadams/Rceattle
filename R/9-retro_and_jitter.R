@@ -852,6 +852,11 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
         attr(newmod, "sd_report_error") <-
           paste0("peel ", i, " (through ", endyr_peel, "): ", sd_try[["error"]])
       }
+
+      # The peel's DSEM path table was recorded against the sdreport this block
+      # just replaced, so re-record it against the standard errors the peel
+      # actually reports.
+      newmod <- .rce_record_dsem_coefs(newmod)
     }
 
 

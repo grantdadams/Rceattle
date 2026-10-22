@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.64.0.9003`, the released line this branch now
+number: `DESCRIPTION` reads `5.64.0.9007`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -333,6 +333,75 @@ numbered on the 5.23.0 line.
   hand is what reaches them.
 
 ## Bug fixes
+
+* **`summary(fit$dsem)` and `plot(fit$dsem)` reported the SEM's STARTING values
+  on a converged fit, silently** (issue #220). `build_dsem_objects()` returns
+  `dsem::dsem(run_model = FALSE)`, which classes its own return `"dsem"`, so the
+  slot dispatched to the dsem package's methods -- and those read the path
+  coefficients out of `$obj`, the standalone TMB object built before fitting.
+  On a converged `GOApollock` DSEM (objective 797.9304) `summary(fit$dsem)` gave
+  `AR_BT` 0, `BT_to_R` 0, `sigmaR1` 1 and `V[ScaledBT]` 1 against MLEs of
+  0.0544, -0.2951, 1.3353 and 0.9813, with no standard errors and no warning;
+  `plot(fit$dsem, edge_label = "value")` drew that environmental effect as `0`.
+  `residuals()` returned a 49x2 matrix of exact zeros, `logLik()` an empty
+  `logLik` with `df = 0`, and `print()` printed `NULL`.
+
+  The slot is now classed `c("Rceattle_dsem", "dsem")`, `fit_mod()` records the
+  estimated path table on it as `$path_coefficients`, and `summary()` returns
+  that table -- on a fit as `fit_mod()` returned it, the same numbers as
+  `summary(fit)$dsem_coefficients`. dsem's `plot()` builds its labels by
+  calling `summary()`, so the path diagram inherits the estimates: the same
+  figure now draws -0.3 where it drew 0. `logLik()`, `vcov()`, `residuals()`,
+  `predict()` and `simulate()` refuse, each naming the Rceattle equivalent,
+  because the SEM is one term in a joint CEATTLE objective and has no
+  likelihood, covariance or simulation of its own.
+  `inherits(fit$dsem, "dsem")` is still `TRUE`.
+
+  The two readings are kept from drifting apart rather than assumed equal.
+  `retrospective()` replaces a peel's `sdrep` after `fit_mod()` has returned,
+  so it re-records; `model_average()` drops `estimated_params` on a copy of one
+  component fit, so it clears the table rather than serving that component's as
+  the average's. And because an enumeration of such sites can only ever be
+  complete as of today, `summary(fit)` -- the one place both readings are in
+  hand -- now **warns** when the recorded table disagrees with the fit's own
+  estimates, so a future mutator surfaces as a warning rather than as a quietly
+  stale table.
+
+  Two limits worth knowing. `summary()` on the object `build_dsem_objects()`
+  returns still gives the starting values -- for an unfitted specification that
+  is the right answer, and `plot()` of it is the natural pre-fit check -- but it
+  now says so first. And a fit **saved before this change** reloads with the
+  bare class and reports starting values as it always did; `summary(fit)` is
+  the reading to trust, and a refit is what moves the slot.
+
+  `test-dsem-member-methods.R` pins it, including a positive control that the
+  bare class reports 0.01 and 1 where the subclass reports 0.5 and 0.8, and a
+  real `GOApollock` fit that fails if the recording is moved above `sdrep`.
+
+* **A DSEM path the model held fixed is now reported, instead of vanishing from
+  the table.** `summary(fit)$dsem_coefficients` dropped every path whose
+  `beta_z` entry was mapped off. Nothing in the pipeline maps a path off to say
+  it is absent from the model -- the three sites that do are `random_rec =
+  FALSE` pinning the recruitment SD, `estimateMode` 2 and 4 blanking the whole
+  map, and a retrospective peel's forecast refit holding the hindcast -- so the
+  table described a sem the user had not written. On a peel, which pins every
+  DSEM block, it emptied the table completely: measured on a three-species
+  `BS2017SS` DSEM, a one-peel retrospective reported **0 of 6 paths**, and
+  `plot()` drew that as a figure with no arrows and no warning rather than
+  failing.
+
+  Every path in the sem is now reported, carrying the value the model held it
+  at and `NA` standard errors, exactly as a path fixed at its start value
+  (`parameter == 0`) always has been -- the two kinds of fixed path were being
+  treated oppositely. Whose tables change: any `estimateMode` 2 or 4 fit, any
+  fit with `random_rec = FALSE`, and every retrospective peel of a DSEM gain
+  rows; no other fit moves, and no estimate changes. A peel now also carries
+  real standard errors rather than none, because `retrospective()` re-records
+  against the report it rebuilds with the hindcast free: measured on the same
+  one-peel `BS2017SS` retrospective, all 6 paths with finite positive bands.
+  The column set is unchanged, so tables from several models still `rbind()`.
+  `test-summary-dsem.R` pins the peel-shaped map and the pinned-path row, and
+  `test-dsem-retrospective.R` pins the peel's band against its own `sdreport`.
 
 * **`report_tables()`'s retrospective section published a species called
   `"rho"`, and lost half its Mohn's rho values.** `$mohns` is long -- one row

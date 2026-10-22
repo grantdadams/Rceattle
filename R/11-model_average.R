@@ -60,6 +60,9 @@ model_average <- function(object = NULL, weights = NULL, uncertainty = FALSE, nb
   mod_avg_rel_hind_yrs <- (max_styr - mod_avg$data_list$styr + 1) : (min_hindyr - mod_avg$data_list$styr + 1) # Find years of overlap
   mod_avg$estimated_params <- mod_avg$initial_params <- mod_avg$opt <- mod_avg$run_time <- mod_avg$obj <- mod_avg$map <- mod_avg$bounds <- NULL
   if(!uncertainty){mod_avg$sdrep <- NULL}
+  # The copied DSEM slot still carries that one component's path table, and the
+  # components may not even share a sem, so there is no average path to report.
+  mod_avg$dsem$path_coefficients <- NULL
 
   # -- Set all quantities to zero
   mod_avg$quantities <- sapply(mod_avg$quantities, function(x) replace(x, values = rep(0, length(x))))

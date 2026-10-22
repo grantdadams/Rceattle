@@ -772,7 +772,9 @@ fit_mod <-
       }
 
       if (.dsem_built) {
-        mod_objects$dsem <- dsem
+        # Pre-built objects reach this branch from outside the package, so they
+        # may carry dsem's bare class; a no-op on one already subclassed.
+        mod_objects$dsem <- .as_rceattle_dsem(dsem)
         # Record the specification alongside the built objects. .refit_like()
         # and the diagnostic guards read data_list$dsem_settings, so a fit built
         # from pre-built objects would otherwise look DSEM-free to them.
@@ -2060,6 +2062,11 @@ fit_mod <-
     }
 
     class(mod_objects) <- "Rceattle"
+
+    # The estimated SEM path table, on the DSEM slot, so summary(fit$dsem) and
+    # plot(fit$dsem) report the MLEs rather than the starting values its $obj
+    # still holds. After `sdrep` above, so the standard errors are in it.
+    mod_objects <- .rce_record_dsem_coefs(mod_objects)
 
     # Convergence diagnostics (R/0-convergence.R): attach the structured object
     # and surface non-OK checks via message(). message() + tryCatch so a

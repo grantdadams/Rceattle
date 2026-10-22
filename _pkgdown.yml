@@ -330,6 +330,7 @@ reference:
   - print.Rceattle
   - summary.Rceattle
   - print.summary.Rceattle
+  - Rceattle_dsem
   - print.Rceattle_data
   - print.rceattle_report
   - switch_check

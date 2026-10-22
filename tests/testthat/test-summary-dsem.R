@@ -148,25 +148,40 @@ testthat::test_that("summary() rejects a non-Rceattle object", {
                          "not an Rceattle model")
 })
 
-# The map filter is bridged by `parameter`, not by row position. Sem rows
-# routinely outnumber beta_z entries -- the fixture has three paths and two
-# parameters, because one path is fixed at its start value -- so a filter keyed
-# on length(bmap) == nrow(coefs) never fires and warns on every ordinary fit.
-
 testthat::test_that("an ordinary fit reports every path and does not warn", {
-  # 3 sem rows, 2 beta_z entries, both mapped on: nothing is dropped.
   testthat::expect_no_warning(out <- suppressMessages(summary(fake_fit())))
   testthat::expect_equal(nrow(out$coefficients), 3L)
   testthat::expect_true("X_fixed" %in% out$coefficients$name)
 })
 
-testthat::test_that("a mapped-off path is dropped, and a fixed path is kept", {
+# A path the model held fixed is reported at the value it was held at, whether
+# it was fixed in the sem (parameter == 0) or pinned through the map. Dropping
+# the mapped-off ones described a sem the user did not write: the three sites
+# that pin a beta_z entry are `random_rec = FALSE`, `estimateMode` 2 and 4, and
+# a retrospective peel's forecast refit -- none of them says the path is absent
+# from the model, and the peel's pinned every one of them, emptying the table.
+testthat::test_that("a mapped-off path is reported, with no standard error", {
   # beta_z entry 1 (BT_to_R) mapped off; entry 2 (sigmaR1) still estimated.
-  # X_fixed owns no beta_z entry (parameter == 0) so it cannot be mapped off.
   f <- fake_fit(bmap = factor(c(NA, 2)))
   testthat::expect_no_warning(out <- suppressMessages(summary(f)))
-  testthat::expect_setequal(out$coefficients$name, c("sigmaR1", "X_fixed"))
-  testthat::expect_false("BT_to_R" %in% out$coefficients$name)
+  testthat::expect_setequal(out$coefficients$name,
+                            c("BT_to_R", "sigmaR1", "X_fixed"))
+
+  co <- out$coefficients
+  # Held at its estimate, not at its start value and not silently absent.
+  testthat::expect_equal(co$Estimate[co$name == "BT_to_R"], 0.5)
+  testthat::expect_true(is.na(co$Std_Error[co$name == "BT_to_R"]))
+})
+
+testthat::test_that("a peel-shaped map reports every path rather than none", {
+  # What a retrospective peel's forecast refit leaves behind: every beta_z
+  # entry pinned. The table used to come back with 0 rows, which plot() then
+  # drew as an empty figure.
+  f <- fake_fit(bmap = factor(c(NA, NA)))
+  out <- suppressMessages(summary(f))
+  testthat::expect_equal(nrow(out$coefficients), 3L)
+  testthat::expect_equal(out$coefficients$Estimate[out$coefficients$name == "sigmaR1"],
+                         0.8)
 })
 
 # Everything above drives summary() from a hand-built fixture, which cannot catch
@@ -201,11 +216,11 @@ testthat::test_that("summary() reads the slot names a real DSEM fit carries", {
   testthat::expect_true(is.numeric(out$recruitment_sd$R_sd))
 })
 
-testthat::test_that("a map too short for the SEM warns and filters nothing", {
-  # The genuine inconsistency: the SEM references parameter 2 but the map has
-  # only one entry. Report everything rather than drop rows on a bad index.
+testthat::test_that("a map too short for the SEM is simply not consulted", {
+  # The map used to decide which rows survived, so a map shorter than the SEM's
+  # highest parameter index was an indexing hazard worth warning about. Every
+  # path is now reported whatever the map says, so a short one is inert.
   f <- fake_fit(bmap = factor(1))
-  testthat::expect_warning(out <- suppressMessages(summary(f)),
-                           "references parameter index")
+  testthat::expect_no_warning(out <- suppressMessages(summary(f)))
   testthat::expect_equal(nrow(out$coefficients), 3L)
 })
