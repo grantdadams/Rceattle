@@ -55,9 +55,11 @@ testthat::test_file("tests/testthat/test-selectivity-logisticpm.R", env = e)
 
 Three checks sit outside the ordinary suite:
 
-- **The golden regression** (`tests/testthat/test-golden-regression.R`) fits four reference
-  models and pins their objectives. Any change that can move a fit must leave them unchanged,
-  or re-pin them with the numbers in `NEWS.md`. It runs only under `NOT_CRAN=true`.
+- **The golden regression** (`tests/testthat/test-golden-regression.R`) evaluates four
+  reference models at stored parameters and pins their objectives and the derived quantities
+  that set catch advice (SSB, biomass, recruitment, SB0, dynamic B0, M2). Any change that can
+  move a fit must leave them unchanged, or re-pin them with the objective changes in `NEWS.md`.
+  It runs only under `NOT_CRAN=true`.
 - **`tools/verify/`** holds harnesses for what the golden fits cannot see: refit paths,
   simulation draws, MSE reproducibility. `tools/README.md` says which to run for which change.
 - **`inst/dev/TRAPS.md`** lists the ways a change has silently gone wrong before, with the
