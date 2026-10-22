@@ -28,10 +28,16 @@ version throughout.
   standard errors there now come from the curve rather than the floor.
 
   Fits move materially only where the descending limb is that steep within the
-  modelled ages. The golden references do not: GOA2018SS uses both forms with
-  slope x (age - a50) at most about 1.2, `goa_ss` is unchanged to the last digit
-  and `goa_ms` moves by 1 unit in the last place (1.8e-12). Bering Sea
-  references use neither form.
+  modelled ages, and only on its DESCENDING side: at a negative
+  slope x (age - a50) the limb is near 1 and both forms are exact, so what
+  matters is how far the argument reaches above zero. The golden references
+  barely do. Measured at the reference parameters, the largest positive
+  slope x (age - a50) is 0.83 on `goa_ss` and 1.16 on `goa_ms` across the three
+  fleets that use these forms (GOA2018SS fleets 1, 7 `DescendingLogistic` and 8
+  `DoubleLogistic`, all pollock, `nages` 10), where the old form's relative
+  error is at most one unit in the last place (2.2e-16). Hence `goa_ss` is
+  unchanged to the last digit and `goa_ms` moves by 1 unit in the last place
+  (1.8e-12). Bering Sea references use neither form.
 
 # Rceattle 5.64.0
 
