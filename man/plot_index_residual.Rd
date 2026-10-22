@@ -49,15 +49,16 @@ diagnostics for a single fit (\code{residual_type = "osa"}, via \code{\link[=osa
 \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}).
 }
 \details{
-The residual is \strong{observed minus predicted}, taken on the scale the fleet is
-fitted on and read from its \code{Index_distribution}:
-\code{log(observed) - log(predicted)} for a log-scale (\code{"Lognormal"}) fleet, and
-\code{observed - predicted} for a natural-scale one (\code{"MVN"}, \code{"MVNORM"},
-\code{"Normal"}, \code{"TruncatedNormal"}), whose sd is absolute. A positive residual
-means the survey saw more than the model predicted. Panels hold different
-units where a model mixes the two families, which is why the y scale is free
-per fleet.
+The residual is observed minus predicted, standardized by the sd the row was
+fitted with -- the same quantity \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns for
+\code{type = "pearson"}. On a log-scale fleet it is measured against the
+likelihood's centre, \code{log(hat) - bias_adjust_obs * sd^2 / 2}; on a
+natural-scale fleet, whose sd is absolute, it is \code{(obs - hat) / sd}. A
+positive residual means the survey saw more than the model predicted. The y
+scale stays free per fleet, since a mixed-family model's panels divide by
+sds in different units.
 
-Index residual figures made before 5.9.0 are mirrored about zero relative to
-these, so a figure carried forward from one needs redrawing.
+Figures made before 5.9.0 are mirrored about zero relative to these, and
+those before 5.64.3 plotted an unstandardized, unoffset \code{log(obs) - log(hat)}
+despite the Pearson label; either needs redrawing.
 }

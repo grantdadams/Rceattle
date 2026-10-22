@@ -311,3 +311,43 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
   if (is.null(got)) got <- quantities[[paste0("log_", what, "_sd")]]
   got
 }
+
+#' Read a fit's observation bias-adjustment flag
+#'
+#' The index and catch lognormal likelihoods fit `log(obs)` to a mean of
+#' `log(hat) - bias_adjust_obs * sigma^2 / 2`, so anything comparing an
+#' observation against `hat` needs the same flag. `data_list` carries it after
+#' `fit_mod()`; older fits fall back to the TMB data, then to the default 1.
+#'
+#' @param object A fitted `Rceattle` object.
+#' @return Length-one numeric, 1 or 0.
+#' @noRd
+.bias_adjust_obs <- function(object) {
+  got <- object$data_list$bias_adjust_obs
+  if (is.null(got) && !is.null(object$obj)) {
+    got <- object$obj$env$data$bias_adjust_obs
+  }
+  if (is.null(got)) got <- 1
+  as.numeric(got)[1]
+}
+
+#' Convert a reported mean observation to the median its likelihood centres on
+#'
+#' Log-scale rows only: a natural-scale family has no offset, and its `sigma` is
+#' an ABSOLUTE sd, so the lognormal form would be wrong by the size of the index
+#' squared (see `.observation_sd()`).
+#'
+#' @param hat Reported `index_hat` / `catch_hat`.
+#' @param sigma The sd the likelihood used, from `.observation_sd()`.
+#' @param ba_obs The flag, from `.bias_adjust_obs()`.
+#' @param log_scale Logical, one per row: is this row fitted on the log scale?
+#' @return `hat`, with the log-scale rows converted to medians.
+#' @noRd
+.hat_as_median <- function(hat, sigma, ba_obs, log_scale) {
+  out <- hat
+  # No usable sd keeps the reported value: exp(-b * NA / 2) would wipe a
+  # prediction the figure can still draw.
+  use <- log_scale & is.finite(sigma) & is.finite(hat)
+  out[use] <- hat[use] * exp(-ba_obs * sigma[use]^2 / 2)
+  out
+}

@@ -510,11 +510,9 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 
   # Observation bias-adjustment flag (default 1): the index/catch lognormal
   # likelihood fits to mean log(hat) - bias_adjust_obs * sigma^2/2, so the Pearson
-  # residual must subtract the same offset.
-  ba_obs <- d$bias_adjust_obs
-  if (is.null(ba_obs) && !is.null(object$obj)) ba_obs <- object$obj$env$data$bias_adjust_obs
-  if (is.null(ba_obs)) ba_obs <- 1
-  ba_obs <- as.numeric(ba_obs)[1]
+  # residual must subtract the same offset. Shared with the fit figures, which
+  # need the same offset to draw the likelihood's centre.
+  ba_obs <- .bias_adjust_obs(object)
 
   out <- list()
 

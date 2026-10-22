@@ -80,7 +80,10 @@
       Observation = dat$.obs,
       Lower95     = lwr,
       Upper95     = upr,
-      Predicted   = dat$.hat,
+      # The median the likelihood is centred on, not the reported mean, so the
+      # line and the observation quantiles above are on the same footing.
+      Predicted   = .hat_as_median(dat$.hat, dat$.sd,
+                                   .bias_adjust_obs(Rceattle[[i]]), !nat),
       stringsAsFactors = FALSE)
   }
   if (length(out) == 0L) {
@@ -130,6 +133,13 @@
 #' a `"Lognormal"` fleet, and `observed +/- 1.96 sd` truncated at zero on a
 #' natural-scale one (`"MVN"`, `"MVNORM"`, `"Normal"`, `"TruncatedNormal"`),
 #' whose sd is absolute and in the units of the index.
+#'#'
+#' The predicted line is the MEDIAN of the fitted observation distribution,
+#' `index_hat * exp(-bias_adjust_obs * sd^2 / 2)`, which is where the lognormal
+#' likelihood is centred and what the observation intervals bracket. It equals
+#' the reported `index_hat` only when `bias_adjust_obs = FALSE`; figures from
+#' before 5.64.3 drew the mean. A natural-scale fleet has no such offset and is
+#' drawn unchanged.
 #'
 #' @param Rceattle A single [fit_mod()] object or a list of them (overlaid).
 #' @param file Optional file stem; if given the figure is written to
@@ -333,6 +343,10 @@ plot_catchability <- function(Rceattle,
 #' the model-predicted catch, faceted by fishery fleet. For MSE objects the
 #' projection period is summarized with 50% / 95% ribbons across simulations.
 #'
+#' The predicted line is the MEDIAN, as in [plot_index()]:
+#' `catch_hat * exp(-bias_adjust_obs * sd^2 / 2)`. The catch likelihood is
+#' lognormal for every fishery, so this applies throughout.
+#'
 #' @inheritParams plot_index
 #' @param maxyr Last year to plot.
 #' @param mse Is `Rceattle` an MSE object (operating models)?
@@ -414,17 +428,18 @@ plot_catch <- function(Rceattle,
 #' diagnostics for a single fit (`residual_type = "osa"`, via [osa_residuals()] /
 #' [plot.rceattle_osa()]).
 #'
-#' The residual is **observed minus predicted**, taken on the scale the fleet is
-#' fitted on and read from its `Index_distribution`:
-#' `log(observed) - log(predicted)` for a log-scale (`"Lognormal"`) fleet, and
-#' `observed - predicted` for a natural-scale one (`"MVN"`, `"MVNORM"`,
-#' `"Normal"`, `"TruncatedNormal"`), whose sd is absolute. A positive residual
-#' means the survey saw more than the model predicted. Panels hold different
-#' units where a model mixes the two families, which is why the y scale is free
-#' per fleet.
+#' The residual is observed minus predicted, standardized by the sd the row was
+#' fitted with -- the same quantity [residuals.Rceattle()] returns for
+#' `type = "pearson"`. On a log-scale fleet it is measured against the
+#' likelihood's centre, `log(hat) - bias_adjust_obs * sd^2 / 2`; on a
+#' natural-scale fleet, whose sd is absolute, it is `(obs - hat) / sd`. A
+#' positive residual means the survey saw more than the model predicted. The y
+#' scale stays free per fleet, since a mixed-family model's panels divide by
+#' sds in different units.
 #'
-#' Index residual figures made before 5.9.0 are mirrored about zero relative to
-#' these, so a figure carried forward from one needs redrawing.
+#' Figures made before 5.9.0 are mirrored about zero relative to these, and
+#' those before 5.64.3 plotted an unstandardized, unoffset `log(obs) - log(hat)`
+#' despite the Pearson label; either needs redrawing.
 #'
 #' @inheritParams plot_index
 #' @param residual_type `"pearson"` (index residuals on the fleet's own scale)
@@ -481,16 +496,21 @@ plot_index_residual <- function(Rceattle,
       # assessment convention (WHAM, SS3): a positive residual means the survey
       # saw more than the model predicted.
       #
-      # Log ratio for a log-scale fleet, plain difference for a natural-scale one
-      # -- log() of a natural-scale residual is not a residual. Assigned by
-      # subset rather than with ifelse(), which evaluates both arms and so would
-      # take log() of a natural-scale observation it then discards.
+      # The Pearson residual residuals.Rceattle() returns, which this used to
+      # disagree with: standardized by the row's own sd, and offset to the
+      # likelihood's centre on a log-scale fleet. Assigned by subset, not
+      # ifelse(), which would log() a natural-scale observation it discards.
       Residual = {
         nat <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
         nat <- if (length(nat)) nat[keep] else rep(FALSE, nrow(dat))
+        sigma <- .observation_sd(Rceattle[[i]]$quantities, "index")
+        sigma <- if (!is.null(sigma)) as.numeric(sigma)[keep] else dat$Log_sd
+        ba_obs <- .bias_adjust_obs(Rceattle[[i]])
         res <- rep(NA_real_, nrow(dat))
-        res[nat]  <- dat$Observation[nat] - dat$.hat[nat]
-        res[!nat] <- log(dat$Observation[!nat]) - log(dat$.hat[!nat])
+        res[nat]  <- (dat$Observation[nat] - dat$.hat[nat]) / sigma[nat]
+        res[!nat] <- (log(dat$Observation[!nat]) -
+                        (log(dat$.hat[!nat]) -
+                           ba_obs * sigma[!nat]^2 / 2)) / sigma[!nat]
         res
       },
       stringsAsFactors = FALSE)
@@ -515,7 +535,7 @@ plot_index_residual <- function(Rceattle,
       # scales share a figure: a log-scale fleet's panel is dimensionless, a
       # natural-scale fleet's is in the units of the index.
       ggplot2::facet_wrap(~ Fleet, scales = "free_y") +
-      ggplot2::labs(x = "Year", y = "Index residual") +
+      ggplot2::labs(x = "Year", y = "Index Pearson residual") +
       .rceattle_theme(),
     aesthetics = "colour")
   if (nlevels(df$Model) < 2L) p <- p + ggplot2::guides(colour = "none")
