@@ -9,9 +9,14 @@ Verified against source, 2026-08.
 ## Build and test
 
 **A header-only edit under `src/TMB/` can leave `pkgload::load_all(".")` loading the OLD binary,
-with nothing printed amiss.** Observed twice: a one-line `selectivity.hpp` fix left the defect it
-fixed still reproducing until `ceattle.cpp` was touched, and `growth.hpp` edited at 21:18:18 ran
-against a `ceattle.o` of 21:02:45. **It silently voids a before/after comparison** — a
+with nothing printed amiss.** Observed three times: a one-line `selectivity.hpp` fix left the
+defect it fixed still reproducing until `ceattle.cpp` was touched; `growth.hpp` edited at
+21:18:18 ran against a `ceattle.o` of 21:02:45; and reviewing PR #263 (2026-10-21) the stable
+descending-limb fix read as FAILING its own new test, 4 of 4, across two reload attempts — the
+second after deleting `src/TMB/ceattle.so` and `src/TMB/ceattle.o`, which is not enough because
+the loaded library is `src/ceattle.so`. It passed 4 of 4, matching the closed form to 4.8e-25 at
+age 15, once a reload rebuilt the `.o`. **The failure direction is not fixed**: that reading
+accused a correct fix, where the first observation above excused a broken one. **It silently voids a before/after comparison** — a
 revert-and-retest ran the same binary twice and showed "no difference", which reads as a test that
 does not discriminate when the test was never given the reverted code. Anything measured after a
 header-only edit is suspect until the rebuild is confirmed.

@@ -163,7 +163,7 @@ how this package is written; very little over what it means.
 This is a TMB package, so the C++ must be compiled before the R can run.
 
 ```r
-pkgload::load_all(".", quiet = TRUE)   # recompiles the TMB DLL + loads R/ (after any .cpp/.hpp edit)
+pkgload::load_all(".", quiet = TRUE)   # rebuilds the TMB DLL only if ceattle.cpp changed (see below)
 devtools::document(quiet = TRUE)       # regenerate man/*.Rd + NAMESPACE after roxygen changes
 NOT_CRAN=true TESTTHAT_PARALLEL=false Rscript -e 'devtools::test()'   # full suite, serial (rule 7)
 rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounded)
@@ -172,6 +172,12 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **Toolchain:** prefix R compile/check commands with `export PATH=/usr/bin:$PATH` — system
   toolchain first, so a Homebrew clang/gfortran does not shadow the TMB build.
 - `load_all()` recompiles via `src/TMB/compile.R`; add `compile = FALSE` for R-only changes.
+  **A `.hpp`-only edit can leave it loading the OLD binary with nothing printed amiss**, and
+  every process lives in a header, so that is the normal case. Delete `src/TMB/ceattle.o`
+  and the three `.so`s, then confirm the **`.o`** mtime moved — never an `.so`, which is
+  copied up unconditionally. `inst/dev/TRAPS.md`, "Build and test", has the recipe and warns
+  that the mechanism is NOT established; anything measured after a header edit is suspect
+  until the rebuild is confirmed.
   Compiled artifacts are gitignored — never commit them. `ceattle.o` is the big one and it
   grows with the template (89 MB at 5.45.3, 94 MB at 5.46.0), so treat any figure here as a
   snapshot; `*.so` is a few MB.
