@@ -1205,7 +1205,10 @@ across the boundary.
 
 ## Coverage gaps in the golden check
 
-`/golden-check` fits four models and diffs the result. It does not reach:
+The committed gate (`test-golden-regression.R`) EVALUATES four reference models at stored
+parameters rather than refitting them — it has not refitted since 5.45.1 — and pins the
+objective, the gradient and the derived quantities below. The `/golden-check` recipe is a looser
+local read at a 1e-6 absolute tolerance, so the two are not the same gate. Neither reaches:
 
 - **The refit paths.** Eight entry points re-invoke `fit_mod()` through `.refit_like()`. Use
   `tools/verify/verify-refit-like.R`, which covers six of them —
@@ -1217,9 +1220,25 @@ across the boundary.
   the corner where SSB is pure derived output, so `maturity` never enters the objective there:
   every maturity perturbation gives `dObj = +0.0000e+00` on both `goa_ss` and `goa_ms` (positive
   controls on the same probe: an index observation x1.5 moves it +3.7664, a fitted catch row x1.5
-  moves it +32.674). Golden therefore cannot see the cod maturity defect above, and correcting the
-  data would leave both objectives bit-unchanged. Maturity reaches the objective only where
-  `srr_pred_fun > 0` or `srr_fun > 1`, through `R_hat` into `jnll_comp(JNLL_SRR_PENALTY)`.
+  moves it +32.674). Correcting the cod maturity defect above would leave both objectives
+  bit-unchanged. Maturity reaches the objective only where `srr_pred_fun > 0` or `srr_fun > 1`,
+  through `R_hat` into `jnll_comp(JNLL_SRR_PENALTY)`. The gate therefore also pins `ssb`,
+  `biomass`, `R`, single-species `SB0` and `B0`, `DynamicSB0`, `DynamicB0` and `M2_at_age` at the reference
+  parameters (relative 1e-8), so a change to maturity, spawn timing or dynamic-B0 predation fails
+  through those while the objective stays put.
+  **Read the element count honestly**: 24,280 of the 32,976 asserted elements (73.6%) are exact
+  zeros, leaving 8,696 informative numbers. `M2_at_age` is identically zero on BOTH
+  single-species references, where it asserts "predation has not leaked into `msmMode = 0`"
+  rather than pinning a predation mortality — the real M2 pin is the multispecies pair. A zero
+  element is not a free pass, though: its relative band is exactly 0, so 0 to 1e-300 fails the
+  element check (`expect_equal` alone would pass it).
+  `SB0`/`B0` ARE stored for the multispecies pair but are not asserted — they are the 999
+  MSSB0/MSB0 inputs there — so 876 stored elements go unchecked by design.
+- **Harvest control rules.** All four references run `HCR = NoFishing`, so `proj_F` is 0,
+  `Ftarget`/`Flimit` are the placeholder 1, and every fleet's `Proj_F_proportion` is 0, so `SBF`
+  equals `SB0`. None of them is pinned. `test-dynamics-brps.R`, `test-switches-hcr-*.R`,
+  `test-functions-fixed-n-hcr-outputs.R`, `test-functions-mse.R` and
+  `test-mse-cap-and-hcr2-threshold.R` exercise the rules, against no golden value.
 - **Linkage rows.** The four golden models carry none. The constructive linkage tests
   (`test-dynamics-recruitment-linkage.R`, `test-linkage-random-effects.R`) are the net.
 - **Selectivity normalization.** No bundled dataset enters the normalization block in
