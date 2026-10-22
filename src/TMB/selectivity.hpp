@@ -503,7 +503,9 @@ void calculate_selectivity(
                             + sel_slp_off(1, flt, sex, yr)) + sel_slp_off_nat(1, flt, sex, yr);
             Type inf2 = (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
                          + sel_inf_off_nat(1, flt, sex, yr)) * exp(sel_inf_off(1, flt, sex, yr));
-            Type val = (1.0 / (1.0 + exp(-slp1 * (x_val - inf1)))) * (1.0 - (1.0 / (1.0 + exp(-slp2 * (x_val - inf2)))));
+            // Descending limb as 1 / (1 + exp(+...)), not 1 minus a logistic, so the oldest ages
+            // keep a positive, accurate selectivity and a finite log on a steep slope.
+            Type val = (1.0 / (1.0 + exp(-slp1 * (x_val - inf1)))) * (1.0 / (1.0 + exp(slp2 * (x_val - inf2))));
 
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
             else sel_at_age(flt, sex, bin, yr) = val;
@@ -517,7 +519,8 @@ void calculate_selectivity(
                             + sel_slp_off(1, flt, sex, yr)) + sel_slp_off_nat(1, flt, sex, yr);
             Type inf2 = (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
                          + sel_inf_off_nat(1, flt, sex, yr)) * exp(sel_inf_off(1, flt, sex, yr));
-            Type val = (1.0 - (1.0 / (1.0 + exp(-slp2 * (x_val - inf2)))));
+            // As in case 3: 1 / (1 + exp(+...)) keeps the oldest ages above 0 on a steep slope.
+            Type val = 1.0 / (1.0 + exp(slp2 * (x_val - inf2)));
 
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
             else sel_at_age(flt, sex, bin, yr) = val;

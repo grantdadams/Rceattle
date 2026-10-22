@@ -51,6 +51,32 @@ version throughout.
   workbooks across `Rceattle-models`, `GOA-multispecies-assessment`,
   `GOA-ATF-ESP` and `GOA_circlulation_study` found none either — so no bundled,
   golden, hake-MSE or sibling-assessment draw changes.
+# Rceattle 5.64.1
+
+## Bug fixes
+
+* **A steep descending limb no longer rounds to zero selectivity at the oldest
+  ages.** `DoubleLogistic` and `DescendingLogistic` computed the descending limb
+  as one minus a logistic, which loses relative precision as slope x
+  (age - a50) grows (4e-8 at 20, 1e-3 at 30) and is exactly 0 past about 37. It
+  is now computed as `1 / (1 + exp(slope * (age - a50)))`, the same curve at full
+  relative precision. With a slope of 8 and a50 of 8, selectivity at
+  age 13 was 0 and is now 4.2e-18; at age 12 it was 6e-4 off in relative terms.
+  `log_sel_at_age` (`selectivity_se = TRUE`) reported those ages at the 1e-300
+  floor (-690.8) and now reports their true log (-40 to -56), so their
+  standard errors there now come from the curve rather than the floor.
+
+  Fits move materially only where the descending limb is that steep within the
+  modelled ages, and only on its DESCENDING side: at a negative
+  slope x (age - a50) the limb is near 1 and both forms are exact, so what
+  matters is how far the argument reaches above zero. The golden references
+  barely do. Measured at the reference parameters, the largest positive
+  slope x (age - a50) is 0.83 on `goa_ss` and 1.16 on `goa_ms` across the three
+  fleets that use these forms (GOA2018SS fleets 1, 7 `DescendingLogistic` and 8
+  `DoubleLogistic`, all pollock, `nages` 10), where the old form's relative
+  error is at most one unit in the last place (2.2e-16). Hence `goa_ss` is
+  unchanged to the last digit and `goa_ms` moves by 1 unit in the last place
+  (1.8e-12). Bering Sea references use neither form.
 
 # Rceattle 5.64.0
 
