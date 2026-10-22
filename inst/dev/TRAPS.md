@@ -992,12 +992,13 @@ some lets a neighbouring block's guard drift into range and satisfy it.
 
 **And on a pull request these three have no second line of defence.**
 `.github/workflows/R-CMD-check.yaml` sets step-level `NOT_CRAN: "false"`, so every `skip_on_cran()`
-fit block in the same files skips; `test-coverage` runs at `NOT_CRAN=true` but
-`tools/ci/coverage-shard.R` passes `stop_on_failure = FALSE` and nothing reads the result;
-`deep-checks` runs them fatally but nightly, gating no merge. `source-guards.yaml` is the cover,
-and since the ruleset below it is a required one. For the sex-index and age-width guards the
-consequence of a gap is an unchecked write, which is not observable from R at all — so the static
-pin is the only cover there is.
+fit block in the same files skips; `test-coverage` runs at `NOT_CRAN=true` and since PR #261
+`tools/ci/coverage-shard.R` fails the shard on a failing test, but its shard contexts are not
+among the six the ruleset requires, so that red advises rather than blocks;
+`deep-checks` runs golden per-PR since 5.64.0 and the whole suite nightly, gating no merge.
+`source-guards.yaml` is the cover, and since the ruleset below it is a required one. For the
+sex-index and age-width guards the consequence of a gap is an unchecked write, which is not
+observable from R at all — so the static pin is the only cover there is.
 
 **`dev` and `main` are governed by a RULESET, which the branch-protection endpoint cannot see.**
 `gh api repos/afsc-assessments/Rceattle/branches/dev/protection` answers 404 "Branch not
@@ -1106,21 +1107,38 @@ the multi-OS matrix fast), so the first fires; `test-coverage` runs under covr, 
 does. The committed backstop for "a numeric change needs golden equivalence" therefore only ever
 ran when someone typed `/golden-check` locally. Its measured cost of `0` in
 `tools/ci/coverage-costs.tsv` is the tell — four phased fits do not cost nothing. The
-`deep-checks` workflow now runs it nightly, and **asserts the run produced assertions**, because
-a skipped file otherwise reports as a pass.
+`deep-checks` workflow runs it nightly and, since 5.64.0, on every pull request that touches
+`src/**`, `R/**`, `data/**`, the golden test or its fixture — and **asserts the run produced
+assertions**, by name, because a skipped file otherwise reports as a pass. That per-PR run is
+still not one of the six contexts the ruleset requires, so a red golden advises rather than
+blocks.
 
 **And golden was only the worst case of it: no `skip_on_cran()` test could fail any job.** That
-is 173 of the 240 test files — every test that runs a real `fit_mod()` optimization. `R-CMD-check`
-sets `NOT_CRAN=false`, so it skips all of them. `test-coverage` does run them, but
-`tools/ci/coverage-shard.R` passes `stop_on_failure = FALSE` (deliberately: a failure must not
-throw away the shard's coverage before it is written) and no later step reads the result — the
-"Upload test results" step is `if: failure()`, which never fires because nothing failed. So a
-broken regression test printed into a shard log and the run went green. Found while reviewing
-5.25.1, whose own PR body claimed a new test "fails if anyone restores the old comparison"; it
-would not have. `deep-checks` now runs the whole suite nightly with `NOT_CRAN=true`, asserting
-the mode **before** the fits rather than after, since `NOT_CRAN` going false presents as a fast
-green run of nothing but the unguarded unit tests. **Writing a regression test is not the same as
-having one run** — check which job executes it, and whether that job can go red.
+is 195 of the 271 test files, 95 of them carrying the skip at file level — every test that runs a
+real `fit_mod()` optimization. `R-CMD-check`
+sets `NOT_CRAN=false`, so it skips all of them. `test-coverage` does run them, and
+`tools/ci/coverage-shard.R` still passes `stop_on_failure = FALSE` (deliberately: a failure must
+not throw away the shard's coverage before it is written) — but since PR #261 it reads the result
+afterwards and stops, so the "Upload test results" step now fires and the shard goes red. Before
+that, a broken regression test printed into a shard log and the run went green; the first run
+with the check on found `test-linkage-shared-block.R` had been failing on Linux for 11 days.
+Found while reviewing 5.25.1, whose own PR body claimed a new test "fails if anyone restores the
+old comparison"; it would not have. `deep-checks` runs the whole suite nightly with
+`NOT_CRAN=true`, and `coverage-shard.R` asserts the mode in its own subprocess since PR #261 —
+both **before** the fits rather than after, since `NOT_CRAN` going false presents as a fast green
+run of nothing but the unguarded unit tests. **The nightly suite has two gaps of its own.**
+First, the `schedule` fires on the DEFAULT branch, which is `main`, so `dev` never gets a
+nightly suite at all — on `dev` the per-PR coverage shards are the only job that runs the
+`skip_on_cran()` tests. Second, it has mostly stopped completing: measured over the last eight
+scheduled runs to 2026-10-21, 10-13 cancelled, **10-14 success**, 10-15 cancelled, 10-16
+**failure**, and 10-17 through 10-21 cancelled — five consecutive, and six of the last eight not
+completing. A `cancelled` conclusion here is the 300-minute `timeout-minutes` killing the job,
+not someone cancelling it: on run 39403748904 the `suite` job ran 09:51:40 to 14:52:40, exactly
+301 minutes, while `golden` and both `safebounds` legs succeeded. **So its last completed run
+was 2026-10-14, and the right reading of a green deep-checks badge is "golden and safebounds
+passed", not "the suite passed".**
+**Writing a regression test is not the same as having one run** — check which job executes it,
+and whether that job can go red.
 
 **`NOT_CRAN=false` was set through `$GITHUB_ENV` and did not hold reliably.** On `7e16fa73` the
 skip fired (testthat recorded `test-selectivity-catchability.R:3:1`); on `7611bd1c`, differing
