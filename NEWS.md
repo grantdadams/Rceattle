@@ -12,6 +12,45 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.64.2
+
+## Bug fixes
+
+* **`sim_mod()` no longer invents an observation for a survey year the model
+  does not fit.** The index likelihood scores a hindcast row only where
+  `Observation > 0`, so an `NA` there is unfitted — but both of `sim_mod()`'s
+  branches filled it anyway, by two different routes:
+
+  * `simulate = TRUE` drew it. The lognormal, `Normal` and `TruncatedNormal`
+    draws filled every row, so a `self_test()` refit fitted survey years the
+    real data never had and recovery looked better than it was. On a 12-year
+    test model with year 5 set to `NA`, that row came back as 102.95 against a
+    prediction of 100.11.
+  * `simulate = FALSE` wrote the PREDICTION into it, which reaches
+    `self_test(simulate = FALSE)` and `run_mse(regenerate_past = TRUE)`. That
+    is the same defect through a different door: a refit then fits the model's
+    own expectation as though it were data.
+
+  Both now leave such a row as it arrived. Projection rows (`Year <= 0`, or
+  past `endyr`) are still filled by both branches, since `run_mse()` splices
+  the negative-Year rows in as each assessment's new data. The R-side predicate
+  asks the template's own question (`Observation > 0` inside the hindcast
+  window) rather than `is.na()` alone, so the two cannot drift apart on a
+  non-positive observation.
+
+  `sim_mod()` also no longer warns that it "simulated an unusable survey
+  index" for such a row, nor for one on a fleet that is switched off or uses a
+  covariance family, none of which was ever drawn. **If you grep `sim_mod()`
+  warnings, that message no longer appears for these rows.**
+
+  **Fits do not move.** Simulations move only for a model that HAS an unfitted
+  hindcast index row: such a row no longer consumes random numbers, so later
+  draws for a given seed change too. Measured: 0 of the 11 bundled data lists
+  with an `index_data` have one, the Pacific hake MSE workbook has none (29
+  rows, 0 `NA`, 0 non-positive, 14 projection rows), and a sweep of 375 sibling
+  workbooks across `Rceattle-models`, `GOA-multispecies-assessment`,
+  `GOA-ATF-ESP` and `GOA_circlulation_study` found none either — so no bundled,
+  golden, hake-MSE or sibling-assessment draw changes.
 # Rceattle 5.64.1
 
 ## Bug fixes
