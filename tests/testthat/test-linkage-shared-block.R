@@ -16,7 +16,7 @@
 # read that as the distance between two cold-start STOPPING POINTS, not between
 # two optima: neither is one, as the bullet on the objective below explains.
 #
-# Three things this fixture cannot show, stated so they are not assumed:
+# Four things this fixture cannot show, stated so they are not assumed:
 #
 #   * `estimateMode = "DebugBuild"` cannot witness divergence -- nothing is
 #     optimized, so the two fleets agree trivially whether or not they share a
@@ -29,30 +29,37 @@
 #   * No bundled pair has an estimated `q`, so the catchability half's refusals
 #     are pinned but its fitted equality is not.
 #   * NO fitted number from this fit can be pinned -- not the objective, and not
-#     the coefficient. It is a cold, unphased start that runs ~1,660 nlminb
-#     iterations and stops at a max gradient of only ~1e-3, nowhere near
-#     stationary, on a surface flat enough that the optimizer's arithmetic path
-#     decides where it lands. Measured:
+#     the coefficient. Measured, same source and data throughout:
 #
-#         macOS arm64, 4 runs    obj 12879.997040   beta -0.240043
-#         ubuntu CI, run 1       obj 13807.6        beta -0.240043
-#         ubuntu CI, run 2       obj 13818.2        beta -0.216
-#         macOS, phase = TRUE    obj 12862.2895     beta -0.240042
+#         macOS arm64, cold      obj 12879.997040   beta -0.240043   1,759 iters
+#         macOS arm64, 3 jitters obj 12879.997040   beta -0.240042/4
+#         ubuntu CI, 2 runs      obj 13807.6        beta -0.240043
+#         ubuntu CI, 2 runs      obj 13818.2        beta -0.216
+#         macOS, phase = TRUE    obj 12862.289542   beta -0.240042   31 iters
 #
-#     So Linux is ~930 nats worse, is not stable between its OWN runs (10.6
-#     nats), and moves the coefficient visibly in the second. The phased fit
-#     beats every cold result with a tighter gradient (5.7e-4), which confirms
-#     none of them is an optimum. An earlier version of this file pinned the
-#     objective, then the coefficient, then an objective CEILING; each reported
-#     a false failure on Linux in turn. The cause is NOT established -- the same
-#     optimizer runs on both (`TMBhelper` is installed on the runner) -- so do
-#     not reason from a mechanism here. `../Rceattle-dev/CLEANUP_BACKLOG.md`
-#     carries it as an open reproducibility defect, since a user can run this
-#     configuration and get a platform-dependent answer.
+#     FOUR ubuntu runs gave exactly TWO answers, each reproduced twice -- two of
+#     them on different runner images -- on byte-identical model code, the same
+#     R/TMB, and with no OpenMP, no Laplace block (`random_rec = FALSE`), no RNG
+#     (`inits = NULL`) and no clock in the path. Deterministic code cannot do
+#     that, so "the arithmetic path decides" does NOT explain it: Linux has two
+#     reproducible attractors, ~930 nats worse than macOS.
+#
+#     The cold fit is also just a bad fit: 1,759 iterations to reach 17.7 nats
+#     WORSE than a phased fit reaches in 31. Both stop around 1e-3 in max
+#     gradient (cold 8.56e-4, phased 9.39e-4), so phasing is better by objective,
+#     not by convergence.
+#
+#     A bounds-checked build (`RCEATTLE_SAFEBOUNDS=true`) on this exact
+#     configuration reports NO violation on macOS and reproduces the ordinary
+#     build's numbers, so an out-of-range access here is not the explanation on
+#     that platform. The cause remains OPEN; `../Rceattle-dev/CLEANUP_BACKLOG.md`
+#     carries it as a reproducibility defect, since a user can run this and get a
+#     10% different coefficient by machine with nothing in the output saying so.
+#     Do not reason from a mechanism.
 #
 #     What IS asserted is what the tie structurally guarantees at any
 #     parameters: ONE estimated level, and two identical curves. Both held on
-#     Linux in every run, including the ones where the values did not.
+#     Linux in all four runs, including the two where the values did not.
 #
 # `by` defaults to `~ fleet`, so this was the DEFAULT path; the shared-block
 # spelling is an explicit `by = NULL`.
@@ -152,6 +159,10 @@ testthat::test_that("the mirrored pair's fitted selectivity is identical", {
   a1 <- s[.sbl_grp[1], 1, , ]
   a2 <- s[.sbl_grp[2], 1, , ]
   testthat::expect_gt(length(a1), 0L)
+  # And informative, not a slice of zeros: `tolerance = 0` is bitwise, but two
+  # all-zero or all-NA arrays satisfy it, so the equality below would pass
+  # vacuously on a dead fleet.
+  testthat::expect_true(any(a1 > 0))
   # Was 0.123 at its worst age.
   testthat::expect_equal(a1, a2, tolerance = 0)
 })
