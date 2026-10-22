@@ -123,6 +123,14 @@ jobs:
       # operation was canceled" with no indication of what it was doing. A file
       # is on disk either way, and the upload below is `if: always()` so a
       # cancelled shard still reports.
+      # Which machine produced these numbers. This job runs regression tests that
+      # pin fitted values, and a cross-platform disagreement here was once
+      # unattributable because nothing recorded the CPU, libm or BLAS.
+      # See tools/ci/machine-fingerprint.sh.
+      - name: Machine fingerprint
+        run: bash tools/ci/machine-fingerprint.sh
+        shell: bash
+
       - name: Test coverage (shard ${{ matrix.shard }})
         env:
           COV_SHARD: ${{ matrix.shard }}
