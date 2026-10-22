@@ -147,30 +147,41 @@ SS3 fixes a block replacement (`est_phase = 0`), so 2 of those 18 rows stayed di
 collapse also means a refit of a saved fit starts the shared coefficient at the MEAN of the old
 per-fleet values, as the entry above describes.
 
-**That fit's OBJECTIVE is not pinnable across platforms, though its coefficient is.** The
-mirrored-pair regression fit (`GOA2018SS` fleets 9 and 10, `phase = FALSE`) is a cold start that
-runs 1,660 `nlminb` iterations and stops at a max gradient of only ~1e-3 — nowhere near a
-stationary point. **Measured: 12879.997040 on macOS (arm64) against 13807.6 on the ubuntu CI
-runner, a gap of 927.603 nats**, while a phased fit on the same macOS machine reaches
-12862.2895, so the pinned value was not the local optimum either. Three jittered starts (on the
-linkage coefficient, the inflections and the slopes) all returned to **12879.997040 to six
-decimals**, so the macOS result is a stable attractor and not run-to-run noise.
+**NOTHING fitted by that configuration is pinnable -- not the objective, not the coefficient.**
+The mirrored-pair regression fit (`GOA2018SS` fleets 9 and 10, `phase = FALSE`) is a cold start
+that runs ~1,660 `nlminb` iterations and stops at a max gradient of only ~1e-3, nowhere near
+stationary. Measured:
 
-*What separates the two platforms was not established.* The flat gradient makes an
-arithmetic-order explanation plausible, but the jitter result argues against "stops wherever the
-tolerance bites": that would be sensitive to the start, and this is not. Treat the two-platform
-gap as the measurement and the cause as open.
+| where | objective | `beta_linkage` |
+|---|---|---|
+| macOS arm64, 4 runs (1 cold + 3 jittered) | 12879.997040 | -0.240043 |
+| ubuntu CI, run 1 | 13807.6 | -0.240043 |
+| ubuntu CI, run 2 | 13818.2 | **-0.216** |
+| macOS, `phase = TRUE` | **12862.2895** | -0.240042 |
 
-The linkage coefficient is -0.240042 to -0.240044 across all five local runs, and on Linux it is
-bounded only at the 1e-4 the test asserts — that assertion passed there, which is all the CI
-artifact shows. It is still the quantity worth pinning, and the objective literal was removed
-from `test-linkage-shared-block.R` because it reported a false failure on every Linux run. A
-ceiling (`expect_lt(objective, 13000)`) replaces it, so a 927-nat departure is still caught
-without pinning a basin. **Do not pin an objective literal from an unphased fit that stops this
-flat** — and note that this one failed on Linux from the day the pin landed (5.57.0, merged to
-dev 2026-10-10 UTC) until 2026-10-20 without anyone seeing it, because
-`tools/ci/coverage-shard.R` discarded the result (see "The guards are not themselves guarded").
-It surfaced on the first run that read it.
+So Linux is ~930 nats worse, is **not stable between its own two runs** (10.6 nats apart), and
+moves the coefficient visibly in the second. The phased fit beats every cold result at a tighter
+gradient (5.67e-4), so none of the cold points is an optimum. Locally the result looked solid --
+three jittered starts returned to 12879.997040 to six decimals -- which is exactly what made it
+tempting to pin.
+
+**Three pins were tried and all three reported a false failure on Linux**, in this order: the
+objective literal (5.57.0 to 5.64.x), then the coefficient at 1e-4, then an objective ceiling at
+13000. Each looked platform-robust on the evidence available when it was written, and the second
+and third were written *because* the first failed. The file now asserts only what the tie
+guarantees at any parameters -- one estimated level, and two identical curves -- both of which
+held on Linux in every run.
+
+**The cause is NOT established, and the obvious candidate is ruled out:** `.fit_tmb()`
+(`R/0-tmb_helpers.R:21`) dispatches to `TMBhelper::fit_tmb` only when that suggested package is
+installed, which would be a different optimizer -- but the deep-checks golden job prints
+`TMBhelper installed: TRUE` on `ubuntu-latest`, and it is installed locally too, so both run the
+same optimizer. Do not reason from a mechanism. `../Rceattle-dev/CLEANUP_BACKLOG.md` carries it
+as an open reproducibility defect rather than a test nuisance, because a user can run this
+configuration and get a platform-dependent answer. **Do not pin any fitted number from an
+unphased fit that stops this flat** -- and note it failed invisibly on Linux from 5.57.0
+(2026-10-09) until 2026-10-20, because `tools/ci/coverage-shard.R` discarded the shard result
+(see "The guards are not themselves guarded"). It surfaced on the first run that read one.
 
 **One coefficient is not one curve: the linkage OFFSET is per fleet.** The base parameter is
 shared, but the offset the coefficient scales accumulates into `inf_offset(param, flt, sex, yr)`
