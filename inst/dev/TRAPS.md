@@ -9,9 +9,14 @@ Verified against source, 2026-08.
 ## Build and test
 
 **A header-only edit under `src/TMB/` can leave `pkgload::load_all(".")` loading the OLD binary,
-with nothing printed amiss.** Observed twice: a one-line `selectivity.hpp` fix left the defect it
-fixed still reproducing until `ceattle.cpp` was touched, and `growth.hpp` edited at 21:18:18 ran
-against a `ceattle.o` of 21:02:45. **It silently voids a before/after comparison** — a
+with nothing printed amiss.** Observed three times: a one-line `selectivity.hpp` fix left the
+defect it fixed still reproducing until `ceattle.cpp` was touched; `growth.hpp` edited at
+21:18:18 ran against a `ceattle.o` of 21:02:45; and reviewing PR #263 (2026-10-21) the stable
+descending-limb fix read as FAILING its own new test, 4 of 4, across two reload attempts — the
+second after deleting `src/TMB/ceattle.so` and `src/TMB/ceattle.o`, which is not enough because
+the loaded library is `src/ceattle.so`. It passed 4 of 4, matching the closed form to 4.8e-25 at
+age 15, once a reload rebuilt the `.o`. **The failure direction is not fixed**: that reading
+accused a correct fix, where the first observation above excused a broken one. **It silently voids a before/after comparison** — a
 revert-and-retest ran the same binary twice and showed "no difference", which reads as a test that
 does not discriminate when the test was never given the reverted code. Anything measured after a
 header-only edit is suspect until the rebuild is confirmed.
@@ -147,30 +152,57 @@ SS3 fixes a block replacement (`est_phase = 0`), so 2 of those 18 rows stayed di
 collapse also means a refit of a saved fit starts the shared coefficient at the MEAN of the old
 per-fleet values, as the entry above describes.
 
-**That fit's OBJECTIVE is not pinnable across platforms, though its coefficient is.** The
-mirrored-pair regression fit (`GOA2018SS` fleets 9 and 10, `phase = FALSE`) is a cold start that
-runs 1,660 `nlminb` iterations and stops at a max gradient of only ~1e-3 — nowhere near a
-stationary point. **Measured: 12879.997040 on macOS (arm64) against 13807.6 on the ubuntu CI
-runner, a gap of 927.603 nats**, while a phased fit on the same macOS machine reaches
-12862.2895, so the pinned value was not the local optimum either. Three jittered starts (on the
-linkage coefficient, the inflections and the slopes) all returned to **12879.997040 to six
-decimals**, so the macOS result is a stable attractor and not run-to-run noise.
+**NOTHING fitted by that configuration is pinnable -- not the objective, not the coefficient --
+and the reason is NOT "a flat surface".** The mirrored-pair regression fit (`GOA2018SS` fleets 9
+and 10, `phase = FALSE`) measures, same source and data throughout:
 
-*What separates the two platforms was not established.* The flat gradient makes an
-arithmetic-order explanation plausible, but the jitter result argues against "stops wherever the
-tolerance bites": that would be sensitive to the start, and this is not. Treat the two-platform
-gap as the measurement and the cause as open.
+| where | objective | `beta_linkage` | iters | max&#124;grad&#124; |
+|---|---|---|---|---|
+| macOS arm64, cold | 12879.997040 | -0.240043 | 1,759 | 8.56e-4 |
+| macOS arm64, 3 jittered starts | 12879.997040 | -0.240042/4 | | ~1e-3 |
+| ubuntu CI, **2 runs** (39345727752, 39449526638) | 13807.6 | -0.240043 | | |
+| ubuntu CI, **2 runs** (39624390458, 39710679542) | **13818.2** | **-0.216** | | |
+| macOS, `phase = TRUE` | **12862.289542** | -0.240042 | **31** | 9.39e-4 |
 
-The linkage coefficient is -0.240042 to -0.240044 across all five local runs, and on Linux it is
-bounded only at the 1e-4 the test asserts — that assertion passed there, which is all the CI
-artifact shows. It is still the quantity worth pinning, and the objective literal was removed
-from `test-linkage-shared-block.R` because it reported a false failure on every Linux run. A
-ceiling (`expect_lt(objective, 13000)`) replaces it, so a 927-nat departure is still caught
-without pinning a basin. **Do not pin an objective literal from an unphased fit that stops this
-flat** — and note that this one failed on Linux from the day the pin landed (5.57.0, merged to
-dev 2026-10-10 UTC) until 2026-10-20 without anyone seeing it, because
-`tools/ci/coverage-shard.R` discarded the result (see "The guards are not themselves guarded").
-It surfaced on the first run that read it.
+**Four ubuntu runs gave exactly TWO answers, each reproduced twice**, two of them on *different*
+runner images, on byte-identical model code (`git diff` over the intervening `dev` commits touches
+only `.github/`, `tools/ci/`, `inst/dev/`, `.claude/` and test files), the same R 4.6.1 / TMB
+1.9.25, and with **no OpenMP** (no `_OPENMP` or `parallel_accumulator` in `src/TMB/`), **no Laplace
+block** (`random_rec = FALSE`), **no RNG** (`inits = NULL`) and no clock in the path. Deterministic
+code cannot return two answers, so the earlier explanation in this entry -- that the optimizer's
+arithmetic path decides where it lands -- **does not hold**. Linux has two reproducible attractors
+~930 nats worse than macOS, and that is the anomaly to explain.
+
+**The cold fit is also simply a bad fit**, which is a separate point worth keeping: 1,759
+iterations to land 17.7 nats WORSE than a phased fit reaches in 31. Both stop near 1e-3 in max
+gradient, so phasing wins on objective, not on convergence -- do not describe it as
+"better converged".
+
+**What has been ruled out, and what has not.** A bounds-checked build
+(`RCEATTLE_SAFEBOUNDS=true`) driven over this exact configuration reports **no violation** on
+macOS and reproduces the ordinary build's numbers to all digits, so an out-of-range Eigen access
+is not the explanation there -- but the divergence is on Linux, and a bounds-checked run on
+`ubuntu` is the outstanding test (note safebounds catches out-of-RANGE accesses, not uninitialized
+reads). `TMBhelper` is not the explanation: the **coverage** shard logs -- which is the workflow
+that produced these numbers, not deep-checks -- show `TMBhelper 1.4.0` in sessioninfo, and local
+is 1.4.0 too, so `.fit_tmb()` (`R/0-tmb_helpers.R:21`) dispatches the same way on both. That does
+NOT clear the macOS-vs-Linux half, where local TMB 1.9.21 / R 4.5.1 / arm64 faces CI's 1.9.25 /
+4.6.1 / x86-64; it clears only the Linux-vs-Linux anomaly, which is the one that cannot be
+arithmetic. **Do not reason from a mechanism.**
+
+**Pin history, corrected.** The objective literal and the coefficient pin shipped **together** in
+`54c3ff32` (5.57.0, 2026-10-09), before any Linux evidence existed -- an earlier draft of this
+entry said they were added in sequence, each in response to the last failing, and only the
+ceiling was. All three were then falsified: the literal and the ceiling by the objective, the
+coefficient by run 3. The file now asserts only the structural facts -- one estimated level, two
+identical curves -- which held on Linux in **all four** runs.
+
+`../Rceattle-dev/CLEANUP_BACKLOG.md` carries this as an open reproducibility defect rather than a
+test nuisance: a user can run this configuration and get a 10% different coefficient by machine,
+and `convergence` does not flag a max gradient of 1e-3. **Do not pin any fitted number from an
+unphased fit that stops this flat** -- and note it failed invisibly on Linux from 5.57.0 (on `dev`
+2026-10-10 UTC) until 2026-10-20, because `tools/ci/coverage-shard.R` discarded the shard result
+(see "The guards are not themselves guarded"). It surfaced on the first run that read one.
 
 **One coefficient is not one curve: the linkage OFFSET is per fleet.** The base parameter is
 shared, but the offset the coefficient scales accumulates into `inf_offset(param, flt, sex, yr)`
