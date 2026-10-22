@@ -87,8 +87,8 @@ later \code{osa_residuals()} or \code{vcov()} on the same model is unaffected.
 The deviations are the latent states of a GMRF rather than independent
 draws, so the whole field is drawn at once from the same precision the
 density scored the fit with, and substituted into \code{dsem_x_tj}; the
-template then derives \code{rec_dev} from it and applies the lognormal bias
-correction once, where it always is.
+template then derives \code{rec_dev} from it, applying the lognormal bias
+correction in the template exactly as a non-simulated fit does.
 
 Every estimated cell of a REQUESTED process is redrawn, conditional on the
 cells the map pins and on the processes not requested, which are held at
