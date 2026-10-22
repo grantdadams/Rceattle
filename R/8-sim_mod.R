@@ -714,15 +714,18 @@
 #' \code{simulate = FALSE} reads only \code{$quantities} and draws no random
 #' numbers, so it works on any model.
 #'
-#' Rows the model predicts nothing for are left alone, each reported by a
-#' warning: a composition for a fleet with no catch that year comes back empty,
-#' while a stomach whose predator has empirical suitability, and a covariance
-#' fleet's observations outside its fitted window, keep their observed values. A
-#' composition, CAAL or diet row whose sample size times its weight rounds below
-#' one observation also comes back empty, with \code{Sample_size} dropped to zero
-#' so a refit does not score a row with no data. A survey
-#' year with no observation (\code{NA}) stays \code{NA}, while surveys with
-#' (negative \code{Year}) sample theirs.
+#' Rows the model predicts nothing for are left alone, and all but the last of
+#' these is reported by a warning: a composition for a fleet with no catch that
+#' year comes back empty, while a stomach whose predator has empirical
+#' suitability, and a covariance fleet's observations outside its fitted window,
+#' keep their observed values. A composition, CAAL or diet row whose sample size
+#' times its weight rounds below one observation also comes back empty, with
+#' \code{Sample_size} dropped to zero so a refit does not score a row with no
+#' data behind it. A hindcast survey year with no observation (\code{NA}) stays
+#' \code{NA} and is NOT warned about, since the likelihood never scored it,
+#' while the independent survey families still draw their projection rows
+#' (negative \code{Year}), which \code{\link{run_mse}} reveals as each
+#' assessment's new data.
 #'
 #' One deliberate exception to draw-equals-density: compositions are drawn from
 #' the predicted proportions *before* \code{comp_offset} (the constant added to
@@ -794,6 +797,21 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
   # Indices of abundance/biomass ----
   index_hat <- quantities$index_hat
 
+  # A hindcast survey row the likelihood does not score. The template's own gate
+  # is `index_obs > 0` inside the hindcast window, so this asks that question
+  # rather than `is.na()` alone -- the two differ on a non-positive observation,
+  # which `data_check()` happens to refuse at `Year > 0` today, so the agreement
+  # does not rest on that refusal staying. NEITHER branch below may invent a
+  # value for such a row: a drawn one makes a `self_test()` refit fit a survey
+  # year the data lack, and the expected value does the same through
+  # `run_mse(regenerate_past = TRUE)`. Projection rows (`Year <= 0`, or past
+  # `endyr`) ARE filled, since `run_mse()` splices the negative-Year rows in as
+  # each assessment's new data.
+  .idx_yr  <- dat_sim$index_data$Year
+  .idx_obs <- dat_sim$index_data$Observation
+  index_unfitted <- !is.na(.idx_yr) & .idx_yr > 0 & .idx_yr <= dat_sim$endyr &
+    (is.na(.idx_obs) | .idx_obs <= 0)
+
   if (simulate) {
     # One obj$simulate() per sim_mod() call: it draws every observation type at
     # once, so the catch and diet blocks below read this same report. The survey
@@ -807,10 +825,9 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     .sim_warn_rec_srr_penalty(sim_rep, sim_state)
     index_sim <- .sim_report_obs(sim_rep, "index_obs_sim")
     .sim_check_rows(nrow(index_sim), nrow(dat_sim$index_data), "index")
-    # A missing survey year in the hindcast is not drawn and comes back NA, which
-    # data_check() accepts. Projection rows are drawn, so they stay checked.
-    index_missing <- is.na(dat_sim$index_data$Observation) &
-      dat_sim$index_data$Year > 0 & dat_sim$index_data$Year <= dat_sim$endyr
+    # An unfitted hindcast row is not drawn and comes back as it went in, which
+    # data_check() accepts for an NA. Projection rows are drawn, so they stay
+    # checked below.
     dat_sim$index_data$Observation <- as.numeric(index_sim[, 1])
     .sim_warn_index_unsimulated(dat_sim)
     # Runs first, and reports which rows it covered: a non-positive draw on a
@@ -820,11 +837,12 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     .sim_warn_unusable(dat_sim$index_data$Observation,
                        dat_sim$index_data$Fleet_code, "survey index",
                        strictly_positive = TRUE,
-                       skip = reported | (index_missing &
-                                            is.na(dat_sim$index_data$Observation)))
+                       skip = reported | index_unfitted)
   } else {
-    # Expected value
-    dat_sim$index_data$Observation <- index_hat
+    # Expected value, except on an unfitted hindcast row: writing index_hat
+    # there would hand a refit a survey observation for a year the operating
+    # model never produced, which is the same defect as drawing one.
+    dat_sim$index_data$Observation[!index_unfitted] <- index_hat[!index_unfitted]
   }
 
 
