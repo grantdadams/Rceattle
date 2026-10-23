@@ -343,10 +343,10 @@ summary.Rceattle <- function(object, ...) {
 # Rceattle_dsem methods ----
 
 # Record the estimated path table on a fit's DSEM slot. Call this wherever a
-# fit's estimates, map or sdreport are replaced after fit_mod() returned, or
+# fit's estimates or sdreport are replaced after fit_mod() returned, or
 # summary(fit$dsem) keeps reporting the ones they replaced. It reads
-# $dsem$sem_full, $estimated_params$dsem_beta_z, $sdrep and
-# $map$mapList$dsem_beta_z -- a mutation outside those four cannot stale it.
+# $dsem$sem_full, $estimated_params$dsem_beta_z and $sdrep -- a mutation
+# outside those three cannot stale it.
 .rce_record_dsem_coefs <- function(object) {
   if (is.null(object[["dsem"]])) return(object)
   # A failure here must not cost the caller a converged fit, but it must not be

@@ -33,8 +33,13 @@ value always means 1:5 and one depth on its own cannot be written that way.
 Name it twice -- \code{peels = c(5, 5)} de-duplicates to the 5-year peel alone --
 when you want to inspect a single peel without paying for the shallower ones.}
 
-\item{rescale}{TRUE/FALSE whether to subset and rescale environmental
-predictors over the peel years.}
+\item{rescale}{which \code{env_data} columns to standardize on each peel's
+retained years, so a peel does not centre a covariate using years it is
+supposed not to have seen. \code{FALSE} (default) none, \code{TRUE} every non-\code{Year}
+column, or a character vector naming them. Name them wherever \code{env_data}
+carries DESIGN columns -- the 0/1 selectivity blocks an SS3 bridge writes there are
+not covariates, and standardizing them refits a warm-started coefficient
+against a column it was not fitted on. Unknown names are an error.}
 
 \item{nyrs_forecast}{forecast years over which to calculate Mohn's rho, in
 addition to the terminal year}

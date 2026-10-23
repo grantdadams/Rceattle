@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.64.0.9008`, the released line this branch now
+number: `DESCRIPTION` reads `5.64.0.9009`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -33,6 +33,35 @@ suffix stays until the DSEM work is given a release number of its own. The
 numbered on the 5.23.0 line.
 
 ## Behavior changes
+
+* **`retrospective(rescale = )` now takes a character vector of `env_data`
+  column names**, as well as `TRUE` / `FALSE`. `TRUE` still standardizes every
+  non-`Year` column, so no call that rescales anything moves.
+
+  One call does move. The DSEM warm-start drop is gated on whether anything is
+  actually standardized rather than on `rescale` itself, so a DSEM peeled with
+  `rescale = TRUE` and no non-`Year` column in `env_data` now KEEPS the
+  parent's `dsem_x_tj` rather than dropping it -- the drop exists because
+  rescaling invalidates a warm start, and nothing is rescaled there. That is
+  the better behaviour, but it moves such a peel's starting point and so can
+  move Mohn's rho. **Read that condition as the default, not a corner:**
+  `clean_data()` supplies a `Year`-only `env_data` whenever none is given, so
+  it is every DSEM without environmental data -- a latent-only SEM needs none,
+  and the 5.33.0 notes recommend `rescale = TRUE` under a DSEM. A non-DSEM fit
+  is unaffected, carrying a 0x0 `dsem_x_tj` rather than NULL.
+
+  Name them wherever `env_data` carries DESIGN columns as well as covariates.
+  An SS3 bridge writes its selectivity blocks and year deviates there as 0/1
+  dummies, and a peel warm-starts `beta_linkage` from the parent fit, so
+  standardizing one of those scores a fitted coefficient against a column it
+  was not fitted on. On the GOA cod bridge that puts the 1990, 2005, 2007 and
+  2017 blocks at `{-0.35, 2.80}` instead of `{0, 1}`, takes a peel's starting
+  objective from 2050 to 67109 -- 87,812 nats of it in the catch likelihood --
+  and `nlminb` then stops with a non-finite evaluation. Naming only the real
+  covariates leaves the design alone.
+
+  An unknown name is an error, raised before any peel is fitted.
+  Pinned by `test-retrospective-rescale-columns.R`.
 
 * **`check_dsem_spec()`'s design-conditioning check now runs per latent
   EQUATION, which removes a false positive on the most common sems.**

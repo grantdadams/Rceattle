@@ -24,8 +24,13 @@
 #'   value always means 1:5 and one depth on its own cannot be written that way.
 #'   Name it twice -- `peels = c(5, 5)` de-duplicates to the 5-year peel alone --
 #'   when you want to inspect a single peel without paying for the shallower ones.
-#' @param rescale TRUE/FALSE whether to subset and rescale environmental
-#'   predictors over the peel years.
+#' @param rescale which `env_data` columns to standardize on each peel's
+#'   retained years, so a peel does not centre a covariate using years it is
+#'   supposed not to have seen. `FALSE` (default) none, `TRUE` every non-`Year`
+#'   column, or a character vector naming them. Name them wherever `env_data`
+#'   carries DESIGN columns -- the 0/1 selectivity blocks an SS3 bridge writes there are
+#'   not covariates, and standardizing them refits a warm-started coefficient
+#'   against a column it was not fitted on. Unknown names are an error.
 #' @param nyrs_forecast forecast years over which to calculate Mohn's rho, in
 #'   addition to the terminal year
 #' @param forecast_rec How the peeled years get their recruitment. `"mean"`
@@ -289,6 +294,25 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   if (length(peels) == 1L) peels <- seq_len(peels)
   peel_seq <- sort(unique(peels))
 
+  # `rescale` is TRUE/FALSE or a character vector of env_data columns. Resolved
+  # once here rather than per peel, so an unknown name fails before any fit.
+  .env_all <- setdiff(names(object$data_list$env_data), "Year")
+  if (is.character(rescale)) {
+    .bad <- setdiff(rescale, .env_all)
+    if (length(.bad)) {
+      stop("`rescale` names column(s) that are not in `env_data`: ",
+           paste(.bad, collapse = ", "), ".", call. = FALSE)
+    }
+    .rescale_cols <- intersect(.env_all, rescale)
+  } else if (isTRUE(rescale)) {
+    .rescale_cols <- .env_all
+  } else {
+    .rescale_cols <- character(0)
+  }
+  # Whether anything is standardized at all. The DSEM warm-start drop below is
+  # gated on this, not on `rescale`, which may now be a character vector.
+  .rescale_on <- length(.rescale_cols) > 0L
+
   # Cross-platform parallel: a FORK cluster where available, PSOCK on
   # Windows (see .parallel_lapply())
   # (same approach as run_mse). Respect the CRAN core limit
@@ -544,7 +568,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     }
     # The caller was told about `.keep` once, before dispatch; see
     # "Once-per-call warnings" above.
-    if(rescale && length(.env_cols) > 0){
+    if (.rescale_on && length(intersect(.env_cols, .rescale_cols)) > 0) {
       # Standardize on the RETAINED years only, so the peel does not centre its
       # covariates using years it is supposed not to have seen. The centre and
       # scale come from those years and are then applied to the whole column,
@@ -555,6 +579,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
       .ctr  <- colMeans(.kept, na.rm = TRUE)
       .scl  <- apply(.kept, 2, stats::sd, na.rm = TRUE)
       for (j in seq_along(.env_cols)) {
+        if (!(.env_cols[j] %in% .rescale_cols)) next
         if (!is.finite(.ctr[j]) || !is.finite(.scl[j]) || .scl[j] == 0) next
         data_list$env_data[[.env_cols[j]]] <-
           (data_list$env_data[[.env_cols[j]]] - .ctr[j]) / .scl[j]
@@ -575,7 +600,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     # covariates standardized on styr:endyr_peel. The recdev columns lose their
     # warm start, which the phased refit recovers and which is if anything the
     # more appropriate starting point for a peel.
-    if (rescale && !is.null(inits$dsem_x_tj)) inits$dsem_x_tj <- NULL
+    if (.rescale_on && !is.null(inits$dsem_x_tj)) inits$dsem_x_tj <- NULL
 
     inits$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- 0
     inits$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- inits$log_M1_dev[,,,nyrs_peel]
