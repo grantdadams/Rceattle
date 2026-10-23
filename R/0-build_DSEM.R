@@ -124,10 +124,11 @@
 #'       marginal variance is constant. This is the time-series convention used
 #'       by \code{ar1(1 | Year)} elsewhere in Rceattle, and by WHAM's
 #'       \code{Ecov} AR1 and \code{glmmTMB}'s \code{ar1()}, where the estimated
-#'       SD is the marginal one. It currently fails to build a sem with more
-#'       than one lagged path; use \code{"diagonal"} there. A lagged self-path
-#'       starting at \eqn{|\rho| \ge 1} is refused, here and under
-#'       \code{"diagonal"}: it has no constant marginal variance.}
+#'       SD is the marginal one. A sem whose starting values leave a variable
+#'       no positive innovation variance (a self-path at \eqn{|\rho| \ge 1},
+#'       lags that do not damp together, a covariate effect too large for it)
+#'       is refused here and under \code{"diagonal"}, as is a \code{<->}
+#'       covariance between two variables here.}
 #'     \item{\code{"diagonal"}}{also holds the marginal variance constant, but
 #'       preserves the conditional correlation rather than the conditional
 #'       variance.}
@@ -632,32 +633,68 @@ dsem_family_object <- function( fam ){
 }
 
 
-# Refuse a lagged self-path at |rho| >= 1 under constant_variance "marginal" or
-# "diagonal". Both solve for the yearly innovation variance that holds the
-# marginal one constant, sigma^2 (1 - rho^2) after the first year at lag 1, and
-# take its square root ("diagonal") or inverse square root ("marginal"). At
-# rho = 1 that is 0 and R aborts while dsem::dsem() or fit_mod() tapes the
-# model; above 1 it is negative and the model errors or returns NaN.
-#' @param sf the sem's model table (`make_dsem_ram()$model` or `$sem_full`).
+# Refuse what the "marginal"/"diagonal" rescaling cannot build: a start with no
+# positive innovation variance, or a cross-variable covariance under "marginal".
+#' @param RAM,RAMstart dsem's RAM table (heads, to, from, parameter, to_t, to_j)
+#'   and its per-row start values.
 #' @param cv the constant_variance setting.
-#' @param beta_z starting `dsem_beta_z`, or NULL to read the sem's start values.
+#' @param x_tj the starting latent states, which value a moderated path.
+#' @param beta_z the starting `beta_z`, or NULL for dsem's own starting rule.
+#' @param log_gamma TRUE where a moderated variance is exp(x) (dsem `options[4]`).
 #' @noRd
-.check_dsem_stationary <- function(sf, cv, beta_z = NULL) {
+.check_dsem_stationary <- function(RAM, RAMstart, cv, x_tj, beta_z = NULL,
+                                   log_gamma = FALSE) {
   if (!isTRUE(cv %in% c("marginal", "diagonal"))) return(invisible(NULL))
-  num <- function(col) suppressWarnings(as.numeric(sf[[col]]))
-  idx <- num("parameter")
-  val <- num("start")
-  free <- which(idx > 0 & idx <= length(beta_z))
-  val[free] <- beta_z[idx[free]]
-  ar <- which(as.character(sf[["first"]]) == as.character(sf[["second"]]) &
-                num("lag") >= 1 & num("direction") == 1 & abs(val) >= 1)
-  if (!length(ar)) return(invisible(NULL))
-  stop("Under constant_variance = \"", cv, "\" a lagged self-path must start ",
-       "below 1 in absolute value, but ",
-       paste0("'", sf[["path"]][ar], "' (lag ", sf[["lag"]][ar], ") starts at ",
-              signif(val[ar], 4), collapse = ", "),
-       ". At |rho| >= 1 -- a random walk is rho = 1 -- no constant marginal ",
-       "variance exists to hold. Start it below 1, or use constant_variance = ",
+  RAM <- matrix(as.numeric(as.matrix(RAM)), nrow = nrow(RAM))
+  vars <- colnames(x_tj)
+  n_t  <- nrow(x_tj)
+  p <- RAM[, 4]
+  if (is.null(beta_z)) {
+    # dsem::dsem(): the mean start of a parameter's rows; 0.01 for a path and 1
+    # for a variance where none is given.
+    on <- which(p > 0)
+    beta_z <- ifelse(tapply(RAM[on, 1], p[on], max) == 1, 0.01, 1)
+    st <- tapply(RAMstart[on], p[on], mean)
+    beta_z[!is.na(st)] <- st[!is.na(st)]
+  }
+  val <- ifelse(p > 0, beta_z[pmax(p, 1)], RAMstart)
+  # A moderated path (heads 3/4) takes its value from a latent state.
+  mod <- which(RAM[, 1] %in% c(3, 4))
+  val[mod] <- x_tj[cbind(RAM[mod, 5], RAM[mod, 6])]
+  if (log_gamma) val[mod][RAM[mod, 1] == 4] <- exp(val[mod][RAM[mod, 1] == 4])
+  n_k <- n_t * length(vars)
+  Rho <- G <- matrix(0, n_k, n_k)
+  for (r in seq_len(nrow(RAM))) {
+    if (RAM[r, 1] %in% c(1, 3)) Rho[RAM[r, 2], RAM[r, 3]] <- val[r]
+    if (RAM[r, 1] %in% c(2, 4)) G[RAM[r, 2], RAM[r, 3]] <- val[r]
+  }
+  # dsem.hpp's "marginal" scales Gamma's rows by its column norms, which is
+  # right only while Gamma is diagonal (as in dsem 3.0.0).
+  if (cv == "marginal" && any(G[row(G) != col(G)] != 0)) {
+    stop("constant_variance = \"marginal\" mis-scales a covariance between two ",
+         "variables (a `<->` path across variables). Use \"conditional\", or ",
+         "\"diagonal\", which holds the conditional correlation rather than the ",
+         "marginal variance constant beside a lagged path.", call. = FALSE)
+  }
+  # As in dsem.hpp: the innovation variances x whose propagation through
+  # (I - Rho)^-1 gives each cell its target marginal variance.
+  inv <- tryCatch(solve(diag(n_k) - Rho), error = function(e) stop(
+    "The simultaneous (lag-0) paths form a loop with no unique solution, e.g. ",
+    "a -> b and b -> a whose coefficients multiply to 1.", call. = FALSE))
+  target <- if (cv == "marginal") colSums(G^2) else diag(G)^2
+  x <- solve(inv * inv, target)
+  bad <- which(!is.finite(x) | (target > 0 & x <= 1e-8 * target) | x < -1e-12)
+  if (!length(bad)) return(invisible(NULL))
+  j <- (bad - 1L) %/% n_t + 1L
+  first <- tapply((bad - 1L) %% n_t + 1L, j, min)
+  stop("Under constant_variance = \"", cv, "\" no positive innovation variance ",
+       "holds the marginal variance of ",
+       paste0("'", vars[as.integer(names(first))], "' (from year ", first, " of ",
+              n_t, ")", collapse = ", "),
+       " constant: at their starting values the paths into it already give it ",
+       "that variance or more -- a lagged self-path at |rho| >= 1, lags that do ",
+       "not damp together (lag 1 + lag 2 = 0.6 + 0.6), or a covariate effect ",
+       "too large for it. Start them smaller, or use constant_variance = ",
        "\"conditional\".", call. = FALSE)
 }
 
@@ -1057,7 +1094,9 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   if (is.null(.cv) || !length(.cv)) .cv <- "conditional"
   .cv <- match.arg(as.character(.cv)[1],
                    c("conditional", "marginal", "diagonal"))
-  .check_dsem_stationary(.ram$model, .cv)
+  # dsem::dsem() starts the latent states at the data, 0 where it is missing.
+  .x0 <- as.matrix(dsem_data); .x0[is.na(.x0)] <- 0
+  .check_dsem_stationary(.ram$ram[, -5], as.numeric(.ram$ram[, 5]), .cv, .x0)
 
   fit_dsem <- dsem::dsem(sem = dsem_settings$sem,
                          tsdata = stats::ts(dsem_data),

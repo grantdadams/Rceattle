@@ -265,6 +265,7 @@ void calculate_dsem(
   // Compute inverse LU-decomposition
   Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > inverseIminusRho_kk;
   inverseIminusRho_kk.compute(IminusRho_kk);
+  bool bad_var = false;   // a stand-in variance was used below: evaluation invalid
 
   // Rescale I-Rho and Gamma if using constant marginal variance options
   if( (options(1)==1) || (options(1)==2) ){
@@ -292,10 +293,17 @@ void calculate_dsem(
       // Rowsums
       matrix<Type> margvar_k1 = invsquared_invIminusRho_kk.solve(sigma2_k1);
 
-      // Rescale IminusRho_kk and Gamma
+      // A double pass (getParameterOrder, or report() past the boundary) can see a
+      // variance <= 0: use 1 so the LU below holds; the outputs are NaN'd at the end.
       Eigen::SparseMatrix<Type> invmargsd_kk(n_k, n_k);
       Eigen::SparseMatrix<Type> invsigma_kk(n_k, n_k);
       for( int k=0; k<n_k; k++ ){
+        if( isDouble<Type>::value &&
+            !( (asDouble(margvar_k1(k,0)) > 0) && (asDouble(sigma2_k1(k,0)) > 0) ) ){
+          bad_var = true;
+          margvar_k1(k,0) = Type(1);
+          sigma2_k1(k,0) = Type(1);
+        }
         invmargsd_kk.coeffRef(k,k) = pow( margvar_k1(k,0), -0.5 );
         invsigma_kk.coeffRef(k,k) = pow( sigma2_k1(k,0), -0.5 );
       }
@@ -421,9 +429,9 @@ void calculate_dsem(
       // efficiently. Positive definite is the CALLER'S contract: a conditioned
       // cell with no exogenous variance has an all-zero row of B, and matinv
       // then returns NaN with nothing to say. It cannot be checked here --
-      // TMB's getParameterOrder pass evaluates the template with a dummy
-      // parameter vector, so every variance reads as zero and any value test
-      // fires on a healthy model. ceattle.cpp keeps such cells out of cond_k
+      // TMB's getParameterOrder pass reads the parameters in R's list order, so
+      // values here can belong to another block and any value test fires on a
+      // healthy model. ceattle.cpp keeps such cells out of cond_k
       // structurally (they are the unobs_idx set) and check_dsem_spec() reports
       // the specification that would produce one.
       matrix<Type> A_KU = atomic::matinv( Sigma_KK ) * Sigma_KU;
@@ -844,6 +852,12 @@ void calculate_dsem(
   mu_tj_out = mu_tj;
   jnll -= loglik_tj.sum();
   jnll += jnll_gmrf;
+  // Everything the driven processes read, so report() and simulate() show NaN too.
+  if( bad_var ){
+    jnll += Type(R_NaN);
+    z_tj_out.fill( Type(R_NaN) );
+    margvar_tj_out.fill( Type(R_NaN) );
+  }
 }
 
 #endif

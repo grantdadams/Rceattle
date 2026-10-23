@@ -181,36 +181,34 @@ numbered on the 5.23.0 line.
   identically at 1.06 and 6.64, and one at `|rho| >= 1` would miss rho 0.99.
   This is not new and is not specific to natural mortality -- recruitment has
   carried the same correction since the DSEM arrived, growth since it became
-  drivable. `build_DSEM(constant_variance = "diagonal")` holds the marginal
-  variance constant and so removes the trend for |rho| < 1, and
+  drivable. `build_DSEM(constant_variance = "marginal")` or `"diagonal"` holds
+  the marginal variance constant and so removes the trend, and
   `fit_control(bias_adjust_proc = 0)` turns the correction off. In fitted
   `BS2017SS` models the estimated states absorb most of it: switching to
   `"diagonal"` moved SPR0 by 0.5% at an estimated rho of 0.3 and 6.3% at rho
   fixed at 0.9, and B40% by at most 1.1%. The default stays `"conditional"`.
   Recorded with the full table in `inst/dev/TRAPS.md`.
 
-* **`constant_variance = "marginal"` or `"diagonal"` with a lagged self-path at
-  |rho| >= 1 is refused.** Both settings solve for the yearly innovation
-  variance that holds the marginal one constant, sigma^2 (1 - rho^2) after the
-  first year at lag 1, and take its square root or inverse square root. At rho =
-  1, a random walk, that is 0, and R aborted with an irrecoverable exception
-  while `dsem::dsem()` or `fit_mod()` built the model; above 1 it is negative,
-  and the model errored or returned a NaN objective. The check reads the sem's
-  start value, and in `fit_mod()` the value the model is built with, so a warm
-  start through `inits` is covered too. It reads each self-path alone, so lagged
-  paths that are non-stationary only together are not caught. A `profile()`
-  grid over such a coefficient now stops at a point past 1 rather than
-  returning a missing objective there. Below 1 both settings remove the trend
-  above: on a `GOA2018SS` M latent at rho 0.3 and 0.9 the marginal variance
-  stays at 0.0400 and SPR0 at 1.2973, the unlagged value.
+* **`constant_variance = "marginal"` builds a sem with more than one lagged
+  path.** A lag-2 path, a second lagged self-path or a lagged covariate path
+  stopped with `std::bad_alloc` while TMB read the parameter order; it now
+  builds, and `fn` and `gr` are unchanged on the sems compared. A double
+  evaluation past the boundary (`obj$report()` at rho = 1, say) now returns NaN
+  rather than crashing. A `<->` covariance between two variables is refused
+  under `"marginal"`, which scales it by the wrong margin (as dsem 3.0.0 does):
+  with no lags and a covariance of 0.3, recruitment's variance is 3.45 where
+  `"conditional"` and `"diagonal"` both give 1.09.
 
-* **Known: `constant_variance = "marginal"` fails on any sem with more than one
-  lagged path.** A lag-2 path, a second lagged self-path, or a lagged path from
-  a covariate stops in `TMB::MakeADFun` with `std::bad_alloc` in
-  `getParameterOrder`, where `"conditional"` and `"diagonal"` build the same
-  sem. A sem whose only lagged path is one lag-1 self-path builds. Pre-existing,
-  and not seen in standalone `dsem`, so it is in how Rceattle builds the model;
-  use `"diagonal"` meanwhile.
+* **A `"marginal"` or `"diagonal"` sem with no positive innovation variance is
+  refused.** Both settings take the square root, or its inverse, of the yearly
+  innovation variance that holds each marginal variance constant -- sigma^2 (1 -
+  rho^2) at lag 1. Where the paths into a variable already give it that variance
+  or more (a self-path at |rho| >= 1, lags that do not damp together, a
+  covariate effect too large for it) that is 0 or negative, and R aborted or the
+  objective was NaN. The check solves for it exactly, moderated paths included,
+  on the sem's start values and on the values `fit_mod()` builds with, so warm
+  starts are covered. A `profile()` grid over such a coefficient stops at a
+  point past the boundary rather than returning a missing objective there.
 
 * **`sim_mod()` draws a DSEM's M process error, and draws only the processes
   asked for.** The draw partitioned the latent field into recruitment columns,

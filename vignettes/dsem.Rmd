@@ -237,10 +237,10 @@ state at zero, SPR0 sits 5.5% above its no-latent value under an unlagged latent
 and 6.0% above it at rho 0.3, so no threshold separates them. In a fitted model
 the estimated states absorb most of it: on `BS2017SS`, holding the marginal
 variance constant moved SPR0 by 0.5% at an estimated rho of 0.3 and 6.3% at rho
-fixed at 0.9, and B40% by at most 1.1%. Use an unlagged
-latent; `build_DSEM(constant_variance = "diagonal")`, which holds the marginal
-variance constant and so removes the trend for |rho| < 1; or
-`fit_control(bias_adjust_proc = 0)`. `inst/dev/TRAPS.md` has the full table.
+fixed at 0.9, and B40% by at most 1.1%. To remove it, use an unlagged latent;
+`build_DSEM(constant_variance = "marginal")` or `"diagonal"`, which hold the
+marginal variance constant; or `fit_control(bias_adjust_proc = 0)`.
+`inst/dev/TRAPS.md` has the full table.
 
 `M1_re` estimates its own mortality deviations, on its own univariate density,
 and they describe the same parameter as the latent — so a sem that names an M
@@ -368,12 +368,13 @@ Rceattle keeps `dsem`'s default rather than picking a side, because a `<->` term
 build_DSEM(sem = sem, family = "fixed", constant_variance = "marginal")
 ```
 
-Two limits apply. `"marginal"` currently builds only a sem whose one lagged path
-is a lag-1 self-path: with a lag-2 path, a second lagged self-path or a lagged
-covariate it stops with `std::bad_alloc`. `"diagonal"` also holds the marginal
-variance constant and builds those sems, so use it there. And either setting
-needs |ρ| < 1: a random walk (ρ = 1) has no constant marginal variance, so a
-lagged self-path starting at |ρ| ≥ 1 is refused.
+A sem whose starting values leave a variable no positive innovation variance --
+a self-path at |ρ| ≥ 1 (a random walk has no constant marginal variance), lags
+that do not damp together, or a covariate effect too large for it -- is refused
+under `"marginal"` and `"diagonal"`. `"marginal"` also refuses a `<->`
+covariance between two variables, which it scales incorrectly. `"diagonal"`
+builds one, but beside a lagged path it holds the conditional correlation
+constant rather than the marginal variance.
 
 Bear in mind that changes what the estimated recruitment SD means, so a value fitted under one setting is not comparable to one fitted under the other.
 

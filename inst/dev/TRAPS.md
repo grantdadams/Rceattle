@@ -1594,16 +1594,9 @@ canonical AR1 sem in six existing test files. A gate at `|rho| >= 1` misses rho
 fitted model and a threshold nobody has set. `fit_control(bias_adjust_proc = 0)`
 turns the correction off.
 
-**The escape hatch is `"diagonal"`, for |rho| < 1.** `constant_variance =
-"diagonal"` or `"marginal"` holds the marginal variance constant, which removes
-the trend: measured 2026-10-22 on the same `mdevs2f` latent, margvar stays
-0.0400 in every year and SPR0 is 1.2973 (the IID row) at rho 0.3 and 0.9 under
-both. But `"marginal"` builds only a sem whose ONE lagged path is a lag-1
-self-path: a lag-2 path, a second lagged self-path, or a lagged covariate path
-stops in `MakeADFun` with `std::bad_alloc` in `getParameterOrder` (measured on
-`make_test_data()`; `"diagonal"` and `"conditional"` build every one, and
-standalone `dsem` does not fail this way). `test-dsem-constant-variance.R`
-compares the settings only on sems with no lags, which is how this went unseen.
+**The escape hatch is `"marginal"` or `"diagonal"`.** Either holds the marginal
+variance constant, which removes the trend: on the same `mdevs2f` latent margvar
+stays 0.0400 in every year and SPR0 is 1.2973 (the IID row) at rho 0.3 and 0.9.
 
 **What it costs in a FITTED model -- small, so the default stays
 `"conditional"` (Grant, 2026-10-23).** Everything above is at a zero field.
@@ -1623,20 +1616,48 @@ estimated (0.34 conditional, 0.66 diagonal) rather than fixed at 0.2 -- and all
 eight fits ended at status NOTE. One stock; a high-rho latent on a stock where
 SPR0 sets the ABC is where to look again.
 
-**Why |rho| >= 1 is refused.** In `src/TMB/dsem.hpp`'s rescaling branches the
-solve named `margvar_k1` returns the yearly INNOVATION variance that holds the
-marginal one constant -- sigma^2 in year 1, sigma^2 (1 - rho^2) after it at lag
-1 -- despite its name. `"marginal"` divides `(I - Rho)` by its square root and
-`"diagonal"` puts its square root into Gamma. At rho = 1, the random walk, it is
-0 and R aborts while the model is taped ("An irrecoverable exception
-occurred"), inside `dsem::dsem()` or `fit_mod()`; above 1 it is negative and the
-build errors or returns NaN. `(I - Rho)` itself is unit lower-triangular in the
-time-unrolled form and invertible at any rho. So `.check_dsem_stationary()`
-refuses a lagged self-path at |rho| >= 1 on the sem start and on the `fit_mod()`
-start values. On a tape already built at rho 0.9, `obj$fn` is 7003.9 at 0.999
-and NaN at 1 and 1.1, with no abort, so an estimate cannot carry rho >= 1 into
-a later re-tape. The check reads each self-path alone, so lagged paths
-non-stationary only together pass it.
+**`"marginal"` failed on any sem with more than one lagged path, in
+`getParameterOrder`.** That TMB pass runs the template in double on the
+parameters in R's LIST order, not the template's, so `dsem_beta_z` read another
+block's values -- zeros on `make_test_data()`. The rescaling then divided by
+`sqrt(0)`, `(I - Rho)` became Inf/NaN, `SparseLU` failed, and the margvar
+solve read garbage: `bad_alloc`, a segfault or a silent pass depending on the
+values read, which is why a single lag-1 sem "worked". Found with
+`RCEATTLE_SAFEBOUNDS=true` (Eigen: "The matrix should be factorized first").
+A double pass now uses a stand-in variance and then sets `jnll`, `z_tj` and
+margvar to NaN -- so `obj$report()` past the boundary (which `model_average()`
+can reach on draws around the MLE) reports NaN, not the conditional model the
+stand-in would give. The taped model is unchanged (`fn`, `gr`, `jnll_comp`
+identical to 9008 on five sems). Any other value-dependent failure in the
+template can strike the same pass.
+
+**`"marginal"` mis-scales a `<->` covariance between two variables**, lags or
+not, as dsem 3.0.0 does: it scales Gamma's ROWS by its COLUMN norms, which agree
+only while Gamma is diagonal. Recruitment-M covariance 0.3, no lags: recruitment
+margvar 3.4525 against 1.0900 under conditional and diagonal (fn 1566.05 vs
+1468.24). Refused under "marginal". Verified upstream 2026-10-23: dsem `main`
+and `dev` carry the same block; the covariance is `B Gamma^T Gamma B^T` (dsem
+dev commit dbbad056 says so), and column scaling hits the target exactly. Issue
+drafted for James-Thorson-NOAA/dsem. `"diagonal"` is no full substitute: beside
+a lagged path with a covariance it holds the conditional correlation, and the
+marginal variance drifts (var(a) 1.137 to 1.185 on one probe).
+
+**Why a start with no positive innovation variance is refused.** In
+`src/TMB/dsem.hpp`'s rescaling the solve named `margvar_k1` returns the yearly
+INNOVATION variance that holds the marginal one constant -- sigma^2 (1 - rho^2)
+after year 1 at lag 1 -- despite its name. `"marginal"` divides `(I - Rho)` by
+its square root and `"diagonal"` puts its square root into Gamma; at 0 R aborts
+while the model is taped, below 0 it errors or returns NaN. `(I - Rho)` is unit
+lower-triangular in the time-unrolled form and invertible at any rho.
+`.check_dsem_stationary()` rebuilds Rho and Gamma from the RAM -- a moderated
+path valued from the starting latent states, as the template does -- and solves
+for it exactly, on the sem start (dsem's own start rule) and on the `fit_mod()`
+start values, so it catches lag 1 + lag 2 = 0.6 + 0.6 and a covariate effect too
+large for its target. A density review compared it with the template's
+finite/NaN verdict over ~300-point grids on five sem shapes: no disagreement
+beyond five conservative refusals at rho = -1 exactly beside a covariance. On a tape already built at rho 0.9, `obj$fn` is 7003.9 at
+0.999 and NaN at 1 and 1.1, with no abort, so an estimate cannot carry rho >= 1
+into a later re-tape.
 
 ### An M latent on a fixed-numbers species is weak, not inert
 

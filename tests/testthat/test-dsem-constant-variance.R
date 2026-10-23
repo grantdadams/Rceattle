@@ -121,27 +121,30 @@ testthat::test_that("a lagged sem gives the marginal variance the convention imp
 })
 
 
-testthat::test_that("a lagged self-path at |rho| >= 1 is refused under marginal and diagonal", {
+testthat::test_that("a start with no positive innovation variance is refused", {
   testthat::skip_if_not_installed("dsem")
 
-  # Both settings take the square root (or its inverse) of the innovation
-  # variance sigma^2 (1 - rho^2): 0 at rho = 1, where R aborts while the model
-  # is taped, and negative above it, where it errors or returns NaN.
+  # Both take a square root of the innovation variance, sigma^2 (1 - rho^2) at
+  # lag 1: 0 at rho = 1, where the build aborts.
   d <- .cv_data()
-  sem_at <- function(rho, name = "rhoR") paste0(
-    "recdevs1 -> recdevs1, 1, ", name, ", ", rho, "\n",
+  sem_at <- function(rho, name = "rhoR", extra = "") paste0(
+    "recdevs1 -> recdevs1, 1, ", name, ", ", rho, "\n", extra,
     "recdevs1 <-> recdevs1, 0, sigmaR1, 1")
   build <- function(sem, cv) suppressWarnings(build_dsem_objects(
     build_DSEM(sem = sem, family = "fixed", constant_variance = cv),
     data_list = d))
-  msg <- "a lagged self-path must start below 1 in absolute value"
+  msg <- "no positive innovation variance holds the marginal variance"
 
   testthat::expect_error(build(sem_at(1), "marginal"), msg)
   testthat::expect_error(build(sem_at(-1), "diagonal"), msg)
   testthat::expect_error(build(sem_at(1.2), "marginal"), msg)
   testthat::expect_error(build(sem_at(1, "NA"), "marginal"), msg)
+  # Each lag below 1, but together they do not damp.
+  lag2 <- function(r) paste0("recdevs1 -> recdevs1, 2, rho2, ", r, "\n")
+  testthat::expect_error(build(sem_at(0.6, extra = lag2(0.6)), "diagonal"), msg)
   # Stationary, or the conditional reading, which has no marginal to hold.
   testthat::expect_length(build(sem_at(0.9), "marginal")$sem_full$path, 2L)
+  testthat::expect_length(build(sem_at(0.3, extra = lag2(0.2)), "marginal")$sem_full$path, 3L)
   testthat::expect_length(build(sem_at(1), "conditional")$sem_full$path, 2L)
 })
 
@@ -172,34 +175,60 @@ testthat::test_that("a warm start at |rho| >= 1 is refused before the model is b
   testthat::expect_true(is.list(run(ip)$obj))
   ip$dsem_beta_z[k] <- 1
   testthat::expect_error(run(ip),
-                         "a lagged self-path must start below 1 in absolute value")
+                         "no positive innovation variance holds the marginal variance")
 })
 
 
-testthat::test_that("diagonal holds each marginal variance constant on a two-lag sem", {
+# Provenance: "marginal" failed on these shapes with bad_alloc in getParameterOrder.
+testthat::test_that("marginal and diagonal hold each marginal variance on a two-lag sem", {
   testthat::skip_if_not_installed("dsem")
 
-  # The setting the docs point to where "marginal" does not build: AR1
-  # recruitment beside an AR1 M latent. Every latent column keeps its `<->`
-  # variance in every year (conditional would let both grow along the series).
+  # Each latent keeps its `<->` variance in every year under both settings.
   e <- new.env(parent = asNamespace("Rceattle"))
   sys.source(testthat::test_path("helpers.R"), envir = e)
   d <- e$make_test_data(nyrs = 12L, nprojyrs = 3L, nages = 8L, minage = 1L,
                         growth = "vonBertalanffy", seed = 1)
   d$random_rec <- TRUE
-  fit <- suppressWarnings(Rceattle::fit_mod(
+  fit_with <- function(sem, cv) suppressWarnings(Rceattle::fit_mod(
     data_list = d, estimateMode = 3, msmMode = 0,
     growthFun = Rceattle::build_growth(fun = "vonBertalanffy"),
-    dsem = build_DSEM(sem = paste0(
-      "recdevs1 <-> recdevs1, 0, sR1, 1\nrecdevs1 -> recdevs1, 1, rho, 0.6\n",
-      "mdevs1 <-> mdevs1, 0, sM, 0.2\nmdevs1 -> mdevs1, 1, rM, 0.6\n"),
-      constant_variance = "diagonal"),
+    dsem = build_DSEM(sem = sem, constant_variance = cv),
     fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
                                         verbose = 0)))
-  dt <- fit$dsem$tmb_inputs$data
-  mv <- fit$obj$report(fit$obj$env$par)$dsem_margvar_tj
-  testthat::expect_equal(as.numeric(mv[, dt$rec_dev_col[1] + 1L]),
-                         rep(1, nrow(mv)), tolerance = 1e-8)
-  testthat::expect_equal(as.numeric(mv[, dt$mdev_col + 1L]),
-                         rep(0.04, nrow(mv)), tolerance = 1e-8)
+  two <- paste0(
+    "recdevs1 <-> recdevs1, 0, sR1, 1\nrecdevs1 -> recdevs1, 1, rho, 0.6\n",
+    "mdevs1 <-> mdevs1, 0, sM, 0.2\nmdevs1 -> mdevs1, 1, rM, 0.6\n")
+  for (cv in c("marginal", "diagonal")) {
+    fit <- fit_with(two, cv)
+    dt  <- fit$dsem$tmb_inputs$data
+    mv  <- fit$obj$report(fit$obj$env$par)$dsem_margvar_tj
+    testthat::expect_equal(as.numeric(mv[, dt$rec_dev_col[1] + 1L]),
+                           rep(1, nrow(mv)), tolerance = 1e-8, info = cv)
+    testthat::expect_equal(as.numeric(mv[, dt$mdev_col + 1L]),
+                           rep(0.04, nrow(mv)), tolerance = 1e-8, info = cv)
+  }
+  lag2 <- fit_with("recdevs1 <-> recdevs1, 0, sR1, 1\nrecdevs1 -> recdevs1, 2, rho2, 0.3\n",
+                   "marginal")
+  testthat::expect_true(is.finite(lag2$obj$fn(lag2$obj$par)))
+
+  # Past the boundary a double evaluation reports NaN, not a stand-in model.
+  one <- fit_with("recdevs1 <-> recdevs1, 0, sR1, 1\nrecdevs1 -> recdevs1, 1, rho, 0.6\n",
+                  "marginal")
+  p <- one$obj$env$par
+  k <- which(names(p) == "dsem_beta_z")
+  testthat::expect_length(k, 1L)
+  testthat::expect_true(is.finite(one$obj$report(p)$jnll))
+  p[k] <- 1
+  r <- one$obj$report(p)
+  testthat::expect_true(is.na(r$jnll))
+  testthat::expect_true(all(is.na(r$R[1, seq_len(one$dsem$tmb_inputs$data$nyrs_dsem)])))
+
+  # A covariance between two variables: "marginal" would scale it wrongly.
+  cov <- paste0("recdevs1 <-> recdevs1, 0, sR1, 1\nmdevs1 <-> mdevs1, 0, sM, 0.2\n",
+                "recdevs1 <-> mdevs1, 0, cRM, 0.3\n")
+  testthat::expect_error(fit_with(cov, "marginal"), "mis-scales a covariance")
+  dg <- fit_with(cov, "diagonal")
+  mv <- dg$obj$report(dg$obj$env$par)$dsem_margvar_tj
+  testthat::expect_equal(mv[1, dg$dsem$tmb_inputs$data$rec_dev_col[1] + 1L], 1.09,
+                         tolerance = 1e-8)
 })

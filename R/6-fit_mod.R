@@ -1051,12 +1051,15 @@ fit_mod <-
       }
     }
     # On the values phasing and the hindcast are built with, warm starts included.
-    # The dsem `options[2]` code is the constant_variance setting the tape uses.
+    # dsem `options[2]` is the constant_variance setting the tape uses.
     if (!is.null(mod_objects$dsem) && !is.null(start_par$dsem_beta_z)) {
-      .opt <- mod_objects$dsem[["tmb_inputs"]][["data"]][["options"]]
-      .check_dsem_stationary(mod_objects$dsem[["sem_full"]],
-                             c("conditional", "marginal", "diagonal")[.opt[2] + 1L],
-                             start_par$dsem_beta_z)
+      .dd <- mod_objects$dsem[["tmb_inputs"]][["data"]]
+      .x0 <- matrix(start_par$dsem_x_tj, nrow(.dd[["y_tj"]]),
+                    dimnames = list(NULL, colnames(.dd[["y_tj"]])))
+      .check_dsem_stationary(.dd[["RAM"]], .dd[["RAMstart"]],
+                             c("conditional", "marginal", "diagonal")[.dd[["options"]][2] + 1L],
+                             .x0, start_par$dsem_beta_z,
+                             log_gamma = isTRUE(.dd[["options"]][4] == 1))
     }
     if (is.null(bounds)) {
       bounds <- Rceattle::build_bounds(param_list = start_par, data_list,
