@@ -585,7 +585,7 @@ silently. Keep the whole group's penalty columns in agreement even though nothin
 **A `NonParametricPM` (9) `RandomWalk` fleet at the default `Sel_curve_pen3 = 0` has an exactly
 flat direction.** Slot 3 is the only term charged on the RAW `sel_coff_dev`
 (`ceattle.cpp:4233`); every other term — shape, curvature, the random walk, and the data —
-reads `log_non_par_sel`, which `selectivity.hpp:449-459` mean-centres per year. A shift common
+reads `log_non_par_sel`, which `selectivity.hpp` (case 9) mean-centres per year. A shift common
 to all bins in a year is therefore invisible everywhere except slot 3, verified by objectives
 bit-identical across `Time_varying_sel_sd` of 0.1, 0.2, 1 and 3 while the deviates moved. With
 the schema default of 0 nothing scores that direction at all, so under `random_sel = TRUE` the
@@ -1426,7 +1426,7 @@ pins the level. **Exception:** if the vector already carries its own penalty -- 
 penalty or a random-effects density -- that pins it, and turning off the first element as well
 over-constrains it.
 
-**AMAK conventions are reproduced deliberately, not corrected.** `src/TMB/selectivity.hpp:609`
+**AMAK conventions are reproduced deliberately, not corrected.** `src/TMB/selectivity.hpp` (case 11)
 evaluates the logistic at mid-age (`age_vector(j) = j + 0.5`, so `bin + 1.5`) for `LogisticPM`
 (11); the standard `Logistic` (1) uses `bin + 1`. `NonParametricPM` (9) and `LogisticPM` exist
 to match ADMB AMAK's "pm" parameterizations, penalties included, and
