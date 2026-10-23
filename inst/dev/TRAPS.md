@@ -1594,15 +1594,31 @@ canonical AR1 sem in six existing test files. A gate at `|rho| >= 1` misses rho
 fitted model and a threshold nobody has set. `fit_control(bias_adjust_proc = 0)`
 turns the correction off.
 
-**And the documented escape hatch is unreachable:**
-`build_DSEM(constant_variance = "marginal")` — which rescales Gamma and
-`(I - Rho)` to hold the marginal variance constant, exactly what would remove
-the trend — **aborts R inside `TMB::MakeADFun`** ("An irrecoverable exception
-occurred") for any sem with a lagged path. In `src/TMB/dsem.hpp`'s
-`options(1) == 1` rescaling branch. Reproduced on a recruitment-only random
-walk, so it is not M-specific. `test-dsem-constant-variance.R` compares the
-three settings only on a sem with NO lags, which is where they agree and where
-nothing crashes, so the suite is green over it.
+**The escape hatch is `"diagonal"`, for |rho| < 1.** `constant_variance =
+"diagonal"` or `"marginal"` holds the marginal variance constant, which removes
+the trend: measured 2026-10-22 on the same `mdevs2f` latent, margvar stays
+0.0400 in every year and SPR0 is 1.2973 (the IID row) at rho 0.3 and 0.9 under
+both. But `"marginal"` builds only a sem whose ONE lagged path is a lag-1
+self-path: a lag-2 path, a second lagged self-path, or a lagged covariate path
+stops in `MakeADFun` with `std::bad_alloc` in `getParameterOrder` (measured on
+`make_test_data()`; `"diagonal"` and `"conditional"` build every one, and
+standalone `dsem` does not fail this way). `test-dsem-constant-variance.R`
+compares the settings only on sems with no lags, which is how this went unseen.
+
+**Why |rho| >= 1 is refused.** In `src/TMB/dsem.hpp`'s rescaling branches the
+solve named `margvar_k1` returns the yearly INNOVATION variance that holds the
+marginal one constant -- sigma^2 in year 1, sigma^2 (1 - rho^2) after it at lag
+1 -- despite its name. `"marginal"` divides `(I - Rho)` by its square root and
+`"diagonal"` puts its square root into Gamma. At rho = 1, the random walk, it is
+0 and R aborts while the model is taped ("An irrecoverable exception
+occurred"), inside `dsem::dsem()` or `fit_mod()`; above 1 it is negative and the
+build errors or returns NaN. `(I - Rho)` itself is unit lower-triangular in the
+time-unrolled form and invertible at any rho. So `.check_dsem_stationary()`
+refuses a lagged self-path at |rho| >= 1 on the sem start and on the `fit_mod()`
+start values. On a tape already built at rho 0.9, `obj$fn` is 7003.9 at 0.999
+and NaN at 1 and 1.1, with no abort, so an estimate cannot carry rho >= 1 into
+a later re-tape. The check reads each self-path alone, so lagged paths
+non-stationary only together pass it.
 
 ### An M latent on a fixed-numbers species is weak, not inert
 

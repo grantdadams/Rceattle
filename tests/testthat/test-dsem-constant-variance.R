@@ -119,3 +119,87 @@ testthat::test_that("a lagged sem gives the marginal variance the convention imp
   # marginal: the <-> term IS the marginal SD, so the ratio is 1.
   testthat::expect_equal(ratio[["marginal"]], 1, tolerance = 1e-6)
 })
+
+
+testthat::test_that("a lagged self-path at |rho| >= 1 is refused under marginal and diagonal", {
+  testthat::skip_if_not_installed("dsem")
+
+  # Both settings take the square root (or its inverse) of the innovation
+  # variance sigma^2 (1 - rho^2): 0 at rho = 1, where R aborts while the model
+  # is taped, and negative above it, where it errors or returns NaN.
+  d <- .cv_data()
+  sem_at <- function(rho, name = "rhoR") paste0(
+    "recdevs1 -> recdevs1, 1, ", name, ", ", rho, "\n",
+    "recdevs1 <-> recdevs1, 0, sigmaR1, 1")
+  build <- function(sem, cv) suppressWarnings(build_dsem_objects(
+    build_DSEM(sem = sem, family = "fixed", constant_variance = cv),
+    data_list = d))
+  msg <- "a lagged self-path must start below 1 in absolute value"
+
+  testthat::expect_error(build(sem_at(1), "marginal"), msg)
+  testthat::expect_error(build(sem_at(-1), "diagonal"), msg)
+  testthat::expect_error(build(sem_at(1.2), "marginal"), msg)
+  testthat::expect_error(build(sem_at(1, "NA"), "marginal"), msg)
+  # Stationary, or the conditional reading, which has no marginal to hold.
+  testthat::expect_length(build(sem_at(0.9), "marginal")$sem_full$path, 2L)
+  testthat::expect_length(build(sem_at(1), "conditional")$sem_full$path, 2L)
+})
+
+
+testthat::test_that("a warm start at |rho| >= 1 is refused before the model is built", {
+  testthat::skip_if_not_installed("dsem")
+
+  # The sem starts at 0.9, so build_dsem_objects() passes; the inits are what
+  # the tape would be built with.
+  e <- new.env(parent = asNamespace("Rceattle"))
+  sys.source(testthat::test_path("helpers.R"), envir = e)
+  d <- e$make_test_data(nyrs = 12L, nprojyrs = 3L, nages = 8L, minage = 1L,
+                        growth = "vonBertalanffy", seed = 1)
+  d$random_rec <- TRUE
+  run <- function(inits = NULL) suppressWarnings(Rceattle::fit_mod(
+    data_list = d, estimateMode = 3, msmMode = 0, inits = inits,
+    growthFun = Rceattle::build_growth(fun = "vonBertalanffy"),
+    dsem = build_DSEM(sem = paste0("recdevs1 -> recdevs1, 1, rhoR, 0.9\n",
+                                   "recdevs1 <-> recdevs1, 0, sigmaR1, 1"),
+                      constant_variance = "marginal"),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0)))
+  fit <- run()
+  ip  <- fit$estimated_params
+  k   <- fit$dsem$sem_full$parameter[fit$dsem$sem_full$name %in% "rhoR"]
+  testthat::expect_equal(ip$dsem_beta_z[k], 0.9)
+  # The fit's own inits build; the same inits at rho = 1 do not.
+  testthat::expect_true(is.list(run(ip)$obj))
+  ip$dsem_beta_z[k] <- 1
+  testthat::expect_error(run(ip),
+                         "a lagged self-path must start below 1 in absolute value")
+})
+
+
+testthat::test_that("diagonal holds each marginal variance constant on a two-lag sem", {
+  testthat::skip_if_not_installed("dsem")
+
+  # The setting the docs point to where "marginal" does not build: AR1
+  # recruitment beside an AR1 M latent. Every latent column keeps its `<->`
+  # variance in every year (conditional would let both grow along the series).
+  e <- new.env(parent = asNamespace("Rceattle"))
+  sys.source(testthat::test_path("helpers.R"), envir = e)
+  d <- e$make_test_data(nyrs = 12L, nprojyrs = 3L, nages = 8L, minage = 1L,
+                        growth = "vonBertalanffy", seed = 1)
+  d$random_rec <- TRUE
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    data_list = d, estimateMode = 3, msmMode = 0,
+    growthFun = Rceattle::build_growth(fun = "vonBertalanffy"),
+    dsem = build_DSEM(sem = paste0(
+      "recdevs1 <-> recdevs1, 0, sR1, 1\nrecdevs1 -> recdevs1, 1, rho, 0.6\n",
+      "mdevs1 <-> mdevs1, 0, sM, 0.2\nmdevs1 -> mdevs1, 1, rM, 0.6\n"),
+      constant_variance = "diagonal"),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0)))
+  dt <- fit$dsem$tmb_inputs$data
+  mv <- fit$obj$report(fit$obj$env$par)$dsem_margvar_tj
+  testthat::expect_equal(as.numeric(mv[, dt$rec_dev_col[1] + 1L]),
+                         rep(1, nrow(mv)), tolerance = 1e-8)
+  testthat::expect_equal(as.numeric(mv[, dt$mdev_col + 1L]),
+                         rep(0.04, nrow(mv)), tolerance = 1e-8)
+})

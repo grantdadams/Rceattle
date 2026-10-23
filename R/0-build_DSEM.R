@@ -124,7 +124,10 @@
 #'       marginal variance is constant. This is the time-series convention used
 #'       by \code{ar1(1 | Year)} elsewhere in Rceattle, and by WHAM's
 #'       \code{Ecov} AR1 and \code{glmmTMB}'s \code{ar1()}, where the estimated
-#'       SD is the marginal one.}
+#'       SD is the marginal one. It currently fails to build a sem with more
+#'       than one lagged path; use \code{"diagonal"} there. A lagged self-path
+#'       starting at \eqn{|\rho| \ge 1} is refused, here and under
+#'       \code{"diagonal"}: it has no constant marginal variance.}
 #'     \item{\code{"diagonal"}}{also holds the marginal variance constant, but
 #'       preserves the conditional correlation rather than the conditional
 #'       variance.}
@@ -629,6 +632,36 @@ dsem_family_object <- function( fam ){
 }
 
 
+# Refuse a lagged self-path at |rho| >= 1 under constant_variance "marginal" or
+# "diagonal". Both solve for the yearly innovation variance that holds the
+# marginal one constant, sigma^2 (1 - rho^2) after the first year at lag 1, and
+# take its square root ("diagonal") or inverse square root ("marginal"). At
+# rho = 1 that is 0 and R aborts while dsem::dsem() or fit_mod() tapes the
+# model; above 1 it is negative and the model errors or returns NaN.
+#' @param sf the sem's model table (`make_dsem_ram()$model` or `$sem_full`).
+#' @param cv the constant_variance setting.
+#' @param beta_z starting `dsem_beta_z`, or NULL to read the sem's start values.
+#' @noRd
+.check_dsem_stationary <- function(sf, cv, beta_z = NULL) {
+  if (!isTRUE(cv %in% c("marginal", "diagonal"))) return(invisible(NULL))
+  num <- function(col) suppressWarnings(as.numeric(sf[[col]]))
+  idx <- num("parameter")
+  val <- num("start")
+  free <- which(idx > 0 & idx <= length(beta_z))
+  val[free] <- beta_z[idx[free]]
+  ar <- which(as.character(sf[["first"]]) == as.character(sf[["second"]]) &
+                num("lag") >= 1 & num("direction") == 1 & abs(val) >= 1)
+  if (!length(ar)) return(invisible(NULL))
+  stop("Under constant_variance = \"", cv, "\" a lagged self-path must start ",
+       "below 1 in absolute value, but ",
+       paste0("'", sf[["path"]][ar], "' (lag ", sf[["lag"]][ar], ") starts at ",
+              signif(val[ar], 4), collapse = ", "),
+       ". At |rho| >= 1 -- a random walk is rho = 1 -- no constant marginal ",
+       "variance exists to hold. Start it below 1, or use constant_variance = ",
+       "\"conditional\".", call. = FALSE)
+}
+
+
 # Refuse a growth latent the species' growth model never reads. Empirical
 # weight-at-age (`growth_model` 0) has no growth parameters at all, and von
 # Bertalanffy (1) has no Richards `m` -- `R/3-build_map.R` maps `log_m` out at
@@ -1024,6 +1057,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   if (is.null(.cv) || !length(.cv)) .cv <- "conditional"
   .cv <- match.arg(as.character(.cv)[1],
                    c("conditional", "marginal", "diagonal"))
+  .check_dsem_stationary(.ram$model, .cv)
 
   fit_dsem <- dsem::dsem(sem = dsem_settings$sem,
                          tsdata = stats::ts(dsem_data),

@@ -74,7 +74,10 @@ self-path it is \eqn{\sigma^2 / (1 - \rho^2)}, so it diverges as
 marginal variance is constant. This is the time-series convention used
 by \code{ar1(1 | Year)} elsewhere in Rceattle, and by WHAM's
 \code{Ecov} AR1 and \code{glmmTMB}'s \code{ar1()}, where the estimated
-SD is the marginal one.}
+SD is the marginal one. It currently fails to build a sem with more
+than one lagged path; use \code{"diagonal"} there. A lagged self-path
+starting at \eqn{|\rho| \ge 1} is refused, here and under
+\code{"diagonal"}: it has no constant marginal variance.}
 \item{\code{"diagonal"}}{also holds the marginal variance constant, but
 preserves the conditional correlation rather than the conditional
 variance.}
