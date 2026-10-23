@@ -13,13 +13,17 @@
 # Guarded per test rather than per file: the registry-drift check below runs no
 # fit and is the one test here that should run under a plain R CMD check.
 
-.ns_fixture <- function(dist, sd, nyrs = 12) {
+#' `cov_sd` defaults to `sd` so the covariance and the `Log_sd` column agree.
+#' Pass a different value to tell them apart: a covariance fleet's likelihood
+#' reads only `index_cov`, so a test that sets both to one number cannot see
+#' which of the two a consumer used.
+.ns_fixture <- function(dist, sd, nyrs = 12, cov_sd = sd) {
   dat <- make_test_data(nyrs = nyrs, nages = 5, seed = 123)
   srv <- dat$fleet_control$Fleet_name == "Survey"
   dat$fleet_control$Index_distribution[srv] <- dist
   if (dist %in% c("MVN", "MVNORM")) {
     dat$fleet_control$Catchability[srv] <- "AnalyticalArith"
-    dat$index_cov <- list(Survey = diag(rep(sd^2, nyrs)))
+    dat$index_cov <- list(Survey = diag(rep(cov_sd^2, nyrs)))
   }
   dat$index_data$Log_sd[dat$index_data$Fleet_name == "Survey"] <- sd
   suppressMessages(suppressWarnings(Rceattle::fit_mod(
@@ -217,4 +221,55 @@ testthat::test_that("plot_index_residual and residuals() agree on sign and scale
     testthat::expect_equal(sign(as.numeric(resp$Residual)),
                            sign(resp$Observed - resp$Fitted), label = fam)
   }
+})
+
+
+# A covariance fleet's likelihood reads index_cov and never the Log_sd column,
+# which stays at whatever the workbook carried. Standardizing by the column is
+# then wrong by the ratio of the two, so these pin the matrix as the source.
+# cov_sd and Log_sd are deliberately different: the older MVN fixtures set both
+# to one number, which cannot distinguish them.
+testthat::test_that("an MVN fleet standardizes by index_cov, not Log_sd", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  for (fam in c("MVN", "MVNORM")) {
+    fit <- .ns_fixture(fam, sd = 150, cov_sd = 40)
+    idx <- fit$data_list$index_data
+    sel <- idx$Fleet_name == "Survey"
+    hat <- as.numeric(fit$quantities$index_hat)[sel]
+    raw <- idx$Observation[sel] - hat
+
+    r   <- stats::residuals(fit, type = "pearson", source = "index")
+    got <- r$Residual[r$Fleet_name == "Survey"]
+    ok  <- is.finite(got)
+
+    # (obs - hat) / 40, the marginal sd from the matrix -- NOT / 150.
+    testthat::expect_equal(got[ok], (raw / 40)[ok], tolerance = 1e-6,
+                           label = fam)
+    # The wrong denominator is off by 150/40 = 3.75, so this must NOT match.
+    testthat::expect_false(
+      isTRUE(all.equal(got[ok], (raw / 150)[ok], tolerance = 1e-6)),
+      label = fam)
+    # Not vacuous: the two candidate denominators really do differ here.
+    testthat::expect_gt(max(abs(raw[ok])), 0)
+  }
+})
+
+testthat::test_that("plot_index_residual agrees with residuals() on MVN", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  fit     <- .ns_fixture("MVN", sd = 150, cov_sd = 40)
+  plotted <- suppressWarnings(Rceattle::plot_index_residual(fit))$data
+  direct  <- stats::residuals(fit, type = "pearson", source = "index")
+  testthat::skip_if(!nrow(plotted), "no index residuals")
+
+  common <- intersect(paste(plotted$Fleet, plotted$Year),
+                      paste(direct$Fleet_name, direct$Year))
+  testthat::expect_gt(length(common), 0L)
+  pm <- match(common, paste(plotted$Fleet, plotted$Year))
+  dm <- match(common, paste(direct$Fleet_name, direct$Year))
+  testthat::expect_equal(plotted$Residual[pm], direct$Residual[dm],
+                         tolerance = 1e-10)
 })

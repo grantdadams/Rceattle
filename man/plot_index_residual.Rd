@@ -54,7 +54,10 @@ fitted with -- the same quantity \code{\link[=residuals.Rceattle]{residuals.Rcea
 likelihood's centre, \code{log(hat) - bias_adjust_obs * sd^2 / 2}; on a
 natural-scale fleet (\code{"MVN"}, \code{"MVNORM"}, \code{"Normal"},
 \code{"TruncatedNormal"} in \code{Index_distribution}), whose sd is absolute, it is
-\code{(obs - hat) / sd}. A positive residual means the survey saw more than the
+\code{(obs - hat) / sd}. A covariance fleet (\code{"MVN"}, \code{"MVNORM"}) takes that sd
+from \code{sqrt(diag(index_cov))}, which its likelihood actually scores, so the
+residual is marginal rather than whitened. A positive residual means the
+survey saw more than the
 model predicted. The y scale stays free per fleet, since residual spread
 differs by fleet.
 

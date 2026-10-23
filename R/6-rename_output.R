@@ -312,6 +312,51 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
   got
 }
 
+#' Replace a covariance fleet's reported sd with its marginal sd
+#'
+#' An MVN / MVNORM fleet scores `index_cov` and leaves `index_sd` at whatever
+#' the unused `Index_sd` column carried, so standardizing those rows by it can
+#' be wrong by orders of magnitude. Their sd is `sqrt(diag(index_cov))`, the
+#' MARGINAL sd: it ignores the off-diagonal correlation the likelihood does use,
+#' so a residual standardized this way is marginal, not fully whitened.
+#'
+#' @param data_list The fit's `data_list` (pre-`rearrange_data()`, so the input
+#'   `index_cov`, not the `index_cov_mat` that `rearrange_data()` builds).
+#' @param sigma `index_sd`, one value per `index_data` row.
+#' @return `sigma`, with covariance-fleet rows replaced, and `NA` on such a row
+#'   wherever the matrix cannot be resolved against the fitted years.
+#' @noRd
+.index_marginal_sd <- function(data_list, sigma) {
+  cov_rows <- .index_rows_covariance(data_list)
+  if (!length(cov_rows) || !any(cov_rows) || length(sigma) != length(cov_rows)) {
+    return(sigma)
+  }
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  for (code in unique(idx[["Fleet_code"]][cov_rows])) {
+    i  <- match(code, fc[["Fleet_code"]])
+    nm <- as.character(fc[["Fleet_name"]][i])
+    Sigma <- data_list$index_cov[[nm]]
+    if (is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(code)]]
+    Sigma <- tryCatch(as.matrix(Sigma), error = function(e) NULL)
+    # Sigma's rows follow this fleet's FITTED observations in index_data order
+    # and are year-dimnamed by clean_data(); see .align_index_cov().
+    this <- cov_rows & idx[["Fleet_code"]] == code
+    fitted <- this & idx[["Year"]] > 0 & idx[["Year"]] <= data_list$endyr &
+      idx[["Observation"]] > 0
+    sigma[this] <- NA_real_
+    if (is.null(Sigma) || !nrow(Sigma)) next
+    sd_diag <- sqrt(diag(Sigma))
+    yrs <- suppressWarnings(as.integer(rownames(Sigma)))
+    if (length(yrs) == nrow(Sigma) && !anyNA(yrs)) {
+      sigma[fitted] <- sd_diag[match(idx[["Year"]][fitted], yrs)]
+    } else if (sum(fitted) == nrow(Sigma)) {
+      sigma[fitted] <- sd_diag
+    }
+  }
+  sigma
+}
+
 #' Read a fit's observation bias-adjustment flag
 #'
 #' The index and catch lognormal likelihoods fit `log(obs)` to a mean of

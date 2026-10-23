@@ -439,7 +439,10 @@ plot_catch <- function(Rceattle,
 #' likelihood's centre, `log(hat) - bias_adjust_obs * sd^2 / 2`; on a
 #' natural-scale fleet (`"MVN"`, `"MVNORM"`, `"Normal"`,
 #' `"TruncatedNormal"` in `Index_distribution`), whose sd is absolute, it is
-#' `(obs - hat) / sd`. A positive residual means the survey saw more than the
+#' `(obs - hat) / sd`. A covariance fleet (`"MVN"`, `"MVNORM"`) takes that sd
+#' from `sqrt(diag(index_cov))`, which its likelihood actually scores, so the
+#' residual is marginal rather than whitened. A positive residual means the
+#' survey saw more than the
 #' model predicted. The y scale stays free per fleet, since residual spread
 #' differs by fleet.
 #'
@@ -510,7 +513,12 @@ plot_index_residual <- function(Rceattle,
         nat <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
         nat <- if (length(nat)) nat[keep] else rep(FALSE, nrow(dat))
         sigma <- .observation_sd(Rceattle[[i]]$quantities, "index")
-        sigma <- if (!is.null(sigma)) as.numeric(sigma)[keep] else dat$Log_sd
+        sigma <- if (!is.null(sigma)) as.numeric(sigma) else
+          Rceattle[[i]]$data_list$index_data$Log_sd
+        # An MVN / MVNORM fleet scores index_cov and never reads this sd; its
+        # marginal sd comes from that matrix. Resolved full-length, then subset,
+        # so the mask and the matrix agree on row order.
+        sigma <- .index_marginal_sd(Rceattle[[i]]$data_list, sigma)[keep]
         ba_obs <- .bias_adjust_obs(Rceattle[[i]])
         res <- rep(NA_real_, nrow(dat))
         res[nat]  <- (dat$Observation[nat] - dat$.hat[nat]) / sigma[nat]

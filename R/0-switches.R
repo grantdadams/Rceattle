@@ -408,13 +408,49 @@ index_distribution_map <- c(
 # The per-fleet form of .index_rows_natural_scale(), which calls it; the one
 # place the family codes are classified, so a new family is added here only.
 .index_fleets_natural_scale <- function(fleet_control) {
+  .index_family_code(fleet_control) %in% c(1L, 2L, 3L, 4L)
+}
+
+
+# Index_distribution as an integer code, taking either the switch name or the
+# integer. Anything unresolved falls back to 0, the Lognormal default.
+.index_family_code <- function(fleet_control) {
   fam <- fleet_control[["Index_distribution"]]
-  if (is.null(fam)) return(rep(FALSE, nrow(fleet_control)))
+  if (is.null(fam)) return(rep(0L, nrow(fleet_control)))
   chr <- trimws(as.character(fam))
   num <- suppressWarnings(as.integer(chr))
   code <- ifelse(!is.na(num), num, as.integer(index_distribution_map[chr]))
   code[is.na(code)] <- 0L
-  code %in% c(1L, 2L, 3L, 4L)   # MVN, MVNORM, Normal, TruncatedNormal
+  code
+}
+
+
+#' Index rows whose fleet scores a covariance matrix
+#'
+#' MVN / MVNORM score `0.5 r' Sigma^-1 r` against `index_cov` and never read the
+#' scalar sd, which stays at whatever the unused `Index_sd` column carried, so
+#' anything standardizing such a row must take its sd from `index_cov` instead.
+#'
+#' @param data_list A `data_list` holding `fleet_control` and `index_data`.
+#' @return Logical, one per `index_data` row.
+#' @keywords internal
+#' @noRd
+.index_rows_covariance <- function(data_list) {
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  if (is.null(idx) || !nrow(idx) || is.null(fc)) return(logical(0))
+  flt <- .index_fleets_covariance(fc)
+  if (!length(flt)) return(rep(FALSE, nrow(idx)))
+  out <- flt[match(idx[["Fleet_code"]], fc[["Fleet_code"]])]
+  out[is.na(out)] <- FALSE
+  out
+}
+
+
+# The per-fleet form of .index_rows_covariance(), classified in one place beside
+# .index_fleets_natural_scale(), whose codes 1 and 2 these are.
+.index_fleets_covariance <- function(fleet_control) {
+  .index_family_code(fleet_control) %in% c(1L, 2L)   # MVN, MVNORM
 }
 
 

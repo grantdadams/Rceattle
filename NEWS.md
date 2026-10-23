@@ -41,7 +41,20 @@ version throughout.
   and `obs - hat` on a natural-scale one, neither standardized by the sd nor
   offset to the likelihood's centre, so it disagreed with
   `residuals(fit, type = "pearson")` on the same fit. It now matches that
-  method, which was already correct. **The y axis is therefore on a
+  method, which was already correct.
+
+* **An `MVN` / `MVNORM` index fleet now standardizes by its covariance matrix,
+  not by the unused `Index_sd` column.** Those families score
+  `0.5 r' Sigma^-1 r` against `index_cov` and never read the scalar sd, which
+  stays at whatever the workbook carried -- so a fleet supplying `index_cov` in
+  natural units squared while leaving `Log_sd` at an old lognormal CV got a
+  Pearson residual wrong by the ratio of the two. `residuals(type = "pearson")`
+  and `plot_index_residual()` now divide by `sqrt(diag(index_cov))`, the
+  MARGINAL sd, and return `NA` on such a row where the matrix cannot be
+  resolved against the fitted years. **Pearson residuals for covariance fleets
+  change; no other family and no fit is affected.** The marginal sd ignores the
+  off-diagonal correlation the likelihood does use, so these are marginal
+  residuals rather than fully whitened ones -- `osa_residuals()` whitens. **The y axis is therefore on a
   different scale than before** (standardized, labelled "Index Pearson
   residual"), so these figures also need redrawing.
 
