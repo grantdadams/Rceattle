@@ -12,7 +12,7 @@
 # band, and the model prediction.
 .fleet_fit_df <- function(Rceattle, kind = c("index", "catch"),
                           species = NULL, incl_proj = FALSE, maxyr = NULL,
-                          model_names = NULL) {
+                          model_names = NULL, mse = FALSE) {
   kind <- match.arg(kind)
   cfg <- switch(kind,
     index = list(data = "index_data", obs = "Observation",
@@ -37,6 +37,11 @@
     dat <- Rceattle[[i]]$data_list[[cfg$data]]
     dat$.obs <- dat[[cfg$obs]]
     dat$.sd  <- .observation_sd(Rceattle[[i]]$quantities, cfg$sd)
+    # An MVN/MVNORM fleet scores index_cov, so the band takes its sd from there
+    # too -- otherwise it is drawn from a number that likelihood never read.
+    if (kind == "index" && !is.null(dat$.sd)) {
+      dat$.sd <- .index_marginal_sd(Rceattle[[i]]$data_list, as.numeric(dat$.sd))
+    }
     dat$.hat <- Rceattle[[i]]$quantities[[cfg$hat]]
     # Year < 0 flags a prediction-only row (excluded from the likelihood; see
     # ceattle.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
@@ -67,10 +72,13 @@
     }
     lg <- pos & !nat
     nt <- pos & nat
-    # Only rows the likelihood scored take the median conversion below. A
-    # projection prediction is the removal taken under the HCR, not an
-    # observation drawn with error, so it has no bias offset to undo.
-    scored <- dat$Year <= Rceattle[[i]]$data_list$endyr
+    # Hindcast rows only take the median conversion below: a projection
+    # prediction is the removal taken under the HCR, not an observation drawn
+    # with error, so it has no bias offset to undo. An MSE operating model is
+    # excluded outright -- run_mse() advances its endyr to the last assessment
+    # year, so no year test can separate the two there, and its realized catch
+    # IS catch_hat (10-run_mse.R), leaving nothing to convert.
+    scored <- !mse & dat$Year <= Rceattle[[i]]$data_list$endyr
     upr[lg] <- stats::qlnorm(0.975, log(dat$.obs[lg]), dat$.sd[lg])
     lwr[lg] <- stats::qlnorm(0.025, log(dat$.obs[lg]), dat$.sd[lg])
     upr[nt] <- dat$.obs[nt] + stats::qnorm(0.975) * dat$.sd[nt]
@@ -386,7 +394,7 @@ plot_catch <- function(Rceattle,
   }
 
   df <- .fleet_fit_df(Rceattle, kind = "catch", incl_proj = incl_proj,
-                      maxyr = maxyr, model_names = model_names)
+                      maxyr = maxyr, model_names = model_names, mse = mse)
 
   if (!is.null(fleets)) {
     lev <- levels(df$Fleet)

@@ -65,8 +65,8 @@ natural-scale index fleet (\code{Index_distribution} \code{"MVN"}, \code{"MVNORM
 \code{"Normal"} or \code{"TruncatedNormal"}) holds an ABSOLUTE \eqn{\sigma} and is
 standardized as \eqn{(o - \hat{o})/\sigma} instead. Two caveats there: a
 covariance fleet (\code{"MVN"}, \code{"MVNORM"}) takes \eqn{\sigma} from
-\code{sqrt(diag(index_cov))}, since its likelihood never reads the \code{Index_sd}
-column, and so gets its marginal residual rather than the whitened one
+\code{sqrt(diag(index_cov))}, since its likelihood never reads the reported
+scalar sd, and so gets its marginal residual rather than the whitened one
 (use \code{type = "osa"} for that); and \code{"TruncatedNormal"} is standardized on the
 untruncated moments, so it is approximate where \eqn{\hat{o}/\sigma} is
 small enough for truncation to shift the mean. For \code{comp} / \code{caal},

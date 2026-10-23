@@ -83,6 +83,20 @@ testthat::test_that("index observation intervals use the fleet's own scale", {
     testthat::expect_gte(min(d$Lower95), 0)
   }
 
+  # A covariance fleet's band must come from index_cov, which is the sd its
+  # likelihood scored, and not from the Log_sd column it never reads. The two
+  # are deliberately 3.75x apart here; the loop above cannot tell them apart,
+  # because cov_sd defaults to sd.
+  fit <- .ns_fixture("MVN", sd = 150, cov_sd = 40)
+  df  <- Rceattle:::.fleet_fit_df(list(fit), kind = "index")
+  d   <- df[df$Fleet == "Survey" & is.finite(df$Upper95), ]
+  testthat::expect_gt(nrow(d), 0)
+  half <- stats::qnorm(0.975) * 40
+  testthat::expect_equal(d$Upper95, d$Observation + half, tolerance = 1e-8)
+  testthat::expect_false(
+    isTRUE(all.equal(d$Upper95,
+                     d$Observation + stats::qnorm(0.975) * 150)))
+
   # Lognormal keeps the multiplicative band.
   ln <- .ns_fixture("Lognormal", sd = 0.2)
   dl <- Rceattle:::.fleet_fit_df(list(ln), kind = "index")
@@ -147,9 +161,9 @@ testthat::test_that("the analytical sd is refused where the likelihood reads it"
   #   Normal / TruncatedNormal read the sd, so the LIKELIHOOD is on the wrong
   #     scale -- an error.
   #   MVN / MVNORM score through index_cov and never read the scalar sd, so the
-  #     fit is fine and only the reported index_sd (and the Pearson residual and
-  #     plot interval built from it) is wrong -- a warning, because refusing
-  #     would reject a model that fits correctly.
+  #     fit is fine and only the reported index_sd is wrong -- a warning, because
+  #     refusing would reject a model that fits correctly. The residual and the
+  #     plot interval take their sd from sqrt(diag(index_cov)) instead.
   mk <- function(fam, est) {
     dat <- make_test_data(nyrs = 12, nages = 5, seed = 123)
     srv <- dat$fleet_control$Fleet_name == "Survey"

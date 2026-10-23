@@ -330,8 +330,8 @@ logLik.Rceattle <- function(object, ...) {
 #'     `"Normal"` or `"TruncatedNormal"`) holds an ABSOLUTE \eqn{\sigma} and is
 #'     standardized as \eqn{(o - \hat{o})/\sigma} instead. Two caveats there: a
 #'     covariance fleet (`"MVN"`, `"MVNORM"`) takes \eqn{\sigma} from
-#'     `sqrt(diag(index_cov))`, since its likelihood never reads the `Index_sd`
-#'     column, and so gets its marginal residual rather than the whitened one
+#'     `sqrt(diag(index_cov))`, since its likelihood never reads the reported
+#'     scalar sd, and so gets its marginal residual rather than the whitened one
 #'     (use `type = "osa"` for that); and `"TruncatedNormal"` is standardized on the
 #'     untruncated moments, so it is approximate where \eqn{\hat{o}/\sigma} is
 #'     small enough for truncation to shift the mean. For `comp` / `caal`,

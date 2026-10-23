@@ -184,3 +184,36 @@ testthat::test_that("a projection row carries no bias offset", {
   testthat::expect_false(
     isTRUE(all.equal(on_$Predicted[!proj], off_$Predicted[!proj])))
 })
+
+
+testthat::test_that("an MSE operating model takes no bias offset at all", {
+  testthat::skip_if_not_installed("TMB")
+  # run_mse() advances the OM's endyr to the last assessment year
+  # (10-run_mse.R), so Year <= endyr is TRUE for every row it draws and no year
+  # test can separate hindcast from projection there. Its realized catch is
+  # catch_hat by construction, so converting would draw the line below an
+  # observation it equals exactly. Simulated by advancing endyr, which is the
+  # one property of the OM that matters here.
+  adv <- function(ba) {
+    f <- .fitm_set(.fitm_fit(), sd = 0.5, ba_obs = ba)
+    f$data_list$endyr <- f$data_list$projyr
+    f
+  }
+  on_  <- Rceattle:::.fleet_fit_df(list(adv(1)), kind = "catch",
+                                   incl_proj = TRUE, mse = TRUE)
+  hat  <- as.numeric(adv(1)$quantities$catch_hat)
+
+  # Premise: without the mse flag every one of these rows WOULD convert, so
+  # this is not vacuous -- the advanced endyr defeats the year test.
+  naive <- Rceattle:::.fleet_fit_df(list(adv(1)), kind = "catch",
+                                    incl_proj = TRUE)
+  testthat::expect_false(isTRUE(all.equal(naive$Predicted, on_$Predicted)))
+
+  # ...and under the flag the prediction is the reported value, so it cannot
+  # move with bias_adjust_obs.
+  off_ <- Rceattle:::.fleet_fit_df(list(adv(0)), kind = "catch",
+                                   incl_proj = TRUE, mse = TRUE)
+  testthat::expect_equal(on_$Predicted, off_$Predicted, tolerance = 1e-12)
+  testthat::expect_equal(on_$Predicted, hat[seq_len(nrow(on_))],
+                         tolerance = 1e-10)
+})

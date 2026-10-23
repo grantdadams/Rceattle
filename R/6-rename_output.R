@@ -314,9 +314,10 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 
 #' Replace a covariance fleet's reported sd with its marginal sd
 #'
-#' An MVN / MVNORM fleet scores `index_cov` and leaves `index_sd` at whatever
-#' the unused `Index_sd` column carried, so standardizing those rows by it can
-#' be wrong by orders of magnitude. Their sd is `sqrt(diag(index_cov))`, the
+#' An MVN / MVNORM fleet scores `index_cov` and leaves the reported `index_sd`
+#' at whatever its `index_data` `Log_sd` column carried, which that likelihood
+#' never reads, so standardizing those rows by it can be wrong by orders of
+#' magnitude. Their sd is `sqrt(diag(index_cov))`, the
 #' MARGINAL sd: it ignores the off-diagonal correlation the likelihood does use,
 #' so a residual standardized this way is marginal, not fully whitened.
 #'
@@ -342,16 +343,29 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
     # Sigma's rows follow this fleet's FITTED observations in index_data order
     # and are year-dimnamed by clean_data(); see .align_index_cov().
     this <- cov_rows & idx[["Fleet_code"]] == code
+    # !is.na() first: an NA observation would otherwise put NA in the mask, and
+    # a logical subscript carrying NA errors on assignment.
     fitted <- this & idx[["Year"]] > 0 & idx[["Year"]] <= data_list$endyr &
-      idx[["Observation"]] > 0
+      !is.na(idx[["Observation"]]) & idx[["Observation"]] > 0
     sigma[this] <- NA_real_
     if (is.null(Sigma) || !nrow(Sigma)) next
+    # diag() of a non-square matrix, or of a bare vector passed as one, is
+    # shorter than the fitted rows and would recycle silently.
     sd_diag <- sqrt(diag(Sigma))
+    if (anyNA(sd_diag) || any(sd_diag <= 0)) next
     yrs <- suppressWarnings(as.integer(rownames(Sigma)))
-    if (length(yrs) == nrow(Sigma) && !anyNA(yrs)) {
-      sigma[fitted] <- sd_diag[match(idx[["Year"]][fitted], yrs)]
-    } else if (sum(fitted) == nrow(Sigma)) {
+    if (sum(fitted) == nrow(Sigma) && length(sd_diag) == nrow(Sigma)) {
+      # Positional first: Sigma's rows ARE this fleet's fitted rows in
+      # index_data order, which rearrange_data() enforces with a stop(), so a
+      # mismatch is a fit-time error rather than a plot-time wrong number.
       sigma[fitted] <- sd_diag
+    } else if (length(yrs) == nrow(Sigma) && !anyNA(yrs) &&
+               !anyDuplicated(idx[["Year"]][fitted])) {
+      # Year key for a Sigma whose row count no longer matches -- and only when
+      # years are unique, since match() would give two rows in one year the
+      # same entry. A legacy Index_loglike workbook reaches fit_mod() untagged,
+      # because switch_check() renames the column after clean_data() runs.
+      sigma[fitted] <- sd_diag[match(idx[["Year"]][fitted], yrs)]
     }
   }
   sigma

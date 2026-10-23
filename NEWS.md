@@ -27,9 +27,13 @@ version throughout.
   interval brackets, so more of the series falls below it than above and the fit
   reads worse than it is. Both now draw
   `hat * exp(-bias_adjust_obs * sd^2 / 2)`, using the sd each row was actually
-  fitted with, on the hindcast rows the likelihood scored. A projection row's
-  prediction is the removal taken, not an observation drawn with error, so it
-  keeps the reported value -- `plot_catch(mse = TRUE)` is unchanged. **`bias_adjust_obs` defaults to `TRUE`, so index and
+  fitted with, on the hindcast rows only. A projection row's prediction is the
+  removal taken, not an observation drawn with error, so it keeps the reported
+  value. **`plot_catch(mse = TRUE)` is unchanged in full**, on hindcast and
+  projection rows alike: `run_mse()` advances the operating model's `endyr` to
+  the last assessment year, so no year test separates the two there, and the
+  realized MSE catch *is* `catch_hat`, leaving nothing to convert.
+  **`bias_adjust_obs` defaults to `TRUE`, so index and
   catch fit figures from earlier versions draw the mean and need redrawing.**
   Natural-scale index fleets (`MVN`, `MVNORM`, `Normal`, `TruncatedNormal`) are
   unchanged: their likelihood carries no offset, and their sd is absolute.
@@ -44,17 +48,34 @@ version throughout.
   method, which was already correct.
 
 * **An `MVN` / `MVNORM` index fleet now standardizes by its covariance matrix,
-  not by the unused `Index_sd` column.** Those families score
+  not by the scalar sd its likelihood never reads.** Those families score
   `0.5 r' Sigma^-1 r` against `index_cov` and never read the scalar sd, which
   stays at whatever the workbook carried -- so a fleet supplying `index_cov` in
   natural units squared while leaving `Log_sd` at an old lognormal CV got a
   Pearson residual wrong by the ratio of the two. `residuals(type = "pearson")`
   and `plot_index_residual()` now divide by `sqrt(diag(index_cov))`, the
   MARGINAL sd, and return `NA` on such a row where the matrix cannot be
-  resolved against the fitted years. **Pearson residuals for covariance fleets
-  change; no other family and no fit is affected.** The marginal sd ignores the
-  off-diagonal correlation the likelihood does use, so these are marginal
-  residuals rather than fully whitened ones -- `osa_residuals()` whitens. **The y axis is therefore on a
+  resolved against the fitted years. `plot_index()`'s observation band for such
+  a fleet took the same wrong sd and is corrected with it: on one EBS pollock
+  configuration the drawn 95% half-width was +/-0.13 against a correct +/-1904,
+  so the figure asserted a survey biomass known to the tonne. **Pearson
+  residuals, SDNR and the observation band change for covariance fleets; no
+  other family and no fit is affected** -- `report_tables()` and
+  `standard_output()` republish that residual, so their `fits$residual` and
+  `fits$sdnr` move too. The marginal sd ignores the off-diagonal correlation
+  the likelihood does use (up to 0.54 on that same matrix), so these are
+  marginal residuals rather than fully whitened ones: a run of same-sign
+  residuals is expected under the model, and summing their squares understates
+  the fleet's likelihood contribution. `osa_residuals()` whitens.
+
+  `data_check()`'s warning for `Estimate_index_sd = "Analytical"` on a
+  covariance fleet is corrected with it. It told the user that
+  `residuals(type = "pearson")` and `plot_index()`'s observation interval
+  divide by the reported `index_sd`, which is no longer true of either, and
+  offered a remedy for a problem they no longer have. It now says that the
+  reported value is not the fleet's sd, names `sqrt(diag(index_cov))` as the
+  one that is, and warns against reading `fit$quantities$index_sd` directly.
+  The trigger and the severity are unchanged. **The y axis is therefore on a
   different scale than before** (standardized, labelled "Index Pearson
   residual"), so these figures also need redrawing.
 
