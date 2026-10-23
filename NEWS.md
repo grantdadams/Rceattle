@@ -12,6 +12,23 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.64.4
+
+## Bug fixes
+
+* **A selectivity prior on an `Off` fleet is now dropped with a warning instead
+  of refusing the fit.** Turning a survey off is an ordinary sensitivity run and
+  one prior spec is reused across the series, so refusing the whole
+  configuration blocked drop-one-survey runs outright. The prior is removed
+  rather than merely allowed: an `Off` fleet's selectivity parameters are mapped
+  out, but the prior was still scored, adding a fixed constant to the objective
+  that differs per run and would make a drop-one series' objectives
+  incomparable. Reported by Cole Monnahan, who had patched it locally.
+  **A fit that previously errored now runs; no fit that worked before is
+  affected.** The apical offset is still refused on an `Off` fleet, which is a
+  different problem: that parameter is freed rather than scored, so it is a flat
+  direction and a non-positive-definite Hessian.
+
 # Rceattle 5.64.3
 
 ## Bug fixes

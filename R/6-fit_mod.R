@@ -688,6 +688,10 @@ fit_mod <-
     # warnings are wanted -- it drives the advisory about an apical offset no
     # joint composition informs, which a refit has raised once already. The
     # refusals are unconditional.
+    # Removes a prior that lands on an Off fleet, with a warning, so the rest of
+    # the checks and the encoder see a table with nothing inert in it.
+    data_list$linkage_table <- .drop_off_fleet_sel_priors(data_list$linkage_table,
+                                                          data_list$fleet_control)
     .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control,
                                data_list$nsex,
                                if (!isTRUE(quiet_data_check)) data_list$comp_data)

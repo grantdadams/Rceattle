@@ -166,3 +166,53 @@ testthat::test_that("a prior on a limb the fleet's curve lacks is rejected", {
                                      priors = list(intercept = normal(0, 3)))))),
     "Rceattle")
 })
+
+
+# A prior on a fleet turned Off. Dropping a survey is an ordinary sensitivity,
+# and the prior spec is written once for the series, so landing on an Off fleet
+# must not refuse the fit (it did until 5.64.4). It is DROPPED rather than
+# allowed through: the parameters are mapped out, but the C++ prior loop skips
+# only family 0, so an allowed prior would score at the fixed value and add a
+# constant that differs per run -- which is exactly the comparison a drop-one
+# series is making.
+.fit3_data <- function(sel, mutate) {
+  e <- new.env(parent = asNamespace("Rceattle"))
+  for (f in list.files(testthat::test_path(), "^helper", full.names = TRUE)) sys.source(f, e)
+  d <- mutate(e$make_test_data())
+  suppressMessages(Rceattle::fit_mod(
+    data_list = d, selFun = sel, estimateMode = 3, msmMode = 0,
+    random_rec = FALSE,
+    fit_control = Rceattle::fit_control(getsd = FALSE, phase = FALSE, verbose = 0)))
+}
+
+testthat::test_that("a selectivity prior on an Off fleet is dropped, not refused", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  srv_off <- function(d) {
+    d$fleet_control$Fleet_type[d$fleet_control$Fleet_name == "Survey"] <- "Off"
+    d
+  }
+  srv <- function(d) which(d$fleet_control$Fleet_name == "Survey")
+  code <- srv(local({
+    e <- new.env(parent = asNamespace("Rceattle"))
+    for (f in list.files(testthat::test_path(), "^helper", full.names = TRUE)) sys.source(f, e)
+    e$make_test_data()
+  }))
+  sel <- Rceattle::build_selectivity(linkages = list(
+    inf_asc = Rceattle::linkage_spec(~1, fleet = as.integer(code),
+                                     priors = list(`(Intercept)` = normal(4, 0.5)))))
+
+  # It warns rather than erroring, and names the fleet.
+  testthat::expect_warning(fit <- .fit3_data(sel, srv_off), "is dropped")
+  testthat::expect_false(is.null(fit$obj))
+
+  # Dropped, not merely tolerated: the prior contributes nothing at all.
+  testthat::expect_equal(
+    sum(fit$quantities$jnll_comp["Linkage-table priors", ]), 0)
+
+  # Not vacuous -- that row IS non-zero when the same prior lands on a live
+  # fleet, so a prior left in the objective would have been caught.
+  live <- suppressWarnings(.fit3_data(sel, identity))
+  testthat::expect_gt(sum(live$quantities$jnll_comp["Linkage-table priors", ]), 0)
+})

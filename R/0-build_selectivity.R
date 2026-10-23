@@ -88,7 +88,7 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' `Selectivity_index` estimate one block, so place the prior on the group's
 #' lead fleet (its first that is not `Off`): a prior on a follower would
 #' penalize the shared block once per sharing fleet. A prior on an `Off` fleet
-#' is refused, its selectivity not being estimated.
+#' is dropped with a warning, its selectivity not being estimated.
 #'
 #' Like every selectivity linkage, a covariate acts in the hindcast years;
 #' projection years hold the last hindcast year's curve.
@@ -173,6 +173,48 @@ build_selectivity <- function(linkages = NULL) {
 #' @return invisibly NULL; errors on an unsupported sel linkage.
 #' @keywords internal
 #' @noRd
+#' Drop a selectivity prior that lands on an `Off` fleet
+#'
+#' An `Off` fleet's selectivity parameters are mapped out, so a prior on one
+#' constrains nothing — but it is still scored (`ceattle.cpp`, the
+#' `beta_linkage` prior loop skips only family 0), adding a fixed constant to
+#' the objective. Across a drop-one-survey series that constant differs per
+#' run, so the objectives would not be comparable. Removed rather than refused:
+#' turning a survey off is an ordinary sensitivity, and one prior spec is reused
+#' across the whole series.
+#'
+#' @param linkage_table The `data_list` linkage table.
+#' @param fleet_control The `data_list` fleet control.
+#' @return `linkage_table`, with `prior_family` set to `"none"` on any
+#'   selectivity row whose fleet is `Off`.
+#' @noRd
+.drop_off_fleet_sel_priors <- function(linkage_table, fleet_control) {
+  if (is.null(linkage_table) || !nrow(linkage_table)) return(linkage_table)
+  if (is.null(fleet_control) || !"Fleet_type" %in% colnames(fleet_control)) {
+    return(linkage_table)
+  }
+  has_prior <- linkage_table$process == "sel" &
+    !is.na(linkage_table$prior_family) & linkage_table$prior_family != "none"
+  if (!any(has_prior)) return(linkage_table)
+  # An NA fleet is cell 1, the template's default, matching row_flt() in
+  # .check_sel_linkage_support().
+  flt <- ifelse(is.na(linkage_table$fleet), 1L, as.integer(linkage_table$fleet))
+  type <- .canon_switch(fleet_control$Fleet_type, fleet_map)
+  is_off <- has_prior & flt >= 1L & flt <= length(type) & type[flt] == "Off"
+  if (!any(is_off)) return(linkage_table)
+  warning(sprintf(paste0(
+    "selectivity prior on fleet(s) %s with Fleet_type = \"Off\": those ",
+    "selectivity parameters are not estimated, so the prior is dropped. It ",
+    "would otherwise add a constant to the objective and constrain nothing."),
+    paste(unique(fleet_control$Fleet_name[flt[is_off]]), collapse = ", ")),
+    call. = FALSE)
+  linkage_table$prior_family[is_off] <- "none"
+  linkage_table$prior_p1[is_off] <- NA_real_
+  linkage_table$prior_p2[is_off] <- NA_real_
+  linkage_table
+}
+
+
 .check_sel_linkage_support <- function(linkage_table, fleet_control, nsex = NULL,
                                        comp_data = NULL) {
   if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
@@ -304,18 +346,10 @@ build_selectivity <- function(linkages = NULL) {
 
     prior_flt <- unique(vapply(prior_rows$fleet, row_flt, integer(1)))
 
-    # (b) An "Off" fleet's selectivity parameters are mapped off, so a prior on
-    # one is evaluated against a fixed value: it adds a constant to the objective
-    # and informs nothing. Same reason the apical offset is refused there.
-    off_flt <- prior_flt[vapply(prior_flt, function(f)
-      identical(.canon_switch(fleet_control$Fleet_type[f], fleet_map), "Off"), logical(1))]
-    if (length(off_flt) > 0L) {
-      stop(sprintf(paste0(
-        "selectivity prior on fleet(s) %s with Fleet_type = \"Off\": that fleet's ",
-        "selectivity parameters are not estimated, so the prior would add a ",
-        "constant to the objective and constrain nothing."),
-        paste(fleet_control$Fleet_name[off_flt], collapse = ", ")), call. = FALSE)
-    }
+    # (b) An "Off" fleet's selectivity prior is handled by
+    # .drop_off_fleet_sel_priors(), which warns and removes it rather than
+    # refusing: turning a survey off is an ordinary sensitivity run, and one
+    # prior spec is reused across the series.
 
     # (c) Fleets sharing a Selectivity_index estimate one parameter block, so a
     # prior on a follower penalizes that block once per sharing fleet.
