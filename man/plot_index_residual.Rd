@@ -31,8 +31,7 @@ plot_index_residual(
 
 \item{width, height}{Saved figure size (inches).}
 
-\item{residual_type}{\code{"pearson"} (index residuals on the fleet's own scale)
-or \code{"osa"}.}
+\item{residual_type}{\code{"pearson"} (standardized index residuals) or \code{"osa"}.}
 
 \item{line_col, right_adj, top_adj, single.plots}{Deprecated base-graphics
 arguments, retained for back-compatibility and ignored.}
@@ -53,12 +52,14 @@ The residual is observed minus predicted, standardized by the sd the row was
 fitted with -- the same quantity \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns for
 \code{type = "pearson"}. On a log-scale fleet it is measured against the
 likelihood's centre, \code{log(hat) - bias_adjust_obs * sd^2 / 2}; on a
-natural-scale fleet, whose sd is absolute, it is \code{(obs - hat) / sd}. A
-positive residual means the survey saw more than the model predicted. The y
-scale stays free per fleet, since a mixed-family model's panels divide by
-sds in different units.
+natural-scale fleet (\code{"MVN"}, \code{"MVNORM"}, \code{"Normal"},
+\code{"TruncatedNormal"} in \code{Index_distribution}), whose sd is absolute, it is
+\code{(obs - hat) / sd}. A positive residual means the survey saw more than the
+model predicted. The y scale stays free per fleet, since residual spread
+differs by fleet.
 
 Figures made before 5.9.0 are mirrored about zero relative to these, and
-those before 5.64.3 plotted an unstandardized, unoffset \code{log(obs) - log(hat)}
-despite the Pearson label; either needs redrawing.
+those before 5.64.3 were unstandardized and unoffset -- \code{log(obs) - log(hat)}
+on a log-scale fleet, \code{obs - hat} on a natural-scale one -- despite the
+\code{residual_type = "pearson"} name; either needs redrawing.
 }

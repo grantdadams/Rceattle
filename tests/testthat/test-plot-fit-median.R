@@ -144,3 +144,43 @@ testthat::test_that("plot_index_residual() pearson matches residuals.Rceattle()"
   # Not vacuous: at sigma 0.4 the offset is 0.2 of a standardized residual.
   testthat::expect_equal(0.4^2 / 2 / 0.4, 0.2, tolerance = 1e-12)
 })
+
+
+testthat::test_that("the offset uses each row's own sd, not a shared one", {
+  testthat::skip_if_not_installed("TMB")
+  fit <- .fitm_fit()
+  fit$data_list$bias_adjust_obs <- 1
+  # A distinct sd on every row: a constant sd would agree under ANY permutation
+  # of the row subset, so the blocks above cannot see a misalignment.
+  n <- length(fit$quantities$index_sd)
+  fit$quantities$index_sd[] <- seq(0.1, 0.6, length.out = n)
+
+  df   <- suppressWarnings(Rceattle::plot_index(fit))$data
+  idx  <- fit$data_list$index_data
+  keep <- idx$Year > 0 & idx$Year <= fit$data_list$endyr
+  sd_k <- as.numeric(fit$quantities$index_sd)[keep]
+  want <- as.numeric(fit$quantities$index_hat)[keep] * exp(-sd_k^2 / 2)
+  testthat::expect_equal(df$Predicted, want, tolerance = 1e-10)
+  # Not vacuous: the sds genuinely differ row to row.
+  testthat::expect_gt(stats::sd(sd_k), 0)
+})
+
+testthat::test_that("a projection row carries no bias offset", {
+  testthat::skip_if_not_installed("TMB")
+  # A projection prediction is the removal taken under the HCR, not an
+  # observation drawn with error, so the flag must not move it. Compared
+  # between flag settings rather than against catch_hat, which needs no join.
+  on_  <- suppressWarnings(Rceattle::plot_catch(
+    .fitm_set(.fitm_fit(), sd = 0.5, ba_obs = 1), incl_proj = TRUE))$data
+  off_ <- suppressWarnings(Rceattle::plot_catch(
+    .fitm_set(.fitm_fit(), sd = 0.5, ba_obs = 0), incl_proj = TRUE))$data
+  endyr <- .fitm_fit()$data_list$endyr
+
+  proj <- on_$Year > endyr
+  testthat::skip_if(!any(proj), "no projection catch rows drawn")
+  testthat::expect_equal(on_$Predicted[proj], off_$Predicted[proj],
+                         tolerance = 1e-12)
+  # ...while the hindcast rows in the same figure DO move with the flag.
+  testthat::expect_false(
+    isTRUE(all.equal(on_$Predicted[!proj], off_$Predicted[!proj])))
+})

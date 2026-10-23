@@ -320,7 +320,8 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 #' `fit_mod()`; older fits fall back to the TMB data, then to the default 1.
 #'
 #' @param object A fitted `Rceattle` object.
-#' @return Length-one numeric, 1 or 0.
+#' @return Length-one numeric: 1, 0, or a fraction where a partial correction
+#'   was configured.
 #' @noRd
 .bias_adjust_obs <- function(object) {
   got <- object$data_list$bias_adjust_obs
@@ -334,8 +335,8 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 #' Convert a reported mean observation to the median its likelihood centres on
 #'
 #' Log-scale rows only: a natural-scale family has no offset, and its `sigma` is
-#' an ABSOLUTE sd, so the lognormal form would be wrong by the size of the index
-#' squared (see `.observation_sd()`).
+#' an ABSOLUTE sd, so the lognormal form would collapse the prediction to zero
+#' (see `.observation_sd()`).
 #'
 #' @param hat Reported `index_hat` / `catch_hat`.
 #' @param sigma The sd the likelihood used, from `.observation_sd()`.
@@ -345,8 +346,8 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 #' @noRd
 .hat_as_median <- function(hat, sigma, ba_obs, log_scale) {
   out <- hat
-  # No usable sd keeps the reported value: exp(-b * NA / 2) would wipe a
-  # prediction the figure can still draw.
+  # No usable sd keeps the reported MEAN rather than wiping the row, since
+  # exp(-b * NA / 2) is NA and the figure can still draw a prediction.
   use <- log_scale & is.finite(sigma) & is.finite(hat)
   out[use] <- hat[use] * exp(-ba_obs * sigma[use]^2 / 2)
   out

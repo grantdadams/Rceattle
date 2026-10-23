@@ -189,13 +189,15 @@ testthat::test_that("plot_index_residual and residuals() agree on sign and scale
   # Two user-facing views of one quantity. Until 5.9.0 the plotter drew
   # predicted - observed while residuals() returned observed - predicted, so the
   # two were mirror images and a reader could take the sign of a survey residual
-  # backwards. Both are observed - predicted now; this pins that, on both scales.
+  # backwards. Since 5.64.3 the plotter draws the PEARSON residual, so it is
+  # pinned against that method here and the orientation is pinned separately --
+  # sign(pearson) need not equal sign(response), because the bias offset can
+  # cross zero on a residual smaller than sd^2/2.
   for (fam in c("Lognormal", "Normal")) {
     fit <- .ns_fixture(fam, sd = if (fam == "Lognormal") 0.2 else 20)
 
     plotted <- Rceattle::plot_index_residual(fit)$data
-    direct  <- stats::residuals(fit, type = "response", source = "index",
-                                scale = if (fam == "Lognormal") "log" else "natural")
+    direct  <- stats::residuals(fit, type = "pearson", source = "index")
     testthat::skip_if(!nrow(plotted), "no index residuals")
 
     # Same rows, same order: both drop Year <= 0 and keep the fitted window.
@@ -208,5 +210,11 @@ testthat::test_that("plot_index_residual and residuals() agree on sign and scale
       isTRUE(all.equal(as.numeric(plotted$Residual),
                        -as.numeric(direct$Residual))),
       label = fam)
+    # The response residual still carries that orientation, against the raw
+    # difference rather than against itself: this is the 5.9.0 regression net.
+    resp <- stats::residuals(fit, type = "response", source = "index",
+                             scale = if (fam == "Lognormal") "log" else "natural")
+    testthat::expect_equal(sign(as.numeric(resp$Residual)),
+                           sign(resp$Observed - resp$Fitted), label = fam)
   }
 })

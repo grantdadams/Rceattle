@@ -67,6 +67,10 @@
     }
     lg <- pos & !nat
     nt <- pos & nat
+    # Only rows the likelihood scored take the median conversion below. A
+    # projection prediction is the removal taken under the HCR, not an
+    # observation drawn with error, so it has no bias offset to undo.
+    scored <- dat$Year <= Rceattle[[i]]$data_list$endyr
     upr[lg] <- stats::qlnorm(0.975, log(dat$.obs[lg]), dat$.sd[lg])
     lwr[lg] <- stats::qlnorm(0.025, log(dat$.obs[lg]), dat$.sd[lg])
     upr[nt] <- dat$.obs[nt] + stats::qnorm(0.975) * dat$.sd[nt]
@@ -83,7 +87,8 @@
       # The median the likelihood is centred on, not the reported mean, so the
       # line and the observation quantiles above are on the same footing.
       Predicted   = .hat_as_median(dat$.hat, dat$.sd,
-                                   .bias_adjust_obs(Rceattle[[i]]), !nat),
+                                   .bias_adjust_obs(Rceattle[[i]]),
+                                   !nat & scored),
       stringsAsFactors = FALSE)
   }
   if (length(out) == 0L) {
@@ -133,11 +138,11 @@
 #' a `"Lognormal"` fleet, and `observed +/- 1.96 sd` truncated at zero on a
 #' natural-scale one (`"MVN"`, `"MVNORM"`, `"Normal"`, `"TruncatedNormal"`),
 #' whose sd is absolute and in the units of the index.
-#'#'
+#'
 #' The predicted line is the MEDIAN of the fitted observation distribution,
 #' `index_hat * exp(-bias_adjust_obs * sd^2 / 2)`, which is where the lognormal
 #' likelihood is centred and what the observation intervals bracket. It equals
-#' the reported `index_hat` only when `bias_adjust_obs = FALSE`; figures from
+#' the reported `index_hat` where `bias_adjust_obs = FALSE`; figures from
 #' before 5.64.3 drew the mean. A natural-scale fleet has no such offset and is
 #' drawn unchanged.
 #'
@@ -432,18 +437,19 @@ plot_catch <- function(Rceattle,
 #' fitted with -- the same quantity [residuals.Rceattle()] returns for
 #' `type = "pearson"`. On a log-scale fleet it is measured against the
 #' likelihood's centre, `log(hat) - bias_adjust_obs * sd^2 / 2`; on a
-#' natural-scale fleet, whose sd is absolute, it is `(obs - hat) / sd`. A
-#' positive residual means the survey saw more than the model predicted. The y
-#' scale stays free per fleet, since a mixed-family model's panels divide by
-#' sds in different units.
+#' natural-scale fleet (`"MVN"`, `"MVNORM"`, `"Normal"`,
+#' `"TruncatedNormal"` in `Index_distribution`), whose sd is absolute, it is
+#' `(obs - hat) / sd`. A positive residual means the survey saw more than the
+#' model predicted. The y scale stays free per fleet, since residual spread
+#' differs by fleet.
 #'
 #' Figures made before 5.9.0 are mirrored about zero relative to these, and
-#' those before 5.64.3 plotted an unstandardized, unoffset `log(obs) - log(hat)`
-#' despite the Pearson label; either needs redrawing.
+#' those before 5.64.3 were unstandardized and unoffset -- `log(obs) - log(hat)`
+#' on a log-scale fleet, `obs - hat` on a natural-scale one -- despite the
+#' `residual_type = "pearson"` name; either needs redrawing.
 #'
 #' @inheritParams plot_index
-#' @param residual_type `"pearson"` (index residuals on the fleet's own scale)
-#'   or `"osa"`.
+#' @param residual_type `"pearson"` (standardized index residuals) or `"osa"`.
 #' @return A `ggplot` object.
 #' @export
 plot_index_residual <- function(Rceattle,
@@ -496,10 +502,10 @@ plot_index_residual <- function(Rceattle,
       # assessment convention (WHAM, SS3): a positive residual means the survey
       # saw more than the model predicted.
       #
-      # The Pearson residual residuals.Rceattle() returns, which this used to
-      # disagree with: standardized by the row's own sd, and offset to the
-      # likelihood's centre on a log-scale fleet. Assigned by subset, not
-      # ifelse(), which would log() a natural-scale observation it discards.
+      # The Pearson residual residuals.Rceattle() returns: standardized by the
+      # row's own sd, and offset to the likelihood's centre on a log-scale
+      # fleet. Assigned by subset, not ifelse(), which would log() a
+      # natural-scale observation it discards.
       Residual = {
         nat <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
         nat <- if (length(nat)) nat[keep] else rep(FALSE, nrow(dat))
@@ -531,9 +537,8 @@ plot_index_residual <- function(Rceattle,
     ggplot2::geom_point(position = ggplot2::position_dodge(width = 0.6))
   p <- .rceattle_scale(
     p +
-      # Panels are per fleet with a free y scale, which is what lets the two
-      # scales share a figure: a log-scale fleet's panel is dimensionless, a
-      # natural-scale fleet's is in the units of the index.
+      # Panels are per fleet with a free y scale: standardizing makes both
+      # families dimensionless, but their residual spread still differs.
       ggplot2::facet_wrap(~ Fleet, scales = "free_y") +
       ggplot2::labs(x = "Year", y = "Index Pearson residual") +
       .rceattle_theme(),

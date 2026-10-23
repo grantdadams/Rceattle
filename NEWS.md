@@ -23,10 +23,13 @@ version throughout.
   is centred on its median -- and the observation intervals these figures draw
   are quantiles that bracket the median. `plot_index()` and `plot_catch()`
   plotted the mean against them, raising the line by `exp(b * sd^2 / 2)`: 2% at
-  an sd of 0.2, 13% at 0.5, 38% at 0.8, with the observations sitting below the
-  line in every year. That reads as misfit and was only the mean/median gap.
-  Both now draw `hat * exp(-bias_adjust_obs * sd^2 / 2)`, using the sd each row
-  was actually fitted with. **`bias_adjust_obs` defaults to `TRUE`, so index and
+  an sd of 0.2, 13% at 0.5, 38% at 0.8. That shifts the line off the centre the
+  interval brackets, so more of the series falls below it than above and the fit
+  reads worse than it is. Both now draw
+  `hat * exp(-bias_adjust_obs * sd^2 / 2)`, using the sd each row was actually
+  fitted with, on the hindcast rows the likelihood scored. A projection row's
+  prediction is the removal taken, not an observation drawn with error, so it
+  keeps the reported value -- `plot_catch(mse = TRUE)` is unchanged. **`bias_adjust_obs` defaults to `TRUE`, so index and
   catch fit figures from earlier versions draw the mean and need redrawing.**
   Natural-scale index fleets (`MVN`, `MVNORM`, `Normal`, `TruncatedNormal`) are
   unchanged: their likelihood carries no offset, and their sd is absolute.
@@ -34,10 +37,11 @@ version throughout.
   only the figure changes.
 
 * **`plot_index_residual(residual_type = "pearson")` now returns the Pearson
-  residual it claims.** It computed a bare `log(obs) - log(hat)`, which is
-  neither standardized by the sd nor offset to the likelihood's centre, so it
-  disagreed with `residuals(fit, type = "pearson")` on the same fit. It now
-  matches that method, which was already correct. **The y axis is therefore on a
+  residual it claims.** It computed `log(obs) - log(hat)` on a log-scale fleet
+  and `obs - hat` on a natural-scale one, neither standardized by the sd nor
+  offset to the likelihood's centre, so it disagreed with
+  `residuals(fit, type = "pearson")` on the same fit. It now matches that
+  method, which was already correct. **The y axis is therefore on a
   different scale than before** (standardized, labelled "Index Pearson
   residual"), so these figures also need redrawing.
 
