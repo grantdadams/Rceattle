@@ -722,13 +722,20 @@ epsilon, 0 at four (`osa_squeeze_cdf()` in `comp_osa.hpp`). The reference implem
 ships uses `squeeze()`, i.e. one epsilon, and has the same latent failure. The cost of four is
 where `|residual|` saturates: 8.04 rather than 8.13.
 
-**`Index_distribution` has a second hand-synced registry.** A family added to
+**`Index_distribution` has TWO more hand-synced registries.** A family added to
 `index_distribution_map` (`R/0-switches.R`) must also be classified in
 `.index_rows_natural_scale()` in the same file, which is what `residuals(type = "pearson")`,
-`plot_index()`'s observation interval and `plot_indexresidual()` read to pick a scale. A
+`plot_index()`'s observation interval and `plot_index_residual()` read to pick a scale. A
 natural-scale family that misses it **does not error** — it silently gets the log-scale formula,
-whose `sigma^2/2` is then a number the size of the index squared.
-`test-index-natural-scale-downstream.R` enumerates the map and is the net.
+whose `sigma^2/2` is then a number the size of the index squared. Since 5.64.3 a family that
+carries a COVARIANCE rather than a scalar sd goes in `.index_fleets_covariance()` too, which
+those same three consumers read to take their sd from `sqrt(diag(index_cov))`; miss it and the
+fleet is standardized by a `Log_sd` its likelihood never read (measured 10,180-18,439x wrong on
+one EBS pollock BTS configuration). The MVN/MVNORM code set is additionally spelled out by hand
+in `0-clean_data.R`, `1-data_check.R` and `5-rearrange_data.R`.
+`test-index-natural-scale-downstream.R` enumerates the map and is the net — but note its
+fixture passed `cov_sd` equal to `sd` until 5.64.3, so the right and wrong denominators were
+equal by construction and nothing there could see the covariance defect.
 
 **`nages` is a COUNT of age bins, not the oldest age.** Ages run
 `minage .. minage + nages - 1`, and the array's 3rd dimension is a 1-based bin index, so age `a`
