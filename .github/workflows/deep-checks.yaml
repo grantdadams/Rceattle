@@ -107,9 +107,9 @@ jobs:
           needs: check
 
       # Which machine produced these numbers. Golden compares four objectives
-      # against literals and has gone red across platforms before (TRAPS.md:
-      # red on main for weeks over a summation order; the 5.45.0 red was a
-      # gradient of 3.5e-4 on ubuntu against 2.5e-5 on macOS).
+      # against literals and has gone red across platforms before: red on main
+      # for weeks over a summation order (NEWS.md, 5.45.1), and the 5.45.0 red
+      # was a gradient of 3.5e-4 on ubuntu against 2.5e-5 on macOS (TRAPS.md).
       - name: Machine fingerprint
         run: bash tools/ci/machine-fingerprint.sh
         shell: bash

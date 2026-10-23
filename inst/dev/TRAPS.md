@@ -203,8 +203,8 @@ template does not route Eigen through an external BLAS -- no `EIGEN_USE_BLAS` an
 and one BLAS-level operation in `ceattle.cpp`. Its arithmetic is transcendental: **246 `exp()`,
 105 `log()`, 55 `pow()`, 11 `pnorm()`** across `src/TMB/`. The better candidate is therefore
 **glibc's libm, which dispatches `exp`/`log`/`pow` by CPU feature through ifunc resolvers** -- a
-different kernel on a different runner is a different last bit, 246 times per objective
-evaluation. That is a candidate, not a conclusion; an earlier draft of this entry asserted BLAS
+different kernel on a different runner is a different last bit, at every one of those call sites,
+many of which sit inside the species-age-year loops. That is a candidate, not a conclusion; an earlier draft of this entry asserted BLAS
 and was wrong, which is the second mechanism this entry has had to withdraw.
 
 **None of it is a defect in TMB, glibc or OpenBLAS.** Floating-point addition is not associative

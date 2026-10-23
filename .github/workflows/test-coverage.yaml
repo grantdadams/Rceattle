@@ -113,6 +113,12 @@ jobs:
           extra-packages: any::covr, any::xml2
           needs: coverage
 
+      # Which machine produced these numbers -- this job pins fitted values.
+      # See tools/ci/machine-fingerprint.sh.
+      - name: Machine fingerprint
+        run: bash tools/ci/machine-fingerprint.sh
+        shell: bash
+
       # The script picks this shard's files, runs them under covr, and writes
       # cobertura.xml. It prints the whole shard plan up front, and writes a
       # per-file elapsed time to COV_TIMING_LOG as each file ends.
@@ -123,14 +129,6 @@ jobs:
       # operation was canceled" with no indication of what it was doing. A file
       # is on disk either way, and the upload below is `if: always()` so a
       # cancelled shard still reports.
-      # Which machine produced these numbers. This job runs regression tests that
-      # pin fitted values, and a cross-platform disagreement here was once
-      # unattributable because nothing recorded the CPU, libm or BLAS.
-      # See tools/ci/machine-fingerprint.sh.
-      - name: Machine fingerprint
-        run: bash tools/ci/machine-fingerprint.sh
-        shell: bash
-
       - name: Test coverage (shard ${{ matrix.shard }})
         env:
           COV_SHARD: ${{ matrix.shard }}

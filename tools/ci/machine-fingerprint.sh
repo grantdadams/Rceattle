@@ -4,32 +4,29 @@
 # Two jobs here pin numeric results and can go red for reasons that have nothing
 # to do with the change under test: `golden` compares four objectives against
 # literals, and `test-coverage` runs regression tests that pin fitted values.
-# Both have done so. `inst/dev/TRAPS.md` records golden red on `main` for weeks
-# over a summation order, and the 5.45.0 red was a gradient of 3.5e-4 on ubuntu
-# against 2.5e-5 on macOS.
+# Both have done so -- `NEWS.md` (5.45.1) records `deep-checks` red on `main`
+# for weeks over a summation order, and `inst/dev/TRAPS.md` the 5.45.0 red, a
+# gradient of 3.5e-4 on ubuntu against 2.5e-5 on macOS.
 #
-# The case that prompted this: a mirrored-block linkage fit returned THREE
-# different objectives on ubuntu-latest (13807.6, 13818.2, 13817.0067) with the
-# fitted coefficient ranging -0.0304 to -0.240043, on byte-identical model code,
-# against 12879.997040 reproducibly on macOS arm64. Two fits in one process were
-# bitwise identical, so the model is deterministic per machine and the variation
-# is between machines -- but NONE of the data needed to say WHICH difference
-# mattered was being recorded. The runner's own logs carry only
-# "Platform: x86_64-pc-linux-gnu".
+# The prompting case (one linkage fit, three different ubuntu objectives on
+# byte-identical code), the measured platform table and why libm rather than
+# BLAS is the candidate are all in `inst/dev/TRAPS.md`, under "BLAS is the LEAST
+# likely culprit". None of the data needed to attribute such a disagreement was
+# being recorded: the runner's own logs carry only "Platform: x86_64-pc-linux-gnu".
 #
 # So this prints the things that plausibly move a last bit, cheaply (~1 s), into
 # every log that pins a number:
 #
 #   * CPU model and the FMA/AVX flags. glibc's libm dispatches exp/log/pow by
-#     CPU feature through ifunc resolvers, and this model calls exp() 246 times
-#     and log() 105 times per objective evaluation -- so a different kernel is a
-#     different last bit, many times over. The runner fleet is heterogeneous.
+#     CPU feature through ifunc resolvers, and this model has 246 `exp()` and
+#     105 `log()` call sites across `src/TMB/`, many of them inside the
+#     species-age-year loops. The runner fleet is heterogeneous.
 #   * glibc, which is that libm.
 #   * the compiler, which chooses whether to contract a*b+c into an FMA.
 #   * R's BLAS/LAPACK, for completeness. Note this model does NOT route Eigen
-#     through them (no EIGEN_USE_BLAS, and one BLAS-level op in the template),
-#     so they are the least likely culprit here -- recorded so the next person
-#     does not have to re-establish that, as happened once already.
+#     through them (no EIGEN_USE_BLAS, and one BLAS-level operation in
+#     `ceattle.cpp`), so they are the least likely culprit here -- recorded so
+#     the next person does not have to re-establish that, as happened once.
 #   * any threading override, since a multithreaded BLAS reduces in a
 #     nondeterministic order.
 #
