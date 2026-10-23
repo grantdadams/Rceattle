@@ -262,3 +262,66 @@ testthat::test_that("a DSEM growth latent is not reported as having no distribut
   # The M arm must still fire -- M1_re = 0 here, so M really cannot be drawn.
   testthat::expect_true(any(grepl("M1_re = 0", w)))
 })
+
+
+testthat::test_that("a growth latent is refused beside a RANDOM linkage on its parameter", {
+  testthat::skip_if_not_installed("dsem")
+
+  # Two random fields on one growth parameter, each scored by its own density.
+  # A FIXED linkage composes, and a random one on another parameter is apart.
+  e <- new.env(parent = asNamespace("Rceattle"))
+  sys.source(testthat::test_path("helpers.R"), envir = e)
+  d <- e$make_test_data(nyrs = 12L, nprojyrs = 3L, nages = 8L, minage = 1L,
+                        growth = "vonBertalanffy", seed = 1)
+  d$random_rec <- TRUE
+  set.seed(4)
+  d$env_data <- data.frame(Year = seq(d$styr, d$endyr), BT = stats::rnorm(12))
+  fit_with <- function(linkages) suppressWarnings(Rceattle::fit_mod(
+    data_list = d, estimateMode = 3, msmMode = 0,
+    growthFun = Rceattle::build_growth(fun = "vonBertalanffy", linkages = linkages),
+    dsem = Rceattle::build_DSEM(sem = paste0(
+      "recdevs1 <-> recdevs1, 0, sigmaR1, 1\n",
+      "linfdevs1 <-> linfdevs1, 0, sigLinf, 0.3\n")),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0)))
+
+  testthat::expect_error(
+    fit_with(list(Linf = Rceattle::linkage_spec(~ (1 | Year)))),
+    "RANDOM Linf growth linkage")
+  testthat::expect_error(
+    fit_with(list(Linf = Rceattle::linkage_spec(~ (1 | Year),
+                                                species = d$spnames[1]))),
+    "RANDOM Linf growth linkage")
+  for (lk in list(list(Linf = Rceattle::linkage_spec(~ BT)),
+                  list(K = Rceattle::linkage_spec(~ (1 | Year))))) {
+    testthat::expect_length(fit_with(lk)$dsem$tmb_inputs$data$growth_dev_col, 1L)
+  }
+})
+
+
+testthat::test_that("pre-built objects are refused under a growth model that never reads them", {
+  testthat::skip_if_not_installed("dsem")
+
+  # Built on a data_list with no growth_model, then fitted under empirical
+  # weight-at-age: the check has to run against the fitted settings. The msm
+  # fixture fits no CAAL data (every Sample_size is 0), which empirical growth
+  # would refuse first.
+  e <- new.env(parent = asNamespace("Rceattle"))
+  sys.source(testthat::test_path("helpers.R"), envir = e)
+  sys.source(testthat::test_path("helpers-make-msm-data.R"), envir = e)
+  set.seed(3)
+  d <- e$make_msm_test_data()$data_list
+  d$random_rec <- TRUE
+  d$growth_model <- NULL
+  d$env_data <- data.frame(Year = seq(d$styr, d$endyr),
+                           BT = stats::rnorm(d$endyr - d$styr + 1L))
+  obj <- build_dsem_objects(dsem_settings = Rceattle::build_DSEM(sem = paste0(
+    "recdevs1 <-> recdevs1, 0, sR1, 1\nrecdevs2 <-> recdevs2, 0, sR2, 1\n",
+    "linfdevs1 <-> linfdevs1, 0, sigLinf, 0.3\n")), data_list = d)
+  testthat::expect_error(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, estimateMode = 3, msmMode = 0, dsem = obj,
+    growthFun = Rceattle::build_growth(fun = "empirical"),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))),
+    "empirical weight-at-age")
+})

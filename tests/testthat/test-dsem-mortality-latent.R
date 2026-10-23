@@ -318,6 +318,46 @@ testthat::test_that("an M latent is refused beside a RANDOM M1 linkage, not a fi
   # The fixed one is allowed and the index map is built.
   g <- build_dsem_objects(dsem_settings = sem, data_list = mk(~ BT))
   testthat::expect_length(g$tmb_inputs$data$mdev_col, 1L)
+
+  # A species named rather than numbered is the same species.
+  d <- mk(~ BT)
+  d$M1_linkages <- Rceattle::build_M1(linkages = list(M1 = Rceattle::linkage_spec(
+    formula = ~ (1 | Year), species = d$spnames[1])))$linkages
+  testthat::expect_error(build_dsem_objects(dsem_settings = sem, data_list = d),
+                         "RANDOM M1 linkage")
+
+  # A hand-built linkage that is not a linkage_spec() is named, not parsed.
+  d$M1_linkages <- list(M1 = unclass(d$M1_linkages$M1))
+  testthat::expect_error(build_dsem_objects(dsem_settings = sem, data_list = d),
+                         "not a linkage_spec\\(\\) object")
+})
+
+
+testthat::test_that("pre-built DSEM objects are checked against the fitted data_list", {
+  testthat::skip_if_not_installed("dsem")
+
+  # build_dsem_objects() sees only the data_list it is given, which need not
+  # carry the M1Fun settings fit_mod() applies later.
+  fit <- .m_fit(SEM_M)
+  d   <- fit$data_list
+  d$M1_linkages <- NULL
+  d$M1_re <- 0
+  obj <- build_dsem_objects(dsem_settings = Rceattle::build_DSEM(sem = SEM_M),
+                            data_list = d)
+  refit <- function(M1Fun) suppressWarnings(Rceattle::fit_mod(
+    data_list = d, estimateMode = 3, msmMode = 0, dsem = obj, M1Fun = M1Fun,
+    growthFun = Rceattle::build_growth(fun = "vonBertalanffy"),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0)))
+
+  testthat::expect_error(
+    refit(Rceattle::build_M1(linkages = list(
+      M1 = Rceattle::linkage_spec(~ (1 | Year))))), "RANDOM M1 linkage")
+  testthat::expect_error(refit(Rceattle::build_M1(M1_model = 1, M1_re = 2)),
+                         "`M1_re` is already non-zero")
+  # Nothing to refuse: the objects build.
+  testthat::expect_length(refit(Rceattle::build_M1())$dsem$tmb_inputs$data$mdev_col,
+                          1L)
 })
 
 
@@ -453,4 +493,32 @@ testthat::test_that("a fixed M1 linkage and the latent add on the log scale", {
   testthat::expect_gt(max(abs(link)), 1e-3)
   testthat::expect_gt(max(abs(latent)), 1e-3)
   testthat::expect_equal(both, link + latent, tolerance = 1e-12)
+})
+
+
+testthat::test_that("the random-linkage refusal resolves species names and sex", {
+  testthat::skip_if_not_installed("dsem")
+
+  # GOA2018SS: three species, the second (arrowtooth) two-sex. Under
+  # `by = ~ species` a linkage's `sex` is not a stratum, so it covers both
+  # sexes; under `by = ~ species + sex` it covers only the sex named.
+  d <- Rceattle::GOA2018SS
+  d$random_rec <- TRUE
+  rnd <- function(...) Rceattle::build_M1(linkages = list(
+    M1 = Rceattle::linkage_spec(~ (1 | Year), ...)))$linkages
+  build <- function(col, lk) {
+    d$M1_linkages <- lk
+    suppressWarnings(build_dsem_objects(Rceattle::build_DSEM(sem = paste0(
+      "recdevs1 <-> recdevs1, 0, sR1, 1\nrecdevs2 <-> recdevs2, 0, sR2, 1\n",
+      "recdevs3 <-> recdevs3, 0, sR3, 1\n", col, " <-> ", col, ", 0, sM, 0.2\n")),
+      data_list = d))
+  }
+  msg <- "RANDOM M1 linkage"
+
+  testthat::expect_error(build("mdevs2f", rnd(species = d$spnames[2])), msg)
+  testthat::expect_length(build("mdevs1", rnd(species = d$spnames[2]))$tmb_inputs$data$mdev_col, 1L)
+  male <- rnd(species = 2, sex = 2, by = ~ species + sex)
+  testthat::expect_error(build("mdevs2m", male), msg)
+  testthat::expect_length(build("mdevs2f", male)$tmb_inputs$data$mdev_col, 1L)
+  testthat::expect_error(build("mdevs2f", rnd(species = 2, sex = 2)), msg)
 })

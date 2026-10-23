@@ -571,6 +571,64 @@ dsem_family_object <- function( fam ){
                                                 "growth_m")]
 
 
+# The first RANDOM linkage spec under `keys` (every key when NULL) that covers
+# any latent at 1-based species `sp` and sex `sex`, with `hit` over `sp`; NULL
+# if there is none. A spec's `species` holds ids or names, matched to `spnames`.
+#' @noRd
+.random_linkage_cover <- function(linkages, sp, spnames, keys = NULL, sex = NULL) {
+  groups <- if (is.null(keys)) linkages else
+    linkages[intersect(keys, names(linkages))]
+  for (specs in groups) {
+    # A key holds one spec, or a list of them (the per-species-formula form).
+    if (inherits(specs, "Rceattle_linkage_spec")) specs <- list(specs)
+    for (spec in specs) {
+      if (!inherits(spec, "Rceattle_linkage_spec")) {
+        stop("A linkage in `data_list` is not a linkage_spec() object. Build ",
+             "linkages with linkage_spec() inside build_M1() or build_growth().",
+             call. = FALSE)
+      }
+      if (!length(.parse_linkage_formula(spec[["formula"]])$re_terms)) next
+      # A spec with no `species` applies to every species.
+      cover <- spec[["species"]]
+      if (is.character(cover)) cover <- match(trimws(cover), trimws(spnames))
+      hit <- if (is.null(cover)) rep(TRUE, length(sp)) else sp %in% cover
+      # `sex` restricts a spec only where it is stratified by sex (`by`).
+      if (!is.null(sex) && !is.null(spec[["sex"]]) &&
+          "sex" %in% all.vars(spec[["by"]])) {
+        hit <- hit & sex %in% spec[["sex"]]
+      }
+      if (any(hit)) return(list(spec = spec, hit = hit))
+    }
+  }
+  NULL
+}
+
+
+# Run the per-process refusals on a built DSEM's own index maps, so they cover
+# objects from build_dsem_objects() handed to fit_mod() as well as a spec.
+#' @param data_list the data_list the model is fitted with.
+#' @param obj built DSEM objects carrying `$tmb_inputs`.
+#' @noRd
+.check_dsem_support <- function(data_list, obj) {
+  dt  <- obj[["tmb_inputs"]][["data"]]
+  nm  <- colnames(dt[["y_tj"]])
+  # Maps of disagreeing lengths are the template's to refuse, with its own
+  # message (ceattle.cpp sections 5.5b-growth and 5.5b-M), so a process whose
+  # maps do not line up is left to it.
+  aligned <- function(f) length(unique(lengths(lapply(f, function(x) dt[[x]])))) == 1L
+  g <- dt[["growth_dev_col"]] %||% integer(0)
+  if (aligned(c("growth_dev_col", "growth_dev_sp", "growth_dev_sex", "growth_dev_par"))) {
+    .check_dsem_growth_model(data_list, nm[g + 1L], dt[["growth_dev_sp"]] + 1L,
+                             dt[["growth_dev_par"]], dt[["growth_dev_sex"]] + 1L)
+  }
+  m <- dt[["mdev_col"]] %||% integer(0)
+  if (aligned(c("mdev_col", "mdev_sp", "mdev_sex"))) {
+    .check_dsem_m_support(data_list, nm[m + 1L], dt[["mdev_sp"]] + 1L,
+                          dt[["mdev_sex"]] + 1L)
+  }
+}
+
+
 # Refuse a growth latent the species' growth model never reads. Empirical
 # weight-at-age (`growth_model` 0) has no growth parameters at all, and von
 # Bertalanffy (1) has no Richards `m` -- `R/3-build_map.R` maps `log_m` out at
@@ -579,15 +637,36 @@ dsem_family_object <- function( fam ){
 # believes is time-varying and is not. Refused rather than warned because the
 # user named the column explicitly.
 #
-# `growth_model` is set by fit_mod() from `growthFun` before build_dsem_objects()
-# runs, so the fitted path always has it; a direct caller may not, and there is
-# nothing to check against then.
-#' @param growth_model Per-species growth switch, or NULL.
-#' @param cols,sp,par The named growth latents, their 1-based species, and their
-#'   `LINKAGE_PARAM_CODES$growth` slot.
+# Also refuse one beside a RANDOM growth linkage on the same parameter: two
+# random fields on it, each scored by its own density. A FIXED linkage composes.
+#
+# `growth_model` is set by fit_mod() from `growthFun`; a direct caller of
+# build_dsem_objects() may not have it, and there is nothing to check against then.
+#' @param data_list carries `growth_model`, `growth_linkages` and `spnames`.
+#' @param cols,sp,par,sex The named growth latents, their 1-based species, their
+#'   `LINKAGE_PARAM_CODES$growth` slot, and their 1-based sex (NULL for any).
 #' @noRd
-.check_dsem_growth_model <- function(growth_model, cols, sp, par) {
-  if (is.null(growth_model) || !length(cols)) return(invisible(NULL))
+.check_dsem_growth_model <- function(data_list, cols, sp, par, sex = NULL) {
+  if (!length(cols)) return(invisible(NULL))
+  codes <- LINKAGE_PARAM_CODES$growth
+  for (p in unique(par)) {
+    on_p <- par == p
+    key  <- names(codes)[codes == p]
+    rnd  <- .random_linkage_cover(data_list[["growth_linkages"]], sp[on_p],
+                                  data_list[["spnames"]], keys = key,
+                                  sex = sex[on_p])
+    if (is.null(rnd)) next
+    stop("The sem drives growth (", paste(cols[on_p][rnd$hit], collapse = ", "),
+         ") for species that also carry a RANDOM ", key, " growth linkage (",
+         deparse(rnd$spec[["formula"]]), "). Each is a random field on ", key,
+         ", scored by its own density, so ", key, " would carry two with ",
+         "nothing to tell them apart. Use the sem or the linkage, not both. A ",
+         "FIXED growth linkage does compose with the latent and is not refused.",
+         call. = FALSE)
+  }
+
+  growth_model <- data_list[["growth_model"]]
+  if (is.null(growth_model)) return(invisible(NULL))
   gm <- rep_len(as.integer(growth_model), max(sp))
   m_slot <- unname(LINKAGE_PARAM_CODES$growth[["m"]])
   bad_empirical <- gm[sp] == 0L
@@ -629,33 +708,25 @@ dsem_family_object <- function( fam ){
 # numbers-at-age are input, but the Baranov catch equation reads Z, so the catch
 # likelihood still informs the latent -- weaker than for an estimated-N species,
 # not inert. Measured figures in inst/dev/TRAPS.md.
-#' @param data_list carries `M1_re` and `M1_linkages`; absent means no M random
-#'   effects.
-#' @param cols,sp the named M latents and their 1-based species.
+#' @param data_list carries `M1_re`, `M1_linkages` and `spnames`; absent means
+#'   no M random effects.
+#' @param cols,sp,sex the named M latents, their 1-based species, and their
+#'   1-based sex (NULL for any).
 #' @noRd
-.check_dsem_m_support <- function(data_list, cols, sp) {
+.check_dsem_m_support <- function(data_list, cols, sp, sex = NULL) {
   if (!length(cols)) return(invisible(NULL))
 
   # A FIXED M1 linkage is the intended pairing -- the covariate carries the
   # explained part, the latent the residual -- and composes via `+=`.
-  lk <- data_list[["M1_linkages"]]
-  # `M1_linkages` holds a spec or a LIST of specs per key (the per-species-formula
-  # form); flatten to one list of specs.
-  specs <- if (is.null(lk)) list() else unlist(lapply(lk, function(x)
-    if (inherits(x, "Rceattle_linkage_spec")) list(x) else x), recursive = FALSE)
-  for (spec in specs) {
-    if (!length(.parse_linkage_formula(spec[["formula"]])$re_terms)) next
-    # A spec with no `species` applies to every species.
-    cover <- spec[["species"]]
-    hit <- if (is.null(cover)) rep(TRUE, length(sp)) else sp %in% as.integer(cover)
-    if (!any(hit)) next
-    stop("The sem drives natural mortality (", paste(cols[hit], collapse = ", "),
+  rnd <- .random_linkage_cover(data_list[["M1_linkages"]], sp,
+                               data_list[["spnames"]], sex = sex)
+  if (!is.null(rnd)) {
+    stop("The sem drives natural mortality (", paste(cols[rnd$hit], collapse = ", "),
          ") for species that also carry a RANDOM M1 linkage (",
-         deparse(spec[["formula"]]), "). Both write the same tensor, ",
-         "M_linkage_offset, each scored by its own density, so M would carry ",
-         "two year-varying fields with nothing to tell them apart. Use the sem ",
-         "or the linkage, not both. A FIXED M1 linkage does compose with the ",
-         "latent and is not refused.", call. = FALSE)
+         deparse(rnd$spec[["formula"]]), "). Each is a random field on M1, ",
+         "scored by its own density, so M would carry two with nothing to tell ",
+         "them apart. Use the sem or the linkage, not both. A FIXED M1 linkage ",
+         "does compose with the latent and is not refused.", call. = FALSE)
   }
 
   m1_re <- data_list[["M1_re"]]
@@ -1061,10 +1132,6 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
     as.integer(unlist(lapply(g_reg, `[[`, "sex"), use.names = FALSE)[keep] - 1L)
   fit_dsem$tmb_inputs$data$growth_dev_par <-
     as.integer(unlist(lapply(g_reg, `[[`, "param"), use.names = FALSE)[keep])
-  .check_dsem_growth_model(
-    data_list[["growth_model"]], g_col[keep],
-    fit_dsem$tmb_inputs$data$growth_dev_sp + 1L,
-    fit_dsem$tmb_inputs$data$growth_dev_par)
 
   # Natural mortality latents the sem names. No param slot: M_linkage_offset is
   # (nspp, max_sex, max_age, nyrs), so the template needs species and sex and
@@ -1075,8 +1142,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   fit_dsem$tmb_inputs$data$mdev_col <- as.integer(m_hit[m_keep] - 1L)
   fit_dsem$tmb_inputs$data$mdev_sp  <- as.integer(m_reg$species[m_keep] - 1L)
   fit_dsem$tmb_inputs$data$mdev_sex <- as.integer(m_reg$sex[m_keep] - 1L)
-  .check_dsem_m_support(data_list, m_reg$columns[m_keep],
-                        m_reg$species[m_keep])
+  .check_dsem_support(data_list, fit_dsem)
 
   rec_dev_col <- match(rec_cols, colnames(dsem_data)) - 1L
   n_rec_named <- sum(!is.na(rec_dev_col))

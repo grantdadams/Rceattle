@@ -204,7 +204,9 @@ separate univariate density rather than part of the SEM's joint field.
 
 A growth latent is refused where the species' growth model never reads that
 parameter: any of them under empirical weight-at-age, and `richdevs` under von
-Bertalanffy, whose `m` is mapped out.
+Bertalanffy, whose `m` is mapped out. It is also refused beside a **random**
+growth linkage on the same parameter, which would be a second random field on
+it, each scored by its own density; a fixed linkage composes with it.
 
 ### Natural mortality
 

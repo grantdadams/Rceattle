@@ -186,7 +186,28 @@ numbered on the 5.23.0 line.
   matters because `data_check()` soft-deprecates `M1_re` 1-5 in
   favour of exactly that grammar, so a user following the advice would have
   landed in the configuration the refusal exists to prevent. A FIXED M1 linkage
-  still composes with the latent and is not refused.
+  still composes with the latent and is not refused. A species given by name in
+  `linkage_spec(species = )` is matched to `spnames`, as it is everywhere else,
+  and a linkage stratified by sex (`by = ~ species + sex`, `sex = `) is refused
+  only beside a latent for that sex. A hand-built `data_list` whose
+  `M1_linkages` holds a spec not made by `linkage_spec()` now stops and says so,
+  instead of failing with a misleading formula-parsing error; every `build_M1()`
+  route produces `linkage_spec()` objects.
+
+* **A growth latent is refused beside a RANDOM growth linkage on the same
+  parameter** -- a `linfdevs` latent beside `linkages = list(Linf =
+  linkage_spec(~ (1 | Year)))`, say -- for the reason the M latent is: two
+  random fields on one parameter, each scored by its own density. A FIXED
+  growth linkage composes, a random one on a different growth parameter is not
+  refused, and a sex-stratified one is refused only beside that sex's latent.
+
+* **The DSEM refusals now apply to objects from `build_dsem_objects()` passed
+  to `fit_mod(dsem = )`.** They ran only inside `build_dsem_objects()`, against
+  the data_list it was given, which need not carry the `M1Fun` and `growthFun`
+  settings `fit_mod()` applies afterwards. So pre-built objects fitted an M
+  latent beside `M1_re` or a random M1 linkage, a growth latent under empirical
+  weight-at-age, and a `richdevs` latent under von Bertalanffy, with nothing
+  said. `fit_mod()` now checks them against the data_list it fits with.
 
 * **The growth and M index maps are checked for agreeing lengths.** Each is
   several parallel vectors -- one entry per latent -- supplied as independent

@@ -775,6 +775,9 @@ fit_mod <-
         # Pre-built objects reach this branch from outside the package, so they
         # may carry dsem's bare class; a no-op on one already subclassed.
         mod_objects$dsem <- .as_rceattle_dsem(dsem)
+        # build_dsem_objects() checked them against the data_list it was given,
+        # which may predate M1Fun and growthFun; check against this one.
+        .check_dsem_support(data_list, dsem)
         # Record the specification alongside the built objects. .refit_like()
         # and the diagnostic guards read data_list$dsem_settings, so a fit built
         # from pre-built objects would otherwise look DSEM-free to them.
