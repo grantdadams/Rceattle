@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.64.0.9007`, the released line this branch now
+number: `DESCRIPTION` reads `5.64.0.9008`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -181,9 +181,9 @@ numbered on the 5.23.0 line.
   the GMRF draw was in fact happening. The same false alarm the growth arm had.
 
 * **An M latent is refused beside a RANDOM `M1` linkage.** That is a closer
-  conflict than the `M1_re` one, not a looser one: a random M1 linkage and the
-  latent write the same `M_linkage_offset` tensor, each scored by its own
-  density. It matters because `data_check()` soft-deprecates `M1_re` 1-5 in
+  conflict than the `M1_re` one, not a looser one: a random M1 linkage is a
+  second random field on the same M1, each scored by its own density. It
+  matters because `data_check()` soft-deprecates `M1_re` 1-5 in
   favour of exactly that grammar, so a user following the advice would have
   landed in the configuration the refusal exists to prevent. A FIXED M1 linkage
   still composes with the latent and is not refused.

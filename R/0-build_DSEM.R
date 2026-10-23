@@ -526,7 +526,7 @@ dsem_family_object <- function( fam ){
       growth_dev_par    = as.integer(d$growth_dev_par %||% integer(0)),
       # Empty for any `dsem` saved before M was drivable.
       mdev_col          = as.integer(d[["mdev_col"]] %||% integer(0)),
-      mdev_sp           = as.integer(d$mdev_sp  %||% integer(0)),
+      mdev_sp           = as.integer(d[["mdev_sp"]] %||% integer(0)),
       mdev_sex          = as.integer(d[["mdev_sex"]] %||% integer(0)),
       rec_sd_idx        = as.integer(d$rec_sd_idx),
       rec_sd_fixed      = as.numeric(d$rec_sd_fixed),
@@ -611,11 +611,10 @@ dsem_family_object <- function( fam ){
   invisible(NULL)
 }
 
-# Refuse a SEM M latent where M1_re already makes M time-varying. Both write the
-# SAME exp(): `M1_at_age = exp(log_M1 + log_M1_dev + ... + M_linkage_offset)`
-# (ceattle.cpp section 6.1), where M1_re fills `log_M1_dev` and the SEM fills
-# `M_linkage_offset`. Two time-varying M processes, each scored by its own
-# density, competing for the same signal.
+# Refuse a SEM M latent beside another time-varying M process for the same
+# species: M1_re, which fills `log_M1_dev`, or a RANDOM M1 linkage. Each enters
+# M1_at_age (ceattle.cpp section 6.1) beside the latent and is scored by its own
+# density, so two fields compete for the same signal.
 #
 # Modes 2 and 5 (by year, constant over ages) are the DSEM latent's shape
 # exactly; modes 3 and 6 vary by age AND year, so they contain that shape. Both
@@ -631,21 +630,17 @@ dsem_family_object <- function( fam ){
 # likelihood still informs the latent -- weaker than for an estimated-N species,
 # not inert. Measured figures in inst/dev/TRAPS.md.
 #' @param data_list carries `M1_re` and `M1_linkages`; absent means no M random
-#'   effects. Both are checked here, as `.check_dsem_growth_model()` checks its
-#'   two refusals together.
+#'   effects.
 #' @param cols,sp the named M latents and their 1-based species.
 #' @noRd
 .check_dsem_m_support <- function(data_list, cols, sp) {
   if (!length(cols)) return(invisible(NULL))
 
-  # A RANDOM M1 linkage is the closer conflict of the two: it writes the SAME
-  # tensor as the latent, each scored by its own density, and `data_check()`
-  # steers users to that grammar as M1_re's replacement, so it is the path they
-  # arrive on. A FIXED M1 linkage is the intended pairing -- the covariate
-  # carries the explained part, the latent the residual -- and composes via `+=`.
+  # A FIXED M1 linkage is the intended pairing -- the covariate carries the
+  # explained part, the latent the residual -- and composes via `+=`.
   lk <- data_list[["M1_linkages"]]
   # `M1_linkages` holds a spec or a LIST of specs per key (the per-species-formula
-  # form), so flatten before testing the class.
+  # form); flatten to one list of specs.
   specs <- if (is.null(lk)) list() else unlist(lapply(lk, function(x)
     if (inherits(x, "Rceattle_linkage_spec")) list(x) else x), recursive = FALSE)
   for (spec in specs) {
@@ -1362,15 +1357,12 @@ check_dsem_spec <- function(data_list, dsem) {
   if (is.null(ed) || is.null(ed$Year)) return(finish(out))
 
   # Paths into a latent node, one-headed (direction 1), SPLIT BY THE PROCESS the
-  # target drives. Before this they were pooled and reported under the rec_*
-  # names, so a growth-only sem got records called rec_design_conditioning and a
-  # mixed sem had its recruitment and growth predictors crammed into one design
-  # matrix whose condition number was attributed to recruitment. The prefix is
-  # enough to classify -- no data_list needed, which keeps this function's
-  # contract.
+  # target drives, so each process is reported under its own records and never
+  # shares a design matrix with another. The prefix is enough to classify -- no
+  # data_list needed, which keeps this function's contract.
   tgt <- as.character(sf$second)
   # NA-safe: `direction` is user-supplied on a hand-built sem_full, and
-  # `any(NA)` would make the guard below throw where it used to return OK.
+  # `any(NA)` would make the guard below throw.
   # Every neighbouring read of this column is equally defensive.
   dir1 <- suppressWarnings(as.numeric(sf$direction))
   dir1 <- !is.na(dir1) & dir1 == 1

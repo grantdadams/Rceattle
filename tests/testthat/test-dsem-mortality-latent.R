@@ -1,8 +1,7 @@
 # A DSEM natural-mortality latent must land on the right M_linkage_offset cell
-# -- right species, right sex, right year -- and must be FLAT over ages. The
-# flatness is the whole distinction from `M1_re`: one latent says "mortality was
-# high for this stock in this year", while an age-structured deviation is what
-# M1_re estimates. Nothing but the reported tensor can check that: the registry
+# -- right species, right sex, right year -- and must be FLAT over ages: one
+# latent says "mortality was high for this stock in this year". Nothing but the
+# reported tensor can check that: the registry
 # tests next door pin the latent NAMES, and the index map built from them is
 # pinned here, but neither says where a latent arrives in the tensor or how far
 # over ages it spreads.
@@ -133,6 +132,7 @@ testthat::test_that("the latent survives the niter loop and reaches M2 under pre
   e <- new.env(parent = asNamespace("Rceattle"))
   sys.source(testthat::test_path("helpers.R"), envir = e)
   sys.source(testthat::test_path("helpers-make-msm-data.R"), envir = e)
+  set.seed(3)
   d <- e$make_msm_test_data()$data_list
   d$random_rec <- TRUE
   set.seed(4)
@@ -218,6 +218,10 @@ testthat::test_that("an M latent beside a growth latent reaches only its own ten
 # covariate", and a covariate column is drawn UNCONDITIONALLY -- so an M column
 # fell through and `process = "recruitment"` silently redrew M as well. Every
 # replicate was then generated under M process error the caller did not ask for.
+# An M-only sem also reached the "this fit records no latent process columns"
+# refusal, which counted recruitment and growth only. And the "no distribution
+# to draw from" warning's M arm tested only `M1_re = 0 and no random linkage on
+# M`, so it fired on every M-driving DSEM while the GMRF draw was happening.
 
 testthat::test_that("sim_mod() draws the M field, and only what was asked for", {
   testthat::skip_if_not_installed("dsem")
@@ -238,7 +242,7 @@ testthat::test_that("sim_mod() draws the M field, and only what was asked for", 
                                             process = "recruitment"))
 
   # Asking for M moves M and holds recruitment; asking for recruitment does the
-  # reverse. The second half is the regression: it used to redraw M too.
+  # reverse.
   testthat::expect_gt(sd_of(d_m, mcol), 1e-8)
   testthat::expect_equal(sd_of(d_m, rcol), 0, tolerance = 1e-12)
   testthat::expect_gt(sd_of(d_r, rcol), 1e-8)
@@ -249,9 +253,6 @@ testthat::test_that("sim_mod() draws the M field, and only what was asked for", 
 testthat::test_that("an M-only sem can draw its process", {
   testthat::skip_if_not_installed("dsem")
 
-  # An M-only sem reached the "this fit records no latent process columns"
-  # refusal, which counted recruitment and growth only -- the twin of the
-  # drives-nothing bug in the build path.
   fit <- .m_fit("mdevs1 <-> mdevs1, 0, sigM1, 0.2\n")
   if (is.null(fit$obj$env$last.par.best))
     fit$obj$env$last.par.best <- fit$obj$env$par
@@ -267,10 +268,8 @@ testthat::test_that("an M-only sem can draw its process", {
 testthat::test_that("a DSEM M latent is not reported as having no distribution", {
   testthat::skip_if_not_installed("dsem")
 
-  # .check_dsem_m_support() REQUIRES M1_re = 0 to allow the latent, and the
-  # warning's M arm tested exactly `M1_re = 0 and no random linkage on M` -- so
-  # it fired on every M-driving DSEM, saying nothing was redrawn while the GMRF
-  # draw was happening. Same false alarm the growth arm had.
+  # Allowing the latent requires M1_re = 0, so this is the configuration the
+  # warning's M arm has to recognise as having a distribution.
   fit <- .m_fit(SEM_M)
   if (is.null(fit$obj$env$last.par.best))
     fit$obj$env$last.par.best <- fit$obj$env$par
@@ -293,8 +292,8 @@ testthat::test_that("a DSEM M latent is not reported as having no distribution",
 testthat::test_that("an M latent is refused beside a RANDOM M1 linkage, not a fixed one", {
   testthat::skip_if_not_installed("dsem")
 
-  # A random M1 linkage writes the SAME tensor as the latent, each scored by its
-  # own density. data_check() soft-deprecates M1_re 1-5 in favour of that
+  # A random M1 linkage is a second random field on M1, each scored by its own
+  # density. data_check() soft-deprecates M1_re 1-5 in favour of that
   # grammar, so a user following the advice lands here. A FIXED linkage is the
   # intended combination and composes through `+=`.
   e <- new.env(parent = asNamespace("Rceattle"))
@@ -322,16 +321,16 @@ testthat::test_that("an M latent is refused beside a RANDOM M1 linkage, not a fi
 })
 
 
+# Provenance: measured on GOA2018SS with a sem naming `mdevs1` + `mdevs2f`,
+# whose correct sum|M_linkage_offset| is 26.0400. A one-entry `mdev_sp` against a
+# two-entry `mdev_col` RAN and gave 16.8000 -- both latents on species 1, one
+# species' offset halved and the other's doubled -- and an empty
+# `mdev_sp`/`mdev_sex` segfaulted. `growth_dev_*` had the same hole.
 testthat::test_that("the index maps are refused at disagreeing lengths", {
   testthat::skip_if_not_installed("dsem")
 
-  # Provenance: measured on GOA2018SS with a sem naming `mdevs1` + `mdevs2f`,
-  # whose correct sum|M_linkage_offset| is 26.0400. A one-entry `mdev_sp`
-  # against a two-entry `mdev_col` RAN and gave 16.8000 -- both latents on
-  # species 1, one species' offset halved and the other's doubled -- and an
-  # empty `mdev_sp`/`mdev_sex` segfaulted. The maps are parallel vectors
-  # supplied as independent fields, so only a length check catches this; the
-  # value guards cannot see it. `growth_dev_*` had the same hole.
+  # The maps are parallel vectors supplied as independent fields, so only a
+  # length check catches a mismatch; the value guards cannot see it.
   fit <- .m_fit(SEM_M)
   d <- fit$data_list
   refit <- function(dsem_obj) suppressWarnings(Rceattle::fit_mod(
@@ -354,4 +353,104 @@ testthat::test_that("the index maps are refused at disagreeing lengths", {
   bad_g <- gg; bad_g$tmb_inputs$data$growth_dev_sex <- integer(0)
   testthat::expect_error(refit(bad_g),
                          "growth_dev_col/sp/sex/par have 1/1/0/1 entries")
+})
+
+
+# ---- the density the M latent is scored by ---------------------------------
+# All at estimateMode = 3 with the field at zero, so each quantity has a closed
+# form: an IID or AR1 Gaussian with known sigma and rho.
+
+testthat::test_that("the M latent is a random effect scored by the DSEM row", {
+  testthat::skip_if_not_installed("dsem")
+
+  fit <- .m_fit(SEM_M)
+  obj <- fit$obj
+  p   <- obj$env$par
+  nr  <- nrow(fit$dsem$tmb_inputs$data$y_tj)
+  j   <- which(colnames(fit$dsem$tmb_inputs$data$y_tj) == "mdevs1")
+  cells <- which(names(p) == "dsem_x_tj")[(j - 1L) * nr + seq_len(nr)]
+  # Every cell of the M column is integrated out by the Laplace approximation.
+  testthat::expect_true(all(cells %in% obj$env$random))
+
+  # +0.3 on one cell of an IID N(0, 0.2^2) field at zero moves the DSEM row by
+  # 0.3^2 / (2 * 0.2^2) = 1.125 nats exactly.
+  r0 <- obj$report(p)
+  p[cells[5]] <- p[cells[5]] + 0.3
+  r1 <- obj$report(p)
+  row <- jnll_row("DSEM")
+  testthat::expect_equal(sum(r1$jnll_comp[row, ]) - sum(r0$jnll_comp[row, ]),
+                         0.3^2 / (2 * 0.2^2), tolerance = 1e-8)
+})
+
+
+testthat::test_that("an AR1 M latent is bias-corrected on its marginal variance", {
+  testthat::skip_if_not_installed("dsem")
+
+  # rho fixed at 0.8 (NA name), sigma 0.2, field at zero, first year at 0.04:
+  # margvar_t = 0.04 * sum_{k < t} 0.8^(2k). The innovation variance is 0.04 in
+  # every year, so the identity below cannot hold on it.
+  fit <- .m_fit(paste0(REC1, "mdevs1 <-> mdevs1, 0, sigM1, 0.2\n",
+                       "mdevs1 -> mdevs1, 1, NA, 0.8\n"))
+  r   <- fit$obj$report(fit$obj$env$par)
+  dt  <- fit$dsem$tmb_inputs$data
+  nyd <- dt$nyrs_dsem
+  col <- dt$mdev_col + 1L
+  mv  <- r$dsem_margvar_tj[seq_len(nyd), col]
+  testthat::expect_equal(as.numeric(mv),
+                         0.04 * cumsum(0.64^(seq_len(nyd) - 1L)), tolerance = 1e-8)
+  testthat::expect_equal(as.numeric(r$M_linkage_offset[1, 1, 1, seq_len(nyd)]),
+                         as.numeric(-fit$data_list$bias_adjust_proc * mv / 2),
+                         tolerance = 1e-12)
+})
+
+
+testthat::test_that("an NA-named M variance is pinned, not estimated", {
+  testthat::skip_if_not_installed("dsem")
+
+  fit <- .m_fit(paste0(REC1, "mdevs1 <-> mdevs1, 0, NA, 0.2\n"))
+  sf  <- fit$dsem$sem_full
+  testthat::expect_equal(as.integer(sf$parameter[sf$path == "mdevs1 <-> mdevs1"]), 0L)
+  # Only the recruitment SD is free, and the pinned value is the one used.
+  testthat::expect_length(fit$obj$env$parList()$dsem_beta_z, 1L)
+  r  <- fit$obj$report(fit$obj$env$par)
+  mv <- r$dsem_margvar_tj[, fit$dsem$tmb_inputs$data$mdev_col + 1L]
+  testthat::expect_equal(as.numeric(mv), rep(0.04, length(mv)), tolerance = 1e-12)
+})
+
+
+testthat::test_that("a fixed M1 linkage and the latent add on the log scale", {
+  testthat::skip_if_not_installed("dsem")
+
+  e <- new.env(parent = asNamespace("Rceattle"))
+  sys.source(testthat::test_path("helpers.R"), envir = e)
+  d <- e$make_test_data(nyrs = 12L, nprojyrs = 3L, nages = 8L, minage = 1L,
+                        growth = "vonBertalanffy", seed = 1)
+  d$random_rec <- TRUE
+  set.seed(4)
+  d$env_data <- data.frame(Year = seq(d$styr, d$endyr), BT = stats::rnorm(12))
+  fit_with <- function(sem, M1Fun) suppressWarnings(Rceattle::fit_mod(
+    data_list = d, estimateMode = 3, msmMode = 0, M1Fun = M1Fun,
+    growthFun = Rceattle::build_growth(fun = "vonBertalanffy"),
+    dsem = Rceattle::build_DSEM(sem = sem),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0)))
+  lk <- Rceattle::build_M1(linkages = list(M1 = Rceattle::linkage_spec(~ BT)))
+  # Move the linkage coefficient and one latent cell, each where it exists.
+  offset_at <- function(fit) {
+    p <- fit$obj$env$par
+    p[names(p) == "beta_linkage"] <- 0.3
+    j <- which(colnames(fit$dsem$tmb_inputs$data$y_tj) == "mdevs1")
+    if (length(j)) {
+      nr <- nrow(fit$dsem$tmb_inputs$data$y_tj)
+      k  <- which(names(p) == "dsem_x_tj")[(j - 1L) * nr + 5L]
+      p[k] <- p[k] + 0.5
+    }
+    fit$obj$report(p)$M_linkage_offset
+  }
+  both   <- offset_at(fit_with(SEM_M, lk))
+  link   <- offset_at(fit_with(REC1, lk))
+  latent <- offset_at(fit_with(SEM_M, Rceattle::build_M1()))
+  testthat::expect_gt(max(abs(link)), 1e-3)
+  testthat::expect_gt(max(abs(latent)), 1e-3)
+  testthat::expect_equal(both, link + latent, tolerance = 1e-12)
 })

@@ -1615,8 +1615,9 @@ Measured 2026-10-19, `estDynamics = 1`, `msmMode = 0`, a +0.5 spike on `mdevs1`:
 | `catch_hat` | 1.112 |
 | `N_at_age`, `biomass`, `index_hat` | **exactly 0** |
 
-Numbers-at-age are input, so the latent reaches no population quantity — but the
-Baranov catch equation reads Z, so the catch likelihood informs it. An
+Numbers-at-age are input, so N, biomass and the index do not move — but Z does,
+and with it average numbers and the Baranov catch, so the catch likelihood
+informs the latent. An
 independent probe measured the same from the objective side: −83.3 nats, with
 `jnll_comp` rows 2 (catch), 3 (comps) and 23 (DSEM) moving.
 

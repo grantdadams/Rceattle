@@ -221,30 +221,31 @@ species' own M2 by 1.5% and the other two species' by 3.1% and 4.3%.
 The correction that makes mean `M1` unbiased does not make mean survivorship
 unbiased — `exp(-M)` is convex, so SB0 and B40% keep a Jensen bias, and because
 the latent is flat over ages a per-recruit quantity is exposed to it roughly
-`nages`-fold: measured by quadrature on a 10-age, M = 0.2 stock, mean SPR0 sits
-4.6% above its value at a zero latent at sigma 0.2 and 28% above it at sigma 0.5.
+`nages`-fold. For a 10-age stock with M = 0.2, a plus group and unit maturity and
+weight, mean SPR0 over the latent's distribution sits 3.7% above its value with
+no latent at sigma 0.2, and 26% above it at sigma 0.5.
 
 **A lagged path into an `mdevs` column is not flagged, and carries a further
 trap.** The correction is applied per year, and a lagged path makes the marginal
 variance grow along the series, so the subtraction imposes a deterministic trend
 on M even with every latent state at zero. On `GOA2018SS` a random-walk M latent
 moved terminal-year M1 from 0.200 to 0.086 and SPR0 from 1.23 to 8.17. Nothing
-warns, because the effect is smooth in rho — an unlagged latent costs 5.5% and
-rho 0.3 costs 6.0%, so no threshold separates them. Use an unlagged latent, or
-`fit_control(bias_adjust_proc = 0)`. `inst/dev/TRAPS.md` has the full table.
+warns, because the effect is smooth in rho: on the same stock, with every latent
+state at zero, SPR0 sits 5.5% above its no-latent value under an unlagged latent
+and 6.0% above it at rho 0.3, so no threshold separates them. Use an unlagged
+latent, or `fit_control(bias_adjust_proc = 0)`. `inst/dev/TRAPS.md` has the full
+table.
 
-That flatness is the dividing line with `M1_re`, which estimates an
-age-structured mortality deviation on its own univariate density. The two
-describe the same parameter, so a sem that names an M latent for a species whose
-`M1_re` is on is refused — pick one. `M1_re` modes 2 and 5 are
-year-varying, which is this latent's shape exactly, and 3 and 6 vary by age and
-year, which contains it; modes 1 and 4 are age-only, and are refused as well
-because a flat annual multiplier beside an age-only deviation is a configuration
-nobody has shown identified.
+`M1_re` estimates its own mortality deviations, on its own univariate density,
+and they describe the same parameter as the latent — so a sem that names an M
+latent for a species whose `M1_re` is on is refused; pick one. `M1_re` modes 2
+and 5 vary by year alone, which is this latent's shape exactly, and 3 and 6 vary
+by age and year, which contains it; modes 1 and 4 are age-only, and are refused
+as well because a flat annual multiplier beside an age-only deviation is a
+configuration nobody has shown identified.
 
-A **random** `M1` linkage is refused for the same reason and more directly: it
-writes the same `M_linkage_offset` tensor the latent does, each scored by its own
-density. That matters because `data_check()` steers you from `M1_re` towards the
+A **random** `M1` linkage is refused for the same reason and more directly: it is
+a second year-varying field on the same `M1`, each scored by its own density. That matters because `data_check()` steers you from `M1_re` towards the
 linkage grammar, so it is the path you arrive on. A **fixed** M linkage composes
 with the latent and is not refused.
 

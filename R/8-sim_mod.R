@@ -123,8 +123,8 @@
   hit <- character(0)
 
   # A DSEM M latent IS an M process with a distribution, drawn from the GMRF in
-  # .dsem_draw_process(); and allowing it REQUIRES M1_re = 0, so the M1_re test
-  # above cannot stand alone.
+  # .dsem_draw_process(), and allowing one requires M1_re = 0 -- so the M arm
+  # below tests for a latent as well as for M1_re.
   m1_re <- suppressWarnings(as.integer(obj$env$data$M1_re))
   if (state[2] == 1L && !any(m1_re > 0, na.rm = TRUE) &&
       !.sim_linkage_drawn(obj, c(0L, 1L, 0L, 0L, 0L)) &&
@@ -132,8 +132,7 @@
     hit <- c(hit, "M (M1_re = 0, no random linkage on M, and no DSEM M latent)")
   }
   # A DSEM growth latent is a growth process WITH a distribution -- it is drawn
-  # from the GMRF in .dsem_draw_process(). Reporting it as absent here sent a
-  # user (and a maintainer) looking for a missing draw that was happening.
+  # from the GMRF in .dsem_draw_process() -- so it is not reported as absent.
   if (state[3] == 1L && !.sim_linkage_drawn(obj, c(0L, 0L, 1L, 0L, 0L)) &&
       !length(obj$env$data$growth_dev_par %||% integer(0))) {
     hit <- c(hit, "growth (no random linkage on a growth parameter, and no DSEM growth latent)")
@@ -927,7 +926,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
   # draw is gated off under a DSEM (ceattle.cpp section 5.13); the field is drawn
   # here instead, from the SAME precision the density uses, and written into
   # dsem_x_tj so the model derives rec_dev from it and applies the lognormal
-  # bias correction once, where it always is.
+  # bias correction once, in the template, as for an unsimulated fit.
   #
   # Gate on the RESOLVED state vector rather than on `process`, which also
   # accepts "all", "dynamics" and "recruitment" -- isTRUE() is FALSE for each.
@@ -966,7 +965,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     # Under a DSEM the recruitment process is redrawn HERE rather than in the
     # template: the field is drawn from the reported precision and substituted
     # into the parameter vector, so the model derives rec_dev from the drawn
-    # states and applies the lognormal bias correction once, where it always is.
+    # states and applies the lognormal bias correction once, in the template.
     # Substituting into `par` rather than rebuilding keeps the observation draws
     # on the same object -- a rebuild would trip .sim_check_rebuild(), which
     # (correctly) reports a model whose predictions have moved.

@@ -318,6 +318,7 @@ testthat::test_that(".dsem_drives() answers per growth parameter, not just recru
   r <- build_dsem_objects(dsem_settings = build_DSEM(), data_list = d)
   testthat::expect_true(.dsem_drives(r, "recruitment"))
   testthat::expect_false(.dsem_drives(r, "growth_L1"))
+  testthat::expect_false(.dsem_drives(r, "natural_mortality"))
 })
 
 testthat::test_that("a growth latent the species' growth model never reads is refused", {
