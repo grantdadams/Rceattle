@@ -1605,6 +1605,24 @@ stops in `MakeADFun` with `std::bad_alloc` in `getParameterOrder` (measured on
 standalone `dsem` does not fail this way). `test-dsem-constant-variance.R`
 compares the settings only on sems with no lags, which is how this went unseen.
 
+**What it costs in a FITTED model -- small, so the default stays
+`"conditional"` (Grant, 2026-10-23).** Everything above is at a zero field.
+Fitted on `BS2017SS` (species 1, `estimateMode = 0`), `"diagonal"` against
+`"conditional"`:
+
+| sem | SPR0 | B40% (terminal) | terminal SSB |
+|---|---|---|---|
+| IID (control) | identical | identical | identical |
+| AR1 M latent, rho est. 0.32 / 0.33 | -0.5% | -0.1% | +0.0% |
+| AR1 rec + AR1 M, rho est. 0.65 / 0.59, 0.42 / 0.46 | -4.8% | -1.1% | +0.3% |
+| AR1 M, rho fixed 0.9 | -6.3% | +0.5% | +0.9% |
+
+At rho 0.9 SPR0 moves 6%, against 20% for the same two settings at a zero field
+(1.2973 / 1.61969 above). Not a clean comparison -- a different stock, sigma
+estimated (0.34 conditional, 0.66 diagonal) rather than fixed at 0.2 -- and all
+eight fits ended at status NOTE. One stock; a high-rho latent on a stock where
+SPR0 sets the ABC is where to look again.
+
 **Why |rho| >= 1 is refused.** In `src/TMB/dsem.hpp`'s rescaling branches the
 solve named `margvar_k1` returns the yearly INNOVATION variance that holds the
 marginal one constant -- sigma^2 in year 1, sigma^2 (1 - rho^2) after it at lag

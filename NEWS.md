@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.64.0.9010`, the released line this branch now
+number: `DESCRIPTION` reads `5.64.0.9011`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -183,8 +183,11 @@ numbered on the 5.23.0 line.
   carried the same correction since the DSEM arrived, growth since it became
   drivable. `build_DSEM(constant_variance = "diagonal")` holds the marginal
   variance constant and so removes the trend for |rho| < 1, and
-  `fit_control(bias_adjust_proc = 0)` turns the correction off. Recorded with
-  the full table in `inst/dev/TRAPS.md`.
+  `fit_control(bias_adjust_proc = 0)` turns the correction off. In fitted
+  `BS2017SS` models the estimated states absorb most of it: switching to
+  `"diagonal"` moved SPR0 by 0.5% at an estimated rho of 0.3 and 6.3% at rho
+  fixed at 0.9, and B40% by at most 1.1%. The default stays `"conditional"`.
+  Recorded with the full table in `inst/dev/TRAPS.md`.
 
 * **`constant_variance = "marginal"` or `"diagonal"` with a lagged self-path at
   |rho| >= 1 is refused.** Both settings solve for the yearly innovation

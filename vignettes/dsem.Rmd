@@ -234,7 +234,10 @@ on M even with every latent state at zero. On `GOA2018SS` a random-walk M latent
 moved terminal-year M1 from 0.200 to 0.086 and SPR0 from 1.23 to 8.17. Nothing
 warns, because the effect is smooth in rho: on the same stock, with every latent
 state at zero, SPR0 sits 5.5% above its no-latent value under an unlagged latent
-and 6.0% above it at rho 0.3, so no threshold separates them. Use an unlagged
+and 6.0% above it at rho 0.3, so no threshold separates them. In a fitted model
+the estimated states absorb most of it: on `BS2017SS`, holding the marginal
+variance constant moved SPR0 by 0.5% at an estimated rho of 0.3 and 6.3% at rho
+fixed at 0.9, and B40% by at most 1.1%. Use an unlagged
 latent; `build_DSEM(constant_variance = "diagonal")`, which holds the marginal
 variance constant and so removes the trend for |rho| < 1; or
 `fit_control(bias_adjust_proc = 0)`. `inst/dev/TRAPS.md` has the full table.
