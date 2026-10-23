@@ -286,6 +286,14 @@ testthat::test_that("retrospective warns that forecast_rec is inert, whatever pe
       invokeRestart("muffleWarning")
     })
   testthat::expect_false(any(grepl("inert on this fit", warned)))
+
+  # And no map-drift warning on a freshly fitted model. The check rebuilds the
+  # map with build_map(), which knows nothing about the DSEM, so it used to
+  # report rec_dev, R_log_sd and the dsem_* blocks on EVERY DSEM fit -- the
+  # three things a SEM is supposed to change. Reaching a user as "your saved
+  # fit is stale" when nothing was stale, it taught them to read past a check
+  # that still has to catch real drift in every other block.
+  testthat::expect_false(any(grepl("stored map differs", warned)))
 })
 
 

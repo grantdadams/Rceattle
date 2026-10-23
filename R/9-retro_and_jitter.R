@@ -436,6 +436,17 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
       random_rec = object$data_list$random_rec,
       random_sel = isTRUE(as.logical(object$data_list$random_sel)))))
     .shared <- intersect(names(object$map$mapList), names(.fresh$mapList))
+    # build_map() knows nothing about the DSEM, so on a DSEM fit it rebuilds
+    # the blocks the SEM owns as though there were none and every one of them
+    # reads as drift: fit_mod() fills the dsem_* entries itself, and maps out
+    # rec_dev / R_log_sd where the SEM drives recruitment. Comparing those is
+    # asking whether a DSEM is attached, not whether the map code has moved.
+    if (.has_dsem(object)) {
+      .shared <- setdiff(.shared, .DSEM_PARAM_NAMES)
+      if (.dsem_drives(object, "recruitment")) {
+        .shared <- setdiff(.shared, c("rec_dev", "R_log_sd"))
+      }
+    }
     .shared[!vapply(.shared, function(nm) identical(
       as.integer(object$map$mapList[[nm]]),
       as.integer(.fresh$mapList[[nm]])), logical(1))]

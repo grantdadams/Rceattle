@@ -23,7 +23,7 @@ mistaken for it: both numbers exist on both lines with different content, the
 divergence the comment at the top of this file describes.
 
 Unreleased, and deliberately carrying a DEVELOPMENT suffix rather than a release
-number: `DESCRIPTION` reads `5.64.0.9009`, the released line this branch now
+number: `DESCRIPTION` reads `5.64.0.9010`, the released line this branch now
 contains plus a suffix. A bare release number here would make an install from
 this branch report a version that exists on `main` or `dev` and holds different
 code -- the mislabelling `95153bbc` fixed when it first moved this branch to a
@@ -399,6 +399,22 @@ numbered on the 5.23.0 line.
   hand is what reaches them.
 
 ## Bug fixes
+
+* **`retrospective()`'s map-drift warning fired on every DSEM fit, naming the
+  three things a SEM is supposed to change.** The check rebuilds the map with
+  `build_map()` and compares it to the one the fit stored, to catch a saved fit
+  whose parameterisation the map-building code has since moved past.
+  `build_map()` knows nothing about the DSEM, so it rebuilt a DSEM fit as
+  though there were none: `fit_mod()` fills the `dsem_*` entries itself and
+  maps out `rec_dev` / `R_log_sd` wherever the SEM drives recruitment, and all
+  of those read as drift. A user with an unchanged model was told their fit was
+  stale and that Mohn's rho was computed on the wrong parameterisation, neither
+  of which was true.
+
+  Those blocks are now excluded on a DSEM fit, so the check still catches real
+  drift in every other block and says nothing about the ones a SEM owns. The
+  warning's own text is unchanged. Pinned in `test-dsem-retrospective.R`, which
+  was itself emitting the false warning.
 
 * **`summary(fit$dsem)` and `plot(fit$dsem)` reported the SEM's STARTING values
   on a converged fit, silently** (issue #220). `build_dsem_objects()` returns
