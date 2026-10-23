@@ -178,6 +178,42 @@ iterations to land 17.7 nats WORSE than a phased fit reaches in 31. Both stop ne
 gradient, so phasing wins on objective, not on convergence -- do not describe it as
 "better converged".
 
+**What the platforms actually differ in, measured 2026-10-22.** A probe on `ubuntu-latest`
+(`tools/ci/machine-fingerprint.sh` now records this on every golden and coverage run):
+
+| | macOS arm64 (local) | ubuntu-latest |
+|---|---|---|
+| CPU | Apple M3 Pro | AMD EPYC 9V45, AVX-512 |
+| compiler | Apple clang 21.0.0 | gcc 13.3.0 |
+| R / TMB | 4.5.1 / 1.9.21 | 4.6.1 / 1.9.25 |
+| BLAS | `libRblas` (reference, **single-threaded**) | `libopenblasp-r0.3.26.so` (**pthread**) |
+
+Three things that probe established. **The model is deterministic per machine**: the same fit twice
+in ONE process is bitwise identical in objective, coefficient and iteration count -- so this is
+arithmetic between machines, NOT memory corruption, and not something non-deterministic inside
+TMB. **There are at least THREE Linux answers, not two**: that run gave objective 13817.0067341985
+with `beta_linkage` **-0.030399468** after **13,581** iterations, against 13807.6/-0.240043 and
+13818.2/-0.216 from the coverage shards. The coefficient therefore ranges 8-fold. **And the
+landing point is locally stable on macOS**: perturbing the converged parameters by a relative
+1e-14, 1e-12 and 1e-10 returns to 12879.997040 / -0.240043 in 5 iterations every time, so the
+macOS point is a real attractor rather than wherever the optimizer stopped.
+
+**BLAS is the LEAST likely culprit, despite being the loudest difference in that table.** This
+template does not route Eigen through an external BLAS -- no `EIGEN_USE_BLAS` anywhere in `src/`,
+and one BLAS-level operation in `ceattle.cpp`. Its arithmetic is transcendental: **246 `exp()`,
+105 `log()`, 55 `pow()`, 11 `pnorm()`** across `src/TMB/`. The better candidate is therefore
+**glibc's libm, which dispatches `exp`/`log`/`pow` by CPU feature through ifunc resolvers** -- a
+different kernel on a different runner is a different last bit, at every one of those call sites,
+many of which sit inside the species-age-year loops. That is a candidate, not a conclusion; an earlier draft of this entry asserted BLAS
+and was wrong, which is the second mechanism this entry has had to withdraw.
+
+**None of it is a defect in TMB, glibc or OpenBLAS.** Floating-point addition is not associative
+and libm implementations are not required to agree bit-for-bit across platforms; both are working
+as specified. **What makes it matter is local: the fit does not converge**, so there is no optimum
+to absorb the difference. 1,759 iterations on macOS and 13,581 on Linux, both stopping near 1e-3
+in max gradient, while a phased fit reaches a BETTER objective in **31**. Fix the convergence, not
+the arithmetic.
+
 **What has been ruled out, and what has not.** A bounds-checked build
 (`RCEATTLE_SAFEBOUNDS=true`) driven over this exact configuration reports **no violation** on
 macOS and reproduces the ordinary build's numbers to all digits, so an out-of-range Eigen access

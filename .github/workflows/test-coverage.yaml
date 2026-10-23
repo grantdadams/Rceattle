@@ -113,6 +113,12 @@ jobs:
           extra-packages: any::covr, any::xml2
           needs: coverage
 
+      # Which machine produced these numbers -- this job pins fitted values.
+      # See tools/ci/machine-fingerprint.sh.
+      - name: Machine fingerprint
+        run: bash tools/ci/machine-fingerprint.sh
+        shell: bash
+
       # The script picks this shard's files, runs them under covr, and writes
       # cobertura.xml. It prints the whole shard plan up front, and writes a
       # per-file elapsed time to COV_TIMING_LOG as each file ends.
