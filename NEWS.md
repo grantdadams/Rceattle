@@ -12,6 +12,32 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.64.5
+
+## Bug fixes
+
+* **A pinned-intercept selectivity prior on an `Off` fleet is now dropped with a
+  warning instead of refusing the fit.** Turning a survey off is an ordinary
+  sensitivity run and one prior spec is reused across the series, so refusing
+  the whole configuration blocked drop-one-survey runs outright. The prior is
+  removed rather than merely allowed: such a prior re-targets to a base
+  selectivity parameter the `Off` fleet does not estimate, and would still be
+  scored, adding a constant that differs per run and would make a drop-one
+  series' objectives incomparable. Reported by an AFSC GOA pollock user who had
+  replaced the refusal with a warning locally; that workaround keeps the
+  constant this drops, so such a user's objectives will shift.
+
+  **A fit that previously errored now runs, provided the `Off` fleet keeps a
+  wired `Selectivity` form; no fit that worked before is affected.** A workbook
+  that also blanks `Selectivity` still errors, on the unwired form rather than
+  on the prior. Three cases are deliberately left as they were: a slope row,
+  whose coefficient is estimated rather than re-targeted; `apical`, still
+  refused on an `Off` fleet because that parameter is freed rather than scored,
+  making it a flat direction and a non-positive-definite Hessian; and a fleet
+  sharing a `Selectivity_index`, where the shared block can be estimated even on
+  an `Off` member, so the prior is live and the existing refusal names the lead
+  fleet to move it to.
+
 # Rceattle 5.64.4
 
 ## Internal
@@ -26,6 +52,7 @@ version throughout.
   selectivity, F, biomass and SSB reports) at 282 parameter vectors spanning
   every form, age- and length-based, both sexes and each `Time_varying_sel`
   mode the model accepts.
+
 
 # Rceattle 5.64.3
 
