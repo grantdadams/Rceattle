@@ -12,7 +12,7 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
-# Rceattle 5.64.4
+# Rceattle 5.64.5
 
 ## Bug fixes
 
@@ -37,6 +37,22 @@ version throughout.
   sharing a `Selectivity_index`, where the shared block can be estimated even on
   an `Off` member, so the prior is live and the existing refusal names the lead
   fleet to move it to.
+
+# Rceattle 5.64.4
+
+## Internal
+
+* **`src/TMB/selectivity.hpp` rewritten for readability; no fit moves.** 738 lines
+  to 520 and comment lines 237 to 89. Each curve now writes one array, `sel`,
+  at `x(bin)`, and the logistic forms read their slots through `slope(k)` and
+  `inflection(k)` rather than repeating the deviate and linkage-offset sum about
+  ten times. NonParametric, NonParametricIntegrable and its random walk share
+  one block, and the cases run in numeric order. Verified bit-identical (the
+  objective, the joint gradient over fixed and random effects, and the
+  selectivity, F, biomass and SSB reports) at 282 parameter vectors spanning
+  every form, age- and length-based, both sexes and each `Time_varying_sel`
+  mode the model accepts.
+
 
 # Rceattle 5.64.3
 
