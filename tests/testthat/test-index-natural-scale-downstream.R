@@ -249,24 +249,27 @@ testthat::test_that("an MVN fleet standardizes by index_cov, not Log_sd", {
 
   for (fam in c("MVN", "MVNORM")) {
     fit <- .ns_fixture(fam, sd = 150, cov_sd = 40)
-    idx <- fit$data_list$index_data
-    sel <- idx$Fleet_name == "Survey"
-    hat <- as.numeric(fit$quantities$index_hat)[sel]
-    raw <- idx$Observation[sel] - hat
+    # Observed and Fitted come from residuals()' OWN frame: it filters rows
+    # (Observed > 0, finite), so reading them from index_data instead and
+    # subsetting with a mask built here misaligns the moment a row is dropped.
+    r <- stats::residuals(fit, type = "pearson", source = "index")
+    r <- r[r$Fleet_name == "Survey" & is.finite(r$Residual), , drop = FALSE]
+    testthat::expect_gt(nrow(r), 0)
+    raw <- r$Observed - r$Fitted
 
-    r   <- stats::residuals(fit, type = "pearson", source = "index")
-    got <- r$Residual[r$Fleet_name == "Survey"]
-    ok  <- is.finite(got)
+    # (obs - hat) / 40, the marginal sd from the matrix, not the column's 150.
+    testthat::expect_equal(r$Residual, raw / 40, tolerance = 1e-6, label = fam)
 
-    # (obs - hat) / 40, the marginal sd from the matrix -- NOT / 150.
-    testthat::expect_equal(got[ok], (raw / 40)[ok], tolerance = 1e-6,
+    # Which denominator, asserted as a RATIO, which is exactly 150/40 at any
+    # non-zero residual and so cannot go vacuous at any scale. The earlier
+    # guard was `not all.equal(residual, raw / 150)`, and all.equal compares
+    # near-zero values as EQUAL, so it inverted once the fit residuals fell
+    # below ~4e-5 -- failing under covr while the code was right.
+    big <- raw != 0
+    testthat::expect_gt(sum(big), 0)
+    testthat::expect_equal(r$Residual[big] / (raw[big] / 150),
+                           rep(150 / 40, sum(big)), tolerance = 1e-6,
                            label = fam)
-    # The wrong denominator is off by 150/40 = 3.75, so this must NOT match.
-    testthat::expect_false(
-      isTRUE(all.equal(got[ok], (raw / 150)[ok], tolerance = 1e-6)),
-      label = fam)
-    # Not vacuous: the two candidate denominators really do differ here.
-    testthat::expect_gt(max(abs(raw[ok])), 0)
   }
 })
 
